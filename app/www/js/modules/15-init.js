@@ -16,7 +16,13 @@ Lumina.init = async () => {
     const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
     let STORAGE_BACKEND = isCapacitor ? 'capacitor' : (location.href.startsWith('http') ? 'sqlite' : 'indexeddb');
     let isFallback = false;
-    let actualMode = 'indexeddb'; 
+    let actualMode = 'indexeddb';
+
+    // APP 环境隐藏存储模式按钮（只在 Web 端显示）
+    if (isCapacitor) {
+        const storageBtn = document.getElementById('storageIndicator');
+        if (storageBtn) storageBtn.style.display = 'none';
+    } 
 
     try {
         console.log('[Init] 选择存储后端:', STORAGE_BACKEND);

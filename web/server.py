@@ -224,6 +224,22 @@ db = Database()
 class APIHandler(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     
+    # Web 服务目录指向 ../app/www/
+    WEB_ROOT = Path(__file__).parent.parent / 'app' / 'www'
+    
+    def translate_path(self, path):
+        """重写路径解析，服务 ../app/www/ 目录"""
+        # 移除 URL 参数
+        path = path.split('?', 1)[0]
+        path = path.split('#', 1)[0]
+        # URL 解码
+        path = urllib.parse.unquote(path)
+        # 规范化路径
+        path = os.path.normpath(path)
+        # 拼接完整路径
+        full_path = self.WEB_ROOT / path.lstrip('/')
+        return str(full_path)
+    
     def log_message(self, format, *args):
         # 精简日志，只打印 API 请求
         try:

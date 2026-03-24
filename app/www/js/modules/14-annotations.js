@@ -1045,13 +1045,16 @@ Lumina.Annotations = {
     
     // 打开面板
     openPanel() {
+        const panel = document.getElementById('annotationPanel');
+        if (!panel) return;
         this.renderAnnotationList();
-        document.getElementById('annotationPanel').classList.add('open');
+        panel.classList.add('open');
     },
     
     // 切换面板（toggle）
     togglePanel() {
         const panel = document.getElementById('annotationPanel');
+        if (!panel) return;
         if (panel.classList.contains('open')) {
             panel.classList.remove('open');
         } else {

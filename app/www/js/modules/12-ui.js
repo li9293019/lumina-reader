@@ -412,6 +412,11 @@ Lumina.UI = {
     },
 
     setupCustomTooltip() {
+        // 移动端/APP 环境不显示 tooltip（注释内容的 tooltip 除外，单独处理）
+        const isMobile = window.innerWidth <= 768;
+        const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        if (isMobile || isCapacitor) return;
+        
         document.addEventListener('mouseover', (e) => {
             const target = e.target.closest('[data-i18n-tooltip], [data-tooltip-text]');
             if (target?.dataset.tooltipText) {

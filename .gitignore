@@ -1,0 +1,54 @@
+# Git Ignore for Lumina Reader
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build outputs
+app/android/app/build/
+app/android/.gradle/
+app/android/build/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+appBak.rar
+*Bak/
+备份/
+参考/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Large files
+*.pptx
+*.rar
+*.zip
+
+# Test files
+textCleaner.html
+pdfPraser4.html
+
+# Data (optional - if you don't want to track test data)
+# data/
+# web/data/

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LuminaReader</string>
+    <string name="title_activity_main">LuminaReader</string>
+    <string name="package_name">com.lumina.reader</string>
+    <string name="custom_url_scheme">com.lumina.reader</string>
+</resources>

@@ -1,0 +1,25 @@
+/* 霞鹜新致宋 - 本地字体 CSS */
+
+@font-face {
+    font-family: 'LXGW Neo Zhi Song';
+    src: url('./LXGWNeoZhiSongPlus.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'LXGW Neo Zhi Song';
+    src: url('./LXGWNeoZhiSongPlus.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'LXGW Neo Zhi Song';
+    src: url('./LXGWNeoZhiSongPlus.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}

@@ -1,0 +1,16 @@
+{
+  "appId": "com.lumina.reader",
+  "appName": "流萤阅读器",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "iosIsEncryption": false,
+      "androidIsEncryption": false
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "default"
+    }
+  }
+}

@@ -561,6 +561,9 @@ Lumina.Annotations = {
         
         document.body.appendChild(dialog);
         
+        // 显示对话框（添加 active 类）
+        requestAnimationFrame(() => dialog.classList.add('active'));
+        
         // 颜色选择
         let selectedColor = color.id;
         dialog.querySelectorAll('.color-option-large').forEach(btn => {

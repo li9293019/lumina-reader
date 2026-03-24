@@ -517,13 +517,16 @@ Lumina.Annotations = {
         const t = Lumina.I18n.t;
         const isBookmark = selection.type === 'bookmark';
         
+        // 关闭已存在的对话框（防止堆积）
+        document.querySelectorAll('.annotation-dialog-overlay').forEach(d => d.remove());
+        
         const dialog = document.createElement('div');
         dialog.className = 'annotation-dialog-overlay';
         dialog.innerHTML = `
             <div class="annotation-dialog">
                 <div class="annotation-dialog-header">
                     <span>${isBookmark ? (t('editBookmark') || '编辑书签') : (t('addAnnotation') || '添加注释')}</span>
-                    <button class="annotation-dialog-close">
+                    <button class="annotation-dialog-close" aria-label="${t('close') || '关闭'}">
                         <svg class="icon"><use href="#icon-close"/></svg>
                     </button>
                 </div>
@@ -535,11 +538,13 @@ Lumina.Annotations = {
                         ${this.colors.map(c => `
                             <div class="color-option-large ${c.id === color.id ? 'active' : ''}" 
                                  data-color="${c.id}" 
-                                 style="background: ${c.bg}; border-color: ${c.border}">
+                                 style="background: ${c.bg}; border-color: ${c.border}"
+                                 role="button" tabindex="0" aria-label="${c.name}">
                             </div>
                         `).join('')}
                     </div>
                     <textarea class="annotation-input" 
+                              name="annotation-note"
                               placeholder="${t('annotationPlaceholder') || '输入注释内容...'}"
                               rows="4">${selection.note || ''}</textarea>
                 </div>

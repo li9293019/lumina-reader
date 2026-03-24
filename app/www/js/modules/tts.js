@@ -160,14 +160,62 @@ Lumina.TTS.Manager = class {
             // APP 环境：获取原生 TTS 音色
             try {
                 const result = await this.nativeTTS.getSupportedVoices();
-                this.voices = result.voices || [];
-                console.log('[TTS] 原生音色列表:', this.voices.map(v => ({ name: v.name, lang: v.lang })));
+                let allVoices = result.voices || [];
+                console.log('[TTS] 原生音色列表:', allVoices.map(v => ({ name: v.name, lang: v.lang })));
                 
-                // 优先选择中文音色
-                const zhVoices = this.voices.filter(v => v.lang && v.lang.startsWith('zh'));
-                if (zhVoices.length > 0) {
-                    this.voices = zhVoices.concat(this.voices.filter(v => !v.lang || !v.lang.startsWith('zh')));
-                }
+                // 过滤掉无效或奇怪的音色
+                const validVoices = allVoices.filter(v => {
+                    const name = (v.name || '').toLowerCase();
+                    // 过滤掉“奇努克”等不常见语言的音色
+                    const invalidKeywords = ['chinook', 'cherokee', 'coptic', 'chamorro'];
+                    return !invalidKeywords.some(kw => name.includes(kw));
+                });
+                
+                // 为音色添加友好的显示名称
+                this.voices = validVoices.map((v, index) => {
+                    const lang = v.lang || 'zh-CN';
+                    const name = v.name || '';
+                    
+                    // 根据音色特征生成友好名称
+                    let friendlyName = name;
+                    let displayLang = lang;
+                    
+                    if (lang.startsWith('zh')) {
+                        displayLang = '中文';
+                        if (name.includes('male') || name.includes('男')) {
+                            friendlyName = '男声';
+                        } else if (name.includes('female') || name.includes('女')) {
+                            friendlyName = '女声';
+                        } else {
+                            friendlyName = `音色 ${index + 1}`;
+                        }
+                    } else if (lang.startsWith('en')) {
+                        displayLang = '英文';
+                        if (name.includes('male') || name.includes('男')) {
+                            friendlyName = '男声';
+                        } else if (name.includes('female') || name.includes('女')) {
+                            friendlyName = '女声';
+                        } else {
+                            friendlyName = `Voice ${index + 1}`;
+                        }
+                    } else {
+                        friendlyName = name.split('-')[0] || `音色 ${index + 1}`;
+                    }
+                    
+                    return {
+                        ...v,
+                        displayName: `${displayLang} (${friendlyName})`,
+                        originalName: name
+                    };
+                });
+                
+                // 优先排序中文音色
+                this.voices.sort((a, b) => {
+                    const aIsZh = (a.lang || '').startsWith('zh') ? 0 : 1;
+                    const bIsZh = (b.lang || '').startsWith('zh') ? 0 : 1;
+                    return aIsZh - bIsZh;
+                });
+                
             } catch (e) {
                 console.error('[TTS] 获取原生音色失败:', e);
                 this.voices = [];
@@ -206,15 +254,15 @@ Lumina.TTS.Manager = class {
         const container = document.getElementById('ttsVoiceOptions');
         if (!container || this.voices.length === 0) return;
 
-        const displayVoices = this.voices.slice(0, 8);
+        const displayVoices = this.voices.slice(0, 6);
 
         container.innerHTML = displayVoices.map((v, index) => {
             const isActive = this.isApp ? index === this.settings.voiceIndex : v.voiceURI === this.settings.voiceURI;
-            const displayName = v.name.replace(/Microsoft|Google|Apple|Android/g, '').trim().split(/\s+/)[0] || v.name;
+            // 使用友好名称（如果有）
+            const displayName = this.isApp ? (v.displayName || v.name) : (v.name.replace(/Microsoft|Google|Apple|Android/g, '').trim().split(/\s+/)[0] || v.name);
             return `
         <button class="option-btn voice-btn ${isActive ? 'active' : ''}" data-voice="${v.voiceURI}" data-index="${index}">
         <span class="voice-name">${displayName}</span>
-        <span class="voice-lang">${v.lang || 'zh-CN'}</span>
         </button>
     `;
         }).join('');
@@ -227,6 +275,18 @@ Lumina.TTS.Manager = class {
                     this.settings.voiceIndex = parseInt(btn.dataset.index);
                     this.settings.voiceURI = btn.dataset.voice;
                     this.saveSettings();
+                    
+                    // 如果正在朗读，重新开始以应用新音色
+                    if (this.isPlaying) {
+                        const currentIndex = this.currentItemIndex;
+                        this.stop();
+                        setTimeout(() => {
+                            this.currentItemIndex = currentIndex;
+                            this.start();
+                        }, 200);
+                    }
+                    
+                    Lumina.UI.showToast('已切换音色');
                 } else {
                     this.updateSettings('voice', btn.dataset.voice);
                 }
@@ -809,9 +869,6 @@ Lumina.TTS.Manager = class {
         }
         
         try {
-            // 启动前台服务保活
-            this.startServiceKeepAlive();
-            
             // 使用原生 TTS
             const speakOptions = {
                 text: textToRead,
@@ -836,7 +893,8 @@ Lumina.TTS.Manager = class {
                 this.currentHighlightIndex = -1;
                 this.clearAllHighlights();
                 
-                setTimeout(() => this.speakCurrent(), 100);
+                // 减少延迟以避免被系统优化
+                setTimeout(() => this.speakCurrent(), 50);
             }
         } catch (e) {
             console.error('[TTS] 原生播放失败:', e);
@@ -844,11 +902,8 @@ Lumina.TTS.Manager = class {
             if (this.isPlaying) {
                 this.currentItemIndex++;
                 this.currentSentenceIndex = 0;
-                setTimeout(() => this.speakCurrent(), 100);
+                setTimeout(() => this.speakCurrent(), 50);
             }
-        } finally {
-            // 停止前台服务保活
-            this.stopServiceKeepAlive();
         }
     }
 

@@ -42,7 +42,7 @@ Lumina.TTS.Manager = class {
         }
 
         this.loadSavedSettings();
-        this.loadVoices();
+        await this.loadVoices();
 
         if (!this.isApp && speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = () => this.loadVoices();
@@ -87,6 +87,62 @@ Lumina.TTS.Manager = class {
             console.warn('[TTS] 保活监听设置失败:', e);
         }
     }
+    
+    // 启动前台服务保活（解决熄屏问题）
+    startServiceKeepAlive() {
+        if (!this.isApp) return;
+        
+        // 启动前台服务
+        this.updateTTSBackground('start');
+        
+        // 每 5 秒更新一次前台服务状态，防止系统优化
+        this._serviceKeepAliveInterval = setInterval(() => {
+            if (this.isPlaying) {
+                this.updateTTSBackground('update');
+            }
+        }, 5000);
+    }
+    
+    // 停止前台服务保活
+    stopServiceKeepAlive() {
+        if (!this.isApp) return;
+        
+        if (this._serviceKeepAliveInterval) {
+            clearInterval(this._serviceKeepAliveInterval);
+            this._serviceKeepAliveInterval = null;
+        }
+        
+        this.updateTTSBackground('stop');
+    }
+    
+    // 调用后台服务插件
+    async updateTTSBackground(action) {
+        if (!this.isApp || typeof Capacitor === 'undefined') return;
+        
+        try {
+            const TTSBackground = Capacitor.Plugins.TTSBackground;
+            if (!TTSBackground) return;
+            
+            const currentFile = Lumina.State.app.currentFile;
+            const title = currentFile ? currentFile.fileName : '正在朗读...';
+            
+            switch (action) {
+                case 'start':
+                    await TTSBackground.startService();
+                    await TTSBackground.updatePlaying({ isPlaying: true, title });
+                    break;
+                case 'update':
+                    await TTSBackground.updatePlaying({ isPlaying: true, title });
+                    break;
+                case 'stop':
+                    await TTSBackground.updatePlaying({ isPlaying: false, title: '' });
+                    await TTSBackground.stopService();
+                    break;
+            }
+        } catch (e) {
+            console.warn('[TTS] 后台服务调用失败:', e);
+        }
+    }
 
     startFileChangeMonitor() {
         setInterval(() => {
@@ -99,27 +155,48 @@ Lumina.TTS.Manager = class {
         }, 500);
     }
 
-    loadVoices() {
-        if (!this.synth) return;
-        const allVoices = this.synth.getVoices();
+    async loadVoices() {
+        if (this.isApp && this.nativeTTS) {
+            // APP 环境：获取原生 TTS 音色
+            try {
+                const result = await this.nativeTTS.getSupportedVoices();
+                this.voices = result.voices || [];
+                console.log('[TTS] 原生音色列表:', this.voices.map(v => ({ name: v.name, lang: v.lang })));
+                
+                // 优先选择中文音色
+                const zhVoices = this.voices.filter(v => v.lang && v.lang.startsWith('zh'));
+                if (zhVoices.length > 0) {
+                    this.voices = zhVoices.concat(this.voices.filter(v => !v.lang || !v.lang.startsWith('zh')));
+                }
+            } catch (e) {
+                console.error('[TTS] 获取原生音色失败:', e);
+                this.voices = [];
+            }
+        } else {
+            // Web 环境：使用 Web Speech API
+            if (!this.synth) return;
+            const allVoices = this.synth.getVoices();
 
-        this.edgeVoices = allVoices.filter(v =>
-            v.name.includes('Microsoft') &&
-            (v.lang.startsWith('zh') || v.lang.startsWith('en'))
-        );
+            this.edgeVoices = allVoices.filter(v =>
+                v.name.includes('Microsoft') &&
+                (v.lang.startsWith('zh') || v.lang.startsWith('en'))
+            );
 
-        const priorityVoices = ['Yunxia', 'Yunjian', 'Xiaoyi', 'Xiaoxiao', 'Yunxi', 'Yunyang'];
-        this.edgeVoices.sort((a, b) => {
-            const aIdx = priorityVoices.findIndex(p => a.name.includes(p));
-            const bIdx = priorityVoices.findIndex(p => b.name.includes(p));
-            return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
-        });
+            const priorityVoices = ['Yunxia', 'Yunjian', 'Xiaoyi', 'Xiaoxiao', 'Yunxi', 'Yunyang'];
+            this.edgeVoices.sort((a, b) => {
+                const aIdx = priorityVoices.findIndex(p => a.name.includes(p));
+                const bIdx = priorityVoices.findIndex(p => b.name.includes(p));
+                return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+            });
 
-        this.voices = this.edgeVoices.length > 0 ? this.edgeVoices : allVoices.filter(v => v.lang.startsWith('zh') || v.lang.startsWith('en'));
+            this.voices = this.edgeVoices.length > 0 ? this.edgeVoices : allVoices.filter(v => v.lang.startsWith('zh') || v.lang.startsWith('en'));
+        }
 
         this.populateVoiceSelector();
 
-        if (!this.settings.voiceURI && this.voices.length > 0) {
+        if ((!this.settings.voiceURI && this.voices.length > 0) || (this.isApp && this.voices.length > 0)) {
+            // APP 环境使用索引，Web 环境使用 voiceURI
+            this.settings.voiceIndex = 0;
             this.settings.voiceURI = this.voices[0].voiceURI;
             this.saveSettings();
         }
@@ -129,14 +206,15 @@ Lumina.TTS.Manager = class {
         const container = document.getElementById('ttsVoiceOptions');
         if (!container || this.voices.length === 0) return;
 
-        const displayVoices = this.voices.slice(0, 6);
+        const displayVoices = this.voices.slice(0, 8);
 
-        container.innerHTML = displayVoices.map((v) => {
-            const isActive = v.voiceURI === this.settings.voiceURI;
+        container.innerHTML = displayVoices.map((v, index) => {
+            const isActive = this.isApp ? index === this.settings.voiceIndex : v.voiceURI === this.settings.voiceURI;
+            const displayName = v.name.replace(/Microsoft|Google|Apple|Android/g, '').trim().split(/\s+/)[0] || v.name;
             return `
-        <button class="option-btn voice-btn ${isActive ? 'active' : ''}" data-voice="${v.voiceURI}">
-        <span class="voice-name">${v.name.replace(/Microsoft|Google|Apple/g, '').trim().split(/\s+/)[0]}</span>
-        <span class="voice-lang">${v.lang}</span>
+        <button class="option-btn voice-btn ${isActive ? 'active' : ''}" data-voice="${v.voiceURI}" data-index="${index}">
+        <span class="voice-name">${displayName}</span>
+        <span class="voice-lang">${v.lang || 'zh-CN'}</span>
         </button>
     `;
         }).join('');
@@ -145,7 +223,13 @@ Lumina.TTS.Manager = class {
             btn.addEventListener('click', () => {
                 container.querySelectorAll('.voice-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                this.updateSettings('voice', btn.dataset.voice);
+                if (this.isApp) {
+                    this.settings.voiceIndex = parseInt(btn.dataset.index);
+                    this.settings.voiceURI = btn.dataset.voice;
+                    this.saveSettings();
+                } else {
+                    this.updateSettings('voice', btn.dataset.voice);
+                }
             });
         });
     }
@@ -448,6 +532,7 @@ Lumina.TTS.Manager = class {
         // 停止后台服务
         this.setBackgroundService(false);
         this.updateBackgroundState(false, '已暂停');
+        this.stopServiceKeepAlive();
         
         window.getSelection().removeAllRanges();
     }
@@ -724,15 +809,25 @@ Lumina.TTS.Manager = class {
         }
         
         try {
+            // 启动前台服务保活
+            this.startServiceKeepAlive();
+            
             // 使用原生 TTS
-            await this.nativeTTS.speak({
+            const speakOptions = {
                 text: textToRead,
                 lang: 'zh-CN',
                 rate: this.settings.rate,
                 pitch: this.settings.pitch,
                 volume: this.settings.volume,
                 category: 'playback'
-            });
+            };
+            
+            // 添加音色选择（如果有设置）
+            if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
+                speakOptions.voice = this.settings.voiceIndex;
+            }
+            
+            await this.nativeTTS.speak(speakOptions);
             
             // 朗读完成，继续下一段
             if (this.isPlaying) {
@@ -751,6 +846,9 @@ Lumina.TTS.Manager = class {
                 this.currentSentenceIndex = 0;
                 setTimeout(() => this.speakCurrent(), 100);
             }
+        } finally {
+            // 停止前台服务保活
+            this.stopServiceKeepAlive();
         }
     }
 

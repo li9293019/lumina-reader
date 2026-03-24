@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Edge TTS 小男孩音色</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f7;
+            margin: 0;
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            font-size: 20px;
+            color: #1c1c1e;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #8e8e93;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #3a3a3c;
+            margin-bottom: 6px;
+        }
+        select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #c7c7cc;
+            border-radius: 10px;
+            font-size: 16px;
+            background: #f2f2f7;
+            -webkit-appearance: none;
+        }
+        textarea {
+            min-height: 100px;
+            resize: none;
+            font-family: inherit;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:active { opacity: 0.8; }
+        .btn:disabled { background: #c7c7cc; }
+        .btn-secondary {
+            background: #f2f2f7;
+            color: #007aff;
+            margin-top: 8px;
+        }
+        .status {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            display: none;
+        }
+        .status.show { display: block; }
+        .status.loading { background: #e3f2fd; color: #1976d2; }
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
+        audio {
+            width: 100%;
+            margin-top: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+        audio.show { display: block; }
+        .child-badge {
+            display: inline-block;
+            background: #ff9500;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Edge TTS</h1>
+        <div class="subtitle">微软 Edge 浏览器语音合成</div>
+
+        <div class="form-group">
+            <label>选择音色</label>
+            <select id="voice">
+                <option value="zh-CN-XiaoyiNeural">晓毅 (Xiaoyi) - 小男孩 <span class="child-badge">儿童</span></option>
+                <option value="zh-CN-XiaoxiaoNeural">晓晓 (Xiaoxiao) - 小女孩 <span class="child-badge">儿童</span></option>
+                <option value="zh-CN-YunxiNeural">云希 (Yunxi) - 年轻男性</option>
+                <option value="zh-CN-XiaohanNeural">晓涵 (Xiaohan) - 成熟女性</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>朗读文本</label>
+            <textarea id="text" placeholder="输入要朗读的中文文本...">大家好，我是陆关，正在测试小男孩音色的朗读效果。</textarea>
+        </div>
+
+        <button class="btn" id="speakBtn" onclick="speak()">生成语音</button>
+        <button class="btn btn-secondary" onclick="clearText()">清空文本</button>
+
+        <div id="status" class="status"></div>
+        <audio id="player" controls></audio>
+    </div>
+
+    <script>
+        const WS_URL = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+        
+        function setStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = 'status show ' + type;
+        }
+
+        function clearText() {
+            document.getElementById('text').value = '';
+            document.getElementById('player').classList.remove('show');
+            document.getElementById('status').classList.remove('show');
+        }
+
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        async function speak() {
+            const btn = document.getElementById('speakBtn');
+            const text = document.getElementById('text').value.trim();
+            const voice = document.getElementById('voice').value;
+            
+            if (!text) return alert('请输入文本');
+            
+            btn.disabled = true;
+            btn.textContent = '生成中...';
+            setStatus('连接微软服务器...', 'loading');
+
+            try {
+                const audioBlob = await edgeTTS(text, voice);
+                const url = URL.createObjectURL(audioBlob);
+                
+                const player = document.getElementById('player');
+                player.src = url;
+                player.classList.add('show');
+                setStatus('生成成功！点击播放', 'success');
+                
+                // 自动播放（可能需要用户手动点击）
+                player.play().catch(() => {});
+            } catch (err) {
+                setStatus('失败: ' + err.message, 'error');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '生成语音';
+            }
+        }
+
+        function edgeTTS(text, voiceName) {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket(WS_URL);
+                const chunks = [];
+                let resolved = false;
+                
+                // 8秒超时
+                const timer = setTimeout(() => {
+                    ws.close();
+                    reject(new Error('连接超时'));
+                }, 8000);
+
+                ws.onopen = () => {
+                    // 发送配置
+                    ws.send(JSON.stringify({
+                        context: {
+                            synthesis: {
+                                audio: {
+                                    metadataoptions: { sentenceBoundaryEnabled: false, wordBoundaryEnabled: false },
+                                    outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+                                }
+                            }
+                        }
+                    }) + '\x00');
+
+                    // 发送SSML
+                    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN"><voice name="${voiceName}">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</voice></speak>`;
+                    
+                    ws.send(JSON.stringify({
+                        headers: {
+                            'Content-Type': 'application/ssml+xml',
+                            'X-RequestId': uuid(),
+                            'X-Timestamp': new Date().toISOString()
+                        },
+                        body: ssml
+                    }) + '\x00');
+                };
+
+                ws.onmessage = (e) => {
+                    if (typeof e.data === 'string') {
+                        if (e.data.includes('Path:turn.end')) {
+                            ws.close();
+                            if (!resolved && chunks.length > 0) {
+                                resolved = true;
+                                clearTimeout(timer);
+                                resolve(new Blob(chunks, { type: 'audio/mp3' }));
+                            }
+                        }
+                    } else if (e.data instanceof Blob) {
+                        // 处理音频数据
+                        chunks.push(e.data);
+                    }
+                };
+
+                ws.onerror = () => {
+                    clearTimeout(timer);
+                    reject(new Error('网络错误'));
+                };
+
+                ws.onclose = () => {
+                    clearTimeout(timer);
+                    if (!resolved) {
+                        if (chunks.length > 0) {
+                            resolved = true;
+                            resolve(new Blob(chunks, { type: 'audio/mp3' }));
+                        } else {
+                            reject(new Error('连接中断'));
+                        }
+                    }
+                };
+            });
+        }
+
+        // 支持换行触发
+        document.getElementById('text').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                speak();
+            }
+        });
+    </script>
+</body>
+</html>

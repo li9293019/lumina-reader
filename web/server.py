@@ -234,10 +234,14 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         path = path.split('#', 1)[0]
         # URL 解码
         path = urllib.parse.unquote(path)
-        # 规范化路径
+        # 去除开头的 / 或 \
+        path = path.lstrip('/\\')
+        # 防止目录遍历
         path = os.path.normpath(path)
+        if path.startswith('..'):
+            path = ''
         # 拼接完整路径
-        full_path = self.WEB_ROOT / path.lstrip('/')
+        full_path = self.WEB_ROOT / path
         return str(full_path)
     
     def log_message(self, format, *args):

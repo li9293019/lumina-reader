@@ -7,20 +7,13 @@ cd /d "%~dp0"
 
 if not exist "data" mkdir data
 
-if not exist "toyou.html" (
-    echo [Warning] toyou.html not found, using reader.html
-    set "START_PAGE=reader.html"
-) else (
-    set "START_PAGE=toyou.html"
-)
-
 echo Starting data service...
 start /b python server.py >nul 2>&1
 
 timeout /t 2 /nobreak >nul
 
 echo Opening browser...
-start http://localhost:8080/%START_PAGE%
+start http://localhost:8080/index.html
 
 echo.
 echo ========================================

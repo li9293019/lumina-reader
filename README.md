@@ -15,10 +15,10 @@ LuminaReader/
 │   │   └── assets/        # 字体、JS 库等
 │   ├── package.json       # Node 依赖
 │   └── capacitor.config.json
-├── web/                    # Web 服务器（仅 Python 服务端）
+├── web/                    # Web 服务器
 │   ├── server.py          # Python HTTP 服务器
-│   └── start.bat          # Windows 启动脚本
-├── data/                   # 运行时数据（SQLite/书籍）
+│   ├── start.bat          # Windows 启动脚本
+│   └── data/              # 运行时数据（SQLite/书籍，自动创建）
 └── reference/              # 参考文件（不提交 Git）
 ```
 
@@ -35,9 +35,9 @@ LuminaReader/
 
 ```bash
 cd web
-python server.py
+start.bat
+# 或：python server.py
 # 访问 http://localhost:8080
-# 自动服务 ../app/www/ 目录
 ```
 
 ### Android App
@@ -60,35 +60,25 @@ cd android
 
 ### 修改前端代码
 
-**所有前端修改都在 `app/www/` 进行：**
-
-```
-app/www/
-├── index.html          # 主页面
-├── css/main.css        # 样式
-└── js/modules/         # JS 模块
-    ├── 00-namespace.js
-    ├── 01-config.js
-    └── ...
-```
+**所有前端修改都在 `app/www/` 进行**
 
 ### 测试
 
 | 平台 | 方式 |
 |-----|------|
-| Web | 浏览器直接打开 `http://localhost:8080` |
+| Web | 运行 `web/start.bat`，浏览器打开 `http://localhost:8080` |
 | App | `npx cap open android` → Android Studio 运行 |
 
 ### 同步
 
-修改 `app/www/` 后：
+修改 `app/www/` 后同步到 Android：
 
 ```bash
 cd app
-npx cap copy          # 同步到 Android 项目
+npx cap copy
 ```
 
-**不需要手动复制到 web/，server.py 自动读取 app/www/**
+**不需要手动复制到 web/，server.py 自动读取 `app/www/`**
 
 ## Git 提交
 
@@ -105,8 +95,8 @@ git push
 ### 不提交的文件
 
 - `node_modules/` - Node 依赖
-- `__pycache__/` - Python 缓存
-- `data/` - 运行时数据
+- `__pycache__/` - Python 缓存  
+- `web/data/` - 运行时数据（书籍、数据库）
 - `reference/` - 本地参考文件
 - `*.rar`, `*.zip` - 压缩包
 
@@ -114,7 +104,7 @@ git push
 
 - **前端**：HTML5 + CSS3 + Vanilla JS（模块化）
 - **Android**：Capacitor 6 + Android SDK
-- **Web 服务器**：Python 3 + http.server（标准库）
+- **Web 服务器**：Python 3 标准库（http.server）
 - **存储**：IndexedDB (Web) / SQLite (App)
 
 ## 功能特性

@@ -1,0 +1,3300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>流萤阅读器 | Lumina Reader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --font-serif: "Noto Serif SC", "Source Han Serif SC", "SimSun", "Songti SC", serif;
+            --font-sans: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+            --font-kai: "KaiTi", "STKaiti", "BiauKai", "楷体", serif;
+            --font-mono: "JetBrains Mono", "Fira Code", "Consolas", "Monaco", monospace;
+            
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --text-muted: #adb5bd;
+            --accent-color: #495057;
+            --accent-hover: #343a40;
+            --border-color: #dee2e6;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --sidebar-bg: #f8f9fa;
+            
+            --font-size: 18px;
+            --line-height: 1.8;
+            --paragraph-spacing: 0.8em;
+            --content-padding: 40px;
+            --content-max-width: 80%;
+            
+            --scrollbar-track: #f1f1f1;
+            --scrollbar-thumb: #c1c1c1;
+            --scrollbar-thumb-hover: #a8a8a8;
+        }
+
+        [data-theme="retro"] {
+            --bg-primary: #f4ecd8;
+            --bg-secondary: #e8dec5;
+            --bg-tertiary: #dccfb5;
+            --text-primary: #3d3d3d;
+            --text-secondary: #5a5a5a;
+            --accent-color: #8b4513;
+            --accent-hover: #6b3410;
+            --border-color: #d4c9b0;
+            --sidebar-bg: #ede4d3;
+            --scrollbar-track: #e8dec5;
+            --scrollbar-thumb: #c9b896;
+        }
+
+        [data-theme="eye-care"] {
+            --bg-primary: #c7edcc;
+            --bg-secondary: #b8e0be;
+            --bg-tertiary: #a9d3b0;
+            --text-primary: #2c3e2d;
+            --text-secondary: #4a5d4b;
+            --accent-color: #2e7d32;
+            --accent-hover: #1b5e20;
+            --border-color: #a8d5b0;
+            --sidebar-bg: #d4edda;
+            --scrollbar-track: #b8e0be;
+            --scrollbar-thumb: #7cb87f;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #252525;
+            --bg-tertiary: #444444;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666666;
+            --accent-color: #d4a373;
+            --accent-hover: #e9c46a;
+            --border-color: #404040;
+            --sidebar-bg: #202020;
+            --scrollbar-track: #2a2a2a;
+            --scrollbar-thumb: #555555;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { font-size: 16px; }
+        
+        body {
+            font-family: var(--font-serif);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: var(--line-height);
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+        * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+
+        .icon { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; pointer-events: none; }
+        .icon-large { width: 64px; height: 64px; fill: var(--text-muted); }
+
+        /* 全局 Tooltip */
+        #global-tooltip {
+            position: fixed;
+            background: rgba(33, 37, 41, 0.95);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translate(-50%, 10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            max-width: 300px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        [data-theme="dark"] #global-tooltip {
+            background: rgba(255, 255, 255, 0.95);
+            color: #212529;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        #global-tooltip.visible { 
+            opacity: 1; 
+            transform: translate(-50%, 0);
+        }
+        
+        #global-tooltip.position-top {
+            transform: translate(-50%, -10px);
+        }
+        #global-tooltip.position-top.visible {
+            transform: translate(-50%, 0);
+        }
+
+        .app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+
+        /* 顶部工具栏 */
+        .top-bar {
+            height: 56px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            flex-shrink: 0;
+            gap: 16px;
+        }
+
+        .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+        .toolbar-left { flex: 1; min-width: 0; }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .btn-icon:hover { background: var(--bg-secondary); color: var(--accent-color); }
+        .btn-icon.active { background: var(--accent-color); color: white; }
+
+        .file-info {
+            font-size: 0.95em;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-left: 8px;
+            font-weight: 500;
+            max-width: 250px;
+        }
+
+        .chapter-nav-info {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            margin-left: 12px;
+            padding-left: 12px;
+            border-left: 1px solid var(--border-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .chapter-nav-info:hover { color: var(--accent-color); }
+
+        @media (max-width: 768px) {
+            .file-info { max-width: 100px; }
+            .chapter-nav-info { display: none; }
+        }
+
+        .search-container { position: relative; display: flex; align-items: center; }
+
+        .search-box {
+            width: 0;
+            overflow: hidden;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        .search-box.expanded { width: 280px; }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 32px 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9em;
+            outline: none;
+        }
+        .search-input:focus { border-color: var(--accent-color); }
+
+        .search-close {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            color: var(--text-muted);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .search-close.visible { display: flex; }
+
+        /* 面板样式统一 */
+        .panel {
+            position: fixed;
+            top: 56px;
+            right: -400px;
+            width: 380px;
+            height: calc(100vh - 56px);
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+            z-index: 95;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .panel.open { right: 0; }
+
+        @media (max-width: 1024px) {
+            .panel { width: 360px; right: -360px; }
+        }
+        @media (max-width: 768px) {
+            .panel { width: 100%; right: -100%; }
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .panel-title { font-size: 1.1em; font-weight: 600; }
+
+        /* 搜索面板输入 */
+        .search-input-wrapper { padding: 12px 20px; border-bottom: 1px solid var(--border-color); }
+        .search-input-wrapper input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.95em;
+            outline: none;
+        }
+        .search-input-wrapper input:focus { border-color: var(--accent-color); }
+
+        .search-results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .search-result-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+            border-left: 3px solid transparent;
+        }
+        .search-result-item:hover { background: var(--bg-secondary); border-left-color: var(--accent-color); }
+        .search-result-item.active { background: var(--accent-color); color: white; }
+
+        .search-result-context {
+            font-size: 0.9em;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-match { font-weight: 600; background: rgba(255,193,7,0.3); padding: 0 2px; border-radius: 2px; }
+        .search-result-item.active .search-result-match { background: rgba(255,255,255,0.3); }
+        .search-result-info { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
+        .search-result-item.active .search-result-info { color: rgba(255,255,255,0.8); }
+        .search-empty { text-align: center; padding: 40px; color: var(--text-muted); }
+
+        /* 主体区域 */
+        .main-frame { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+        /* 左侧目录 - 增强版支持多级 */
+        .sidebar-left {
+            width: 320px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            transform: translateX(-100%);
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 80;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+        }
+        .sidebar-left.visible { transform: translateX(0); }
+        @media (max-width: 1024px) { .sidebar-left { width: 280px; } }
+        @media (max-width: 768px) { 
+            .sidebar-left { 
+                width: 90%; 
+                max-width: 360px;
+                box-shadow: 4px 0 30px rgba(0,0,0,0.2);
+            } 
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .toc-container { flex: 1; overflow-y: auto; padding: 12px; }
+        .toc-list { list-style: none; }
+
+        .toc-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            line-height: 1.4;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .toc-item:hover { background: var(--bg-secondary); border-left-color: var(--accent-color); }
+        .toc-item.active { background: var(--accent-color); color: white; border-left-color: var(--accent-hover); }
+
+        /* 层级缩进 */
+        .toc-item.level-0 { font-weight: 700; font-size: 1em; } /* Title */
+        .toc-item.level-1 { font-weight: 600; font-size: 0.95em; padding-left: 12px; } /* Heading1 */
+        .toc-item.level-2 { font-weight: 500; font-size: 0.9em; padding-left: 24px; }
+        .toc-item.level-3 { font-size: 0.88em; padding-left: 36px; color: var(--text-secondary); }
+        .toc-item.level-4 { font-size: 0.85em; padding-left: 48px; color: var(--text-muted); }
+        .toc-item.level-5 { font-size: 0.82em; padding-left: 60px; color: var(--text-muted); }
+        .toc-item.level-6 { font-size: 0.8em; padding-left: 72px; color: var(--text-muted); }
+        
+        .toc-item.preface-item { font-style: italic; opacity: 0.9; }
+
+        /* 中央阅读区 - 仅滚动模式 */
+        .reading-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            position: relative;
+            margin-left: 0;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .reading-area.with-sidebar { margin-left: 320px; }
+        @media (max-width: 1024px) { .reading-area.with-sidebar { margin-left: 280px; } }
+        @media (max-width: 768px) { .reading-area.with-sidebar { margin-left: 0; } }
+
+        .content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+            padding: 20px;
+            position: relative;
+        }
+        .content-scroll.no-smooth { scroll-behavior: auto; }
+
+        .content-wrapper {
+            width: var(--content-max-width);
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-primary);
+            min-height: 100%;
+            padding: var(--content-padding);
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+        }
+
+        /* 移动端强制全宽无边距 - 核心修改 */
+        @media (max-width: 768px) {
+            .content-wrapper {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 16px !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+            .content-scroll {
+                padding: 0 !important;
+            }
+        }
+
+        /* 文档内容样式 */
+        .doc-line {
+            margin: var(--paragraph-spacing) 0;
+            padding: 0.2em 0;
+            transition: all 0.3s;
+            scroll-margin-top: 100px;
+            position: relative;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+        }
+
+        /* 搜索结果高亮样式 */
+        .doc-line.search-highlight {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 3px solid #ffc107;
+            padding-left: 12px;
+            margin-left: -15px;
+            border-radius: 0 4px 4px 0;
+        }
+        [data-theme="dark"] .doc-line.search-highlight {
+            background: rgba(255, 193, 7, 0.15);
+            border-left-color: #ffc107;
+        }
+
+        .doc-line.title-display {
+            font-size: calc(var(--font-size) * 1.8);
+            font-weight: 700;
+            text-align: center;
+            margin: 1.5em 0 0.5em;
+            color: var(--accent-color);
+            line-height: 1.3;
+        }
+
+        .doc-line.subtitle-display {
+            font-size: calc(var(--font-size) * 1.2);
+            text-align: center;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin: 0 0 2em 0;
+            opacity: 0.8;
+        }
+
+        .doc-line.chapter-1 {
+            font-size: calc(var(--font-size) * 1.6);
+            font-weight: 700;
+            margin: 1.8em 0 0.8em;
+            padding-bottom: 0.3em;
+            border-bottom: 3px solid var(--accent-color);
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .doc-line.chapter-2 {
+            font-size: calc(var(--font-size) * 1.4);
+            font-weight: 600;
+            margin: 1.5em 0 0.6em;
+            color: var(--text-primary);
+        }
+
+        .doc-line.chapter-3 {
+            font-size: calc(var(--font-size) * 1.2);
+            font-weight: 600;
+            margin: 1.2em 0 0.5em;
+            color: var(--text-secondary);
+        }
+
+        .doc-line.chapter-4,
+        .doc-line.chapter-5,
+        .doc-line.chapter-6 {
+            font-size: calc(var(--font-size) * 1.1);
+            font-weight: 600;
+            margin: 1em 0 0.4em;
+            color: var(--text-muted);
+        }
+
+        .doc-line.paragraph { text-align: justify; margin: var(--paragraph-spacing) 0; }
+        .doc-line.paragraph.indent { text-indent: 2em; }
+        .doc-line.paragraph.drop-cap::first-letter {
+            float: left;
+            font-size: 3.5em;
+            line-height: 0.8;
+            margin-right: 0.1em;
+            margin-top: 0.05em;
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        .doc-line.list-item {
+            padding-left: 1.5em;
+            position: relative;
+            color: var(--text-secondary);
+        }
+        .doc-line.list-item::before {
+            content: "•";
+            position: absolute;
+            left: 0.5em;
+            color: var(--accent-color);
+        }
+
+        .doc-image { max-width: 100%; height: auto; margin: 1em 0; border-radius: 4px; box-shadow: var(--shadow); }
+        .doc-image.center { display: block; margin-left: auto; margin-right: auto; }
+
+        /* 章节导航链接 */
+        .chapter-nav-links {
+            margin-top: 4em;
+            padding-top: 2em;
+            border-top: 2px solid var(--border-color);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .chapter-nav-btn {
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .chapter-nav-btn:hover { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .chapter-nav-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .chapter-nav-label {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .chapter-nav-btn:hover .chapter-nav-label { opacity: 1; }
+        .chapter-nav-title { font-weight: 600; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 欢迎界面 */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100%;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .welcome-icon { margin-bottom: 24px; }
+        .welcome-title { font-size: 2em; font-weight: 300; margin-bottom: 16px; color: var(--text-primary); }
+        .welcome-subtitle { font-size: 1.1em; margin-bottom: 8px; max-width: 500px; }
+        .welcome-hint { font-size: 0.9em; color: var(--text-muted); margin-bottom: 32px; }
+        
+        .welcome-shortcuts {
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+
+        .welcome-btn {
+            padding: 12px 32px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .welcome-btn:hover { background: var(--accent-hover); transform: translateY(-2px); }
+
+        /* 加载界面 */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-secondary);
+            z-index: 500;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-screen.active { display: flex; }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text { margin-top: 16px; color: var(--text-secondary); font-size: 0.95em; }
+
+        /* 设置面板 */
+        .settings-content, .history-list { flex: 1; overflow-y: auto; padding: 20px; }
+
+        .setting-group {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .setting-group:last-child { border-bottom: none; }
+
+        .setting-label {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .setting-options { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .option-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            color: var(--text-primary);
+        }
+        .option-btn:hover { border-color: var(--accent-color); }
+        .option-btn.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            cursor: pointer;
+        }
+
+        .toggle-label { font-size: 0.95em; color: var(--text-primary); padding-right: 12px; }
+
+        .toggle-track {
+            width: 48px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            position: relative;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+        .toggle-track.active { background: var(--accent-color); }
+
+        .toggle-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--bg-primary);
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-track.active .toggle-thumb { transform: translateX(24px); }
+
+        .slider-container { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+        }
+        .slider-value { min-width: 70px; text-align: right; font-size: 0.9em; color: var(--text-secondary); }
+
+        /* 移动端隐藏页宽和边距设置 */
+        @media (max-width: 768px) {
+            .mobile-hidden { display: none !important; }
+        }
+
+        .numbering-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .numbering-btn {
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .numbering-btn:hover { border-color: var(--accent-color); }
+        .numbering-btn.active { border-color: var(--accent-color); background: var(--accent-color); color: white; }
+        .numbering-preview { font-size: 1.1em; font-weight: 600; margin-bottom: 4px; font-family: var(--font-serif); }
+        .numbering-name { font-size: 0.8em; opacity: 0.9; }
+
+        .regex-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            margin-bottom: 4px;
+        }
+        .regex-input:focus { outline: none; border-color: var(--accent-color); }
+        .regex-input.error { border-color: #dc3545; background: rgba(220, 53, 69, 0.05); }
+        .regex-input.valid { border-color: #28a745; background: rgba(40, 167, 69, 0.05); }
+        
+        /* 实时反馈样式 */
+        .regex-feedback {
+            font-size: 0.8em;
+            margin-top: 4px;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .regex-feedback.error { color: #dc3545; }
+        .regex-feedback.valid { color: #28a745; }
+        .regex-feedback.info { color: var(--text-muted); }
+        
+        [data-theme="dark"] .regex-input.error { background: rgba(220, 53, 69, 0.1); }
+        [data-theme="dark"] .regex-input.valid { background: rgba(40, 167, 69, 0.1); }
+
+        .regex-help { font-size: 0.8em; color: var(--text-muted); margin-top: 8px; }
+
+        .export-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .export-btn {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .export-btn:hover { border-color: var(--accent-color); background: var(--accent-color); color: white; }
+
+        /* 历史记录 - 新设计 */
+        .history-item {
+            padding: 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid transparent;
+        }
+        .history-item:hover { background: var(--bg-primary); border-color: var(--border-color); box-shadow: var(--shadow); transform: translateY(-2px); }
+
+        .history-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .history-icon svg { width: 28px; height: 28px; fill: var(--text-secondary); }
+
+        .history-main { flex: 1; min-width: 0; }
+
+        .history-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .history-name {
+            font-weight: 600;
+            font-size: 1.05em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-primary);
+        }
+
+        .history-time {
+            font-size: 0.8em;
+            color: var(--accent-color);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .history-meta-row {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            flex-wrap: wrap;
+        }
+
+        .history-meta-item { display: flex; align-items: center; gap: 4px; }
+        .history-meta-item svg { width: 14px; height: 14px; fill: currentColor; }
+
+        .history-progress {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-style: normal;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .history-progress svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .history-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .history-empty svg { width: 48px; height: 48px; fill: var(--text-muted); margin-bottom: 16px; opacity: 0.5; }
+
+        /* 清除按钮样式优化 - 与关闭按钮一致 */
+        .history-clear-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .history-clear-btn:hover { 
+            background: var(--bg-secondary); 
+            color: #dc3545; 
+        }
+        .history-clear-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 关于面板 */
+        .about-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .about-panel.active { display: flex; }
+
+        .about-content {
+            background: var(--bg-primary);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .about-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .about-title { font-size: 1.3em; font-weight: 600; }
+
+        .about-body {
+            padding: 24px;
+            overflow-y: auto;
+            line-height: 1.8;
+        }
+        .about-body h3 { margin: 20px 0 12px; color: var(--accent-color); font-size: 1.1em; }
+        .about-body p { margin-bottom: 12px; color: var(--text-secondary); }
+        .about-body ul { margin-left: 20px; color: var(--text-secondary); }
+        .about-body li { margin-bottom: 8px; }
+        .about-body kbd {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+
+        /* 对话框 */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .dialog-overlay.active { display: flex; }
+
+        .dialog-content {
+            background: var(--bg-primary);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 400px;
+            animation: dialogSlideIn 0.3s ease;
+        }
+        @keyframes dialogSlideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dialog-title { font-size: 1.2em; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); }
+        .dialog-message { font-size: 0.95em; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
+        .dialog-buttons { display: flex; gap: 12px; justify-content: flex-end; }
+        .dialog-btn {
+            padding: 8px 20px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        .dialog-btn:hover { background: var(--bg-tertiary); }
+        .dialog-btn.primary { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .dialog-btn.primary:hover { background: var(--accent-hover); }
+
+        @media (max-width: 768px) {
+            .content-wrapper { padding: 20px !important; width: 100% !important; }
+            .chapter-nav-links { grid-template-columns: 1fr; }
+        }
+
+        .font-serif { font-family: var(--font-serif); }
+        .font-sans { font-family: var(--font-sans); }
+        .font-kai { font-family: var(--font-kai); }
+        .font-mono { font-family: var(--font-mono); }
+
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+    <!-- 全局 Tooltip -->
+    <div id="global-tooltip"></div>
+
+    <input type="file" id="fileInput" accept=".docx,.txt,.md,.html">
+
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" data-i18n="loading">正在解析文件...</div>
+    </div>
+
+    <div class="dialog-overlay" id="customDialog">
+        <div class="dialog-content">
+            <div class="dialog-title" id="dialogTitle">提示</div>
+            <div class="dialog-message" id="dialogMessage"></div>
+            <div class="dialog-buttons">
+                <button class="dialog-btn" id="dialogCancel" data-i18n="cancel">取消</button>
+                <button class="dialog-btn primary" id="dialogConfirm" data-i18n="confirm">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header class="top-bar">
+            <div class="toolbar-left">
+                <button class="btn-icon" id="toggleToc" data-i18n-tooltip="toc">
+                    <svg class="icon"><use href="#icon-menu"/></svg>
+                </button>
+                <button class="btn-icon" id="openFileBtn" data-i18n-tooltip="openFile">
+                    <svg class="icon"><use href="#icon-folder"/></svg>
+                </button>
+                <span class="file-info" id="fileInfo" data-i18n="noFile">未打开文件</span>
+                <span class="chapter-nav-info" id="chapterNavInfo"></span>
+            </div>
+            
+            <div class="toolbar-right">
+                <div class="search-container">
+                    <button class="btn-icon" id="searchToggle" data-i18n-tooltip="search">
+                        <svg class="icon"><use href="#icon-search"/></svg>
+                    </button>
+                    <div class="search-box" id="searchBox">
+                        <input type="text" class="search-input" id="searchInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
+                        <button class="search-close" id="searchClose">
+                            <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-close"/></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <button class="btn-icon" id="historyBtn" data-i18n-tooltip="history">
+                    <svg class="icon"><use href="#icon-clock"/></svg>
+                </button>
+                <button class="btn-icon" id="settingsBtn" data-i18n-tooltip="settings">
+                    <svg class="icon"><use href="#icon-settings"/></svg>
+                </button>
+                <button class="btn-icon" id="aboutBtn" data-i18n-tooltip="about">
+                    <svg class="icon"><use href="#icon-info"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="main-frame">
+            <aside class="sidebar-left" id="sidebarLeft">
+                <div class="sidebar-header">
+                    <span class="sidebar-title" data-i18n="toc">目录</span>
+                    <button class="btn-icon" id="collapseToc" data-i18n-tooltip="close">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
+                    </button>
+                </div>
+                <div class="toc-container" id="tocContainer">
+                    <ul class="toc-list" id="tocList"></ul>
+                </div>
+            </aside>
+
+            <main class="reading-area" id="readingArea">
+                <div class="content-scroll" id="contentScroll">
+                    <div class="content-wrapper font-serif" id="contentWrapper">
+                        <div class="welcome-screen" id="welcomeScreen">
+                            <div class="welcome-icon">
+                                <svg class="icon-large"><use href="#icon-book"/></svg>
+                            </div>
+                            <h1 class="welcome-title" data-i18n="welcomeTitle">欢迎使用流萤阅读器</h1>
+                            <p class="welcome-subtitle" data-i18n="welcomeSubtitle">支持 Docx、TXT、Markdown、HTML 格式</p>
+                            <p class="welcome-hint" data-i18n="welcomeHint">智能章节识别，自定义排版样式</p>
+                            <div class="welcome-shortcuts">
+                                <span data-i18n="shortcuts">快捷键</span>: ↑↓ <span data-i18n="chapterNav">章节</span>  ←→ <span data-i18n="scrollNav">翻页</span>  F <span data-i18n="search">搜索</span>  H <span data-i18n="history">历史</span>  S <span data-i18n="settings">设置</span>
+                            </div>
+                            <button class="welcome-btn" id="welcomeOpenBtn">
+                                <svg class="icon" style="width: 20px; height: 20px;"><use href="#icon-folder"/></svg>
+                                <span data-i18n="openFile">打开文件</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="panel search-panel" id="searchPanel">
+                <div class="panel-header">
+                    <span class="panel-title" data-i18n="searchResults">搜索结果</span>
+                    <button class="btn-icon" id="closeSearchPanel" data-i18n-tooltip="close">
+                        <svg class="icon"><use href="#icon-close"/></svg>
+                    </button>
+                </div>
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
+                </div>
+                <div class="search-results" id="searchResults">
+                    <div class="search-empty" data-i18n="searchEmpty">输入关键词开始搜索</div>
+                </div>
+            </aside>
+
+            <aside class="panel sidebar-right" id="sidebarRight">
+                <div class="panel-header">
+                    <span class="panel-title" data-i18n="settings">阅读设置</span>
+                    <button class="btn-icon" id="closeSettings" data-i18n-tooltip="close">
+                        <svg class="icon"><use href="#icon-close"/></svg>
+                    </button>
+                </div>
+                
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="language">界面语言</label>
+                        <div class="setting-options">
+                            <button class="option-btn active" data-lang="zh">简体中文</button>
+                            <button class="option-btn" data-lang="en">English</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="theme">主题配色</label>
+                        <div class="setting-options">
+                            <button class="option-btn active" data-theme="light" data-i18n="themeLight">浅色</button>
+                            <button class="option-btn" data-theme="retro" data-i18n="themeRetro">复古</button>
+                            <button class="option-btn" data-theme="eye-care" data-i18n="themeEyeCare">护眼</button>
+                            <button class="option-btn" data-theme="dark" data-i18n="themeDark">深色</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="font">字体选择</label>
+                        <div class="setting-options">
+                            <button class="option-btn active" data-font="serif" data-i18n="fontSerif">宋体</button>
+                            <button class="option-btn" data-font="sans" data-i18n="fontSans">黑体</button>
+                            <button class="option-btn" data-font="kai" data-i18n="fontKai">楷体</button>
+                            <button class="option-btn" data-font="mono" data-i18n="fontMono">等宽</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="chapterNumbering">章节序号样式</label>
+                        <div class="numbering-options">
+                            <button class="numbering-btn active" data-numbering="chineseNovel">
+                                <div class="numbering-preview">第一章</div>
+                                <div class="numbering-name" data-i18n="chineseNovel">中文小说</div>
+                            </button>
+                            <button class="numbering-btn" data-numbering="englishNovel">
+                                <div class="numbering-preview">Chapter 1</div>
+                                <div class="numbering-name" data-i18n="englishNovel">英文小说</div>
+                            </button>
+                            <button class="numbering-btn" data-numbering="technical">
+                                <div class="numbering-preview">1.1.1</div>
+                                <div class="numbering-name" data-i18n="technical">理工通用</div>
+                            </button>
+                            <button class="numbering-btn" data-numbering="academic">
+                                <div class="numbering-preview">（一）</div>
+                                <div class="numbering-name" data-i18n="academic">社科通用</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="typography">排版选项</label>
+                        
+                        <div class="toggle-switch" id="indentToggle">
+                            <span class="toggle-label" data-i18n="indent">首行缩进</span>
+                            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+                        </div>
+                        
+                        <div class="toggle-switch" id="dropCapToggle">
+                            <span class="toggle-label" data-i18n="dropCap">首字下沉</span>
+                            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="fontSize">字号大小</div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="fontSizeSlider" min="14" max="32" value="18">
+                                <span class="slider-value" id="fontSizeValue">18px</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="lineHeight">行间距</div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="lineHeightSlider" min="12" max="30" value="18">
+                                <span class="slider-value" id="lineHeightValue">1.8</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="paragraphSpacing">段落间距</div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="paragraphSpacingSlider" min="0" max="30" value="8">
+                                <span class="slider-value" id="paragraphSpacingValue">0.8em</span>
+                            </div>
+                        </div>
+
+                        <!-- 页宽和边距在移动端隐藏 -->
+                        <div class="mobile-hidden" style="margin-top: 16px;">
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="pageWidth">页面宽度</div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="pageWidthSlider" min="50" max="100" value="80">
+                                <span class="slider-value" id="pageWidthValue">80%</span>
+                            </div>
+                        </div>
+
+                        <div class="mobile-hidden" style="margin-top: 16px;">
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="margin">页面边距</div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="marginSlider" min="20" max="100" value="40">
+                                <span class="slider-value" id="marginValue">40px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="readingSettings">阅读设置</label>
+                        <div class="toggle-switch" id="smoothScrollToggle">
+                            <span class="toggle-label" data-i18n="smoothScroll">平滑跳转</span>
+                            <div class="toggle-track active"><div class="toggle-thumb"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="regex">标题匹配规则</label>
+                        <input type="text" class="regex-input" id="titleRegex" placeholder="" data-i18n-placeholder="titleRegexPlaceholder">
+                        <div class="regex-feedback" id="titleRegexFeedback"></div>
+                        
+                        <input type="text" class="regex-input" id="subtitleRegex" placeholder="" data-i18n-placeholder="subtitleRegexPlaceholder" style="margin-top: 12px;">
+                        <div class="regex-feedback" id="subtitleRegexFeedback"></div>
+                        
+                        <div class="regex-help" data-i18n="regexHelp">支持 JavaScript 正则表达式语法</div>
+                        <button class="option-btn" id="applyRegex" style="margin-top: 8px; width: 100%;" data-i18n="apply">应用规则</button>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label" data-i18n="export">导出格式</label>
+                        <div class="export-buttons">
+                            <button class="export-btn" data-export="txt">TXT</button>
+                            <button class="export-btn" data-export="md">Markdown</button>
+                            <button class="export-btn" data-export="html">HTML</button>
+                            <button class="export-btn" data-export="pdf">PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <button class="option-btn" id="resetSettings" style="width: 100%; border-color: #dc3545; color: #dc3545;">
+                            <span data-i18n="reset">重置所有设置</span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <aside class="panel history-panel" id="historyPanel">
+                <div class="panel-header">
+                    <span class="panel-title" data-i18n="history">最近打开</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="history-clear-btn" id="clearHistory" data-i18n-tooltip="clearHistory">
+                            <svg class="icon"><use href="#icon-delete"/></svg>
+                        </button>
+                        <button class="btn-icon" id="closeHistory" data-i18n-tooltip="close">
+                            <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">
+                        <svg><use href="#icon-clock"/></svg>
+                        <div data-i18n="noHistory">暂无历史记录</div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="about-panel" id="aboutPanel">
+                <div class="about-content">
+                    <div class="about-header">
+                        <span class="about-title">流萤阅读器 | Lumina Reader</span>
+                        <button class="btn-icon" id="closeAbout" data-i18n-tooltip="close">
+                            <svg class="icon"><use href="#icon-close"/></svg>
+                        </button>
+                    </div>
+                    <div class="about-body">
+                        <h3 data-i18n="aboutTitle">关于流萤阅读器</h3>
+                        <p data-i18n="aboutDesc">流萤阅读器（Lumina Reader）是一款专注于沉浸式阅读体验的高级文档阅读器，支持多种格式的智能解析与优雅的排版展示。</p>
+                        
+                        <h3 data-i18n="features">核心功能</h3>
+                        <ul>
+                            <li data-i18n="feature1">支持 DOCX、TXT、Markdown、HTML 格式</li>
+                            <li data-i18n="feature2">智能章节检测与层级识别</li>
+                            <li data-i18n="feature3">多种主题配色与字体选择</li>
+                            <li data-i18n="feature4">灵活的排版自定义选项</li>
+                            <li data-i18n="feature5">全文搜索与快速定位</li>
+                            <li data-i18n="feature6">多格式导出功能</li>
+                        </ul>
+
+                        <h3 data-i18n="shortcutsTitle">键盘快捷键</h3>
+                        <p><kbd>↑</kbd> <kbd>↓</kbd> <span data-i18n="shortcutChapter">上一章/下一章</span></p>
+                        <p><kbd>←</kbd> <kbd>→</kbd> <span data-i18n="scrollNav">向上/向下滚动一屏</span></p>
+                        <p><kbd>F</kbd> <span data-i18n="shortcutSearch">打开搜索</span></p>
+                        <p><kbd>H</kbd> <span data-i18n="shortcutHistory">打开历史</span></p>
+                        <p><kbd>S</kbd> <span data-i18n="shortcutSettings">打开设置</span></p>
+                        <p><kbd>Esc</kbd> <span data-i18n="shortcutClose">关闭面板</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SVG 图标定义 -->
+    <svg style="display: none;">
+        <defs>
+            <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+            <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></symbol>
+            <symbol id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+            <symbol id="icon-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+            <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.49l2.03,1.58C4.84,11.37,4.8,11.69,4.8,12s0.02,0.63,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94zM12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></symbol>
+            <symbol id="icon-clock" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></symbol>
+            <symbol id="icon-info" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></symbol>
+            <symbol id="icon-book" viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></symbol>
+            <symbol id="icon-file-text" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></symbol>
+            <symbol id="icon-file-word" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/><path d="M8 13l2-6h2l2 6h-2l-.5-2h-1.5l-.5 2H8zm2.5-3.5h1l-.5-2-.5 2z" fill="currentColor" opacity="0.8"/></symbol>
+            <symbol id="icon-file-markdown" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/><path d="M7 15l2-3 2 3m-2-3v4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="icon-file-code" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/><path d="M8 16l-3-3 3-3m8 6l3-3-3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="icon-word-count" viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></symbol>
+            <symbol id="icon-time" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></symbol>
+            <symbol id="icon-chapter" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
+            <symbol id="icon-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+            <symbol id="icon-check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+            <symbol id="icon-error" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></symbol>
+        </defs>
+    </svg>
+
+    <script>
+        // ==================== 国际化配置 ====================
+        const i18n = {
+            zh: {
+                appName: '流萤阅读器', noFile: '未打开文件', toc: '目录', settings: '阅读设置',
+                language: '界面语言', theme: '主题配色', font: '字体选择', typography: '排版选项',
+                indent: '首行缩进', dropCap: '首字下沉', fontSize: '字号大小', lineHeight: '行间距',
+                paragraphSpacing: '段落间距', pageWidth: '页面宽度', margin: '页面边距',
+                readingSettings: '阅读设置', smoothScroll: '平滑跳转', readingMode: '阅读模式',
+                regex: '标题匹配规则', regexHelp: '支持 JavaScript 正则表达式语法', apply: '应用规则',
+                export: '导出格式', reset: '重置所有设置', history: '最近打开', clear: '清空',
+                clearHistory: '清空历史', noHistory: '暂无历史记录', welcomeTitle: '欢迎使用流萤阅读器',
+                welcomeSubtitle: '支持 Docx、TXT、Markdown、HTML 格式',
+                welcomeHint: '智能章节识别，自定义排版样式', shortcuts: '快捷键',
+                chapterNav: '章节', scrollNav: '翻页', search: '搜索', openFile: '打开文件',
+                close: '关闭', about: '关于', aboutTitle: '关于流萤阅读器',
+                aboutDesc: '流萤阅读器（Lumina Reader）是一款专注于沉浸式阅读体验的高级文档阅读器，支持多种格式的智能解析与优雅的排版展示。',
+                features: '核心功能', feature1: '支持 DOCX、TXT、Markdown、HTML 格式',
+                feature2: '智能章节检测与层级识别', feature3: '多种主题配色与字体选择',
+                feature4: '灵活的排版自定义选项', feature5: '全文搜索与快速定位',
+                feature6: '多格式导出功能', shortcutsTitle: '键盘快捷键',
+                shortcutChapter: '上一章/下一章', shortcutSearch: '打开搜索',
+                shortcutHistory: '打开历史', shortcutSettings: '打开设置', shortcutClose: '关闭面板',
+                scrollNav: '向上/向下滚动一屏', searchPlaceholder: '搜索全文...',
+                titleRegexPlaceholder: '标题正则 (如: ^第.+章)',
+                subtitleRegexPlaceholder: '副标题正则', searchResults: '搜索结果',
+                searchEmpty: '输入关键词开始搜索', searchNoResults: '未找到匹配结果',
+                confirm: '确定', cancel: '取消', loading: '正在解析文件...',
+                themeLight: '浅色', themeRetro: '复古', themeEyeCare: '护眼', themeDark: '深色',
+                fontSerif: '宋体', fontSans: '黑体', fontKai: '楷体', fontMono: '等宽',
+                chapterNumbering: '章节序号样式', chineseNovel: '中文小说', englishNovel: '英文小说',
+                technical: '理工通用', academic: '社科通用', preface: '前言',
+                prevChapter: '上一章', nextChapter: '下一章', chapterEnd: '本章结束',
+                readTime: '阅读时间', lastRead: '上次阅读', wordCount: '字数',
+                words: '字', mins: '分钟', hours: '小时', unknown: '未知',
+                // 新增翻译
+                regexValid: '✓ 语法有效',
+                regexInvalid: '✗ 语法错误',
+                regexMatches: '匹配到 $1 个章节',
+                regexNoFile: '打开文件后预览匹配效果'
+            },
+            en: {
+                appName: 'Lumina Reader', noFile: 'No file opened', toc: 'Contents', settings: 'Reading Settings',
+                language: 'Language', theme: 'Theme', font: 'Font', typography: 'Typography',
+                indent: 'First Line Indent', dropCap: 'Drop Cap', fontSize: 'Font Size', lineHeight: 'Line Height',
+                paragraphSpacing: 'Paragraph Spacing', pageWidth: 'Page Width', margin: 'Page Margin',
+                readingSettings: 'Reading Settings', smoothScroll: 'Smooth Scroll', readingMode: 'Reading Mode',
+                regex: 'Title Patterns', regexHelp: 'JavaScript regular expression syntax supported', apply: 'Apply',
+                export: 'Export', reset: 'Reset All', history: 'Recent Files', clear: 'Clear',
+                clearHistory: 'Clear History', noHistory: 'No recent files', welcomeTitle: 'Welcome to Lumina Reader',
+                welcomeSubtitle: 'Supports Docx, TXT, Markdown, HTML formats',
+                welcomeHint: 'Smart chapter detection, customizable styles', shortcuts: 'Shortcuts',
+                chapterNav: 'Chapter', scrollNav: 'Scroll', search: 'Search', openFile: 'Open File',
+                close: 'Close', about: 'About', aboutTitle: 'About Lumina Reader',
+                aboutDesc: 'Lumina Reader is an advanced document reader focused on immersive reading experience, supporting intelligent parsing and elegant typography for multiple formats.',
+                features: 'Key Features', feature1: 'Support DOCX, TXT, Markdown, HTML formats',
+                feature2: 'Smart chapter detection and hierarchy recognition',
+                feature3: 'Multiple theme colors and font choices',
+                feature4: 'Flexible typography customization',
+                feature5: 'Full-text search and quick navigation',
+                feature6: 'Multi-format export functionality', shortcutsTitle: 'Keyboard Shortcuts',
+                shortcutChapter: 'Previous/Next Chapter', shortcutSearch: 'Open Search',
+                shortcutHistory: 'Open History', shortcutSettings: 'Open Settings', shortcutClose: 'Close Panel',
+                scrollNav: 'Scroll Up/Down', searchPlaceholder: 'Search...',
+                titleRegexPlaceholder: 'Title regex (e.g. ^Chapter)',
+                subtitleRegexPlaceholder: 'Subtitle regex', searchResults: 'Search Results',
+                searchEmpty: 'Enter keywords to search', searchNoResults: 'No matches found',
+                confirm: 'OK', cancel: 'Cancel', loading: 'Parsing file...',
+                themeLight: 'Light', themeRetro: 'Retro', themeEyeCare: 'Eye Care', themeDark: 'Dark',
+                fontSerif: 'Serif', fontSans: 'Sans', fontKai: 'Kai', fontMono: 'Mono',
+                chapterNumbering: 'Chapter Numbering', chineseNovel: 'Chinese Novel', englishNovel: 'English Novel',
+                technical: 'Technical', academic: 'Academic', preface: 'Preface',
+                prevChapter: 'Previous', nextChapter: 'Next', chapterEnd: 'End of Chapter',
+                readTime: 'Read time', lastRead: 'Last read', wordCount: 'Words',
+                words: 'words', mins: 'min', hours: 'hours', unknown: 'Unknown',
+                // 新增翻译
+                regexValid: '✓ Valid syntax',
+                regexInvalid: '✗ Invalid syntax',
+                regexMatches: 'Matches $1 chapters',
+                regexNoFile: 'Open file to preview matches'
+            }
+        };
+
+        const defaultSettings = {
+            language: 'zh', theme: 'light', font: 'serif', indent: false, dropCap: false,
+            fontSize: 18, lineHeight: 18, paragraphSpacing: 8, pageWidth: 80, margin: 40,
+            smoothScroll: true, titleRegex: '', subtitleRegex: '',
+            sidebarVisible: false, chapterNumbering: 'chineseNovel'
+        };
+
+        let settings = { ...defaultSettings };
+        
+        // 应用状态 (App State)
+        let appState = {
+            currentFile: {
+                name: '',
+                type: '',
+                handle: null,
+                rawContent: null,
+                wordCount: 0,
+                openedAt: null
+            },
+            document: {
+                items: [],
+                type: ''
+            },
+            chapters: [],
+            currentChapterIndex: 0,
+            search: {
+                matches: [],
+                currentQuery: '',
+                highlightedIndex: -1
+            },
+            ui: {
+                isProcessing: false,
+                scrollObserver: null
+            }
+        };
+
+        let sectionCounters = [0, 0, 0, 0, 0, 0];
+
+        const els = {
+            fileInput: document.getElementById('fileInput'),
+            sidebarLeft: document.getElementById('sidebarLeft'),
+            sidebarRight: document.getElementById('sidebarRight'),
+            historyPanel: document.getElementById('historyPanel'),
+            searchPanel: document.getElementById('searchPanel'),
+            readingArea: document.getElementById('readingArea'),
+            contentWrapper: document.getElementById('contentWrapper'),
+            contentScroll: document.getElementById('contentScroll'),
+            welcomeScreen: document.getElementById('welcomeScreen'),
+            aboutPanel: document.getElementById('aboutPanel'),
+            loadingScreen: document.getElementById('loadingScreen'),
+            customDialog: document.getElementById('customDialog'),
+            fileInfo: document.getElementById('fileInfo'),
+            chapterNavInfo: document.getElementById('chapterNavInfo'),
+            tocList: document.getElementById('tocList'),
+            searchResults: document.getElementById('searchResults'),
+            historyList: document.getElementById('historyList'),
+            tooltip: document.getElementById('global-tooltip')
+        };
+
+        // ==================== 初始化 ====================
+        function init() {
+            loadSettings();
+            loadHistory();
+            setupEventListeners();
+            setupCustomTooltip();
+            setupRegexRealtimeFeedback(); // 新增：正则实时反馈
+            applySettings();
+            updateI18n();
+            
+            if (!appState.document.items.length) {
+                els.sidebarLeft.classList.remove('visible');
+                els.readingArea.classList.remove('with-sidebar');
+            }
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('luminaSettings');
+            if (saved) settings = { ...defaultSettings, ...JSON.parse(saved) };
+        }
+
+        function saveSettings() {
+            localStorage.setItem('luminaSettings', JSON.stringify(settings));
+        }
+
+        // ==================== 设置应用与I18n ====================
+        function applySettings() {
+            document.documentElement.lang = settings.language;
+            document.documentElement.setAttribute('data-theme', settings.theme);
+            els.contentWrapper.className = `content-wrapper font-${settings.font}`;
+            
+            document.documentElement.style.setProperty('--font-size', settings.fontSize + 'px');
+            document.documentElement.style.setProperty('--line-height', (settings.lineHeight / 10).toString());
+            document.documentElement.style.setProperty('--paragraph-spacing', (settings.paragraphSpacing / 10) + 'em');
+            
+            // 移动端强制覆盖
+            if (window.innerWidth <= 768) {
+                document.documentElement.style.setProperty('--content-max-width', '100%');
+                document.documentElement.style.setProperty('--content-padding', '16px');
+            } else {
+                document.documentElement.style.setProperty('--content-max-width', settings.pageWidth + '%');
+                document.documentElement.style.setProperty('--content-padding', settings.margin + 'px');
+            }
+            
+            els.contentScroll.classList.toggle('no-smooth', !settings.smoothScroll);
+            
+            updateToggle('indentToggle', settings.indent);
+            updateToggle('dropCapToggle', settings.dropCap);
+            updateToggle('smoothScrollToggle', settings.smoothScroll);
+            
+            document.getElementById('fontSizeValue').textContent = settings.fontSize + 'px';
+            document.getElementById('lineHeightValue').textContent = (settings.lineHeight / 10).toFixed(1);
+            document.getElementById('paragraphSpacingValue').textContent = (settings.paragraphSpacing / 10).toFixed(1) + 'em';
+            document.getElementById('pageWidthValue').textContent = settings.pageWidth + '%';
+            document.getElementById('marginValue').textContent = settings.margin + 'px';
+            
+            document.querySelectorAll('[data-lang]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === settings.language);
+            });
+            document.querySelectorAll('[data-theme]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+            });
+            document.querySelectorAll('[data-font]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.font === settings.font);
+            });
+            document.querySelectorAll('[data-numbering]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.numbering === settings.chapterNumbering);
+            });
+            
+            document.getElementById('fontSizeSlider').value = settings.fontSize;
+            document.getElementById('lineHeightSlider').value = settings.lineHeight;
+            document.getElementById('paragraphSpacingSlider').value = settings.paragraphSpacing;
+            document.getElementById('pageWidthSlider').value = settings.pageWidth;
+            document.getElementById('marginSlider').value = settings.margin;
+            document.getElementById('titleRegex').value = settings.titleRegex;
+            document.getElementById('subtitleRegex').value = settings.subtitleRegex;
+            
+            if (settings.sidebarVisible && appState.document.items.length) {
+                els.sidebarLeft.classList.add('visible');
+                els.readingArea.classList.add('with-sidebar');
+            } else {
+                els.sidebarLeft.classList.remove('visible');
+                els.readingArea.classList.remove('with-sidebar');
+            }
+            
+            if (appState.document.items.length) renderCurrentChapter();
+            updateChapterNavInfo();
+        }
+
+        function updateToggle(id, active) {
+            const track = document.querySelector(`#${id} .toggle-track`);
+            if (track) track.classList.toggle('active', active);
+        }
+
+        function updateI18n() {
+            const texts = i18n[settings.language];
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (texts[key]) el.textContent = texts[key];
+            });
+            
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.dataset.i18nPlaceholder;
+                if (texts[key]) el.placeholder = texts[key];
+            });
+            
+            document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
+                const key = el.dataset.i18nTooltip;
+                if (texts[key]) el.dataset.tooltipText = texts[key];
+            });
+            
+            // 修复：切换语言时保持文件名显示
+            if (appState.currentFile.name) {
+                els.fileInfo.textContent = appState.currentFile.name;
+            }
+            
+            updateChapterNavInfo();
+            // 重新渲染历史记录以更新语言
+            loadHistory();
+            // 更新正则反馈语言
+            updateRegexFeedback('title');
+            updateRegexFeedback('subtitle');
+        }
+
+        // ==================== 自定义 Tooltip ====================
+        function setupCustomTooltip() {
+            let currentTarget = null;
+            
+            document.addEventListener('mouseover', (e) => {
+                const target = e.target.closest('[data-i18n-tooltip]');
+                if (target && target.dataset.tooltipText) {
+                    currentTarget = target;
+                    showTooltip(target, target.dataset.tooltipText);
+                }
+            });
+            
+            document.addEventListener('mouseout', (e) => {
+                const target = e.target.closest('[data-i18n-tooltip]');
+                if (target) {
+                    hideTooltip();
+                    currentTarget = null;
+                }
+            });
+        }
+
+        function showTooltip(target, text) {
+            els.tooltip.textContent = text;
+            els.tooltip.classList.add('visible');
+            
+            const rect = target.getBoundingClientRect();
+            const tooltipRect = els.tooltip.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            
+            let left = rect.left + rect.width / 2;
+            let top = rect.bottom + 10;
+            
+            if (top + tooltipRect.height > viewportHeight - 20 && rect.top > tooltipRect.height + 10) {
+                top = rect.top - tooltipRect.height - 10;
+                els.tooltip.classList.add('position-top');
+            } else {
+                els.tooltip.classList.remove('position-top');
+            }
+            
+            const halfWidth = tooltipRect.width / 2;
+            if (left - halfWidth < 10) {
+                left = halfWidth + 10;
+            } else if (left + halfWidth > window.innerWidth - 10) {
+                left = window.innerWidth - halfWidth - 10;
+            }
+            
+            els.tooltip.style.left = left + 'px';
+            els.tooltip.style.top = top + 'px';
+        }
+
+        function hideTooltip() {
+            els.tooltip.classList.remove('visible');
+        }
+
+        // ==================== 对话框 ====================
+        function showDialog(message, type = 'alert', callback = null) {
+            const dialog = els.customDialog;
+            const msg = document.getElementById('dialogMessage');
+            const cancelBtn = document.getElementById('dialogCancel');
+            const confirmBtn = document.getElementById('dialogConfirm');
+            
+            msg.textContent = message;
+            
+            if (type === 'alert') {
+                cancelBtn.style.display = 'none';
+                confirmBtn.textContent = i18n[settings.language].confirm;
+            } else {
+                cancelBtn.style.display = 'block';
+                cancelBtn.textContent = i18n[settings.language].cancel;
+                confirmBtn.textContent = i18n[settings.language].confirm;
+            }
+            
+            dialog.classList.add('active');
+            
+            const close = (result) => {
+                dialog.classList.remove('active');
+                if (callback) callback(result);
+            };
+            
+            cancelBtn.onclick = () => close(false);
+            confirmBtn.onclick = () => close(true);
+            dialog.onclick = (e) => { if (e.target === dialog) close(false); };
+        }
+
+        // ==================== 正则实时反馈（新增功能） ====================
+        function setupRegexRealtimeFeedback() {
+            const titleInput = document.getElementById('titleRegex');
+            const subtitleInput = document.getElementById('subtitleRegex');
+            
+            // 使用防抖避免频繁计算
+            let debounceTimer;
+            
+            titleInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => updateRegexFeedback('title'), 300);
+            });
+            
+            subtitleInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => updateRegexFeedback('subtitle'), 300);
+            });
+            
+            // 失去焦点时如果有效则自动应用
+            titleInput.addEventListener('blur', () => {
+                if (validateRegex(titleInput.value)) {
+                    settings.titleRegex = titleInput.value;
+                    saveSettings();
+                }
+            });
+            
+            subtitleInput.addEventListener('blur', () => {
+                if (validateRegex(subtitleInput.value)) {
+                    settings.subtitleRegex = subtitleInput.value;
+                    saveSettings();
+                }
+            });
+        }
+
+        function validateRegex(pattern) {
+            if (!pattern) return true;
+            try {
+                new RegExp(pattern);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function updateRegexFeedback(type) {
+            const input = document.getElementById(type + 'Regex');
+            const feedback = document.getElementById(type + 'RegexFeedback');
+            const pattern = input.value.trim();
+            const texts = i18n[settings.language];
+            
+            // 重置样式
+            input.classList.remove('error', 'valid');
+            feedback.classList.remove('error', 'valid', 'info');
+            
+            if (!pattern) {
+                feedback.textContent = '';
+                return;
+            }
+            
+            // 验证语法
+            if (!validateRegex(pattern)) {
+                input.classList.add('error');
+                feedback.classList.add('error');
+                feedback.textContent = texts.regexInvalid;
+                return;
+            }
+            
+            input.classList.add('valid');
+            feedback.classList.add('valid');
+            
+            // 如果有打开的文件，计算匹配数
+            if (appState.document.items && appState.document.items.length > 0) {
+                try {
+                    const regex = new RegExp(pattern, 'i');
+                    let matchCount = 0;
+                    
+                    appState.document.items.forEach(item => {
+                        if (item.text && regex.test(item.text)) {
+                            matchCount++;
+                        }
+                    });
+                    
+                    feedback.textContent = texts.regexMatches.replace('$1', matchCount);
+                } catch (e) {
+                    feedback.textContent = texts.regexValid;
+                }
+            } else {
+                feedback.classList.remove('valid');
+                feedback.classList.add('info');
+                feedback.textContent = texts.regexNoFile;
+            }
+        }
+
+        // ==================== 历史记录管理 ====================
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('luminaHistory') || '[]');
+            renderHistory(history);
+        }
+
+        function saveHistory(fileName, fileType, wordCount = 0, content = null) {
+            let history = JSON.parse(localStorage.getItem('luminaHistory') || '[]');
+            const existingIndex = history.findIndex(h => h.name === fileName);
+            
+            const now = new Date().toISOString();
+            const readTimeMinutes = Math.ceil(wordCount / (settings.language === 'zh' ? 300 : 200));
+            
+            const historyItem = {
+                name: fileName,
+                type: fileType,
+                time: now,
+                lastReadTime: now,
+                lastChapter: appState.currentChapterIndex,
+                wordCount: wordCount,
+                readTime: readTimeMinutes,
+                content: content
+            };
+            
+            if (existingIndex > -1) {
+                historyItem.lastChapter = history[existingIndex].lastChapter || 0;
+                history.splice(existingIndex, 1);
+            }
+            
+            if (appState.currentFile.handle) historyItem.handleName = appState.currentFile.handle.name;
+            
+            history.unshift(historyItem);
+            history = history.slice(0, 10);
+            localStorage.setItem('luminaHistory', JSON.stringify(history));
+            renderHistory(history);
+        }
+
+        function updateHistoryProgress() {
+            if (!appState.currentFile.name || !appState.document.items.length) return;
+            let history = JSON.parse(localStorage.getItem('luminaHistory') || '[]');
+            const item = history.find(h => h.name === appState.currentFile.name);
+            if (item) {
+                item.lastReadTime = new Date().toISOString();
+                item.lastChapter = appState.currentChapterIndex;
+                localStorage.setItem('luminaHistory', JSON.stringify(history));
+                // 重新渲染以更新显示
+                renderHistory(history);
+            }
+        }
+
+        function getFileIcon(type) {
+            const iconMap = { 'docx': 'icon-file-word', 'txt': 'icon-file-text', 'md': 'icon-file-markdown', 'html': 'icon-file-code' };
+            return iconMap[type] || 'icon-file-text';
+        }
+
+        function formatTimeAgo(isoString) {
+            if (!isoString) return i18n[settings.language].unknown;
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            
+            if (diff < 60) return settings.language === 'zh' ? '刚刚' : 'Just now';
+            if (diff < 3600) return settings.language === 'zh' ? `${Math.floor(diff/60)}分钟前` : `${Math.floor(diff/60)}m ago`;
+            if (diff < 86400) return settings.language === 'zh' ? `${Math.floor(diff/3600)}小时前` : `${Math.floor(diff/3600)}h ago`;
+            if (diff < 604800) return settings.language === 'zh' ? `${Math.floor(diff/86400)}天前` : `${Math.floor(diff/86400)}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        // 格式化阅读时间：超过60分钟显示为小时
+        function formatReadTime(minutes) {
+            if (!minutes) return '';
+            const texts = i18n[settings.language];
+            if (minutes >= 60) {
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                if (mins === 0) {
+                    return `${hours}${texts.hours}`;
+                }
+                return `${hours}${texts.hours}${mins}${texts.mins}`;
+            }
+            return `${minutes}${texts.mins}`;
+        }
+
+        function renderHistory(history) {
+            if (history.length === 0) {
+                els.historyList.innerHTML = `
+                    <div class="history-empty">
+                        <svg><use href="#icon-clock"/></svg>
+                        <div>${i18n[settings.language].noHistory}</div>
+                    </div>`;
+                return;
+            }
+            
+            els.historyList.innerHTML = history.map((item, index) => {
+                const iconId = getFileIcon(item.type);
+                const timeAgo = formatTimeAgo(item.lastReadTime || item.time);
+                const readTimeStr = formatReadTime(item.readTime);
+                
+                // 获取当前章节的标题
+                let lastChapterTitle = '';
+                // 只有当这个历史项是当前打开的文件时，才使用当前的章节数据
+                if (item.name === appState.currentFile.name && appState.chapters.length > 0) {
+                    const ch = appState.chapters[item.lastChapter || 0];
+                    if (ch) {
+                        lastChapterTitle = ch.isPreface ? i18n[settings.language].preface : ch.title;
+                    }
+                } else if (item.lastChapter !== undefined && item.lastChapter > 0) {
+                    // 对于非当前打开的文件，显示章节号
+                    lastChapterTitle = `${i18n[settings.language].chapterNav} ${item.lastChapter + 1}`;
+                } else if (item.lastChapter === 0) {
+                    lastChapterTitle = i18n[settings.language].preface;
+                }
+                
+                return `
+                    <div class="history-item" data-index="${index}">
+                        <div class="history-icon">
+                            <svg><use href="#${iconId}"/></svg>
+                        </div>
+                        <div class="history-main">
+                            <div class="history-header-row">
+                                <div class="history-name">${escapeHtml(item.name)}</div>
+                                <div class="history-time">${timeAgo}</div>
+                            </div>
+                            <div class="history-meta-row">
+                                <div class="history-meta-item">
+                                    <svg><use href="#icon-word-count"/></svg>
+                                    ${formatWordCount(item.wordCount)} ${i18n[settings.language].words}
+                                </div>
+                                ${readTimeStr ? `
+                                <div class="history-meta-item">
+                                    <svg><use href="#icon-time"/></svg>
+                                    ${readTimeStr}
+                                </div>` : ''}
+                            </div>
+                            ${lastChapterTitle ? `
+                            <div class="history-progress">
+                                <svg><use href="#icon-chapter"/></svg>
+                                ${escapeHtml(lastChapterTitle)}
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            els.historyList.querySelectorAll('.history-item').forEach((item) => {
+                item.addEventListener('click', async () => {
+                    const index = parseInt(item.dataset.index);
+                    const historyItem = history[index];
+                    
+                    if (historyItem.content && historyItem.type !== 'docx') {
+                        await processFileContent(historyItem.content, historyItem.name, historyItem.type);
+                        if (historyItem.lastChapter !== undefined && historyItem.lastChapter < appState.chapters.length) {
+                            appState.currentChapterIndex = historyItem.lastChapter;
+                            renderCurrentChapter();
+                        }
+                        els.historyPanel.classList.remove('open');
+                    } else {
+                        els.fileInput.click();
+                    }
+                });
+            });
+        }
+
+        function formatWordCount(count) {
+            if (!count) return '0';
+            return count >= 1000 ? (count / 1000).toFixed(1) + 'k' : count.toString();
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('luminaHistory');
+            renderHistory([]);
+        }
+
+        // ==================== 事件监听 ====================
+        function setupEventListeners() {
+            document.getElementById('openFileBtn').addEventListener('click', () => els.fileInput.click());
+            document.getElementById('welcomeOpenBtn').addEventListener('click', () => els.fileInput.click());
+            els.fileInput.addEventListener('change', async (e) => {
+                if (e.target.files[0]) {
+                    if (e.target.files[0].handle) appState.currentFile.handle = e.target.files[0].handle;
+                    await processFile(e.target.files[0]);
+                }
+            });
+
+            document.body.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                document.body.style.background = 'var(--bg-tertiary)';
+            });
+            document.body.addEventListener('dragleave', () => {
+                document.body.style.background = '';
+            });
+            document.body.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                document.body.style.background = '';
+                if (e.dataTransfer.files[0]) await processFile(e.dataTransfer.files[0]);
+            });
+
+            document.getElementById('toggleToc').addEventListener('click', () => {
+                const isVisible = els.sidebarLeft.classList.toggle('visible');
+                els.readingArea.classList.toggle('with-sidebar', isVisible);
+                settings.sidebarVisible = isVisible;
+                saveSettings();
+            });
+            
+            document.getElementById('collapseToc').addEventListener('click', () => {
+                els.sidebarLeft.classList.remove('visible');
+                els.readingArea.classList.remove('with-sidebar');
+                settings.sidebarVisible = false;
+                saveSettings();
+            });
+
+            document.getElementById('settingsBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                els.sidebarRight.classList.add('open');
+                els.historyPanel.classList.remove('open');
+                els.searchPanel.classList.remove('open');
+            });
+            document.getElementById('closeSettings').addEventListener('click', () => els.sidebarRight.classList.remove('open'));
+
+            document.getElementById('historyBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                els.historyPanel.classList.toggle('open');
+                els.sidebarRight.classList.remove('open');
+                els.searchPanel.classList.remove('open');
+            });
+            document.getElementById('closeHistory').addEventListener('click', () => els.historyPanel.classList.remove('open'));
+            document.getElementById('clearHistory').addEventListener('click', () => {
+                showDialog(settings.language === 'zh' ? '确定要清空所有历史记录吗？' : 'Clear all history?', 'confirm', (result) => {
+                    if (result) clearHistory();
+                });
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!els.historyPanel.contains(e.target) && e.target !== document.getElementById('historyBtn')) {
+                    els.historyPanel.classList.remove('open');
+                }
+                if (!els.sidebarRight.contains(e.target) && e.target !== document.getElementById('settingsBtn')) {
+                    els.sidebarRight.classList.remove('open');
+                }
+                if (!els.searchPanel.contains(e.target) && e.target !== document.getElementById('searchToggle')) {
+                    els.searchPanel.classList.remove('open');
+                    clearSearchHighlight(); // 关闭搜索时清除高亮
+                }
+            });
+
+            document.getElementById('aboutBtn').addEventListener('click', () => els.aboutPanel.classList.add('active'));
+            document.getElementById('closeAbout').addEventListener('click', () => els.aboutPanel.classList.remove('active'));
+            els.aboutPanel.addEventListener('click', (e) => { if (e.target === els.aboutPanel) els.aboutPanel.classList.remove('active'); });
+
+            document.getElementById('searchToggle').addEventListener('click', () => {
+                els.searchPanel.classList.toggle('open');
+                els.sidebarRight.classList.remove('open');
+                els.historyPanel.classList.remove('open');
+                if (els.searchPanel.classList.contains('open')) {
+                    document.getElementById('searchPanelInput').focus();
+                }
+            });
+            document.getElementById('closeSearchPanel').addEventListener('click', () => {
+                els.searchPanel.classList.remove('open');
+                clearSearchHighlight();
+            });
+            document.getElementById('searchPanelInput').addEventListener('input', (e) => performSearch(e.target.value));
+
+            document.querySelectorAll('[data-lang]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    settings.language = btn.dataset.lang;
+                    saveSettings();
+                    applySettings();
+                    updateI18n();
+                });
+            });
+
+            document.querySelectorAll('[data-theme]').forEach(btn => {
+                btn.addEventListener('click', () => { settings.theme = btn.dataset.theme; saveSettings(); applySettings(); });
+            });
+
+            document.querySelectorAll('[data-font]').forEach(btn => {
+                btn.addEventListener('click', () => { settings.font = btn.dataset.font; saveSettings(); applySettings(); });
+            });
+
+            document.querySelectorAll('[data-numbering]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    settings.chapterNumbering = btn.dataset.numbering;
+                    saveSettings();
+                    document.querySelectorAll('[data-numbering]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (appState.document.items.length) reparseWithRegex();
+                });
+            });
+
+            document.getElementById('indentToggle').addEventListener('click', () => {
+                settings.indent = !settings.indent; saveSettings(); applySettings();
+            });
+            document.getElementById('dropCapToggle').addEventListener('click', () => {
+                settings.dropCap = !settings.dropCap; saveSettings(); applySettings();
+            });
+            document.getElementById('smoothScrollToggle').addEventListener('click', () => {
+                settings.smoothScroll = !settings.smoothScroll; saveSettings(); applySettings();
+            });
+
+            ['fontSize', 'lineHeight', 'paragraphSpacing', 'pageWidth', 'margin'].forEach(key => {
+                document.getElementById(`${key}Slider`).addEventListener('change', (e) => {
+                    settings[key] = parseInt(e.target.value);
+                    saveSettings();
+                    applySettings();
+                });
+            });
+
+            // 窗口大小改变时重新应用设置（用于移动端检测）
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    applySettings();
+                }, 250);
+            });
+
+            document.getElementById('applyRegex').addEventListener('click', () => {
+                const titleRegexVal = document.getElementById('titleRegex').value;
+                const subtitleRegexVal = document.getElementById('subtitleRegex').value;
+                
+                if (!validateRegex(titleRegexVal) || !validateRegex(subtitleRegexVal)) {
+                    showDialog(settings.language === 'zh' ? '正则表达式格式错误，请检查输入' : 'Invalid regex pattern', 'alert');
+                    return;
+                }
+                
+                settings.titleRegex = titleRegexVal;
+                settings.subtitleRegex = subtitleRegexVal;
+                saveSettings();
+                reparseWithRegex();
+                showDialog(settings.language === 'zh' ? '规则已应用' : 'Rules applied', 'alert');
+            });
+
+            document.querySelectorAll('[data-export]').forEach(btn => {
+                btn.addEventListener('click', () => exportDocument(btn.dataset.export));
+            });
+
+            document.getElementById('resetSettings').addEventListener('click', () => {
+                const oldFileName = appState.currentFile.name;
+                const oldFileType = appState.currentFile.type;
+                settings = { ...defaultSettings };
+                saveSettings();
+                applySettings();
+                updateI18n();
+                // 恢复文件信息
+                if (oldFileName) {
+                    appState.currentFile.name = oldFileName;
+                    appState.currentFile.type = oldFileType;
+                    els.fileInfo.textContent = oldFileName;
+                }
+                // 重置正则反馈
+                updateRegexFeedback('title');
+                updateRegexFeedback('subtitle');
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') {
+                    if (e.key === 'Escape') {
+                        e.target.blur();
+                        els.customDialog.classList.remove('active');
+                    }
+                    return;
+                }
+                
+                switch(e.key) {
+                    case 'f': case 'F':
+                        e.preventDefault();
+                        els.searchPanel.classList.toggle('open');
+                        if (els.searchPanel.classList.contains('open')) document.getElementById('searchPanelInput').focus();
+                        break;
+                    case 'h': case 'H':
+                        e.preventDefault();
+                        els.historyPanel.classList.toggle('open');
+                        els.sidebarRight.classList.remove('open');
+                        els.searchPanel.classList.remove('open');
+                        break;
+                    case 's': case 'S':
+                        e.preventDefault();
+                        els.sidebarRight.classList.toggle('open');
+                        els.historyPanel.classList.remove('open');
+                        els.searchPanel.classList.remove('open');
+                        break;
+                    case 'Escape':
+                        els.sidebarRight.classList.remove('open');
+                        els.historyPanel.classList.remove('open');
+                        els.searchPanel.classList.remove('open');
+                        els.aboutPanel.classList.remove('active');
+                        els.customDialog.classList.remove('active');
+                        clearSearchHighlight();
+                        break;
+                    case 'ArrowUp': e.preventDefault(); prevChapter(); break;
+                    case 'ArrowDown': e.preventDefault(); nextChapter(); break;
+                    case 'ArrowLeft': 
+                        e.preventDefault(); 
+                        // 优化：滚动90%屏高，减少重复
+                        els.contentScroll.scrollBy({ top: -els.contentScroll.clientHeight * 0.9, behavior: settings.smoothScroll ? 'smooth' : 'auto' });
+                        break;
+                    case 'ArrowRight': 
+                        e.preventDefault(); 
+                        els.contentScroll.scrollBy({ top: els.contentScroll.clientHeight * 0.9, behavior: settings.smoothScroll ? 'smooth' : 'auto' });
+                        break;
+                }
+            });
+
+            els.chapterNavInfo.addEventListener('click', () => {
+                if (appState.document.items.length) {
+                    const isVisible = els.sidebarLeft.classList.toggle('visible');
+                    els.readingArea.classList.toggle('with-sidebar', isVisible);
+                    settings.sidebarVisible = isVisible;
+                    saveSettings();
+                }
+            });
+
+            let scrollTimeout;
+            els.contentScroll.addEventListener('scroll', () => {
+                updateTocSpy();
+                
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    updateHistoryProgress();
+                }, 1000);
+            });
+        }
+
+        // ==================== 章节导航 ====================
+        function updateChapterNavInfo() {
+            if (!appState.document.items.length || appState.chapters.length === 0) {
+                els.chapterNavInfo.textContent = '';
+                els.chapterNavInfo.style.display = 'none';
+                return;
+            }
+            const chapter = appState.chapters[appState.currentChapterIndex];
+            const title = chapter.isPreface ? i18n[settings.language].preface : chapter.title;
+            els.chapterNavInfo.textContent = title;
+            els.chapterNavInfo.style.display = 'block';
+        }
+
+        function prevChapter() {
+            if (appState.currentChapterIndex > 0) {
+                appState.currentChapterIndex--;
+                renderCurrentChapter();
+                updateHistoryProgress(); // 切换章节时更新历史记录
+            }
+        }
+
+        function nextChapter() {
+            if (appState.currentChapterIndex < appState.chapters.length - 1) {
+                appState.currentChapterIndex++;
+                renderCurrentChapter();
+                updateHistoryProgress(); // 切换章节时更新历史记录
+            }
+        }
+
+        // ==================== 目录与阅读区呼应（修复版：保持当前标题激活状态） ====================
+        function updateTocSpy() {
+            if (!appState.chapters.length) return;
+            
+            const scrollTop = els.contentScroll.scrollTop + 120; // 偏移量
+            const headings = els.contentWrapper.querySelectorAll('.doc-line[data-index]');
+            
+            let currentHeadingIndex = -1;
+            
+            // 找到当前视口中最接近的上方标题
+            for (let i = 0; i < headings.length; i++) {
+                const el = headings[i];
+                const elTop = el.offsetTop;
+                if (elTop <= scrollTop) {
+                    currentHeadingIndex = parseInt(el.dataset.index);
+                } else {
+                    break;
+                }
+            }
+            
+            // 只有当找到有效标题时才更新，否则保持上一个激活状态
+            if (currentHeadingIndex >= 0) {
+                updateTocActive(currentHeadingIndex);
+            }
+        }
+
+        function updateTocActive(index) {
+            // 先移除所有激活状态
+            document.querySelectorAll('.toc-item.active').forEach(el => el.classList.remove('active'));
+            
+            // 找到对应的目录项
+            const tocItem = document.querySelector(`.toc-item[data-index="${index}"]`);
+            if (tocItem) {
+                tocItem.classList.add('active');
+                // 确保激活项在可视区域内
+                tocItem.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+            }
+        }
+
+        // ==================== 章节管理 ====================
+        function buildChapters(items) {
+            const newChapters = [];
+            let currentChapter = null;
+            let buffer = [];
+            let globalIndex = 0;
+            
+            const flushBuffer = () => {
+                if (buffer.length === 0) return;
+                const startIdx = globalIndex - buffer.length;
+                newChapters.push({
+                    id: `preface-${newChapters.length}`,
+                    title: i18n[settings.language].preface,
+                    isPreface: true,
+                    startIndex: startIdx,
+                    endIndex: globalIndex - 1,
+                    items: [...buffer]
+                });
+                buffer = [];
+            };
+            
+            items.forEach((item, index) => {
+                globalIndex = index;
+                if (isChapterStart(item)) {
+                    flushBuffer();
+                    currentChapter = {
+                        id: `chapter-${newChapters.length}`,
+                        title: extractChapterTitle(item),
+                        isPreface: false,
+                        startIndex: index,
+                        endIndex: items.length - 1,
+                        items: [item]
+                    };
+                    newChapters.push(currentChapter);
+                } else {
+                    if (currentChapter) {
+                        currentChapter.items.push(item);
+                        currentChapter.endIndex = index;
+                    } else {
+                        buffer.push(item);
+                    }
+                }
+            });
+            
+            flushBuffer();
+            return newChapters;
+        }
+
+        function isChapterStart(item) {
+            if (item.type === 'title') return true;
+            if (item.type === 'heading1') return true;
+            
+            if (item.type.startsWith('heading') && item.text) {
+                const text = item.text.trim();
+                const chapterPattern = /^第\s*[一二三四五六七八九十百千万零\d]+\s*章/;
+                if (chapterPattern.test(text)) return true;
+                if (/^Chapter\s+\d+/i.test(text)) return true;
+            }
+            return false;
+        }
+
+        function extractChapterTitle(item) {
+            if (item.display) return item.display.replace(/^\[T\]/, '');
+            return item.text;
+        }
+
+        // ==================== 渲染 ====================
+        function renderCurrentChapter() {
+            if (!appState.document.items.length || appState.chapters.length === 0) return;
+            
+            const chapter = appState.chapters[appState.currentChapterIndex];
+            els.contentWrapper.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
+            chapter.items.forEach((item, idx) => {
+                const globalIndex = chapter.startIndex + idx;
+                fragment.appendChild(createDocLineElement(item, globalIndex));
+            });
+            
+            els.contentWrapper.appendChild(fragment);
+            addChapterNavLinks();
+            updateDocumentStyles();
+            updateChapterNavInfo();
+            
+            // 更新目录激活状态到当前章节的第一项
+            if (chapter.items.length > 0) {
+                updateTocActive(chapter.startIndex);
+            }
+            
+            els.contentScroll.scrollTop = 0;
+        }
+
+        function createDocLineElement(item, index) {
+            const div = document.createElement('div');
+            div.className = 'doc-line';
+            div.dataset.index = index;
+            
+            if (item.type === 'title') {
+                div.classList.add('title-display');
+                div.textContent = item.text;
+            } else if (item.type === 'subtitle') {
+                div.classList.add('subtitle-display');
+                div.textContent = item.text;
+            } else if (item.type.startsWith('heading')) {
+                const level = parseInt(item.type.replace('heading', '')) || 1;
+                div.classList.add(`chapter-${level}`);
+                div.textContent = item.display || item.text;
+            } else if (item.type === 'list') {
+                div.classList.add('list-item');
+                div.textContent = item.text;
+            } else if (item.type === 'image') {
+                div.classList.add('doc-image-container');
+                const img = document.createElement('img');
+                img.src = item.data;
+                img.className = 'doc-image center';
+                img.alt = item.alt || '';
+                div.appendChild(img);
+            } else {
+                div.classList.add('paragraph');
+                div.textContent = item.text;
+                if (settings.indent) div.classList.add('indent');
+            }
+            
+            return div;
+        }
+
+        function addChapterNavLinks() {
+            const hasPrev = appState.currentChapterIndex > 0;
+            const hasNext = appState.currentChapterIndex < appState.chapters.length - 1;
+            
+            const navDiv = document.createElement('div');
+            navDiv.className = 'chapter-nav-links';
+            
+            const prevTitle = hasPrev ? (appState.chapters[appState.currentChapterIndex - 1].isPreface ? i18n[settings.language].preface : appState.chapters[appState.currentChapterIndex - 1].title) : '';
+            const nextTitle = hasNext ? (appState.chapters[appState.currentChapterIndex + 1].isPreface ? i18n[settings.language].preface : appState.chapters[appState.currentChapterIndex + 1].title) : '';
+            
+            navDiv.innerHTML = `
+                <button class="chapter-nav-btn ${!hasPrev ? 'disabled' : ''}" ${hasPrev ? `onclick="window.prevChapter()"` : ''}>
+                    ${hasPrev ? `
+                        <div class="chapter-nav-label">« ${i18n[settings.language].prevChapter}</div>
+                        <div class="chapter-nav-title">${escapeHtml(prevTitle)}</div>
+                    ` : `<div class="chapter-nav-label">${i18n[settings.language].prevChapter}</div>`}
+                </button>
+                <button class="chapter-nav-btn ${!hasNext ? 'disabled' : ''}" ${hasNext ? `onclick="window.nextChapter()"` : ''}>
+                    ${hasNext ? `
+                        <div class="chapter-nav-label">${i18n[settings.language].nextChapter} »</div>
+                        <div class="chapter-nav-title">${escapeHtml(nextTitle)}</div>
+                    ` : `<div class="chapter-nav-label">${i18n[settings.language].nextChapter}</div>`}
+                </button>
+            `;
+            
+            els.contentWrapper.appendChild(navDiv);
+        }
+
+        window.prevChapter = prevChapter;
+        window.nextChapter = nextChapter;
+
+        function updateDocumentStyles() {
+            const firstPara = els.contentWrapper.querySelector('.doc-line.paragraph');
+            if (firstPara && settings.dropCap) firstPara.classList.add('drop-cap');
+        }
+
+        // ==================== 目录生成（修复：确保前言显示） ====================
+        function generateTOC() {
+            els.tocList.innerHTML = '';
+            
+            // 遍历所有章节生成目录
+            appState.chapters.forEach((chapter, chIdx) => {
+                // 如果是前言章节，添加一个特殊的前言目录项
+                if (chapter.isPreface) {
+                    const prefaceLi = document.createElement('li');
+                    prefaceLi.className = 'toc-item level-0 preface-item';
+                    prefaceLi.dataset.index = chapter.startIndex;
+                    prefaceLi.textContent = i18n[settings.language].preface;
+                    prefaceLi.addEventListener('click', () => {
+                        navigateToChapter(chIdx);
+                    });
+                    els.tocList.appendChild(prefaceLi);
+                }
+                
+                // 遍历章节内的所有标题项
+                chapter.items.forEach((item, itemIdx) => {
+                    const globalIndex = chapter.startIndex + itemIdx;
+                    
+                    // 确定是否是标题类型
+                    let level = -1;
+                    if (item.type === 'title') level = 0;
+                    else if (item.type === 'subtitle') level = 1;
+                    else if (item.type.startsWith('heading')) {
+                        level = parseInt(item.type.replace('heading', ''));
+                    }
+                    
+                    // 只添加标题到目录
+                    if (level >= 0) {
+                        const li = document.createElement('li');
+                        li.className = `toc-item level-${level}`;
+                        li.dataset.index = globalIndex;
+                        
+                        // 前言章节内的第一个标题如果是title类型，不再重复显示（前面已添加前言项）
+                        if (chapter.isPreface && itemIdx === 0 && item.type === 'title') {
+                            return; // 跳过，因为前面已经添加了"前言"目录项
+                        }
+                        
+                        li.textContent = item.display || item.text;
+                        
+                        li.addEventListener('click', () => {
+                            navigateToChapter(chIdx, globalIndex);
+                        });
+                        
+                        els.tocList.appendChild(li);
+                    }
+                });
+            });
+        }
+
+        // 导航到指定章节和位置
+        function navigateToChapter(chapterIdx, targetIndex = null) {
+            // 如果不在当前章节，先切换章节
+            if (chapterIdx !== appState.currentChapterIndex) {
+                appState.currentChapterIndex = chapterIdx;
+                renderCurrentChapter();
+                updateHistoryProgress(); // 记录跳转
+            }
+            
+            // 滚动到指定位置
+            if (targetIndex !== null) {
+                setTimeout(() => {
+                    const target = els.contentWrapper.querySelector(`[data-index="${targetIndex}"]`);
+                    if (target) {
+                        target.scrollIntoView({ behavior: settings.smoothScroll ? 'smooth' : 'auto', block: 'start' });
+                        updateTocActive(targetIndex);
+                    }
+                }, 50);
+            }
+        }
+
+        // ==================== 文件处理 ====================
+        async function processFile(file) {
+            if (appState.ui.isProcessing) return;
+            appState.ui.isProcessing = true;
+            els.loadingScreen.classList.add('active');
+            
+            appState.currentFile.name = file.name;
+            appState.currentFile.type = file.name.split('.').pop().toLowerCase();
+            
+            try {
+                let result, wordCount = 0, storeContent = null;
+                
+                if (appState.currentFile.type === 'docx') {
+                    const arrayBuffer = await file.arrayBuffer();
+                    appState.currentFile.rawContent = arrayBuffer.slice(0);
+                    result = await parseDOCX(arrayBuffer);
+                } else if (['txt', 'md', 'html'].includes(appState.currentFile.type)) {
+                    const text = await file.text();
+                    result = parseTextFile(text, appState.currentFile.type);
+                    if (text.length < 100000) storeContent = text;
+                    appState.currentFile.rawContent = text;
+                } else {
+                    throw new Error('Unsupported format');
+                }
+
+                wordCount = calculateWordCount(result.items);
+                appState.document = result;
+                appState.currentFile.wordCount = wordCount;
+                
+                sectionCounters = [0, 0, 0, 0, 0, 0];
+                appState.chapters = buildChapters(result.items);
+                appState.currentChapterIndex = 0;
+                
+                saveHistory(appState.currentFile.name, appState.currentFile.type, wordCount, storeContent);
+                generateTOC();
+                renderCurrentChapter();
+                
+                // 文件打开后更新正则反馈
+                updateRegexFeedback('title');
+                updateRegexFeedback('subtitle');
+                
+                els.sidebarLeft.classList.add('visible');
+                els.readingArea.classList.add('with-sidebar');
+                settings.sidebarVisible = true;
+                saveSettings();
+                
+                els.fileInfo.textContent = appState.currentFile.name;
+                els.welcomeScreen.style.display = 'none';
+                
+            } catch (err) {
+                showDialog('Error: ' + err.message);
+                console.error(err);
+            } finally {
+                appState.ui.isProcessing = false;
+                els.loadingScreen.classList.remove('active');
+            }
+        }
+
+        async function processFileContent(content, fileName, fileType) {
+            appState.currentFile.name = fileName;
+            appState.currentFile.type = fileType;
+            
+            try {
+                let result;
+                if (fileType === 'docx') {
+                    showDialog('DOCX format requires file selection.');
+                    return;
+                } else {
+                    result = parseTextFile(content, fileType);
+                }
+                
+                const wordCount = calculateWordCount(result.items);
+                appState.document = result;
+                appState.currentFile.wordCount = wordCount;
+                
+                sectionCounters = [0, 0, 0, 0, 0, 0];
+                appState.chapters = buildChapters(result.items);
+                appState.currentChapterIndex = 0;
+                
+                generateTOC();
+                renderCurrentChapter();
+                
+                // 文件打开后更新正则反馈
+                updateRegexFeedback('title');
+                updateRegexFeedback('subtitle');
+                
+                els.sidebarLeft.classList.add('visible');
+                els.readingArea.classList.add('with-sidebar');
+                settings.sidebarVisible = true;
+                saveSettings();
+                
+                els.fileInfo.textContent = appState.currentFile.name;
+                els.welcomeScreen.style.display = 'none';
+                
+            } catch (err) {
+                showDialog('Error: ' + err.message);
+            }
+        }
+
+        function calculateWordCount(items) {
+            let count = 0;
+            items.forEach(item => {
+                if (item.text) {
+                    const cnChars = item.text.match(/[\u4e00-\u9fa5]/g);
+                    if (cnChars) count += cnChars.length;
+                    const enWords = item.text.match(/[a-zA-Z]+/g);
+                    if (enWords) count += enWords.length;
+                }
+            });
+            return count;
+        }
+
+        // ==================== DOCX 解析 ====================
+        async function parseDOCX(arrayBuffer) {
+            const zip = await JSZip.loadAsync(arrayBuffer);
+            let styleDefs = {};
+            const images = {};
+            
+            const imageFiles = Object.keys(zip.files).filter(name => 
+                name.startsWith('word/media/') && /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(name)
+            );
+            
+            for (const imgPath of imageFiles) {
+                const imgData = await zip.file(imgPath).async('base64');
+                const ext = imgPath.split('.').pop().toLowerCase();
+                const mimeType = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'bmp': 'image/bmp', 'svg': 'image/svg+xml' }[ext] || 'image/png';
+                images[imgPath] = `data:${mimeType};base64,${imgData}`;
+            }
+            
+            try {
+                const stylesXml = await zip.file('word/styles.xml').async('text');
+                const parser = new DOMParser();
+                const stylesDoc = parser.parseFromString(stylesXml, 'text/xml');
+                Array.from(stylesDoc.getElementsByTagName('w:style')).forEach(style => {
+                    const styleId = style.getAttribute('w:styleId');
+                    const nameNode = style.getElementsByTagName('w:name')[0];
+                    const name = nameNode ? nameNode.getAttribute('w:val') : '';
+                    if (name || styleId) {
+                        styleDefs[styleId.toLowerCase()] = { name: (name || '').toLowerCase(), styleId: styleId.toLowerCase() };
+                    }
+                });
+            } catch (e) {}
+            
+            const xmlContent = await zip.file('word/document.xml').async('text');
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+            
+            const body = xmlDoc.getElementsByTagName('w:body')[0];
+            const paragraphs = Array.from(body.getElementsByTagName('w:p'));
+            
+            sectionCounters = [0, 0, 0, 0, 0, 0];
+            const results = [];
+            
+            paragraphs.forEach(p => {
+                const drawings = p.getElementsByTagName('w:drawing');
+                if (drawings.length > 0) {
+                    for (const drawing of drawings) {
+                        const blip = drawing.getElementsByTagName('a:blip')[0];
+                        if (blip) {
+                            const embedId = blip.getAttribute('r:embed');
+                            const imgName = Object.keys(images).find(k => k.includes(embedId));
+                            if (imgName || images[Object.keys(images)[0]]) {
+                                results.push({ type: 'image', data: imgName ? images[imgName] : images[Object.keys(images)[0]], alt: 'Image' });
+                            }
+                        }
+                    }
+                }
+                
+                const text = Array.from(p.getElementsByTagName('w:t')).map(t => t.textContent).join('');
+                if (!text.trim() && !drawings.length) return;
+                
+                const pPr = p.getElementsByTagName('w:pPr')[0];
+                const styleId = pPr ? (pPr.getElementsByTagName('w:pStyle')[0]?.getAttribute('w:val') || '').toLowerCase() : '';
+                
+                if (styleId && ['toc', '目录', 'table of contents'].some(s => styleId.includes(s))) return;
+                
+                const styleName = styleDefs[styleId]?.name || '';
+                const styleInfo = getDOCXStyleInfo(pPr, styleId, styleName);
+                let item = processStyleInfo(styleInfo, text);
+                if (item) results.push(item);
+            });
+            
+            return { items: results, type: 'docx' };
+        }
+
+        function getDOCXStyleInfo(pPr, styleId, styleName) {
+            const info = { level: 0, isTitle: false, isSubtitle: false, isList: false, listLevel: 0 };
+            if (!pPr && !styleId) return info;
+            
+            const checkId = styleId || '';
+            const checkName = styleName || '';
+            
+            if (checkId === 'subtitle' || checkName === 'subtitle' || checkId.includes('副标题') || checkName.includes('副标题')) {
+                info.isSubtitle = true;
+                return info;
+            }
+            
+            if ((checkId === 'title' || checkName === 'title' || checkId === '标题' || checkName === '标题') && !checkId.includes('副')) {
+                info.isTitle = true;
+                return info;
+            }
+            
+            const headingMatch = checkId.match(/^heading\s*(\d)$/) || checkName.match(/^heading\s*(\d)$/);
+            if (headingMatch) {
+                info.level = parseInt(headingMatch[1]);
+                return info;
+            }
+            
+            const cnMatch = checkId.match(/标题\s*([1-6])/) || checkName.match(/标题\s*([1-6])/);
+            if (cnMatch) {
+                info.level = parseInt(cnMatch[1]);
+                return info;
+            }
+            
+            if (pPr) {
+                const outline = pPr.getElementsByTagName('w:outlineLvl')[0];
+                if (outline) {
+                    const lvl = parseInt(outline.getAttribute('w:val'));
+                    if (lvl >= 0 && lvl <= 5) {
+                        info.level = lvl + 1;
+                        return info;
+                    }
+                }
+                const numPr = pPr.getElementsByTagName('w:numPr')[0];
+                if (numPr) {
+                    info.isList = true;
+                    const ilvl = numPr.getElementsByTagName('w:ilvl')[0];
+                    info.listLevel = ilvl ? parseInt(ilvl.getAttribute('w:val')) : 0;
+                }
+            }
+            return info;
+        }
+
+        // ==================== TXT/MD/HTML 解析 ====================
+        function parseTextFile(content, ext) {
+            const lines = content.split(/\r?\n/);
+            const results = [];
+            sectionCounters = [0, 0, 0, 0, 0, 0];
+            
+            const customTitleRegex = settings.titleRegex ? new RegExp(settings.titleRegex, 'i') : null;
+            const customSubtitleRegex = settings.subtitleRegex ? new RegExp(settings.subtitleRegex, 'i') : null;
+            const specialTitles = ['阅读须知', '引言', '序言', '前言', '楔子', '尾声', '创作后记', 'Introduction', 'Prologue', 'Preface', 'Epilogue'];
+
+            if (ext === 'html') {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(content, 'text/html');
+                doc.querySelectorAll('img').forEach(img => results.push({ type: 'image', data: img.src, alt: img.alt || '' }));
+                
+                const elements = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li');
+                elements.forEach(el => {
+                    const text = el.textContent.trim();
+                    if (!text) return;
+                    const tag = el.tagName.toLowerCase();
+                    if (tag === 'h1') results.push({ type: 'title', text, display: `[T]${text}` });
+                    else if (tag === 'h2') results.push(processHeading(1, text));
+                    else if (tag === 'h3') results.push(processHeading(2, text));
+                    else if (tag === 'h4') results.push(processHeading(3, text));
+                    else if (tag === 'h5') results.push(processHeading(4, text));
+                    else if (tag === 'h6') results.push(processHeading(5, text));
+                    else if (tag === 'li') results.push({ type: 'list', text, display: '• ' + text });
+                    else results.push({ type: 'paragraph', text, display: '    ' + text });
+                });
+            } else {
+                lines.forEach(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return;
+                    let item = null;
+
+                    if (customTitleRegex && customTitleRegex.test(trimmed)) {
+                        const match = trimmed.match(customTitleRegex);
+                        const text = match[1] || trimmed.replace(customTitleRegex, '').trim() || trimmed;
+                        item = { type: 'title', text: text, display: `[T]${text}` };
+                    }
+                    else if (customSubtitleRegex && customSubtitleRegex.test(trimmed)) {
+                        const match = trimmed.match(customSubtitleRegex);
+                        const text = match[1] || trimmed.replace(customSubtitleRegex, '').trim() || trimmed;
+                        item = { type: 'subtitle', text: text, display: `[S]${text}` };
+                    }
+                    else if (specialTitles.find(t => new RegExp(`^${t}$`, 'i').test(trimmed))) {
+                        const matched = specialTitles.find(t => new RegExp(`^${t}$`, 'i').test(trimmed));
+                        item = { type: 'title', text: matched, display: `[T]${matched}` };
+                    }
+                    else if (/^\[T\]/i.test(trimmed)) {
+                        const cleanText = trimmed.replace(/^\[T\]\s*/i, '');
+                        item = { type: 'title', text: cleanText, display: `[T]${cleanText}` };
+                    }
+                    else if (/^\[S\]/i.test(trimmed)) {
+                        const cleanText = trimmed.replace(/^\[S\]\s*/i, '');
+                        item = { type: 'subtitle', text: cleanText, display: `[S]${cleanText}` };
+                    }
+                    else if (ext === 'md' && trimmed.startsWith('#')) {
+                        const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+                        if (match) {
+                            const level = match[1].length;
+                            const text = match[2].trim();
+                            item = processHeading(level, text);
+                        } else {
+                            item = { type: 'paragraph', text: trimmed, display: '    ' + trimmed };
+                        }
+                    }
+                    else {
+                        const chapterInfo = detectChapterPattern(trimmed);
+                        if (chapterInfo) {
+                            item = processHeading(chapterInfo.level, chapterInfo.text);
+                        } else {
+                            item = { type: 'paragraph', text: trimmed, display: '    ' + trimmed };
+                        }
+                    }
+                    if (item) results.push(item);
+                });
+            }
+            return { items: results, type: ext };
+        }
+
+        function detectChapterPattern(text) {
+            const patterns = [
+                { pattern: /^第\s*([一二三四五六七八九十百千万零\d]+)\s*章\s*[:\-]?\s*(.*)/i, level: 1 },
+                { pattern: /^第\s*([一二三四五六七八九十百千万零\d]+)\s*节\s*[:\-]?\s*(.*)/i, level: 2 },
+                { pattern: /^(?:[（(])([一二三四五六七八九十])(?:[）)])\s*[:\-]?\s*(.*)/, level: 2 },
+                { pattern: /^Chapter\s*(\d+)\s*[:\-]?\s*(.*)/i, level: 1 },
+                { pattern: /^Section\s*(\d+)\s*[:\-]?\s*(.*)/i, level: 2 },
+                { pattern: /^(\d+)\.(\d+)(?:\.(\d+))?\s+[:\-]?\s*(.*)/, level: null },
+                { pattern: /^(\d+)[、,，]\s*(.*)/, level: 2 }
+            ];
+            
+            for (const p of patterns) {
+                const match = text.match(p.pattern);
+                if (match) {
+                    let level = p.level;
+                    let titleText = '';
+                    if (p.level === null) {
+                        const dots = (match[0].match(/\./g) || []).length;
+                        level = dots + 1;
+                        titleText = match[match.length - 1] || '';
+                    } else {
+                        titleText = match[2] || '';
+                    }
+                    return { level, text: titleText, raw: text };
+                }
+            }
+            return null;
+        }
+
+        // ==================== 章节序号处理 ====================
+        function processHeading(level, text) {
+            level = Math.max(1, Math.min(6, level));
+            
+            sectionCounters[level - 1]++;
+            for (let i = level; i < 6; i++) sectionCounters[i] = 0;
+            
+            const numbering = settings.chapterNumbering || 'chineseNovel';
+            let display = text;
+            
+            switch(numbering) {
+                case 'chineseNovel':
+                    if (level === 1) display = `第${numberToChinese(sectionCounters[0])}章 ${text}`;
+                    else if (level === 2) display = `第${numberToChinese(sectionCounters[1])}节 ${text}`;
+                    else display = `(${numberToChinese(sectionCounters[level-1])}) ${text}`;
+                    break;
+                case 'englishNovel':
+                    if (level === 1) display = `Chapter ${sectionCounters[0]} ${text}`;
+                    else if (level === 2) display = `Section ${sectionCounters[1]} ${text}`;
+                    else display = `Part ${sectionCounters[level-1]} ${text}`;
+                    break;
+                case 'technical':
+                    display = `${sectionCounters.slice(0, level).join('.')} ${text}`;
+                    break;
+                case 'academic':
+                    display = formatAcademicNumbering(level, sectionCounters, text);
+                    break;
+            }
+            return { type: `heading${level}`, level, text, display };
+        }
+
+        function numberToChinese(num) {
+            const chars = '零一二三四五六七八九十';
+            if (num <= 10) return chars[num] || num.toString();
+            if (num < 20) return '十' + (num === 10 ? '' : chars[num - 10]);
+            if (num < 100) {
+                const ten = Math.floor(num / 10);
+                const one = num % 10;
+                return chars[ten] + '十' + (one === 0 ? '' : chars[one]);
+            }
+            return num.toString();
+        }
+
+        function formatAcademicNumbering(level, counters, text) {
+            const n = counters[level - 1];
+            switch(level) {
+                case 1: return `${numberToChinese(n)}、${text}`;
+                case 2: return `（${numberToChinese(n)}）${text}`;
+                case 3: return `${n}. ${text}`;
+                case 4: return `（${n}）${text}`;
+                case 5: return `${['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'][n-1] || '('+n+')'} ${text}`;
+                case 6: return `${String.fromCharCode(64 + n)}. ${text}`;
+                default: return text;
+            }
+        }
+
+        function processStyleInfo(styleInfo, text) {
+            if (styleInfo.isSubtitle) return { type: 'subtitle', text, display: `[S]${text}` };
+            if (styleInfo.isTitle) return { type: 'title', text, display: `[T]${text}` };
+            if (styleInfo.level >= 1 && styleInfo.level <= 6) return processHeading(styleInfo.level, text);
+            if (styleInfo.isList) return { type: 'list', level: styleInfo.listLevel, text, display: '  '.repeat(styleInfo.listLevel) + '• ' + text };
+            return { type: 'paragraph', text, display: '    ' + text };
+        }
+
+        async function reparseWithRegex() {
+            if (!appState.currentFile.name) {
+                showDialog(settings.language === 'zh' ? '请先打开文件' : 'Please open a file first', 'alert');
+                return;
+            }
+            
+            try {
+                if (appState.currentFile.type === 'docx' && appState.currentFile.rawContent) {
+                    sectionCounters = [0, 0, 0, 0, 0, 0];
+                    const result = await parseDOCX(appState.currentFile.rawContent);
+                    appState.document = result;
+                    appState.chapters = buildChapters(result.items);
+                    generateTOC();
+                    renderCurrentChapter();
+                } else if (appState.currentFile.rawContent) {
+                    sectionCounters = [0, 0, 0, 0, 0, 0];
+                    const result = parseTextFile(appState.currentFile.rawContent, appState.currentFile.type);
+                    appState.document = result;
+                    appState.chapters = buildChapters(result.items);
+                    generateTOC();
+                    renderCurrentChapter();
+                }
+                // 重新解析后更新正则反馈
+                updateRegexFeedback('title');
+                updateRegexFeedback('subtitle');
+            } catch (err) {
+                showDialog('Error: ' + err.message, 'alert');
+            }
+        }
+
+        // ==================== 搜索（修复：整本书搜索） ====================
+        function performSearch(query) {
+            appState.search.currentQuery = query;
+            if (!query || !appState.document.items.length) {
+                els.searchResults.innerHTML = `<div class="search-empty">${i18n[settings.language].searchEmpty}</div>`;
+                return;
+            }
+            
+            query = query.toLowerCase();
+            appState.search.matches = [];
+            
+            // 遍历所有章节进行搜索
+            appState.chapters.forEach((chapter, chapterIdx) => {
+                chapter.items.forEach((item, itemIdx) => {
+                    if (item.text && item.text.toLowerCase().includes(query)) {
+                        appState.search.matches.push({ 
+                            item, 
+                            chapterIndex: chapterIdx,
+                            itemIndex: itemIdx,
+                            globalIndex: chapter.startIndex + itemIdx,
+                            chapterTitle: chapter.isPreface ? i18n[settings.language].preface : chapter.title
+                        });
+                    }
+                });
+            });
+            
+            if (appState.search.matches.length === 0) {
+                els.searchResults.innerHTML = `<div class="search-empty">${i18n[settings.language].searchNoResults}</div>`;
+                return;
+            }
+            
+            els.searchResults.innerHTML = appState.search.matches.map((match, idx) => {
+                const text = match.item.text;
+                const lowerText = text.toLowerCase();
+                const matchIndex = lowerText.indexOf(query);
+                const start = Math.max(0, matchIndex - 30);
+                const end = Math.min(text.length, matchIndex + query.length + 30);
+                let context = text.substring(start, end);
+                if (start > 0) context = '...' + context;
+                if (end < text.length) context = context + '...';
+                
+                const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+                context = context.replace(regex, '<span class="search-result-match">$1</span>');
+                
+                return `
+                    <div class="search-result-item" data-index="${idx}" data-global="${match.globalIndex}" data-chapter="${match.chapterIndex}">
+                        <div class="search-result-context">${context}</div>
+                        <div class="search-result-info">
+                            <span>${getItemTypeLabel(match.item.type)}</span>
+                            <span>${escapeHtml(match.chapterTitle)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            els.searchResults.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const globalIndex = parseInt(item.dataset.global);
+                    const chapterIndex = parseInt(item.dataset.chapter);
+                    const match = appState.search.matches[parseInt(item.dataset.index)];
+                    
+                    // 清除之前的高亮
+                    clearSearchHighlight();
+                    
+                    // 如果不在目标章节，先切换章节
+                    if (chapterIndex !== appState.currentChapterIndex) {
+                        appState.currentChapterIndex = chapterIndex;
+                        renderCurrentChapter();
+                        updateHistoryProgress(); // 记录跳转
+                    }
+                    
+                    // 滚动到目标并高亮
+                    setTimeout(() => {
+                        const target = els.contentWrapper.querySelector(`[data-index="${globalIndex}"]`);
+                        if (target) {
+                            target.scrollIntoView({ behavior: settings.smoothScroll ? 'smooth' : 'auto', block: 'center' });
+                            target.classList.add('search-highlight');
+                            appState.search.highlightedIndex = globalIndex;
+                            
+                            document.querySelectorAll('.search-result-item.active').forEach(i => i.classList.remove('active'));
+                            item.classList.add('active');
+                        }
+                    }, 50);
+                });
+            });
+        }
+
+        function clearSearchHighlight() {
+            if (appState.search.highlightedIndex >= 0) {
+                const el = els.contentWrapper.querySelector(`[data-index="${appState.search.highlightedIndex}"]`);
+                if (el) el.classList.remove('search-highlight');
+                appState.search.highlightedIndex = -1;
+            }
+        }
+
+        function getItemTypeLabel(type) {
+            const labels = {
+                'title': settings.language === 'zh' ? '标题' : 'Title',
+                'subtitle': settings.language === 'zh' ? '副标题' : 'Subtitle',
+                'paragraph': settings.language === 'zh' ? '正文' : 'Paragraph',
+                'list': settings.language === 'zh' ? '列表' : 'List'
+            };
+            return labels[type] || type;
+        }
+
+        function escapeRegex(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+        // ==================== 导出（增强HTML） ====================
+        function exportDocument(format) {
+            if (!appState.document.items.length) return;
+            switch(format) {
+                case 'txt': downloadFile(generateTXT(), 'text/plain', '.txt'); break;
+                case 'md': downloadFile(generateMD(), 'text/markdown', '.md'); break;
+                case 'html': downloadFile(generateHTML(), 'text/html', '.html'); break;
+                case 'pdf': generatePDF(); break;
+            }
+        }
+
+        function generateTXT() {
+            return appState.document.items.map(i => i.type === 'image' ? '[图片]' : (i.display || i.text)).join('\n\n');
+        }
+
+        function generateMD() {
+            return appState.document.items.map(i => {
+                if (i.type === 'image') return `![${i.alt || 'image'}](${i.data})`;
+                if (i.type === 'title') return `# ${i.text}`;
+                if (i.type === 'subtitle') return `## ${i.text}`;
+                if (i.type.startsWith('heading')) return `${'#'.repeat(i.level)} ${i.text}`;
+                return i.text;
+            }).join('\n\n');
+        }
+
+        function generateHTML() {
+            // 生成包含所有层级标题的目录
+            let tocItems = [];
+            let contentItems = [];
+            let idCounter = 0;
+            
+            appState.chapters.forEach((chapter, chIdx) => {
+                chapter.items.forEach((item, itemIdx) => {
+                    const id = `heading-${idCounter++}`;
+                    let level = 0;
+                    let text = '';
+                    
+                    if (item.type === 'title') {
+                        level = 1;
+                        text = item.text;
+                    } else if (item.type === 'subtitle') {
+                        level = 2;
+                        text = item.text;
+                    } else if (item.type.startsWith('heading')) {
+                        level = parseInt(item.type.replace('heading', '')) + 1; // +1因为title是1级
+                        text = item.display || item.text;
+                    }
+                    
+                    if (level > 0) {
+                        tocItems.push({ id, level, text: chapter.isPreface && itemIdx === 0 ? i18n[settings.language].preface : text });
+                    }
+                    
+                    // 生成内容HTML
+                    if (item.type === 'image') {
+                        contentItems.push(`<div class="image-container" id="${id}"><img src="${item.data}" alt="${escapeHtml(item.alt || '')}" style="max-width:100%;height:auto;display:block;margin:1em auto;"></div>`);
+                    } else if (item.type === 'title') {
+                        contentItems.push(`<h1 id="${id}" style="text-align:center;color:var(--accent-color);margin-top:1.5em;">${escapeHtml(item.text)}</h1>`);
+                    } else if (item.type === 'subtitle') {
+                        contentItems.push(`<h2 id="${id}" style="text-align:center;color:var(--text-secondary);font-style:italic;margin-bottom:2em;">${escapeHtml(item.text)}</h2>`);
+                    } else if (item.type.startsWith('heading')) {
+                        const hLevel = item.level + 1;
+                        contentItems.push(`<h${hLevel} id="${id}" style="margin-top:1.5em;margin-bottom:0.5em;color:var(--text-primary);">${escapeHtml(item.display || item.text)}</h${hLevel}>`);
+                    } else if (item.type === 'list') {
+                        contentItems.push(`<p style="padding-left:2em;margin:0.5em 0;">• ${escapeHtml(item.text)}</p>`);
+                    } else {
+                        const indentStyle = settings.indent ? 'text-indent:2em;' : '';
+                        contentItems.push(`<p style="line-height:1.8;margin:0.8em 0;text-align:justify;${indentStyle}">${escapeHtml(item.text)}</p>`);
+                    }
+                });
+            });
+            
+            const tocHtml = tocItems.map(t => {
+                const padding = (t.level - 1) * 20;
+                return `<div style="padding-left:${padding}px;margin:4px 0;"><a href="#${t.id}" style="text-decoration:none;color:var(--text-secondary);">${escapeHtml(t.text)}</a></div>`;
+            }).join('');
+            
+            const theme = settings.theme;
+            const themeStyles = {
+                light: 'body{background:#fff;color:#212529;}',
+                retro: 'body{background:#f4ecd8;color:#3d3d3d;}',
+                eyeCare: 'body{background:#c7edcc;color:#2c3e2d;}',
+                dark: 'body{background:#1a1a1a;color:#e0e0e0;}'
+            };
+            
+            return `<!DOCTYPE html>
+<html lang="${settings.language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(appState.currentFile.name)}</title>
+    <style>
+        ${themeStyles[theme] || themeStyles.light}
+        body {
+            font-family: ${settings.font === 'serif' ? 'Georgia,"Noto Serif SC",serif' : settings.font === 'sans' ? 'Arial,"Noto Sans SC",sans-serif' : settings.font === 'kai' ? 'KaiTi,STKaiti,serif' : 'Consolas,Monaco,monospace'};
+            line-height: 1.8;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .toc {
+            background: rgba(0,0,0,0.03);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+            border-bottom: 2px solid var(--accent-color, #495057);
+            padding-bottom: 8px;
+        }
+        .toc a:hover { color: var(--accent-color, #495057) !important; text-decoration: underline !important; }
+        h1 { font-size: 1.8em; border-bottom: 3px solid var(--accent-color, #495057); padding-bottom: 0.3em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.3em; }
+        h4 { font-size: 1.1em; }
+        @media print {
+            body { padding: 20px; }
+            .toc { page-break-after: always; }
+        }
+        @media (max-width: 600px) {
+            body { padding: 20px 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toc">
+        <div class="toc-title">${settings.language === 'zh' ? '目录' : 'Contents'}</div>
+        ${tocHtml}
+    </div>
+    <div class="content">
+        ${contentItems.join('\n')}
+    </div>
+</body>
+</html>`;
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFont('helvetica');
+            let y = 20;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 20;
+            const maxWidth = doc.internal.pageSize.width - 2 * margin;
+            
+            appState.document.items.forEach((item) => {
+                if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+                
+                if (item.type === 'image') {
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'italic');
+                    doc.text('[Image]', margin, y);
+                    y += 6;
+                } else if (item.type === 'title') {
+                    doc.setFontSize(18);
+                    doc.setFont('helvetica', 'bold');
+                    const textWidth = doc.getTextWidth(item.text);
+                    doc.text(item.text, (doc.internal.pageSize.width - textWidth) / 2, y);
+                    y += 10;
+                } else if (item.type.startsWith('heading')) {
+                    const text = item.display || item.text;
+                    doc.setFontSize(16 - (item.level - 1) * 2);
+                    doc.setFont('helvetica', 'bold');
+                    const lines = doc.splitTextToSize(text, maxWidth);
+                    doc.text(lines, margin, y);
+                    y += lines.length * 6 + 4;
+                } else {
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'normal');
+                    const lines = doc.splitTextToSize(item.text, maxWidth);
+                    doc.text(lines, margin, y);
+                    y += lines.length * 5 + 3;
+                }
+            });
+            doc.save(appState.currentFile.name.replace(/\.[^/.]+$/, '') + '.pdf');
+        }
+
+        function downloadFile(content, mimeType, extension) {
+            const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = appState.currentFile.name.replace(/\.[^/.]+$/, '') + extension;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        init();
+    </script>
+</body>
+</html>

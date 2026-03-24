@@ -16,8 +16,8 @@ dist/
 build/
 
 # IDE
-.vscode/
 .idea/
+*.swp
 *.swp
 *.swo
 *~

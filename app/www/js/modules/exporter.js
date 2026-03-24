@@ -158,8 +158,8 @@ Lumina.Exporter = {
         const fontLoaderScript = `
         (function() {
         const fonts = [
-            {family: 'Noto Serif SC', url: 'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap'},
-            {family: 'Noto Sans SC', url: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap'}
+            {family: 'Noto Serif SC', url: null},  // CDN已移除
+            {family: 'Noto Sans SC', url: null}  // CDN已移除
         ];
         // ... 其余保持原样
         })();

@@ -500,7 +500,7 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
         const loadingTask = pdfjsLib.getDocument({
             data: arrayBuffer,
             useSystemFonts: true,
-            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapUrl: './assets/js/cmaps/',
             cMapPacked: true
         });
 

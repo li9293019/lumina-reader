@@ -10,15 +10,17 @@ Lumina.Config.fileTypes = {
 };
 
 Lumina.Config.fontConfig = (() => {
-    // 检测是否在 APP 环境（离线优先）
+    // 检测运行环境
     const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+    // file:// 协议下加载本地 CSS 会触发 CORS，需要禁用
+    const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
     
     // APP 环境：使用系统字体 + 本地字体
     if (isApp) {
         return {
             serif: {
                 family: '"LXGW Neo Zhi Song", "Noto Serif SC", "Source Han Serif SC", "SimSun", "STSong", serif',
-                url: './assets/fonts/LXGWNeoZhiSong.css', // 本地 CSS
+                url: isFileProtocol ? null : './assets/fonts/LXGWNeoZhiSong.css', // file协议下禁用避免CORS
                 preload: false,
                 fallback: 'SimSun, STSong, serif',
                 metrics: { sizeAdjust: '100%', ascentOverride: '90%', descentOverride: '25%', lineGapOverride: '0%' }
@@ -32,7 +34,7 @@ Lumina.Config.fontConfig = (() => {
             },
             kai: {
                 family: '"LXGW WenKai", "KaiTi", "STKaiti", serif',
-                url: './assets/fonts/lxgwwenkai.css', // 本地 CSS
+                url: isFileProtocol ? null : './assets/fonts/lxgwwenkai.css', // file协议下禁用避免CORS
                 preload: false,
                 fallback: 'KaiTi, STKaiti, serif',
                 metrics: { sizeAdjust: '105%', ascentOverride: '92%', descentOverride: '28%', lineGapOverride: '0%' }
@@ -58,14 +60,14 @@ Lumina.Config.fontConfig = (() => {
         },
         sans: {
             family: '"Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif',
-            url: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap',
+            url: null,  // CDN已移除，使用系统字体
             preload: true,
             fallback: 'sans-serif',
             metrics: { sizeAdjust: '100%', ascentOverride: '88%', descentOverride: '22%', lineGapOverride: '0%' }
         },
         kai: {
             family: '"LXGW WenKai", "KaiTi", "STKaiti", serif',
-            url: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css',
+            url: isFileProtocol ? null : './assets/fonts/lxgwwenkai.css',
             preload: false,
             fallback: 'KaiTi, STKaiti, serif',
             metrics: { sizeAdjust: '105%', ascentOverride: '92%', descentOverride: '28%', lineGapOverride: '0%' }

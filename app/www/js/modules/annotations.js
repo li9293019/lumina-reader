@@ -924,28 +924,14 @@ Lumina.Annotations = {
         tooltip.style.top = `${top}px`;
     },
     
-    // 设置注释面板
+    // 设置注释面板事件
     setupPanel() {
-        // 在设置面板旁边添加注释面板
-        const panel = document.createElement('aside');
-        panel.className = 'panel annotation-panel';
-        panel.id = 'annotationPanel';
-        panel.innerHTML = `
-            <div class="panel-header">
-                <span class="panel-title" data-i18n="annotations">注释与书签</span>
-                <button class="btn-icon" id="closeAnnotationPanel" data-i18n-tooltip="close">
-                    <svg class="icon"><use href="#icon-close"/></svg>
-                </button>
-            </div>
-            <div class="annotation-list" id="annotationList">
-                <div class="annotation-empty">
-                    <svg class="icon"><use href="#icon-bookmark"/></svg>
-                    <div data-i18n="noAnnotations">暂无注释或书签</div>
-                    <div class="annotation-hint" data-i18n="annotationHint">选中文本添加注释，或点击添加书签</div>
-                </div>
-            </div>
-        `;
-        document.querySelector('.main-frame').appendChild(panel);
+        // 面板已在 HTML 中静态创建，这里只绑定事件
+        const panel = document.getElementById('annotationPanel');
+        if (!panel) {
+            console.warn('[Annotations] 注释面板元素未找到');
+            return;
+        }
         
         // 关闭按钮
         document.getElementById('closeAnnotationPanel').addEventListener('click', () => {

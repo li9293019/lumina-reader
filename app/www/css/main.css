@@ -3573,13 +3573,19 @@ border: 1px solid var(--border-color);
 background: var(--bg-tertiary);
 }
 
-/* 注释面板 */
+/* 注释面板 - 静态创建，继承 .panel 样式 */
 .annotation-panel {
-right: -400px;
+    right: -400px;
+}
+
+@media (max-width: 768px) {
+    .annotation-panel {
+        right: -100%;
+    }
 }
 
 .annotation-panel.open {
-right: 0;
+    right: 0;
 }
 
 .annotation-list {

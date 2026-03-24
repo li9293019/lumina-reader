@@ -32,33 +32,44 @@
 <title>流萤阅读器</title>
 
 <!-- 本地库文件（离线可用） -->
-<script src="./assets/js/jszip.min.js"></script>
-<script src="./assets/js/pdf.min.js"></script>
-<script src="./assets/js/encoding.min.js"></script>
-<script src="./assets/js/docx.min.js"></script>
-<script src="./assets/js/exporter-bridge.js"></script>
-<script src="./assets/js/safe-area.js"></script>
+<script src="./assets/js/lib/jszip.min.js"></script>
+<script src="./assets/js/lib/pdf.min.js"></script>
+<script src="./assets/js/lib/encoding.min.js"></script>
+<script src="./assets/js/lib/docx.min.js"></script>
+<script src="./assets/js/lib/pdf.worker.min.js"></script>
+
+<!-- 应用桥接 -->
+<script src="./assets/js/app/exporter-bridge.js"></script>
+<script src="./assets/js/app/safe-area.js"></script>
+<script src="./assets/js/app/db-bridge.js"></script>
 
 <!-- 主样式表 -->
 <link rel="stylesheet" href="./css/main.css">
 
-<!-- 应用模块 -->
-<script src="./js/modules/00-namespace.js"></script>
-<script src="./js/modules/01-config.js"></script>
-<script src="./js/modules/02-utils.js"></script>
-<script src="./js/modules/03-i18n.js"></script>
-<script src="./js/modules/04-db.js"></script>
-<script src="./js/modules/05-parser.js"></script>
-<script src="./js/modules/06-chapter.js"></script>
-<script src="./js/modules/07-renderer.js"></script>
-<script src="./js/modules/08-tts.js"></script>
-<script src="./js/modules/09-font.js"></script>
-<script src="./js/modules/10-data-manager.js"></script>
-<script src="./js/modules/11-settings.js"></script>
-<script src="./js/modules/12-ui.js"></script>
-<script src="./js/modules/13-font-loader.js"></script>
-<script src="./js/modules/14-annotations.js"></script>
-<script src="./js/modules/15-init.js"></script>
+<!-- 核心应用模块 -->
+<script src="./js/modules/namespace.js"></script>
+<script src="./js/modules/config.js"></script>
+<script src="./js/modules/utils.js"></script>
+<script src="./js/modules/i18n.js"></script>
+<script src="./js/modules/db.js"></script>
+<!-- 文件解析 -->
+<script src="./js/modules/parser.js"></script>
+<!-- 章节处理 -->
+<script src="./js/modules/chapter.js"></script>
+<!-- 渲染引擎（包含搜索、热图、分页） -->
+<script src="./js/modules/renderer.js"></script>
+<!-- 语音朗读 -->
+<script src="./js/modules/tts.js"></script>
+<!-- 批注系统 -->
+<script src="./js/modules/annotations.js"></script>
+<!-- 数据管理（包含历史记录、导出导入） -->
+<script src="./js/modules/data-manager.js"></script>
+<script src="./js/modules/settings.js"></script>
+<script src="./js/modules/ui.js"></script>
+<!-- 操作事务 -->
+<script src="./js/modules/actions.js"></script>
+<script src="./js/modules/exporter.js"></script>
+<script src="./js/modules/init.js"></script>
 </head>
 
 <body>
@@ -575,6 +586,23 @@
                 <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
             </div>
             <div class="search-results" id="searchResults"></div>
+        </aside>
+
+        <!-- 注释面板 -->
+        <aside class="panel annotation-panel" id="annotationPanel">
+            <div class="panel-header">
+                <span class="panel-title" data-i18n="annotations">注释与书签</span>
+                <button class="btn-icon" id="closeAnnotationPanel" data-i18n-tooltip="close">
+                    <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
+                </button>
+            </div>
+            <div class="annotation-list" id="annotationList">
+                <div class="annotation-empty">
+                    <svg class="icon"><use href="#icon-bookmark"/></svg>
+                    <div data-i18n="noAnnotations">暂无注释或书签</div>
+                    <div class="annotation-hint" data-i18n="annotationHint">选中文本添加注释，或点击添加书签</div>
+                </div>
+            </div>
         </aside>
 
         <!-- 关于面板 -->

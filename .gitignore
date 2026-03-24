@@ -1,5 +1,3 @@
-# Git Ignore for Lumina Reader
-
 # Dependencies
 node_modules/
 __pycache__/
@@ -18,7 +16,6 @@ build/
 # IDE
 .idea/
 *.swp
-*.swp
 *.swo
 *~
 
@@ -26,12 +23,19 @@ build/
 .DS_Store
 Thumbs.db
 
+# Data directories (runtime)
+web/data/
+sqlite/
+data/
+
+# Reference files
+reference/
+refrence/
+
 # Backup files
 appBak.rar
 *Bak/
-备份/
-参考/
-reference/
+backup/
 
 # Logs
 *.log
@@ -41,15 +45,10 @@ npm-debug.log*
 .env
 .env.local
 
-# Large files
+# Large binary files
 *.pptx
 *.rar
 *.zip
-
-# Test files
-textCleaner.html
-pdfPraser4.html
-
-# Data (optional - if you don't want to track test data)
-# data/
-# web/data/
+*.db
+*.db-shm
+*.db-wal

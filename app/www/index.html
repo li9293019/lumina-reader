@@ -486,6 +486,22 @@
                         <span data-i18n="ttsVoiceHint">提示：部分手机可能不支持在应用内切换音色，请到系统设置中切换</span>
                     </div>
 
+                    <!-- TTS 调试测试面板 -->
+                    <div id="ttsTestPanel" style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; font-size: 12px;">
+                        <div style="font-weight: bold; margin-bottom: 8px; color: var(--accent-color);">TTS 调试信息</div>
+                        <div id="ttsTestInfo" style="color: var(--text-secondary); line-height: 1.6;">
+                            加载中...
+                        </div>
+                        <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="ttsTestVoice0" class="option-btn" style="padding: 4px 8px; font-size: 11px;">测试音色0</button>
+                            <button id="ttsTestVoice1" class="option-btn" style="padding: 4px 8px; font-size: 11px;">测试音色1</button>
+                            <button id="ttsTestVoice2" class="option-btn" style="padding: 4px 8px; font-size: 11px;">测试音色2</button>
+                            <button id="ttsTestVoice3" class="option-btn" style="padding: 4px 8px; font-size: 11px;">测试音色3</button>
+                            <button id="ttsTestVoice4" class="option-btn" style="padding: 4px 8px; font-size: 11px;">测试音色4</button>
+                            <button id="ttsTestRefresh" class="option-btn" style="padding: 4px 8px; font-size: 11px;">刷新信息</button>
+                        </div>
+                    </div>
+
                     <div class="slider-group">
                         <div class="slider-control" data-setting-slider="ttsRate" data-min="5" data-max="20" data-unit="x" data-divider="10">
                             <div class="setting-label" data-i18n="ttsRate"></div>

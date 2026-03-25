@@ -60,6 +60,9 @@ Lumina.TTS.Manager = class {
         
         // 监听原生层保活广播（防止后台 WebView 休眠）
         this.setupKeepAliveListener();
+        
+        // 初始化调试面板
+        this.initTestPanel();
 
         return true;
     }
@@ -301,6 +304,95 @@ Lumina.TTS.Manager = class {
         }
     }
     
+    // 初始化测试面板
+    initTestPanel() {
+        // 绑定测试按钮
+        for (let i = 0; i < 5; i++) {
+            const btn = document.getElementById(`ttsTestVoice${i}`);
+            if (btn) {
+                btn.addEventListener('click', () => this.testVoice(i));
+            }
+        }
+        const refreshBtn = document.getElementById('ttsTestRefresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.updateTestPanel());
+        }
+        
+        // 初始更新
+        this.updateTestPanel();
+    }
+    
+    // 更新测试面板
+    updateTestPanel() {
+        const infoEl = document.getElementById('ttsTestInfo');
+        if (!infoEl) return;
+        
+        let html = `<div><strong>当前设置:</strong> voiceIndex=${this.settings.voiceIndex !== undefined ? this.settings.voiceIndex : '未设置'}</div>`;
+        
+        if (this.voices && this.voices.length > 0) {
+            html += `<div style="margin-top: 8px;"><strong>显示音色列表 (${this.voices.length}个):</strong></div>`;
+            this.voices.forEach((v, i) => {
+                const isSelected = i === (this.settings.voiceIndex || 0);
+                html += `<div style="color: ${isSelected ? 'var(--accent-color)' : 'inherit'}; margin: 2px 0;">${i}: ${v.displayName || v.name} (voiceURI: ${v.voiceURI || 'N/A'})</div>`;
+            });
+        } else {
+            html += `<div style="color: #999;">音色列表未加载</div>`;
+        }
+        
+        if (this._rawVoiceList && this._rawVoiceList.length > 0) {
+            html += `<div style="margin-top: 8px;"><strong>原始音色列表 (${this._rawVoiceList.length}个):</strong></div>`;
+            this._rawVoiceList.forEach((v, i) => {
+                const voiceName = v.voiceURI || v.name;
+                const selectedVoice = this.voices[this.settings.voiceIndex || 0];
+                const isSelected = selectedVoice && (selectedVoice.voiceURI === voiceName || selectedVoice.name === voiceName);
+                html += `<div style="color: ${isSelected ? 'var(--accent-color)' : '#666'}; margin: 2px 0; font-size: 11px;">${i}: ${v.name} / ${v.voiceURI || 'N/A'}</div>`;
+            });
+        }
+        
+        infoEl.innerHTML = html;
+    }
+    
+    // 测试指定索引的音色
+    async testVoice(index) {
+        console.log('[TTS] 测试音色索引:', index);
+        
+        if (!this._rawVoiceList || index >= this._rawVoiceList.length) {
+            Lumina.UI.showToast('音色索引超出范围');
+            return;
+        }
+        
+        const voice = this._rawVoiceList[index];
+        const voiceName = voice.voiceURI || voice.name;
+        
+        Lumina.UI.showToast(`测试音色 ${index}: ${voiceName}`);
+        
+        // 测试朗读
+        const testText = `这是音色 ${index} 的测试`;
+        
+        try {
+            if (this.isApp && this.nativeTTS) {
+                await this.nativeTTS.speak({
+                    text: testText,
+                    lang: 'zh-CN',
+                    rate: 1.0,
+                    pitch: 1.0,
+                    volume: 1.0,
+                    voice: index,
+                    category: 'playback'
+                });
+            } else if (this.synth) {
+                const utterance = new SpeechSynthesisUtterance(testText);
+                utterance.lang = 'zh-CN';
+                this.synth.speak(utterance);
+            }
+        } catch (e) {
+            console.error('[TTS] 测试音色失败:', e);
+            Lumina.UI.showToast('测试失败: ' + e.message);
+        }
+    }
+        }
+    }
+    
     // 启动前台服务保活（解决熄屏问题）
     startServiceKeepAlive() {
         if (!this.isApp) return;
@@ -449,11 +541,16 @@ Lumina.TTS.Manager = class {
                     this.settings.voiceIndex = parseInt(btn.dataset.index);
                     this.settings.voiceURI = btn.dataset.voice;
                     this.saveSettings();
+                    // 更新测试面板
+                    this.updateTestPanel();
                 } else {
                     this.updateSettings('voice', btn.dataset.voice);
                 }
             });
         });
+        
+        // 更新测试面板
+        this.updateTestPanel();
     }
 
     splitIntoSentences(text) {

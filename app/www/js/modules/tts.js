@@ -1117,7 +1117,7 @@ Lumina.TTS.Manager = class {
         this.synth.speak(this.utterance);
     }
 
-    // APP 原生 TTS 播放
+    // APP 原生 TTS 播放 - 逐句朗读以实现句子级高亮
     async speakCurrentNative() {
         if (!this.isPlaying) return;
         
@@ -1148,7 +1148,7 @@ Lumina.TTS.Manager = class {
             }
         }
         
-        // 分页检查 - 关键修复：如果当前段落不在当前页，先翻页
+        // 分页检查
         const relativeIdx = this.currentItemIndex - chapter.startIndex;
         if (!chapter.pageRanges) {
             chapter.pageRanges = Lumina.Pagination.calculateRanges(chapter.items);
@@ -1175,48 +1175,124 @@ Lumina.TTS.Manager = class {
             return;
         }
         
-        // 获取要朗读的文本
+        // 获取段落元素
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
-        const textToRead = item.text;
         
-        // 高亮当前段落
-        this.clearAllHighlights();
-        if (this.currentParagraphEl) {
-            this.currentParagraphEl.classList.add('tts-highlight');
-            this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 分句
+        this.currentSentences = this.splitIntoSentences(item.text);
+        
+        // 逐句朗读
+        for (let i = this.currentSentenceIndex; i < this.currentSentences.length; i++) {
+            if (!this.isPlaying) return;
+            
+            this.currentSentenceIndex = i;
+            const sentence = this.currentSentences[i];
+            
+            // 更新高亮 - 段落级 + 句子级
+            this.clearAllHighlights();
+            if (this.currentParagraphEl) {
+                this.currentParagraphEl.classList.add('tts-highlight');
+                this.highlightSentenceInParagraph(i);
+                this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            try {
+                // 启动前台服务保活
+                if (i === 0) this.startServiceKeepAlive();
+                
+                // 朗读这一句
+                const speakOptions = {
+                    text: sentence,
+                    lang: 'zh-CN',
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume,
+                    category: 'playback'
+                };
+                
+                if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
+                    speakOptions.voice = this.settings.voiceIndex;
+                }
+                
+                await this.nativeTTS.speak(speakOptions);
+                
+            } catch (e) {
+                console.error('[TTS] 句子朗读失败:', e);
+                // 出错时继续下一句
+                continue;
+            }
         }
         
+        // 本段落朗读完成，继续下一段
+        if (this.isPlaying) {
+            this.currentItemIndex++;
+            this.currentSentenceIndex = 0;
+            this.currentHighlightIndex = -1;
+            this.clearAllHighlights();
+            setTimeout(() => this.speakCurrent(), 100);
+        }
+    }
+    
+    // 在段落内高亮特定句子（APP 环境，简化版）
+    highlightSentenceInParagraph(sentenceIndex) {
+        if (!this.currentParagraphEl) return;
+        
+        // 获取段落文本并查找句子位置
+        const fullText = this.currentParagraphEl.textContent;
+        const sentences = this.splitIntoSentences(fullText);
+        
+        if (sentenceIndex >= sentences.length) return;
+        
+        // 计算该句子在段落中的位置
+        let charIndex = 0;
+        for (let i = 0; i < sentenceIndex; i++) {
+            const idx = fullText.indexOf(sentences[i], charIndex);
+            if (idx >= 0) charIndex = idx + sentences[i].length;
+        }
+        
+        const targetSentence = sentences[sentenceIndex];
+        const sentenceStart = fullText.indexOf(targetSentence, charIndex);
+        
+        if (sentenceStart < 0) return;
+        
+        // 尝试在 DOM 中找到这个句子并高亮
         try {
-            // 启动前台服务保活
-            this.startServiceKeepAlive();
+            const range = document.createRange();
+            const treeWalker = document.createTreeWalker(this.currentParagraphEl, NodeFilter.SHOW_TEXT);
             
-            // 使用原生 TTS
-            const speakOptions = {
-                text: textToRead,
-                lang: 'zh-CN',
-                rate: this.settings.rate,
-                pitch: this.settings.pitch,
-                volume: this.settings.volume,
-                category: 'playback'
-            };
+            let currentChar = 0, startNode = null, startOffset = 0, endNode = null, endOffset = 0;
+            let node;
             
-            // 添加音色选择
-            if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                speakOptions.voice = this.settings.voiceIndex;
+            while (node = treeWalker.nextNode()) {
+                const nodeLength = node.textContent.length;
+                if (!startNode && currentChar + nodeLength > sentenceStart) {
+                    startNode = node;
+                    startOffset = sentenceStart - currentChar;
+                }
+                if (startNode && currentChar + nodeLength >= sentenceStart + targetSentence.length) {
+                    endNode = node;
+                    endOffset = (sentenceStart + targetSentence.length) - currentChar;
+                    break;
+                }
+                currentChar += nodeLength;
             }
             
-            await this.nativeTTS.speak(speakOptions);
-            
-            // 朗读完成，继续下一段
-            if (this.isPlaying) {
-                this.currentItemIndex++;
-                this.currentSentenceIndex = 0;
-                this.currentHighlightIndex = -1;
-                this.clearAllHighlights();
-                
-                setTimeout(() => this.speakCurrent(), 100);
+            if (startNode && endNode) {
+                range.setStart(startNode, startOffset);
+                range.setEnd(endNode, endOffset);
+                const span = document.createElement('span');
+                span.className = 'tts-sentence-highlight';
+                range.surroundContents(span);
+                this.sentenceElements.push(span);
             }
         } catch (e) {
+            // 如果失败，只保留段落高亮
+            console.warn('[TTS] 句子高亮失败:', e);
+        }
+    }
+    
+    // 原先的方法改名保留（备用）
+    async speakCurrentNativeOld() {
             console.error('[TTS] 原生播放失败:', e);
             // 出错时继续下一段，避免卡住
             if (this.isPlaying) {

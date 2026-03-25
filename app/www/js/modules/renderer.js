@@ -506,6 +506,11 @@ Lumina.Search = {
                 // 让 navigateToChapter 处理分页计算
                 Lumina.Actions.navigateToChapter(chapterIndex, globalIndex);
 
+                // 移动端自动关闭搜索面板
+                if (window.innerWidth <= 768) {
+                    Lumina.DOM.searchPanel.classList.remove('open');
+                }
+
                 // 高亮搜索结果（延迟确保渲染完成）
                 setTimeout(() => {
                     const target = Lumina.DOM.contentWrapper.querySelector(`.doc-line[data-index="${globalIndex}"]`);

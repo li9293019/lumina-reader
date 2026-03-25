@@ -1053,8 +1053,9 @@ Lumina.TTS.Manager = class {
             return;
         }
         
-        // 预分句
-        this.currentSentences = this.splitIntoSentences(item.text);
+        // 预分句 - 标题优先使用 display（带有自定义章节序号）
+        const textForSplit = (item.type === 'heading' && item.display) ? item.display : item.text;
+        this.currentSentences = this.splitIntoSentences(textForSplit);
         
         // 防止TTS崩溃：限制单次朗读文本长度（最多500字）
         const MAX_TTS_LENGTH = 500;
@@ -1251,8 +1252,9 @@ Lumina.TTS.Manager = class {
         // 获取段落元素
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
         
-        // 分句
-        this.currentSentences = this.splitIntoSentences(item.text);
+        // 分句 - 标题优先使用 display（带有自定义章节序号）
+        const textToRead = (item.type === 'heading' && item.display) ? item.display : item.text;
+        this.currentSentences = this.splitIntoSentences(textToRead);
         
         // 逐句朗读
         for (let i = this.currentSentenceIndex; i < this.currentSentences.length; i++) {

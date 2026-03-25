@@ -1291,20 +1291,6 @@ Lumina.TTS.Manager = class {
         }
     }
     
-    // 原先的方法改名保留（备用）
-    async speakCurrentNativeOld() {
-            console.error('[TTS] 原生播放失败:', e);
-            // 出错时继续下一段，避免卡住
-            if (this.isPlaying) {
-                this.currentItemIndex++;
-                this.currentSentenceIndex = 0;
-                setTimeout(() => this.speakCurrent(), 100);
-            }
-        } finally {
-            // 停止前台服务保活
-            this.stopServiceKeepAlive();
-        }
-    }
 
     highlightSentence(sentenceIndex) {
         // 防御：如果不支持boundary，不执行

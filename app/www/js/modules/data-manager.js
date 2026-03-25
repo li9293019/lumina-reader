@@ -16,21 +16,7 @@ Lumina.DataManager = class {
             if (e.target.id === 'dataManagerPanel') this.close();
         });
 
-        document.getElementById('dataGrid').addEventListener('click', (e) => {
-            const card = e.target.closest('.data-card');
-            if (!card) return;
-            const fileKey = card.dataset.filekey;
-
-            if (e.target.closest('.delete-btn')) {
-                e.stopPropagation();
-                this.confirmDelete(fileKey, card);
-            } else if (e.target.closest('.export-btn')) {
-                e.stopPropagation();
-                this.exportSingle(fileKey);
-            } else {
-                this.openFile(fileKey);
-            }
-        });
+        // 事件绑定已移至 renderGrid 方法中
     }
 
     async preload() {
@@ -179,6 +165,7 @@ Lumina.DataManager = class {
     renderGrid() {
         const grid = document.getElementById('dataGrid');
         const { files } = this.currentStats;
+        const isMobile = window.innerWidth <= 768;
 
         if (!files.length) {
             grid.innerHTML = `<div class="history-empty" style="grid-column: 1/-1; padding: 60px;"><svg class="icon"><use href="#icon-folder"/></svg><div>${Lumina.I18n.t('noDataToManage')}</div></div>`;
@@ -190,24 +177,206 @@ Lumina.DataManager = class {
             const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
             const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
 
-            return `
-        <div class="data-card" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
-        <div class="card-cover">
-            ${hasCover ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">` : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`}
-            <div class="cover-overlay">
-            <button class="cover-btn export-btn" data-tooltip-text="${Lumina.I18n.t('exportFile')}"><svg class="icon"><use href="#icon-export"/></svg></button>
-            <button class="cover-btn delete-btn" data-tooltip-text="${Lumina.I18n.t('deleteFile')}"><svg class="icon"><use href="#icon-delete"/></svg></button>
-            </div>
-        </div>
-        <div class="card-info">
-            <div class="card-title" title="${Lumina.Utils.escapeHtml(file.fileName)}">${Lumina.Utils.escapeHtml(file.fileName)}</div>
-            <div class="card-meta">${sizeStr} · ${timeAgo}</div>
-            ${file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : ''}
-        </div>
-        </div>
-    `;
+            // 移动端：使用滑动容器结构  PC端：保持原有结构
+            if (isMobile) {
+                return `
+                <div class="data-card data-card-swipe" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
+                    <div class="data-card-swipe-container">
+                        <div class="data-card-actions data-actions-left" data-action="export">
+                            <svg class="icon"><use href="#icon-export"/></svg>
+                            <span>${Lumina.I18n.t('exportFile')}</span>
+                        </div>
+                        <div class="data-card-content">
+                            <div class="card-cover">
+                                ${hasCover ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">` : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`}
+                            </div>
+                            <div class="card-info">
+                                <div class="card-title" title="${Lumina.Utils.escapeHtml(file.fileName)}">${Lumina.Utils.escapeHtml(file.fileName)}</div>
+                                <div class="card-meta">${sizeStr} · ${timeAgo}</div>
+                                ${file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="data-card-actions data-actions-right" data-action="delete">
+                            <svg class="icon"><use href="#icon-delete"/></svg>
+                            <span>${Lumina.I18n.t('deleteFile')}</span>
+                        </div>
+                    </div>
+                </div>
+                `;
+            } else {
+                // PC 端保持原有结构（悬浮按钮）
+                return `
+                <div class="data-card" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
+                    <div class="card-cover">
+                        ${hasCover ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">` : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`}
+                        <div class="cover-overlay">
+                            <button class="cover-btn export-btn" data-tooltip-text="${Lumina.I18n.t('exportFile')}"><svg class="icon"><use href="#icon-export"/></svg></button>
+                            <button class="cover-btn delete-btn" data-tooltip-text="${Lumina.I18n.t('deleteFile')}"><svg class="icon"><use href="#icon-delete"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-title" title="${Lumina.Utils.escapeHtml(file.fileName)}">${Lumina.Utils.escapeHtml(file.fileName)}</div>
+                        <div class="card-meta">${sizeStr} · ${timeAgo}</div>
+                        ${file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : ''}
+                    </div>
+                </div>
+                `;
+            }
         }).join('');
-        Lumina.UI.setupCustomTooltip();
+        
+        // 绑定事件
+        if (isMobile) {
+            this.bindSwipeForDataManager();
+        } else {
+            this.bindPCButtons();
+            Lumina.UI.setupCustomTooltip();
+        }
+    }
+
+    // 绑定 PC 端按钮事件
+    bindPCButtons() {
+        const grid = document.getElementById('dataGrid');
+        grid.querySelectorAll('.data-card').forEach(card => {
+            const fileKey = card.dataset.filekey;
+            const exportBtn = card.querySelector('.export-btn');
+            const deleteBtn = card.querySelector('.delete-btn');
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.exportSingle(fileKey);
+                });
+            }
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.confirmDelete(fileKey, card);
+                });
+            }
+            
+            // 点击卡片打开
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.cover-btn')) {
+                    this.openFile(fileKey);
+                }
+            });
+        });
+    }
+
+    // 绑定移动端滑动手势
+    bindSwipeForDataManager() {
+        const grid = document.getElementById('dataGrid');
+        const cards = grid.querySelectorAll('.data-card-swipe');
+        
+        cards.forEach(card => {
+            const fileKey = card.dataset.filekey;
+            const container = card.querySelector('.data-card-swipe-container');
+            const content = card.querySelector('.data-card-content');
+            
+            let startX = 0;
+            let startY = 0;
+            let currentX = 0;
+            let isDragging = false;
+            let isHorizontalSwipe = false;
+            let touchStartTime = 0;
+            
+            const SWIPE_THRESHOLD = 60;  // 触发阈值
+            const MAX_SWIPE = 100;
+            const ANGLE_THRESHOLD = 25;  // 角度阈值，只有水平角度小于这个值才认为是水平滑动
+            const MOVE_THRESHOLD = 15;   // 最小移动阈值
+            
+            // 触摸开始
+            container.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                isDragging = true;
+                isHorizontalSwipe = false;
+                touchStartTime = Date.now();
+                currentX = 0;
+                content.style.transition = 'none';
+            }, { passive: true });
+            
+            // 触摸移动
+            container.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+                const absX = Math.abs(deltaX);
+                const absY = Math.abs(deltaY);
+                
+                // 如果还没有确定是水平滑动，先进行判断
+                if (!isHorizontalSwipe) {
+                    // 如果移动距离不够，先不处理
+                    if (absX < MOVE_THRESHOLD && absY < MOVE_THRESHOLD) return;
+                    
+                    // 计算角度（与水平方向的夹角）
+                    const angle = Math.atan2(absY, absX) * 180 / Math.PI;
+                    
+                    // 如果角度太大（偏垂直），放弃处理，让页面滚动
+                    if (angle > ANGLE_THRESHOLD) {
+                        isDragging = false;
+                        return;
+                    }
+                    
+                    // 确认是水平滑动
+                    isHorizontalSwipe = true;
+                }
+                
+                // 阻止默认行为（滚动）
+                e.preventDefault();
+                
+                currentX = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, deltaX));
+                content.style.transform = `translateX(${currentX}px)`;
+            }, { passive: false });
+            
+            // 触摸结束
+            container.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                const touch = e.changedTouches[0];
+                const touchDuration = Date.now() - touchStartTime;
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+                
+                // 点击判定：短时间 + 几乎没移动（X和Y方向都要小）
+                const isClick = touchDuration < 180 && Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6;
+                
+                content.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+                
+                if (isClick) {
+                    // 确认是点击 - 打开书籍
+                    content.style.transform = '';
+                    this.openFile(fileKey);
+                } else if (currentX > SWIPE_THRESHOLD) {
+                    // 右滑 - 导出
+                    content.style.transform = `translateX(${SWIPE_THRESHOLD}px)`;
+                    setTimeout(() => {
+                        this.exportSingle(fileKey);
+                        setTimeout(() => {
+                            content.style.transform = '';
+                        }, 300);
+                    }, 200);
+                } else if (currentX < -SWIPE_THRESHOLD) {
+                    // 左滑 - 删除
+                    content.style.transform = `translateX(-${SWIPE_THRESHOLD}px)`;
+                    setTimeout(() => {
+                        this.confirmDelete(fileKey, card);
+                        setTimeout(() => {
+                            content.style.transform = '';
+                        }, 300);
+                    }, 200);
+                } else {
+                    // 复位
+                    content.style.transform = '';
+                }
+                
+                currentX = 0;
+            });
+        });
     }
 
     async openFile(fileKey) {

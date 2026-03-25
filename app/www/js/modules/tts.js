@@ -140,19 +140,13 @@ Lumina.TTS.Manager = class {
         this._longPressTriggered = false;
     }
     
-    // 切换段落模式（短按）
+    // 短按：未播放时启动段落模式，播放中时停止
     toggleParagraphMode() {
-        if (this.isPlaying && this.isPageMode) {
-            // 如果正在以页面模式播放，停止后切换到段落模式
-            this.stop();
-            this.isPageMode = false;
-            this.start();
-            Lumina.UI.showToast('已切换到段落朗读');
-        } else if (this.isPlaying && !this.isPageMode) {
-            // 正在段落模式，停止
+        if (this.isPlaying) {
+            // 播放中：停止
             this.stop();
         } else {
-            // 未播放，启动段落模式
+            // 未播放：启动段落模式
             this.isPageMode = false;
             this.start();
         }
@@ -242,17 +236,13 @@ Lumina.TTS.Manager = class {
     }
     
     // 切换页面听书模式（长按）
+    // 长按：未播放时启动页面模式，播放中时停止
     togglePageMode() {
-        if (this.isPlaying && !this.isPageMode) {
-            // 如果正在以段落模式播放，停止后切换到页面模式
-            this.stop();
-            this.isPageMode = true;
-            this.startPageMode();
-        } else if (this.isPlaying && this.isPageMode) {
-            // 正在页面模式，停止
+        if (this.isPlaying) {
+            // 播放中：停止
             this.stop();
         } else {
-            // 未播放，启动页面模式
+            // 未播放：启动页面模式
             this.isPageMode = true;
             this.startPageMode();
         }
@@ -739,6 +729,9 @@ Lumina.TTS.Manager = class {
 
     stop() {
         this.isPlaying = false;
+        // 停止后重置为一般模式（段落模式）
+        this.isPageMode = false;
+        
         if (this.synth) this.synth.cancel();
         // APP 环境停止原生 TTS
         if (this.isApp && this.nativeTTS) {

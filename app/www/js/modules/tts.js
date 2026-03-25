@@ -337,6 +337,12 @@ Lumina.TTS.Manager = class {
             refreshBtn.addEventListener('click', () => this.updateTestPanel());
         }
         
+        // 绑定打开系统设置按钮
+        const settingsBtn = document.getElementById('ttsOpenSystemSettings');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => this.openSystemTTSSettings());
+        }
+        
         // 初始更新
         this.updateTestPanel();
     }
@@ -381,6 +387,29 @@ Lumina.TTS.Manager = class {
         }
         
         infoEl.innerHTML = html;
+    }
+    
+    // 打开系统 TTS 设置
+    openSystemTTSSettings() {
+        if (this.isApp) {
+            // 使用 Capacitor 打开系统设置
+            try {
+                // 尝试使用原生代码打开 TTS 设置
+                if (Capacitor.Plugins.App) {
+                    // 使用 App 插件打开设置
+                    Capacitor.Plugins.App.openUrl({ url: 'android.settings.TTS_SETTINGS' });
+                } else {
+                    // 降级方案：显示手动引导
+                    Lumina.UI.showToast('请手动打开：设置 → 其他设置 → 无障碍 → TTS输出');
+                }
+            } catch (e) {
+                console.error('[TTS] 打开设置失败:', e);
+                Lumina.UI.showToast('请手动打开：设置 → 其他设置 → 无障碍 → TTS输出');
+            }
+        } else {
+            // Web 环境提示
+            Lumina.UI.showToast('Web 环境请在操作系统设置中查找 TTS 设置');
+        }
     }
     
     // 测试指定索引的音色 - 尝试使用 voiceURI 直接设置

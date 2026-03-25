@@ -158,23 +158,127 @@ Lumina.TTS.Manager = class {
         }
     }
     
+    // 启动段落模式（修复：确保更新 UI）
+    start() {
+        if (!Lumina.State.app.document.items.length) return;
+
+        const state = Lumina.State.app;
+        const selectionInfo = this.getSelectionInfo();
+
+        // 停止当前朗读并重置状态
+        if (this.synth) this.synth.cancel();
+        this.clearAllHighlights();
+        
+        // 关键修复：重置为 undefined（未知状态）
+        this.supportsBoundary = undefined;
+        this.boundaryDetectedThisUtterance = false;
+        
+        // 启动后台服务
+        const bookTitle = state.currentFile?.name || '正在朗读...';
+        this.setBackgroundService(true, bookTitle);
+
+        if (selectionInfo) {
+            this.currentItemIndex = selectionInfo.paragraphIndex;
+            this.currentSentenceIndex = selectionInfo.sentenceIndex;
+            
+            const targetEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
+            
+            if (targetEl) {
+                this.currentFileKey = state.currentFile?.fileKey;
+                this.isPlaying = true;
+                this.updateUI();
+                
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                setTimeout(() => this.speakCurrent(), 100);
+                return;
+            }
+            
+            // 需要翻页逻辑
+            for (let i = 0; i < state.chapters.length; i++) {
+                const ch = state.chapters[i];
+                if (this.currentItemIndex >= ch.startIndex && this.currentItemIndex <= ch.endIndex) {
+                    state.currentChapterIndex = i;
+                    if (!ch.pageRanges) {
+                        ch.pageRanges = Lumina.Pagination.calculateRanges(ch.items);
+                    }
+                    const relativeIdx = this.currentItemIndex - ch.startIndex;
+                    state.currentPageIdx = Lumina.Pagination.findPageIndex(ch.pageRanges, relativeIdx);
+                    break;
+                }
+            }
+            
+            Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
+            
+            this.currentFileKey = state.currentFile?.fileKey;
+            this.isPlaying = true;
+            this.updateUI();
+            
+            setTimeout(() => {
+                const targetEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
+                if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => this.speakCurrent(), 200);
+            }, 300);
+            
+        } else {
+            this.currentItemIndex = Lumina.Renderer.getCurrentVisibleIndex();
+            this.currentSentenceIndex = 0;
+            
+            const ch = state.chapters[state.currentChapterIndex];
+            if (ch && ch.pageRanges) {
+                const relIdx = this.currentItemIndex - ch.startIndex;
+                const targetPage = Lumina.Pagination.findPageIndex(ch.pageRanges, relIdx);
+                if (targetPage !== state.currentPageIdx) {
+                    state.currentPageIdx = targetPage;
+                    Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
+                }
+            }
+            
+            this.currentFileKey = state.currentFile?.fileKey;
+            this.isPlaying = true;
+            this.updateUI();
+            setTimeout(() => this.speakCurrent(), 100);
+        }
+    }
+    
     // 切换页面听书模式（长按）
     togglePageMode() {
         if (this.isPlaying && !this.isPageMode) {
             // 如果正在以段落模式播放，停止后切换到页面模式
             this.stop();
             this.isPageMode = true;
-            this.speakCurrentPage();
-            Lumina.UI.showToast('进入页面听书模式');
+            this.startPageMode();
         } else if (this.isPlaying && this.isPageMode) {
             // 正在页面模式，停止
             this.stop();
         } else {
             // 未播放，启动页面模式
             this.isPageMode = true;
-            this.speakCurrentPage();
-            Lumina.UI.showToast('进入听书模式');
+            this.startPageMode();
         }
+    }
+    
+    // 启动页面模式
+    startPageMode() {
+        if (!Lumina.State.app.document.items.length) return;
+        
+        const state = Lumina.State.app;
+        const bookTitle = state.currentFile?.name || '正在朗读...';
+        
+        // 启动后台服务
+        this.setBackgroundService(true, bookTitle);
+        this.startServiceKeepAlive();
+        
+        // 设置状态
+        this.currentFileKey = state.currentFile?.fileKey;
+        this.isPlaying = true;
+        this.updateUI();
+        
+        // 显示提示
+        Lumina.UI.showToast('进入听书模式');
+        
+        // 开始朗读
+        this.speakCurrentPage();
     }
     
     setupKeepAliveListener() {

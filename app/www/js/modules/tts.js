@@ -982,7 +982,27 @@ Lumina.TTS.Manager = class {
         
         // 预分句
         this.currentSentences = this.splitIntoSentences(item.text);
-        const textToRead = this.currentSentences.slice(this.currentSentenceIndex).join('');
+        
+        // 防止TTS崩溃：限制单次朗读文本长度（最多500字）
+        const MAX_TTS_LENGTH = 500;
+        let textToRead = this.currentSentences.slice(this.currentSentenceIndex).join('');
+        let batchEndSentenceIndex = this.currentSentences.length; // 默认朗读到最后
+        
+        if (textToRead.length > MAX_TTS_LENGTH) {
+            // 找到不超过500字的最后一个句子结束位置
+            let truncatedLength = 0;
+            batchEndSentenceIndex = this.currentSentenceIndex;
+            for (let i = this.currentSentenceIndex; i < this.currentSentences.length; i++) {
+                if (truncatedLength + this.currentSentences[i].length > MAX_TTS_LENGTH) {
+                    break;
+                }
+                truncatedLength += this.currentSentences[i].length;
+                batchEndSentenceIndex = i + 1;
+            }
+            // 只取到endSentenceIndex，剩余的下次朗读
+            textToRead = this.currentSentences.slice(this.currentSentenceIndex, batchEndSentenceIndex).join('');
+            console.log('[TTS] 长段落分批朗读，本次', textToRead.length, '字，剩余', this.currentSentences.slice(batchEndSentenceIndex).join('').length, '字');
+        }
         
         this.utterance = new SpeechSynthesisUtterance(textToRead);
         const voice = this.voices.find(v => v.voiceURI === this.settings.voiceURI) || this.voices[0];
@@ -1067,14 +1087,22 @@ Lumina.TTS.Manager = class {
             if (fallbackTimer) clearTimeout(fallbackTimer);
             if (!this.isPlaying) return;
             
-            this.currentItemIndex++;
-            this.currentSentenceIndex = 0;
-            this.currentHighlightIndex = -1;
-            this.clearSentenceHighlightsOnly();
-            
-            // 关键修复：立即播放下一段，不使用 setTimeout（后台会被延迟）
-            // 使用 Promise 确保立即执行
-            Promise.resolve().then(() => this.speakCurrent());
+            // 检查是否还有剩余句子未朗读（长段落分批情况）
+            if (batchEndSentenceIndex < this.currentSentences.length) {
+                // 继续朗读本段落剩余部分
+                this.currentSentenceIndex = batchEndSentenceIndex;
+                this.currentHighlightIndex = -1;
+                this.clearSentenceHighlightsOnly();
+                console.log('[TTS] 继续朗读本段落，从句子', this.currentSentenceIndex, '开始');
+                Promise.resolve().then(() => this.speakCurrent());
+            } else {
+                // 本段落朗读完成，跳到下一段
+                this.currentItemIndex++;
+                this.currentSentenceIndex = 0;
+                this.currentHighlightIndex = -1;
+                this.clearSentenceHighlightsOnly();
+                Promise.resolve().then(() => this.speakCurrent());
+            }
         };
         
         this.utterance.onerror = (e) => {

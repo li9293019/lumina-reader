@@ -479,8 +479,11 @@
                     <div class="setting-label" data-i18n="ttsSettings"></div>
 
                     <div class="setting-label" data-i18n="ttsVoice"></div>
-                    <div class="setting-options" id="ttsVoiceOptions" style="flex-direction: column; gap: 8px;">
+                    <div class="setting-options" id="ttsVoiceOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <!-- 动态生成 -->
+                    </div>
+                    <div class="tts-hint" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; opacity: 0.8;">
+                        <span data-i18n="ttsVoiceHint">提示：部分手机可能不支持在应用内切换音色，请到系统设置中切换</span>
                     </div>
 
                     <div class="slider-group">
@@ -551,6 +554,15 @@
                     <button class="option-btn btn-reset-settings" id="resetSettings">
                         <span data-i18n="reset"></span>
                     </button>
+                </div>
+
+                <!-- TTS 调试面板 -->
+                <div class="setting-group" id="ttsDebugPanel" style="display: none;">
+                    <div class="setting-label">TTS 调试信息</div>
+                    <div id="ttsDebugContent" style="font-size: 12px; background: var(--bg-tertiary); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+                        <div>点击打开调试信息</div>
+                    </div>
+                    <button class="option-btn" id="toggleTTSDebug" style="margin-top: 8px; width: 100%; font-size: 12px;">显示 TTS 调试</button>
                 </div>
             </div>
         </aside>

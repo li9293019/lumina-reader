@@ -19,6 +19,11 @@ Lumina.TTS.Manager = class {
         this.boundaryDetectedThisUtterance = false; 
         this.isApp = false;
         this.nativeTTS = null;
+        
+        // 页面听书模式
+        this.isPageMode = false; // true=页面模式，false=段落模式
+        this._longPressTimer = null;
+        this._isLongPress = false;
     }
 
     async init() {
@@ -48,7 +53,8 @@ Lumina.TTS.Manager = class {
             speechSynthesis.onvoiceschanged = () => this.loadVoices();
         }
 
-        document.getElementById('ttsToggle').addEventListener('click', () => this.toggle());
+        // 设置 TTS 按钮交互：短按=段落模式，长按=页面听书模式
+        this.setupTTSToggleButton();
         window.addEventListener('beforeunload', () => this.stop());
         this.startFileChangeMonitor();
         
@@ -56,6 +62,119 @@ Lumina.TTS.Manager = class {
         this.setupKeepAliveListener();
 
         return true;
+    }
+    
+    // 设置 TTS 按钮交互：短按=段落模式，长按=页面听书模式
+    setupTTSToggleButton() {
+        const btn = document.getElementById('ttsToggle');
+        if (!btn) return;
+        
+        // 移除旧的点击事件
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // 检测是否是移动设备
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        if (isTouchDevice) {
+            // 移动设备：只使用触摸事件
+            newBtn.addEventListener('touchstart', (e) => this.handleTTSPressStart(e), { passive: false });
+            newBtn.addEventListener('touchend', (e) => this.handleTTSPressEnd(e));
+            newBtn.addEventListener('touchcancel', () => this.handleTTSPressCancel());
+        } else {
+            // 桌面设备：使用鼠标事件
+            newBtn.addEventListener('mousedown', (e) => this.handleTTSPressStart(e));
+            newBtn.addEventListener('mouseup', (e) => this.handleTTSPressEnd(e));
+            newBtn.addEventListener('mouseleave', () => this.handleTTSPressCancel());
+        }
+    }
+    
+    handleTTSPressStart(e) {
+        // 防止默认行为
+        if (e.cancelable) e.preventDefault();
+        
+        // 如果已经有定时器在运行，先清除
+        if (this._longPressTimer) {
+            clearTimeout(this._longPressTimer);
+        }
+        
+        // 标记为按下状态
+        this._isPressed = true;
+        this._longPressTriggered = false;
+        
+        // 启动长按检测
+        this._longPressTimer = setTimeout(() => {
+            if (this._isPressed) {
+                this._longPressTriggered = true;
+                // 长按触发：切换听书模式
+                this.togglePageMode();
+            }
+        }, 600); // 600ms 作为长按阈值
+    }
+    
+    handleTTSPressEnd(e) {
+        // 清除长按定时器
+        if (this._longPressTimer) {
+            clearTimeout(this._longPressTimer);
+            this._longPressTimer = null;
+        }
+        
+        // 如果长按已触发，不执行短按操作
+        if (this._longPressTriggered) {
+            this._isPressed = false;
+            return;
+        }
+        
+        // 短按触发：切换段落模式
+        this._isPressed = false;
+        this.toggleParagraphMode();
+    }
+    
+    handleTTSPressCancel() {
+        // 取消按压
+        if (this._longPressTimer) {
+            clearTimeout(this._longPressTimer);
+            this._longPressTimer = null;
+        }
+        this._isPressed = false;
+        this._longPressTriggered = false;
+    }
+    
+    // 切换段落模式（短按）
+    toggleParagraphMode() {
+        if (this.isPlaying && this.isPageMode) {
+            // 如果正在以页面模式播放，停止后切换到段落模式
+            this.stop();
+            this.isPageMode = false;
+            this.start();
+            Lumina.UI.showToast('已切换到段落朗读');
+        } else if (this.isPlaying && !this.isPageMode) {
+            // 正在段落模式，停止
+            this.stop();
+        } else {
+            // 未播放，启动段落模式
+            this.isPageMode = false;
+            this.start();
+        }
+    }
+    
+    // 切换页面听书模式（长按）
+    togglePageMode() {
+        if (this.isPlaying && !this.isPageMode) {
+            // 如果正在以段落模式播放，停止后切换到页面模式
+            this.stop();
+            this.isPageMode = true;
+            this.speakCurrentPage();
+            Lumina.UI.showToast('进入页面听书模式');
+        } else if (this.isPlaying && this.isPageMode) {
+            // 正在页面模式，停止
+            this.stop();
+        } else {
+            // 未播放，启动页面模式
+            this.isPageMode = true;
+            this.speakCurrentPage();
+            Lumina.UI.showToast('进入听书模式');
+        }
     }
     
     setupKeepAliveListener() {
@@ -160,62 +279,14 @@ Lumina.TTS.Manager = class {
             // APP 环境：获取原生 TTS 音色
             try {
                 const result = await this.nativeTTS.getSupportedVoices();
-                let allVoices = result.voices || [];
-                console.log('[TTS] 原生音色列表:', allVoices.map(v => ({ name: v.name, lang: v.lang })));
+                this.voices = result.voices || [];
+                console.log('[TTS] 原生音色列表:', this.voices.map(v => ({ name: v.name, lang: v.lang })));
                 
-                // 过滤掉无效或奇怪的音色
-                const validVoices = allVoices.filter(v => {
-                    const name = (v.name || '').toLowerCase();
-                    // 过滤掉“奇努克”等不常见语言的音色
-                    const invalidKeywords = ['chinook', 'cherokee', 'coptic', 'chamorro'];
-                    return !invalidKeywords.some(kw => name.includes(kw));
-                });
-                
-                // 为音色添加友好的显示名称
-                this.voices = validVoices.map((v, index) => {
-                    const lang = v.lang || 'zh-CN';
-                    const name = v.name || '';
-                    
-                    // 根据音色特征生成友好名称
-                    let friendlyName = name;
-                    let displayLang = lang;
-                    
-                    if (lang.startsWith('zh')) {
-                        displayLang = '中文';
-                        if (name.includes('male') || name.includes('男')) {
-                            friendlyName = '男声';
-                        } else if (name.includes('female') || name.includes('女')) {
-                            friendlyName = '女声';
-                        } else {
-                            friendlyName = `音色 ${index + 1}`;
-                        }
-                    } else if (lang.startsWith('en')) {
-                        displayLang = '英文';
-                        if (name.includes('male') || name.includes('男')) {
-                            friendlyName = '男声';
-                        } else if (name.includes('female') || name.includes('女')) {
-                            friendlyName = '女声';
-                        } else {
-                            friendlyName = `Voice ${index + 1}`;
-                        }
-                    } else {
-                        friendlyName = name.split('-')[0] || `音色 ${index + 1}`;
-                    }
-                    
-                    return {
-                        ...v,
-                        displayName: `${displayLang} (${friendlyName})`,
-                        originalName: name
-                    };
-                });
-                
-                // 优先排序中文音色
-                this.voices.sort((a, b) => {
-                    const aIsZh = (a.lang || '').startsWith('zh') ? 0 : 1;
-                    const bIsZh = (b.lang || '').startsWith('zh') ? 0 : 1;
-                    return aIsZh - bIsZh;
-                });
-                
+                // 优先选择中文音色
+                const zhVoices = this.voices.filter(v => v.lang && v.lang.startsWith('zh'));
+                if (zhVoices.length > 0) {
+                    this.voices = zhVoices.concat(this.voices.filter(v => !v.lang || !v.lang.startsWith('zh')));
+                }
             } catch (e) {
                 console.error('[TTS] 获取原生音色失败:', e);
                 this.voices = [];
@@ -254,15 +325,15 @@ Lumina.TTS.Manager = class {
         const container = document.getElementById('ttsVoiceOptions');
         if (!container || this.voices.length === 0) return;
 
-        const displayVoices = this.voices.slice(0, 6);
+        const displayVoices = this.voices.slice(0, 8);
 
         container.innerHTML = displayVoices.map((v, index) => {
             const isActive = this.isApp ? index === this.settings.voiceIndex : v.voiceURI === this.settings.voiceURI;
-            // 使用友好名称（如果有）
-            const displayName = this.isApp ? (v.displayName || v.name) : (v.name.replace(/Microsoft|Google|Apple|Android/g, '').trim().split(/\s+/)[0] || v.name);
+            const displayName = v.name.replace(/Microsoft|Google|Apple|Android/g, '').trim().split(/\s+/)[0] || v.name;
             return `
         <button class="option-btn voice-btn ${isActive ? 'active' : ''}" data-voice="${v.voiceURI}" data-index="${index}">
         <span class="voice-name">${displayName}</span>
+        <span class="voice-lang">${v.lang || 'zh-CN'}</span>
         </button>
     `;
         }).join('');
@@ -275,18 +346,6 @@ Lumina.TTS.Manager = class {
                     this.settings.voiceIndex = parseInt(btn.dataset.index);
                     this.settings.voiceURI = btn.dataset.voice;
                     this.saveSettings();
-                    
-                    // 如果正在朗读，重新开始以应用新音色
-                    if (this.isPlaying) {
-                        const currentIndex = this.currentItemIndex;
-                        this.stop();
-                        setTimeout(() => {
-                            this.currentItemIndex = currentIndex;
-                            this.start();
-                        }, 200);
-                    }
-                    
-                    Lumina.UI.showToast('已切换音色');
                 } else {
                     this.updateSettings('voice', btn.dataset.voice);
                 }
@@ -418,6 +477,8 @@ Lumina.TTS.Manager = class {
     toggle() {
         if (this.isPlaying) {
             this.stop();
+        } else if (this.isPageMode) {
+            this.speakCurrentPage();
         } else {
             this.start();
         }
@@ -610,8 +671,131 @@ Lumina.TTS.Manager = class {
                 this.currentItemIndex = savedItemIndex;
                 this.currentSentenceIndex = savedSentenceIndex;
                 this.currentChapterIndex = savedChapter;
-                this.speakCurrent();
+                if (this.isPageMode) {
+                    this.speakCurrentPage();
+                } else {
+                    this.speakCurrent();
+                }
             }, 50);
+        }
+    }
+
+    // 页面听书模式：朗读整个页面的文本（解决熄屏间隔问题）
+    async speakCurrentPage() {
+        if (!this.isPlaying || !this.isPageMode) return;
+        
+        const state = Lumina.State.app;
+        const chapter = state.chapters[state.currentChapterIndex];
+        
+        if (!chapter) {
+            this.stop();
+            return;
+        }
+        
+        // 获取当前页的内容
+        const currentPageIdx = state.currentPageIdx || 0;
+        if (!chapter.pageRanges) {
+            chapter.pageRanges = Lumina.Pagination.calculateRanges(chapter.items);
+        }
+        const currentRange = chapter.pageRanges[currentPageIdx];
+        
+        if (!currentRange) {
+            this.stop();
+            return;
+        }
+        
+        // 构建当前页的完整文本
+        let pageText = '';
+        for (let i = currentRange.start; i <= currentRange.end; i++) {
+            const item = chapter.items[i];
+            if (!item || item.type === 'image') continue;
+            
+            let textToAdd = '';
+            if (item.type === 'paragraph' || item.type === 'text') {
+                textToAdd = item.text || '';
+            } else if (item.type === 'heading') {
+                const level = item.level || 1;
+                const prefix = '第' + ['一', '二', '三', '四', '五', '六'][level - 1] || level;
+                textToAdd = prefix + '章 ' + (item.text || '');
+            }
+            
+            if (textToAdd) {
+                pageText += textToAdd + '。';
+            }
+        }
+        
+        if (!pageText.trim()) {
+            // 当前页无文本，直接翻页
+            state.currentPageIdx++;
+            Lumina.Renderer.renderCurrentChapter();
+            setTimeout(() => this.speakCurrentPage(), 100);
+            return;
+        }
+        
+        try {
+            // 启动前台服务
+            this.startServiceKeepAlive();
+            
+            if (this.isApp && this.nativeTTS) {
+                // APP 环境
+                const speakOptions = {
+                    text: pageText,
+                    lang: 'zh-CN',
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume,
+                    category: 'playback'
+                };
+                
+                // 添加音色选择
+                if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
+                    speakOptions.voice = this.settings.voiceIndex;
+                }
+                
+                await this.nativeTTS.speak(speakOptions);
+                
+                // 当前页朗读完成，自动翻页
+                if (this.isPlaying && this.isPageMode) {
+                    state.currentPageIdx++;
+                    Lumina.Renderer.renderCurrentChapter();
+                    setTimeout(() => this.speakCurrentPage(), 100);
+                }
+            } else if (this.synth) {
+                // Web 环境
+                this.utterance = new SpeechSynthesisUtterance(pageText);
+                this.utterance.lang = 'zh-CN';
+                this.utterance.rate = this.settings.rate;
+                this.utterance.pitch = this.settings.pitch;
+                this.utterance.volume = this.settings.volume;
+                
+                if (this.settings.voiceURI) {
+                    const voice = this.voices.find(v => v.voiceURI === this.settings.voiceURI);
+                    if (voice) this.utterance.voice = voice;
+                }
+                
+                this.utterance.onend = () => {
+                    if (this.isPlaying && this.isPageMode) {
+                        state.currentPageIdx++;
+                        Lumina.Renderer.renderCurrentChapter();
+                        setTimeout(() => this.speakCurrentPage(), 100);
+                    }
+                };
+                
+                this.utterance.onerror = (e) => {
+                    if (e.error === 'interrupted' || e.error === 'canceled') {
+                        return;
+                    }
+                    if (this.isPlaying && this.isPageMode) {
+                        state.currentPageIdx++;
+                        Lumina.Renderer.renderCurrentChapter();
+                        setTimeout(() => this.speakCurrentPage(), 100);
+                    }
+                };
+                
+                this.synth.speak(this.utterance);
+            }
+        } catch (e) {
+            console.error('[TTS] 页面模式朗读失败:', e);
         }
     }
 
@@ -869,6 +1053,9 @@ Lumina.TTS.Manager = class {
         }
         
         try {
+            // 启动前台服务保活
+            this.startServiceKeepAlive();
+            
             // 使用原生 TTS
             const speakOptions = {
                 text: textToRead,
@@ -893,8 +1080,7 @@ Lumina.TTS.Manager = class {
                 this.currentHighlightIndex = -1;
                 this.clearAllHighlights();
                 
-                // 减少延迟以避免被系统优化
-                setTimeout(() => this.speakCurrent(), 50);
+                setTimeout(() => this.speakCurrent(), 100);
             }
         } catch (e) {
             console.error('[TTS] 原生播放失败:', e);
@@ -902,8 +1088,11 @@ Lumina.TTS.Manager = class {
             if (this.isPlaying) {
                 this.currentItemIndex++;
                 this.currentSentenceIndex = 0;
-                setTimeout(() => this.speakCurrent(), 50);
+                setTimeout(() => this.speakCurrent(), 100);
             }
+        } finally {
+            // 停止前台服务保活
+            this.stopServiceKeepAlive();
         }
     }
 

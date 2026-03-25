@@ -346,11 +346,15 @@ Lumina.TTS.Manager = class {
         const infoEl = document.getElementById('ttsTestInfo');
         if (!infoEl) return;
         
-        // 检查是否有增强版插件
+        // 检查是否有增强版插件（本地插件可能未加载，尝试标准插件扩展）
         let hasEnhanced = false;
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
             console.log('[TTS] 可用插件:', Object.keys(Capacitor.Plugins));
             hasEnhanced = !!Capacitor.Plugins.TTSEnhanced;
+            // 如果没有增强版，标记为标准版但尝试使用 voiceURI
+            if (!hasEnhanced && this.isApp) {
+                console.log('[TTS] 增强版插件未加载，将尝试通过标准插件传递 voiceURI');
+            }
         }
         
         let html = `<div><strong>插件:</strong> ${hasEnhanced ? '增强版(支持voiceURI)' : '标准版(索引)'}</div>`;
@@ -411,9 +415,9 @@ Lumina.TTS.Manager = class {
                         category: 'playback'
                     });
                 } else {
-                    // 使用标准插件，传递索引
-                    console.log('[TTS] 使用标准插件测试索引:', index);
-                    await this.nativeTTS.speak({
+                    // 使用标准插件，尝试传递 voiceURI 和索引
+                    console.log('[TTS] 使用标准插件测试，索引:', index, 'voiceURI:', voiceName);
+                    const speakOptions = {
                         text: testText,
                         lang: 'zh-CN',
                         rate: 1.0,
@@ -421,7 +425,10 @@ Lumina.TTS.Manager = class {
                         volume: 1.0,
                         voice: index,
                         category: 'playback'
-                    });
+                    };
+                    // 尝试额外传递 voiceURI（如果插件支持）
+                    speakOptions.voiceURI = voiceName;
+                    await this.nativeTTS.speak(speakOptions);
                 }
             } else if (this.synth) {
                 const utterance = new SpeechSynthesisUtterance(testText);

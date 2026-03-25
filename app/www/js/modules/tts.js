@@ -327,7 +327,11 @@ Lumina.TTS.Manager = class {
         const infoEl = document.getElementById('ttsTestInfo');
         if (!infoEl) return;
         
-        let html = `<div><strong>当前设置:</strong> voiceIndex=${this.settings.voiceIndex !== undefined ? this.settings.voiceIndex : '未设置'}</div>`;
+        // 检查是否有增强版插件
+        const hasEnhanced = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.TTSEnhanced;
+        
+        let html = `<div><strong>插件:</strong> ${hasEnhanced ? '增强版(支持voiceURI)' : '标准版(索引)'}</div>`;
+        html += `<div><strong>当前设置:</strong> voiceIndex=${this.settings.voiceIndex !== undefined ? this.settings.voiceIndex : '未设置'}</div>`;
         
         if (this.voices && this.voices.length > 0) {
             html += `<div style="margin-top: 8px;"><strong>显示音色列表 (${this.voices.length}个):</strong></div>`;
@@ -352,7 +356,7 @@ Lumina.TTS.Manager = class {
         infoEl.innerHTML = html;
     }
     
-    // 测试指定索引的音色
+    // 测试指定索引的音色 - 尝试使用 voiceURI 直接设置
     async testVoice(index) {
         console.log('[TTS] 测试音色索引:', index);
         
@@ -364,22 +368,38 @@ Lumina.TTS.Manager = class {
         const voice = this._rawVoiceList[index];
         const voiceName = voice.voiceURI || voice.name;
         
-        Lumina.UI.showToast(`测试音色 ${index}: ${voiceName}`);
+        Lumina.UI.showToast(`测试: ${voiceName}`);
         
         // 测试朗读
-        const testText = `这是音色 ${index} 的测试`;
+        const testText = `这是音色 ${index} ${voiceName} 的测试`;
         
         try {
             if (this.isApp && this.nativeTTS) {
-                await this.nativeTTS.speak({
-                    text: testText,
-                    lang: 'zh-CN',
-                    rate: 1.0,
-                    pitch: 1.0,
-                    volume: 1.0,
-                    voice: index,
-                    category: 'playback'
-                });
+                // 检查是否有增强版插件可用
+                if (Capacitor.Plugins.TTSEnhanced) {
+                    console.log('[TTS] 使用增强版插件测试 voiceURI:', voiceName);
+                    await Capacitor.Plugins.TTSEnhanced.speak({
+                        text: testText,
+                        lang: 'zh-CN',
+                        rate: 1.0,
+                        pitch: 1.0,
+                        volume: 1.0,
+                        voiceURI: voiceName, // 直接传递 voiceURI
+                        category: 'playback'
+                    });
+                } else {
+                    // 使用标准插件，传递索引
+                    console.log('[TTS] 使用标准插件测试索引:', index);
+                    await this.nativeTTS.speak({
+                        text: testText,
+                        lang: 'zh-CN',
+                        rate: 1.0,
+                        pitch: 1.0,
+                        volume: 1.0,
+                        voice: index,
+                        category: 'playback'
+                    });
+                }
             } else if (this.synth) {
                 const utterance = new SpeechSynthesisUtterance(testText);
                 utterance.lang = 'zh-CN';

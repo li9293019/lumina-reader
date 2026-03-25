@@ -390,8 +390,6 @@ Lumina.TTS.Manager = class {
             Lumina.UI.showToast('测试失败: ' + e.message);
         }
     }
-        }
-    }
     
     // 启动前台服务保活（解决熄屏问题）
     startServiceKeepAlive() {

@@ -30,10 +30,16 @@ Lumina.TTS.Manager = class {
         // 检测是否在 APP 环境
         if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
             this.isApp = true;
-            // 从全局获取原生 TTS 插件
-            if (Capacitor.Plugins && Capacitor.Plugins.TextToSpeech) {
+            // 优先检查增强版插件
+            if (Capacitor.Plugins && Capacitor.Plugins.TTSEnhanced) {
+                this.nativeTTS = Capacitor.Plugins.TTSEnhanced;
+                this.useEnhancedTTS = true;
+                console.log('[TTS] 使用增强版 TTS 插件 (TTSEnhanced)');
+            } else if (Capacitor.Plugins && Capacitor.Plugins.TextToSpeech) {
+                // 回退到标准插件
                 this.nativeTTS = Capacitor.Plugins.TextToSpeech;
-                console.log('[TTS] 使用原生 TTS 插件');
+                this.useEnhancedTTS = false;
+                console.log('[TTS] 使用标准原生 TTS 插件');
             } else {
                 console.warn('[TTS] 原生 TTS 插件未找到');
                 this.isApp = false;
@@ -328,7 +334,11 @@ Lumina.TTS.Manager = class {
         if (!infoEl) return;
         
         // 检查是否有增强版插件
-        const hasEnhanced = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.TTSEnhanced;
+        let hasEnhanced = false;
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
+            console.log('[TTS] 可用插件:', Object.keys(Capacitor.Plugins));
+            hasEnhanced = !!Capacitor.Plugins.TTSEnhanced;
+        }
         
         let html = `<div><strong>插件:</strong> ${hasEnhanced ? '增强版(支持voiceURI)' : '标准版(索引)'}</div>`;
         html += `<div><strong>当前设置:</strong> voiceIndex=${this.settings.voiceIndex !== undefined ? this.settings.voiceIndex : '未设置'}</div>`;

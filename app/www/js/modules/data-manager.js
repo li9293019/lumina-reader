@@ -685,18 +685,34 @@ Lumina.DataManager = class {
     showSystemFilePicker() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json,.lmn';
+        // APP 环境使用通用 MIME 类型，因为 Android 不认识 .lmn 扩展名
+        const isApp = window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+        input.accept = isApp ? '*/*' : '.json,.lmn';
         input.onchange = async (e) => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file) {
+                console.log('[FilePicker] 未选择文件');
+                return;
+            }
+            console.log('[FilePicker] 选择文件:', file.name, 'type:', file.type, 'isApp:', isApp);
+            
+            // 检查文件扩展名
+            const isLmn = file.name.toLowerCase().endsWith('.lmn');
+            const isJson = file.name.toLowerCase().endsWith('.json');
+            
+            if (!isLmn && !isJson) {
+                Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': 请选择 .json 或 .lmn 文件');
+                return;
+            }
+            
             Lumina.UI.showToast(Lumina.I18n.t('readingFile'), 0);
             try {
                 // 检测文件类型
-                if (file.name.endsWith('.lmn')) {
-                    // 加密格式
+                if (isLmn) {
+                    console.log('[FilePicker] 检测为 LMN 格式');
                     await this.importLmnFile(file);
                 } else {
-                    // 明文 JSON 格式
+                    console.log('[FilePicker] 检测为 JSON 格式');
                     const text = await file.text();
                     const data = JSON.parse(text);
                     if (data.exportType === 'batch' && Array.isArray(data.books))
@@ -707,6 +723,7 @@ Lumina.DataManager = class {
                         throw new Error('Invalid format');
                 }
             } catch (err) {
+                console.error('[FilePicker] 导入失败:', err);
                 Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': ' + (err.message || 'Unknown error'));
             }
         };
@@ -715,7 +732,27 @@ Lumina.DataManager = class {
     
     // 导入 .lmn 加密文件
     async importLmnFile(file) {
-        const arrayBuffer = await file.arrayBuffer();
+        console.log('[Import LMN] 开始导入:', file.name, 'size:', file.size);
+        
+        let arrayBuffer;
+        try {
+            // 尝试使用 file.arrayBuffer()
+            if (file.arrayBuffer) {
+                arrayBuffer = await file.arrayBuffer();
+            } else {
+                // APP 环境回退使用 FileReader
+                arrayBuffer = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+            console.log('[Import LMN] 读取文件成功:', arrayBuffer.byteLength, 'bytes');
+        } catch (e) {
+            console.error('[Import LMN] 读取文件失败:', e);
+            throw new Error('读取文件失败: ' + e.message);
+        }
         
         // 检测是否为 .lmn 格式
         if (!Lumina.Crypto.isLmnFile(arrayBuffer)) {

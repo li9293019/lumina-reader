@@ -1,12 +1,22 @@
 // ==================== 19. 操作分发器 ====================
 
 Lumina.Actions = {
+    // 支持的文件类型
+    supportedFormats: ['docx', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
+    
     async processFile(file) {
         if (Lumina.State.app.ui.isProcessing) return;
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
+        // 检查文件类型是否支持
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        if (!this.supportedFormats.includes(fileExt)) {
+            Lumina.UI.showDialog(`不支持的文件格式: .${fileExt}\n\n支持的格式: DOCX, TXT, MD, HTML, PDF, JSON, LMN`);
+            return;
+        }
+
         // 处理导入文件（JSON 或 LMN 格式）
-        if (file.name.endsWith('.json') || file.name.endsWith('.lmn')) { 
+        if (fileExt === 'json' || fileExt === 'lmn') { 
             await this.handleImportFile(file); 
             return; 
         }
@@ -155,7 +165,12 @@ Lumina.Actions = {
             }
         } catch (err) {
             // 忽略用户取消操作（PDF 密码输入取消等）
-            if (err.message === 'Password cancelled' || err.message?.includes('cancelled')) {
+            const isCancelled = err.message === 'Password cancelled' || 
+                               err.message?.includes('cancelled') ||
+                               err.message?.includes('No password') ||
+                               err.message?.includes('need password') ||
+                               err.name === 'PasswordException';
+            if (isCancelled) {
                 console.log('[Actions] 用户取消操作');
             } else {
                 Lumina.UI.showDialog(`Error: ${err.message}`);

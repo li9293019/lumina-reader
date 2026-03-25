@@ -19,9 +19,17 @@ Lumina.init = async () => {
     let actualMode = 'indexeddb';
 
     // APP 环境隐藏存储模式按钮（只在 Web 端显示）
+    // APP 环境使用通用文件过滤器，因为 Android 不认识自定义扩展名
     if (isCapacitor) {
         const storageBtn = document.getElementById('storageIndicator');
         if (storageBtn) storageBtn.style.display = 'none';
+        
+        // 修改主文件输入框的 accept 属性
+        const mainFileInput = document.getElementById('fileInput');
+        if (mainFileInput) {
+            mainFileInput.accept = '*/*';
+            console.log('[Init] APP 环境：文件选择器使用通用类型 */*');
+        }
     } 
 
     try {

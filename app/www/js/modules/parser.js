@@ -472,29 +472,10 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
 
     const results = [];
     let currentPdf = null;
-    let passwordResolve = null;
-    let passwordReject = null;
 
-    // 密码输入对话框
-    const requestPassword = (reason) => {
-        return new Promise((resolve, reject) => {
-            passwordResolve = resolve;
-            passwordReject = reject;
-            
-            const isRetry = reason === 2;
-            const title = isRetry ? Lumina.I18n.t('pdfPasswordError') || '密码错误' : Lumina.I18n.t('pdfPasswordRequired') || '需要密码';
-            const message = isRetry ? Lumina.I18n.t('pdfPasswordRetry') || '请重新输入 PDF 密码' : Lumina.I18n.t('pdfPasswordPrompt') || '此 PDF 受密码保护，请输入密码';
-            
-            // 使用阅读器的对话框
-            Lumina.UI.showDialog(message, 'prompt', (result) => {
-                if (result === null || result === false) {
-                    reject(new Error('Password cancelled'));
-                } else {
-                    resolve(result);
-                }
-            }, { title, inputType: 'password', placeholder: Lumina.I18n.t('pdfPasswordPlaceholder') || '请输入密码' });
-        });
-    };
+    // 用户取消标记
+    let userCancelled = false;
+    let passwordHandled = false;
 
     try {
         const loadingTask = pdfjsLib.getDocument({
@@ -505,22 +486,31 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
         });
 
         // 处理密码保护
-        loadingTask.onPassword = async (callback, reason) => {
-            // 暂时隐藏 loading 界面，让密码对话框显示在最上层
-            const wasLoadingActive = Lumina.DOM.loadingScreen.classList.contains('active');
-            Lumina.DOM.loadingScreen.classList.remove('active');
-            
-            try {
-                const password = await requestPassword(reason);
-                callback(password);
-            } catch (e) {
-                callback(null);
-            } finally {
-                // 恢复 loading 界面
-                if (wasLoadingActive) {
-                    Lumina.DOM.loadingScreen.classList.add('active');
-                }
+        loadingTask.onPassword = (updateCallback, reason) => {
+            // 用户已取消，抛出异常终止解析
+            if (userCancelled) {
+                throw new Error('Password cancelled');
             }
+            
+            const isRetry = reason === 2;
+            const title = isRetry ? Lumina.I18n.t('pdfPasswordError') : Lumina.I18n.t('pdfPasswordRequired');
+            const message = isRetry ? Lumina.I18n.t('pdfPasswordRetry') : Lumina.I18n.t('pdfPasswordPrompt');
+            
+            // 隐藏 loading
+            const wasLoadingActive = Lumina.DOM.loadingScreen?.classList.contains('active');
+            if (wasLoadingActive) Lumina.DOM.loadingScreen.classList.remove('active');
+            
+            Lumina.UI.showDialog(message, 'prompt', (result) => {
+                if (wasLoadingActive) Lumina.DOM.loadingScreen.classList.add('active');
+                
+                if (result === null || result === false) {
+                    userCancelled = true;
+                    // 用户取消，传入 null 让 PDF.js 抛出错误
+                    updateCallback(null);
+                } else {
+                    updateCallback(result);
+                }
+            }, { title, inputType: 'password', placeholder: Lumina.I18n.t('pdfPasswordPlaceholder') });
         };
 
         currentPdf = await loadingTask.promise;
@@ -606,8 +596,9 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
         }
 
     } catch (error) {
-        if (error.message === 'Password cancelled') {
-            throw new Error('Password required');
+        // 用户取消或密码错误，统一返回取消标记
+        if (userCancelled || error.name === 'PasswordException') {
+            throw new Error('Password cancelled');
         }
         throw error;
     }

@@ -271,9 +271,42 @@ Lumina.TTS.Manager = class {
         this.updateUI();
         
         // 显示提示
-        Lumina.UI.showToast('进入听书模式');
+        const hintText = Lumina.I18n.t('enterPageMode');
+        Lumina.UI.showToast(hintText);
         
-        // 开始朗读
+        // 朗读提示词（用户需要听到反馈）
+        this.speakHintAndStartPage(hintText);
+    }
+    
+    // 朗读提示词后开始页面朗读
+    async speakHintAndStartPage(hintText) {
+        try {
+            if (this.isApp && this.nativeTTS) {
+                // APP 环境朗读提示词
+                await this.nativeTTS.speak({
+                    text: hintText,
+                    lang: 'zh-CN',
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume,
+                    category: 'playback'
+                });
+            } else if (this.synth) {
+                // Web 环境朗读提示词
+                const hintUtterance = new SpeechSynthesisUtterance(hintText);
+                hintUtterance.lang = 'zh-CN';
+                hintUtterance.rate = this.settings.rate;
+                hintUtterance.pitch = this.settings.pitch;
+                hintUtterance.volume = this.settings.volume;
+                await new Promise(resolve => {
+                    hintUtterance.onend = resolve;
+                    this.synth.speak(hintUtterance);
+                });
+            }
+        } catch (e) {
+            console.log('[TTS] 提示词朗读失败:', e);
+        }
+        // 开始朗读页面内容
         this.speakCurrentPage();
     }
     
@@ -820,9 +853,14 @@ Lumina.TTS.Manager = class {
             if (item.type === 'paragraph' || item.type === 'text') {
                 textToAdd = item.text || '';
             } else if (item.type === 'heading') {
-                const level = item.level || 1;
-                const prefix = '第' + ['一', '二', '三', '四', '五', '六'][level - 1] || level;
-                textToAdd = prefix + '章 ' + (item.text || '');
+                // 优先使用 display（带有自定义章节序号），否则根据 level 生成
+                if (item.display) {
+                    textToAdd = item.display;
+                } else {
+                    const level = item.level || 1;
+                    const prefix = '第' + ['一', '二', '三', '四', '五', '六'][level - 1] || level;
+                    textToAdd = prefix + '章 ' + (item.text || '');
+                }
             }
             
             if (textToAdd) {

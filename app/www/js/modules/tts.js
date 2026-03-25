@@ -1188,10 +1188,9 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = i;
             const sentence = this.currentSentences[i];
             
-            // 更新高亮 - 段落级 + 句子级
+            // 更新高亮 - 只保留句子级（APP 环境逐句朗读）
             this.clearAllHighlights();
             if (this.currentParagraphEl) {
-                this.currentParagraphEl.classList.add('tts-highlight');
                 this.highlightSentenceInParagraph(i);
                 this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }

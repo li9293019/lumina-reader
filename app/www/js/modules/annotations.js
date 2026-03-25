@@ -143,37 +143,33 @@ Lumina.Annotations = {
                 if (e.touches.length !== 1) return;
                 // 双指缩放时不触发标注
                 if (window.LuminaPinchState?.isPinching) return;
+                // 排除页码导航区域
+                if (e.target.closest('.pagination-nav, .pagination-main, .pagination-arrow, .pagination-num')) {
+                    return;
+                }
                 
                 touchStartTime = Date.now();
                 this.longPressTarget = e.target.closest('[data-index]');
                 
                 if (this.longPressTarget) {
                     touchTimeout = setTimeout(() => {
-                        // 长按时获取选区或整行
+                        // 长按时获取选区
                         const selection = window.getSelection();
                         const text = selection.toString().trim();
                         
+                        // 只有在有选区的情况下才触发注释面板
                         if (text && this.isInSelection(this.longPressTarget)) {
                             // 有选区且包含当前行
                             this.pendingSelection = this.saveSelectionInfo(selection);
                             this.pendingSelection.text = text;
                             this.pendingSelection.selectedText = text;
-                        } else {
-                            // 无选区，使用整行
-                            const lineIndex = parseInt(this.longPressTarget.dataset.index);
-                            const lineText = this.longPressTarget.textContent.trim().substring(0, 100);
-                            this.pendingSelection = {
-                                startLine: lineIndex,
-                                endLine: lineIndex,
-                                text: lineText,
-                                selectedText: lineText
-                            };
+                            
+                            // 震动反馈
+                            if (navigator.vibrate) navigator.vibrate(50);
+                            
+                            this.showContextMenu(menu, null, true);
                         }
-                        
-                        // 震动反馈
-                        if (navigator.vibrate) navigator.vibrate(50);
-                        
-                        this.showContextMenu(menu, null, true);
+                        // 无选区时不触发注释面板（让全屏切换能正常工作）
                     }, 600);
                 }
             }, { passive: false });
@@ -357,7 +353,17 @@ Lumina.Annotations = {
         if (!element) return false;
         // 如果是文本节点，获取其父元素
         const el = element.nodeType === Node.TEXT_NODE ? element.parentElement : element;
-        return el?.closest('#contentWrapper') !== null;
+        if (!el) return false;
+        
+        // 必须在 contentWrapper 内
+        if (el.closest('#contentWrapper') === null) return false;
+        
+        // 排除页码导航区域
+        if (el.closest('.pagination-nav, .pagination-main, .pagination-arrow, .pagination-num, .pagination-pages, .pagination-ellipsis')) {
+            return false;
+        }
+        
+        return true;
     },
     
     // 保存选区信息

@@ -12,6 +12,7 @@
     }
 
     let safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+    let cachedSafeArea = null; // 缓存第一次成功获取的安全区域值
 
     // 从 Capacitor Device 插件获取安全区域
     async function fetchSafeAreaFromPlugin() {
@@ -127,6 +128,13 @@
 
     // 综合获取安全区域
     async function getSafeArea() {
+        // 如果已有缓存值，直接使用（确保手机不变的值始终一致）
+        if (cachedSafeArea) {
+            safeAreaData = cachedSafeArea;
+            console.log('[SafeArea] 使用缓存值:', safeAreaData);
+            return safeAreaData;
+        }
+        
         // 优先从插件获取（包括0值，因为可能是正确的）
         const pluginData = await fetchSafeAreaFromPlugin();
         
@@ -159,12 +167,28 @@
             console.log('[SafeArea] 使用屏幕计算数据:', safeAreaData);
         }
         
+        // 缓存第一次成功获取的值（确保数据有效）
+        if (safeAreaData && typeof safeAreaData.top === 'number') {
+            cachedSafeArea = { ...safeAreaData };
+            console.log('[SafeArea] 已缓存安全区域值:', cachedSafeArea);
+        }
+        
         return safeAreaData;
     }
 
     // 设置并应用安全区域
     async function setupSafeArea() {
-        await getSafeArea();
+        try {
+            await getSafeArea();
+        } catch (e) {
+            console.error('[SafeArea] 获取安全区域失败:', e);
+            // 保持默认值 { top: 0, bottom: 0, left: 0, right: 0 }
+        }
+        
+        // 确保数据有效
+        if (!safeAreaData || typeof safeAreaData.top !== 'number') {
+            safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+        }
 
         // 设置 CSS 变量
         const root = document.documentElement;
@@ -181,6 +205,17 @@
 
     // 应用安全区域样式
     function applySafeArea() {
+        // 防止 safeAreaData 未定义或被重置，优先使用缓存值
+        if (!safeAreaData || typeof safeAreaData.top !== 'number') {
+            if (cachedSafeArea) {
+                console.warn('[SafeArea] 数据丢失，使用缓存值');
+                safeAreaData = cachedSafeArea;
+            } else {
+                console.warn('[SafeArea] 数据不可用，使用默认值');
+                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+            }
+        }
+        
         const top = safeAreaData.top + 'px';
         const bottom = safeAreaData.bottom + 'px';
 
@@ -215,11 +250,22 @@
             panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
         });
 
-        console.log('[SafeArea] 样式已应用');
+        console.log('[SafeArea] 样式已应用:', { top: safeAreaData.top, bottom: safeAreaData.bottom });
     }
 
     // 沉浸模式切换
     window.toggleImmersiveSafeArea = function(isImmersive) {
+        // 防止 safeAreaData 未定义或被重置，优先使用缓存值
+        if (!safeAreaData || typeof safeAreaData.top !== 'number') {
+            if (cachedSafeArea) {
+                console.warn('[SafeArea] toggle: 数据丢失，使用缓存值');
+                safeAreaData = cachedSafeArea;
+            } else {
+                console.warn('[SafeArea] toggle: 数据不可用，使用默认值');
+                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+            }
+        }
+        
         const top = safeAreaData.top + 'px';
         const bottom = safeAreaData.bottom + 'px';
 

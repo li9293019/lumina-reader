@@ -96,8 +96,9 @@ Lumina.TTS.Manager = class {
     }
     
     handleTTSPressStart(e) {
-        // 防止默认行为
+        // 防止默认行为和冒泡（避免触发内容区域的长按事件）
         if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
         
         // 如果已经有定时器在运行，先清除
         if (this._longPressTimer) {
@@ -839,6 +840,10 @@ Lumina.TTS.Manager = class {
         const currentRange = chapter.pageRanges[currentPageIdx];
         
         if (!currentRange) {
+            // 页码超出，检查是否需要进入下一章
+            if (await this.advanceToNextChapterOrStop()) {
+                return; // 已进入下一章或停止
+            }
             this.stop();
             return;
         }
@@ -904,11 +909,18 @@ Lumina.TTS.Manager = class {
                     await this.nativeTTS.speak(speakOptions);
                 }
                 
-                // 当前页朗读完成，自动翻页
+                // 当前页朗读完成，检查是否需要进入下一章
                 if (this.isPlaying && this.isPageMode) {
-                    state.currentPageIdx++;
-                    Lumina.Renderer.renderCurrentChapter();
-                    setTimeout(() => this.speakCurrentPage(), 100);
+                    const nextPageIdx = state.currentPageIdx + 1;
+                    if (nextPageIdx >= chapter.pageRanges.length) {
+                        // 当前章已完，尝试进入下一章
+                        this.advanceToNextChapterOrStop();
+                    } else {
+                        // 继续翻页
+                        state.currentPageIdx = nextPageIdx;
+                        Lumina.Renderer.renderCurrentChapter();
+                        setTimeout(() => this.speakCurrentPage(), 100);
+                    }
                 }
             } else if (this.synth) {
                 // Web 环境
@@ -925,9 +937,16 @@ Lumina.TTS.Manager = class {
                 
                 this.utterance.onend = () => {
                     if (this.isPlaying && this.isPageMode) {
-                        state.currentPageIdx++;
-                        Lumina.Renderer.renderCurrentChapter();
-                        setTimeout(() => this.speakCurrentPage(), 100);
+                        const nextPageIdx = state.currentPageIdx + 1;
+                        if (nextPageIdx >= chapter.pageRanges.length) {
+                            // 当前章已完，尝试进入下一章
+                            this.advanceToNextChapterOrStop();
+                        } else {
+                            // 继续翻页
+                            state.currentPageIdx = nextPageIdx;
+                            Lumina.Renderer.renderCurrentChapter();
+                            setTimeout(() => this.speakCurrentPage(), 100);
+                        }
                     }
                 };
                 
@@ -936,9 +955,16 @@ Lumina.TTS.Manager = class {
                         return;
                     }
                     if (this.isPlaying && this.isPageMode) {
-                        state.currentPageIdx++;
-                        Lumina.Renderer.renderCurrentChapter();
-                        setTimeout(() => this.speakCurrentPage(), 100);
+                        const nextPageIdx = state.currentPageIdx + 1;
+                        if (nextPageIdx >= chapter.pageRanges.length) {
+                            // 当前章已完，尝试进入下一章
+                            this.advanceToNextChapterOrStop();
+                        } else {
+                            // 继续翻页
+                            state.currentPageIdx = nextPageIdx;
+                            Lumina.Renderer.renderCurrentChapter();
+                            setTimeout(() => this.speakCurrentPage(), 100);
+                        }
                     }
                 };
                 
@@ -946,6 +972,28 @@ Lumina.TTS.Manager = class {
             }
         } catch (e) {
             console.error('[TTS] 页面模式朗读失败:', e);
+        }
+    }
+    
+    // 辅助方法：进入下一章或停止播放
+    advanceToNextChapterOrStop() {
+        const state = Lumina.State.app;
+        if (state.currentChapterIndex < state.chapters.length - 1) {
+            // 还有下一章，进入下一章
+            state.currentChapterIndex++;
+            state.currentPageIdx = 0;
+            this.currentItemIndex = state.chapters[state.currentChapterIndex].startIndex;
+            this.currentSentenceIndex = 0;
+            this.currentHighlightIndex = -1;
+            
+            Lumina.Renderer.renderCurrentChapter();
+            setTimeout(() => this.speakCurrentPage(), 300);
+            return true;
+        } else {
+            // 已是最后一章，停止播放
+            this.stop();
+            Lumina.UI.showToast(Lumina.I18n.t('ttsFinished'));
+            return false;
         }
     }
     

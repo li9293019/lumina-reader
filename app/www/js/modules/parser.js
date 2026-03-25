@@ -496,25 +496,42 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
             const title = isRetry ? Lumina.I18n.t('pdfPasswordError') : Lumina.I18n.t('pdfPasswordRequired');
             const message = isRetry ? Lumina.I18n.t('pdfPasswordRetry') : Lumina.I18n.t('pdfPasswordPrompt');
             
-            // 隐藏 loading
+            // 隐藏 loading，但保留状态标记以便后续恢复
             const wasLoadingActive = Lumina.DOM.loadingScreen?.classList.contains('active');
+            const loadingText = Lumina.DOM.loadingScreen?.querySelector('.loading-text');
+            const originalLoadingText = loadingText?.textContent;
+            
             if (wasLoadingActive) Lumina.DOM.loadingScreen.classList.remove('active');
             
-            Lumina.UI.showDialog(message, 'prompt', (result) => {
-                if (wasLoadingActive) Lumina.DOM.loadingScreen.classList.add('active');
-                
+            Lumina.UI.showDialog(message, 'prompt', async (result) => {
                 if (result === null || result === false) {
                     userCancelled = true;
                     // 用户取消，传入 null 让 PDF.js 抛出错误
                     updateCallback(null);
-                } else {
-                    updateCallback(result);
+                    return;
                 }
+                
+                // 恢复 loading 界面并显示解密中状态
+                if (wasLoadingActive && Lumina.DOM.loadingScreen) {
+                    Lumina.DOM.loadingScreen.classList.add('active');
+                    if (loadingText) {
+                        loadingText.textContent = `${Lumina.I18n.t('pdfDecrypting') || 'PDF 解密中'}...`;
+                    }
+                }
+                
+                // 延迟调用 updateCallback，让 UI 先更新
+                await new Promise(resolve => setTimeout(resolve, 100));
+                updateCallback(result);
             }, { title, inputType: 'password', placeholder: Lumina.I18n.t('pdfPasswordPlaceholder') });
         };
 
         currentPdf = await loadingTask.promise;
         const numPages = currentPdf.numPages;
+        
+        // 如果有密码保护，此时需要恢复解析进度显示
+        if (onProgress && numPages > 0) {
+            onProgress(0, numPages);
+        }
 
         // 用于跨页段落合并
         let carryOverText = '';
@@ -527,6 +544,8 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
             // 更新进度
             if (onProgress) {
                 onProgress(pageNum, numPages);
+                // 让出主线程，确保 UI 更新
+                await new Promise(r => setTimeout(r, 0));
             }
 
             const page = await currentPdf.getPage(pageNum);
@@ -547,6 +566,9 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
 
             // 提取图片
             const images = await Lumina.Parser.extractPDFImages(page, pageNum);
+            
+            // 图片处理后让出主线程（图片 base64 转换可能阻塞）
+            await new Promise(r => setTimeout(r, 0));
 
             // 将段落转换为文本项
             const textItems = paragraphs.map(p => ({

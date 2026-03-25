@@ -49,14 +49,54 @@ Lumina.Actions = {
     },
 
     async processFileContinue(file, fileKey) {
+        // 重置章节正则表达式设置
         Lumina.State.settings.chapterNumbering = 'none';
         Lumina.State.settings.chapterRegex = '';
         Lumina.State.settings.sectionRegex = '';
         Lumina.Parser.RegexCache.updateCustomPatterns('', '');
         Lumina.UI.updateActiveButtons();
+        
+        // 重置正则表达式反馈UI
+        const chapterRegexFeedback = document.getElementById('chapterRegexFeedback');
+        const sectionRegexFeedback = document.getElementById('sectionRegexFeedback');
+        if (chapterRegexFeedback) {
+            chapterRegexFeedback.textContent = '';
+            chapterRegexFeedback.classList.remove('error', 'valid', 'info');
+        }
+        if (sectionRegexFeedback) {
+            sectionRegexFeedback.textContent = '';
+            sectionRegexFeedback.classList.remove('error', 'valid', 'info');
+        }
+        
+        // 重置热力图关键词UI
+        const heatTagList = document.getElementById('heatTagList');
+        if (heatTagList) {
+            heatTagList.innerHTML = '';
+        }
+        
+        // 重置热力图输入框
+        const heatTagInput = document.getElementById('heatTagInput');
+        if (heatTagInput) {
+            heatTagInput.value = '';
+        }
+        
+        // 重置热力图状态
+        if (Lumina.HeatMap) {
+            Lumina.HeatMap.tags = [];
+            Lumina.HeatMap.cache = null;
+            Lumina.HeatMap.currentResult = null;
+            Lumina.HeatMap.updateAnalyzeButton();
+        }
+        
+        // 重置页码为第一页
+        Lumina.State.app.currentPageIdx = 0;
 
         Lumina.State.app.ui.isProcessing = true;
         Lumina.DOM.loadingScreen.classList.add('active');
+        
+        // 关键：给浏览器时间渲染 loading 界面
+        await new Promise(r => requestAnimationFrame(r));
+        await new Promise(r => setTimeout(r, 50));
 
         try {
             let result, wordCount = 0;
@@ -70,14 +110,23 @@ Lumina.Actions = {
                     result = await Lumina.Parser.parseDOCX(arrayBuffer);
                 } else {
                     // PDF 解析带进度显示
-                    const loadingText = Lumina.DOM.loadingScreen.querySelector('.loading-text');
                     const t = Lumina.I18n.t;
-                    // 设置初始文本
-                    loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'}...`;
-                    result = await Lumina.Parser.parsePDF(arrayBuffer, (current, total) => {
-                        const percent = Math.round((current / total) * 100);
-                        loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'} ${percent}% (${current}/${total})`;
-                    });
+                    const loadingText = Lumina.DOM.loadingScreen?.querySelector('.loading-text');
+                    
+                    if (!loadingText) {
+                        result = await Lumina.Parser.parsePDF(arrayBuffer);
+                    } else {
+                        // 设置初始文本
+                        loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'}...`;
+                        
+                        // 给浏览器渲染时间
+                        await new Promise(r => setTimeout(r, 50));
+                        
+                        result = await Lumina.Parser.parsePDF(arrayBuffer, (current, total) => {
+                            const percent = Math.round((current / total) * 100);
+                            loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'} ${percent}% (${current}/${total})`;
+                        });
+                    }
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
                 if (firstImage) cover = firstImage.data;

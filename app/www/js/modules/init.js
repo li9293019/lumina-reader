@@ -76,6 +76,7 @@ Lumina.init = async () => {
     Lumina.I18n.updateUI();
 
     Lumina.DataManager = new Lumina.DataManager();
+    window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用
     Lumina.DataManager.init();
 
     // TTS 初始化（失败不阻塞）

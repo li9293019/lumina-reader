@@ -2214,7 +2214,7 @@ border-radius: 16px;
 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 display: flex;
 flex-direction: column;
-padding: 24px;
+padding: 24px 0;
 }
 
 .about-header {
@@ -2222,17 +2222,23 @@ border-bottom: 1px solid var(--border-color);
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding-bottom: 10px;
+padding-bottom: 12px;
 }
 
 .about-title {
+margin-left: 24px;
 font-size: 1.3em;
 font-weight: 600;
+}
+
+.about-title .btn-icon {
+    margin-right: 12px;
 }
 
 .about-body {
 overflow-y: auto;
 line-height: 1.8;
+padding: 0 24px;
 }
 
 .about-body h3 {
@@ -3850,14 +3856,14 @@ font-size: 0.9em;
 }
 
 .regex-examples-box {
-background: var(--bg-secondary);
-padding: 0 12px;
-border-radius: 8px;
 margin: 8px 0;
 font-size: 0.85em;
 }
 
 .regex-example-item {
+display: flex;
+flex-direction: column;
+gap: 6px;
 margin-bottom: 10px;
 }
 
@@ -3869,7 +3875,6 @@ margin-bottom: 0;
 color: var(--accent-color);
 font-weight: 600;
 display: block;
-margin-bottom: 4px;
 }
 
 .regex-example-code {
@@ -3878,6 +3883,7 @@ padding: 4px 8px;
 border-radius: 4px;
 font-family: var(--font-mono);
 display: inline-block;
+width: fit-content;
 margin-top: 4px;
 }
 

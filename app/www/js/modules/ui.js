@@ -58,8 +58,12 @@ Lumina.UI = {
             e.preventDefault(); document.body.style.background = '';
             if (e.dataTransfer.files[0]) {
                 const file = e.dataTransfer.files[0];
-                if (file.name.endsWith('.json')) await Lumina.Actions.handleJSONFile(file);
-                else await Lumina.Actions.processFile(file);
+                // 支持 JSON 和 LMN 格式导入，其他格式作为普通文件打开
+                if (file.name.endsWith('.json') || file.name.endsWith('.lmn')) {
+                    await Lumina.Actions.handleImportFile(file);
+                } else {
+                    await Lumina.Actions.processFile(file);
+                }
             }
         });
 
@@ -823,7 +827,8 @@ Lumina.UI = {
             dialogConfirm.onclick = (e) => {
                 e.stopPropagation();
                 if ((type === 'prompt' || inputType) && input) {
-                    close(input.value || null);
+                    // 允许返回空字符串（例如密码输入留空使用默认密钥）
+                    close(input.value);
                 } else {
                     close(true);
                 }

@@ -326,26 +326,35 @@ Lumina.DataManager = class {
             return;
         }
         
+        // 检查是否开启了加密导出
+        const encryptedExport = Lumina.State.settings.encryptedExport;
+        
+        if (encryptedExport) {
+            // 加密导出模式
+            await this.exportEncrypted(data);
+        } else {
+            // 明文导出模式（保持兼容）
+            await this.exportPlain(data);
+        }
+    }
+    
+    // 明文导出
+    async exportPlain(data) {
         const jsonContent = JSON.stringify(data, null, 2);
         const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
         
-        // App 环境下使用 Filesystem 插件保存到 Documents/LuminaReader/
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
         if (isApp && Capacitor.Plugins?.Filesystem) {
             const { Filesystem } = Capacitor.Plugins;
             try {
-                // 确保目录存在
                 try {
                     await Filesystem.mkdir({
                         path: 'LuminaReader',
                         directory: 'DOCUMENTS',
                         recursive: true
                     });
-                } catch (e) {
-                    // 目录已存在
-                }
+                } catch (e) {}
                 
-                // 写入文件
                 await Filesystem.writeFile({
                     path: `LuminaReader/${fileName}`,
                     data: jsonContent,
@@ -359,10 +368,167 @@ Lumina.DataManager = class {
                 Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + (err.message || '无法写入文件'));
             }
         } else {
-            // 浏览器环境：使用下载
             this.downloadJSON(jsonContent, fileName);
             Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
         }
+    }
+    
+    // 加密导出
+    async exportEncrypted(data) {
+        // 弹出密码输入对话框
+        const password = await this.showPasswordDialog();
+        if (password === null) {
+            // 用户取消
+            return;
+        }
+        
+        // 显示进度对话框
+        const progressDialog = this.showProgressDialog(Lumina.I18n.t('encrypting') || '正在加密...');
+        
+        try {
+            // 加密数据
+            const encryptedBuffer = await Lumina.Crypto.encrypt(data, password || null, (progress) => {
+                progressDialog.update(progress);
+            });
+            
+            const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.lmn`;
+            
+            const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+            if (isApp && Capacitor.Plugins?.Filesystem) {
+                const { Filesystem } = Capacitor.Plugins;
+                try {
+                    await Filesystem.mkdir({
+                        path: 'LuminaReader',
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                } catch (e) {}
+                
+                // 将 ArrayBuffer 转换为 base64 保存
+                const base64Data = this.arrayBufferToBase64(encryptedBuffer);
+                
+                await Filesystem.writeFile({
+                    path: `LuminaReader/${fileName}`,
+                    data: base64Data,
+                    directory: 'DOCUMENTS'
+                });
+                
+                progressDialog.close();
+                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+            } else {
+                // 浏览器环境：直接下载二进制文件
+                this.downloadBinary(encryptedBuffer, fileName);
+                progressDialog.close();
+                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+            }
+        } catch (err) {
+            progressDialog.close();
+            console.error('[Export] 加密失败:', err);
+            Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + err.message);
+        }
+    }
+    
+    // 统一的密码输入对话框（复用系统对话框）
+    // type: 'set' | 'confirm' - set=设置密码(需要确认), confirm=确认密码
+    showPasswordDialog(type = 'set') {
+        return new Promise((resolve) => {
+            const title = type === 'set' ? Lumina.I18n.t('passwordDialogTitle') : Lumina.I18n.t('enterPassword');
+            const message = type === 'set' ? Lumina.I18n.t('passwordDialogDesc') : Lumina.I18n.t('enterPasswordDesc');
+            
+            // 第一次输入密码
+            Lumina.UI.showDialog(message, 'prompt', (result) => {
+                // result === null 表示用户取消，result === '' 表示用户输入空密码（使用默认密钥）
+                if (result === null || result === false) {
+                    resolve(null); // 用户取消
+                    return;
+                }
+                
+                const password = result;
+                
+                // 设置密码模式且用户输入了非空密码：需要确认密码
+                if (type === 'set' && password.length > 0) {
+                    Lumina.UI.showDialog(Lumina.I18n.t('confirmPassword'), 'prompt', (confirmResult) => {
+                        if (confirmResult === null || confirmResult === false) {
+                            resolve(null); // 用户取消确认
+                            return;
+                        }
+                        
+                        if (password !== confirmResult) {
+                            Lumina.UI.showToast(Lumina.I18n.t('passwordMismatch'));
+                            resolve(null);
+                        } else {
+                            resolve(password);
+                        }
+                    }, { 
+                        title: Lumina.I18n.t('confirmPassword'),
+                        inputType: 'password',
+                        placeholder: Lumina.I18n.t('confirmPassword')
+                    });
+                } else {
+                    // 确认密码模式，或者设置模式但用户输入空密码：直接返回
+                    resolve(password);
+                }
+            }, { 
+                title,
+                inputType: 'password',
+                placeholder: Lumina.I18n.t('passwordPlaceholder')
+            });
+        });
+    }
+    
+    // 显示进度对话框
+    showProgressDialog(title) {
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-overlay active';
+        dialog.innerHTML = `
+            <div class="dialog-content" style="text-align: center;">
+                <div class="dialog-header">
+                    <h3>${title}</h3>
+                </div>
+                <div class="dialog-body">
+                    <div class="progress-bar" style="width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                        <div class="progress-fill" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.3s;"></div>
+                    </div>
+                    <p class="progress-text" style="margin-top: 12px; color: var(--text-secondary);">0%</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        const progressFill = dialog.querySelector('.progress-fill');
+        const progressText = dialog.querySelector('.progress-text');
+        
+        return {
+            update: (percent) => {
+                progressFill.style.width = percent + '%';
+                progressText.textContent = percent + '%';
+            },
+            close: () => dialog.remove()
+        };
+    }
+    
+    // ArrayBuffer 转 Base64
+    arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+    
+    // 下载二进制文件
+    downloadBinary(buffer, fileName) {
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     async batchExport() {
@@ -375,50 +541,111 @@ Lumina.DataManager = class {
                 return;
             }
             
-            const jsonContent = JSON.stringify(batchData, null, 2);
-            const fileName = `Lumina_Library_Backup_${new Date().getTime()}.json`;
+            // 检查是否开启了加密导出
+            const encryptedExport = Lumina.State.settings.encryptedExport;
             
-            // 5. 导入导出目录统一：App 环境下使用 Filesystem 插件保存到 Documents/LuminaReader/
-            const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
-            if (isApp && Capacitor.Plugins?.Filesystem) {
-                const { Filesystem } = Capacitor.Plugins;
-                try {
-                    // 确保目录存在
-                    try {
-                        await Filesystem.mkdir({
-                            path: 'LuminaReader',
-                            directory: 'DOCUMENTS',
-                            recursive: true
-                        });
-                        console.log('[Export] 目录创建成功');
-                    } catch (e) {
-                        console.log('[Export] 目录已存在或创建失败:', e);
-                    }
-                    
-                    // 写入文件
-                    const writeResult = await Filesystem.writeFile({
-                        path: `LuminaReader/${fileName}`,
-                        data: jsonContent,
-                        directory: 'DOCUMENTS',
-                        encoding: 'utf8'
-                    });
-                    
-                    Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
-                } catch (err) {
-                    console.error('[Export] Filesystem error:', err);
-                    Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
-                }
+            if (encryptedExport) {
+                // 加密导出模式
+                await this.batchExportEncrypted(batchData);
             } else {
-                // 浏览器环境：使用下载
-                console.log('[Export] 非App环境，使用浏览器下载');
-                this.downloadJSON(jsonContent, fileName);
-                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+                // 明文导出模式
+                await this.batchExportPlain(batchData);
             }
         } catch (err) {
             console.error('[Export] Error:', err);
             Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
         } finally {
             btn.classList.remove('loading');
+        }
+    }
+    
+    // 明文批量导出
+    async batchExportPlain(batchData) {
+        const jsonContent = JSON.stringify(batchData, null, 2);
+        const fileName = `Lumina_Library_Backup_${new Date().getTime()}.json`;
+        
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+        if (isApp && Capacitor.Plugins?.Filesystem) {
+            const { Filesystem } = Capacitor.Plugins;
+            try {
+                try {
+                    await Filesystem.mkdir({
+                        path: 'LuminaReader',
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                } catch (e) {}
+                
+                await Filesystem.writeFile({
+                    path: `LuminaReader/${fileName}`,
+                    data: jsonContent,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                
+                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+            } catch (err) {
+                console.error('[Export] Filesystem error:', err);
+                Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
+            }
+        } else {
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+        }
+    }
+    
+    // 加密批量导出
+    async batchExportEncrypted(batchData) {
+        const password = await this.showPasswordDialog();
+        if (password === null) return;
+        
+        const progressDialog = this.showProgressDialog(Lumina.I18n.t('encrypting') || '正在加密...');
+        
+        try {
+            const encryptedBuffer = await Lumina.Crypto.encrypt(batchData, password || null, (progress) => {
+                progressDialog.update(progress);
+            });
+            
+            const fileName = `Lumina_Library_Backup_${new Date().getTime()}.lmn`;
+            
+            const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+            if (isApp && Capacitor.Plugins?.Filesystem) {
+                const { Filesystem } = Capacitor.Plugins;
+                try {
+                    await Filesystem.mkdir({
+                        path: 'LuminaReader',
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                } catch (e) {}
+                
+                const base64Data = this.arrayBufferToBase64(encryptedBuffer);
+                
+                await Filesystem.writeFile({
+                    path: `LuminaReader/${fileName}`,
+                    data: base64Data,
+                    directory: 'DOCUMENTS'
+                });
+                
+                progressDialog.close();
+                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+            } else {
+                this.downloadBinary(encryptedBuffer, fileName);
+                progressDialog.close();
+                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+            }
+        } catch (err) {
+            progressDialog.close();
+            console.error('[Export] 加密失败:', err);
+            Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + err.message);
         }
     }
     
@@ -458,25 +685,113 @@ Lumina.DataManager = class {
     showSystemFilePicker() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json';
+        input.accept = '.json,.lmn';
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             Lumina.UI.showToast(Lumina.I18n.t('readingFile'), 0);
             try {
-                const text = await file.text();
-                const data = JSON.parse(text);
-                if (data.exportType === 'batch' && Array.isArray(data.books))
-                    await this.handleBatchImport(data.books);
-                else if (data.fileName && Array.isArray(data.content))
-                    await this.importJSONFile(file);
-                else
-                    throw new Error('Invalid format');
+                // 检测文件类型
+                if (file.name.endsWith('.lmn')) {
+                    // 加密格式
+                    await this.importLmnFile(file);
+                } else {
+                    // 明文 JSON 格式
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    if (data.exportType === 'batch' && Array.isArray(data.books))
+                        await this.handleBatchImport(data.books);
+                    else if (data.fileName && Array.isArray(data.content))
+                        await this.importJSONFile(file);
+                    else
+                        throw new Error('Invalid format');
+                }
             } catch (err) {
                 Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': ' + (err.message || 'Unknown error'));
             }
         };
         input.click();
+    }
+    
+    // 导入 .lmn 加密文件
+    async importLmnFile(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // 检测是否为 .lmn 格式
+        if (!Lumina.Crypto.isLmnFile(arrayBuffer)) {
+            throw new Error('无效的 .lmn 文件格式');
+        }
+        
+        // 检测是否需要密码
+        const view = new Uint8Array(arrayBuffer);
+        const hasPassword = (view[5] & 0x01) !== 0;
+        
+        let password = null;
+        if (hasPassword) {
+            password = await this.showDecryptPasswordDialog();
+            if (password === null) {
+                // 用户取消
+                return;
+            }
+        }
+        
+        // 显示进度
+        const progressDialog = this.showProgressDialog(Lumina.I18n.t('decrypting') || '正在解密...');
+        
+        try {
+            // 解密数据
+            const data = await Lumina.Crypto.decrypt(arrayBuffer, password, (progress) => {
+                progressDialog.update(progress);
+            });
+            
+            progressDialog.close();
+            
+            // 验证并导入数据
+            if (data.exportType === 'batch' && Array.isArray(data.books)) {
+                await this.handleBatchImport(data.books);
+            } else if (data.fileName && Array.isArray(data.content)) {
+                await this.importDataToDB(data);
+            } else {
+                throw new Error('无效的文件格式');
+            }
+        } catch (err) {
+            progressDialog.close();
+            if (err.message.includes('密码') || err.message.includes('password')) {
+                Lumina.UI.showDialog(Lumina.I18n.t('decryptFailed'), 'alert');
+            } else {
+                throw err;
+            }
+        }
+    }
+    
+    // 解密密码对话框（统一使用 showPasswordDialog）
+    showDecryptPasswordDialog() {
+        return this.showPasswordDialog('confirm');
+    }
+    
+    // 将数据导入数据库
+    async importDataToDB(data) {
+        const newKey = `${data.fileName}_${Date.now()}`;
+        await Lumina.DB.adapter.saveFile(newKey, {
+            fileName: data.fileName,
+            fileType: data.fileType || 'txt',
+            fileSize: 0,
+            content: data.content,
+            wordCount: data.wordCount || 0,
+            cover: data.cover || null,
+            customRegex: data.customRegex || { chapter: '', section: '' },
+            chapterNumbering: data.chapterNumbering || 'none',
+            annotations: data.annotations || [],
+            heatMap: data.heatMap || null,
+            lastChapter: data.lastChapter || 0,
+            lastScrollIndex: data.lastScrollIndex || 0,
+            chapterTitle: data.chapterTitle || '',
+            lastReadTime: new Date().toISOString()
+        });
+        await this.refreshStats();
+        await Lumina.DB.loadHistoryFromDB();
+        this.updateSettingsBar();
+        Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
     }
     
     // 辅助方法：从解析后的数据导入（用于 Filesystem 读取）
@@ -884,52 +1199,14 @@ Lumina.HistoryActions = {
         }
     },
     
-    // 导出文件（历史面板右滑导出）- 统一使用 DB.adapter.exportFile 保持格式一致
+    // 导出文件（历史面板右滑导出）- 支持加密导出
+    // 复用 DataManager 的导出逻辑
     async exportFile(fileKey) {
-        // 统一使用 DB.adapter.exportFile，确保与书库导出格式一致
-        const data = await Lumina.DB.adapter.exportFile(fileKey);
-        if (!data) {
-            Lumina.UI.showToast(Lumina.I18n.t('exportFailed'));
+        if (!window.dataManager) {
+            Lumina.UI.showToast('导出系统未初始化');
             return;
         }
-        
-        const jsonContent = JSON.stringify(data, null, 2);
-        const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
-        
-        // App 环境下使用 Filesystem 插件保存到 Documents/LuminaReader/
-        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
-        if (isApp && Capacitor.Plugins?.Filesystem) {
-            const { Filesystem } = Capacitor.Plugins;
-            try {
-                // 确保目录存在
-                try {
-                    await Filesystem.mkdir({
-                        path: 'LuminaReader',
-                        directory: 'DOCUMENTS',
-                        recursive: true
-                    });
-                } catch (e) {
-                    // 目录已存在
-                }
-                
-                // 写入文件
-                await Filesystem.writeFile({
-                    path: `LuminaReader/${fileName}`,
-                    data: jsonContent,
-                    directory: 'DOCUMENTS',
-                    encoding: 'utf8'
-                });
-                
-                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
-            } catch (err) {
-                console.error('[Export] Filesystem error:', err);
-                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + (err.message || '无法写入文件'));
-            }
-        } else {
-            // 浏览器环境：使用下载
-            this.downloadJSON(jsonContent, fileName);
-            Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
-        }
+        await window.dataManager.exportSingle(fileKey);
     },
     
     // 删除文件（已确认）

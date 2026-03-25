@@ -59,6 +59,7 @@
 <!-- 渲染引擎（包含搜索、热图、分页） -->
 <script src="./js/modules/renderer.js"></script>
 <!-- 语音朗读 -->
+<script src="./js/modules/crypto.js"></script>
 <script src="./js/modules/tts.js"></script>
 <!-- 批注系统 -->
 <script src="./js/modules/annotations.js"></script>
@@ -135,7 +136,7 @@
 <div id="global-tooltip"></div>
 
 <!-- 文件输入（隐藏） -->
-<input type="file" id="fileInput" accept=".docx,.txt,.md,.html,.json,.pdf" style="display: none;">
+<input type="file" id="fileInput" accept=".docx,.txt,.md,.html,.json,.pdf,.lmn" style="display: none;">
 
 <!-- Toast 提示 -->
 <div class="toast" id="toast"></div>
@@ -483,7 +484,7 @@
                         <!-- 动态生成 -->
                     </div>
                     <div class="tts-hint" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; opacity: 0.8;">
-                        <span data-i18n="ttsVoiceHint">提示：部分手机可能不支持在应用内切换音色，请到系统设置中切换</span>
+                        <span data-i18n="ttsVoiceHint"></span>
                     </div>
 
                     <div class="slider-group">
@@ -535,6 +536,12 @@
 
                 <div class="setting-group" style="margin-top: 24px;">
                     <div class="setting-label" data-i18n="dataManagement"></div>
+                    <div class="toggle-switch" data-setting-toggle="encryptedExport" style="margin-bottom: 8px;">
+                        <span class="toggle-label" data-i18n="encryptedExport"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
                     <div class="storage-info-bar">
                         <div class="storage-progress">
                             <div class="storage-used" id="settingsStorageBar" style="width: 0%"></div>
@@ -554,15 +561,6 @@
                     <button class="option-btn btn-reset-settings" id="resetSettings">
                         <span data-i18n="reset"></span>
                     </button>
-                </div>
-
-                <!-- TTS 调试面板 -->
-                <div class="setting-group" id="ttsDebugPanel" style="display: none;">
-                    <div class="setting-label">TTS 调试信息</div>
-                    <div id="ttsDebugContent" style="font-size: 12px; background: var(--bg-tertiary); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-                        <div>点击打开调试信息</div>
-                    </div>
-                    <button class="option-btn" id="toggleTTSDebug" style="margin-top: 8px; width: 100%; font-size: 12px;">显示 TTS 调试</button>
                 </div>
             </div>
         </aside>
@@ -695,29 +693,25 @@
                     </ul>
 
                     <h3 data-i18n="regexExamples"></h3>
-                    <p data-i18n="regexExamplesDesc"></p>
-                    <div class="regex-example-box">
-                        <div class="regex-example-title" data-i18n="regexExChinese"></div>
-                        <code class="regex-example-code">^第\N+[章节卷]</code>
-                        <p class="regex-example-desc" data-i18n="regexExChineseDesc"></p>
+                    <div class="regex-examples-box">
+                        <div class="regex-example-item">
+                            <span class="regex-example-title" data-i18n="regexExTitleCN"></span>
+                            <code class="regex-example-code" data-i18n="regexExTitleCnCode"></code>
+                        </div>
+                        <div class="regex-example-item">
+                            <span class="regex-example-title" data-i18n="regexExTitleEN"></span>
+                            <code class="regex-example-code" data-i18n="regexExTitleEnCode"></code>
+                        </div>
+                        <div class="regex-example-item">
+                            <span class="regex-example-title" data-i18n="regexExTitleSection"></span>
+                            <code class="regex-example-code" data-i18n="regexExTitleSectionCode"></code>
+                        </div>
+                        <div class="regex-example-item">
+                            <span class="regex-example-title" data-i18n="regexExTitleVolume"></span>
+                            <code class="regex-example-code" data-i18n="regexExTitleVolumneCode"></code>
+                        </div>
                     </div>
-                    <div class="regex-example-box">
-                        <div class="regex-example-title" data-i18n="regexExEnglish"></div>
-                        <code class="regex-example-code">^Chapter\s+\N+</code>
-                        <p class="regex-example-desc" data-i18n="regexExEnglishDesc"></p>
-                    </div>
-                    <div class="regex-example-box">
-                        <div class="regex-example-title" data-i18n="regexExMixed"></div>
-                        <code class="regex-example-code">^(?:第\N+[章节]|Chapter\s+\N+)</code>
-                        <p class="regex-example-desc" data-i18n="regexExMixedDesc"></p>
-                    </div>
-
-                    <h3 data-i18n="regexTips"></h3>
-                    <ul>
-                        <li data-i18n="regexTip1"></li>
-                        <li data-i18n="regexTip2"></li>
-                        <li data-i18n="regexTip3"></li>
-                    </ul>
+                    <p class="regex-help-note" data-i18n="regexNoteDetail"></p>
                 </div>
             </div>
         </div>
@@ -756,6 +750,7 @@
                         <span class="stat-label" data-i18n="imagesCount"></span>
                     </div>
                 </div>
+                <!-- 加密导出开关 -->
                 <div class="data-grid" id="dataGrid">
                     <div class="history-empty" style="grid-column: 1/-1;">
                         <svg>

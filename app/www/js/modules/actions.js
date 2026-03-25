@@ -5,7 +5,11 @@ Lumina.Actions = {
         if (Lumina.State.app.ui.isProcessing) return;
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
-        if (file.name.endsWith('.json')) { await this.handleJSONFile(file); return; }
+        // 处理导入文件（JSON 或 LMN 格式）
+        if (file.name.endsWith('.json') || file.name.endsWith('.lmn')) { 
+            await this.handleImportFile(file); 
+            return; 
+        }
 
         const fileKey = Lumina.DB.adapter.generateFileKey(file);
         Lumina.State.app.currentFile.fileKey = fileKey;
@@ -150,20 +154,46 @@ Lumina.Actions = {
                 Lumina.UI.showToast(`${Lumina.State.app.currentFile.encoding} → UTF-8`, 2000);
             }
         } catch (err) {
-            Lumina.UI.showDialog(`Error: ${err.message}`);
+            // 忽略用户取消操作（PDF 密码输入取消等）
+            if (err.message === 'Password cancelled' || err.message?.includes('cancelled')) {
+                console.log('[Actions] 用户取消操作');
+            } else {
+                Lumina.UI.showDialog(`Error: ${err.message}`);
+            }
         } finally {
             Lumina.State.app.ui.isProcessing = false;
             Lumina.DOM.loadingScreen.classList.remove('active');
         }
     },
 
-    async handleJSONFile(file) {
+    // 处理导入文件（JSON 或 LMN 格式，支持单本和批量）
+    async handleImportFile(file) {
+        if (!Lumina.DataManager) {
+            Lumina.UI.showDialog('导入系统未初始化');
+            return;
+        }
+        
         try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            if (Lumina.DataManager) await Lumina.DataManager.importJSONFile(file);
+            if (file.name.endsWith('.lmn')) {
+                // LMN 加密格式
+                await Lumina.DataManager.importLmnFile(file);
+            } else {
+                // JSON 明文格式 - 需要检测是否为批量格式
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                if (data.exportType === 'batch' && Array.isArray(data.books)) {
+                    // 批量导入模式
+                    await Lumina.DataManager.handleBatchImport(data.books);
+                } else if (data.fileName && Array.isArray(data.content)) {
+                    // 单本导入模式
+                    await Lumina.DataManager.importDataToDB(data);
+                } else {
+                    throw new Error('无效的文件格式');
+                }
+            }
         } catch (err) {
-            Lumina.UI.showDialog(Lumina.I18n.t('jsonFormatError'));
+            Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': ' + err.message);
         }
     },
 

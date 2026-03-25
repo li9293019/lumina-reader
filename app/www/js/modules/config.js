@@ -131,6 +131,7 @@ Lumina.Config.defaultSettings = {
     ttsRate: 10,
     ttsPitch: 10,
     paginationEnabled: true,
+    encryptedExport: false,
     paginationMaxWords: 3000,
     paginationImageWords: 300,
 };

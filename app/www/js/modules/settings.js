@@ -91,6 +91,12 @@ Lumina.Settings = {
         document.getElementById('chapterRegex').value = settings.chapterRegex;
         document.getElementById('sectionRegex').value = settings.sectionRegex;
 
+        // 加密导出开关
+        const encryptedExportToggle = document.getElementById('encryptedExportToggle');
+        if (encryptedExportToggle) {
+            encryptedExportToggle.checked = settings.encryptedExport;
+        }
+
         const sidebarVisible = settings.sidebarVisible && Lumina.State.app.document.items.length;
         Lumina.DOM.sidebarLeft.classList.toggle('visible', sidebarVisible);
         Lumina.DOM.readingArea.classList.toggle('with-sidebar', sidebarVisible);

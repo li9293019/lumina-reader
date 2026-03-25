@@ -69,6 +69,19 @@ Lumina.TTS.Manager = class {
         
         // 初始化调试面板
         this.initTestPanel();
+        
+        // 延迟检查插件（确保原生插件已加载）
+        setTimeout(() => {
+            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
+                console.log('[TTS] 延迟检测 - 可用插件:', Object.keys(Capacitor.Plugins));
+                if (Capacitor.Plugins.TTSEnhanced && !this.useEnhancedTTS) {
+                    console.log('[TTS] 发现增强版插件，切换使用');
+                    this.nativeTTS = Capacitor.Plugins.TTSEnhanced;
+                    this.useEnhancedTTS = true;
+                    this.updateTestPanel();
+                }
+            }
+        }, 1000);
 
         return true;
     }

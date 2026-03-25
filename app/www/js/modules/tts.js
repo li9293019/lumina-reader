@@ -368,15 +368,24 @@ Lumina.TTS.Manager = class {
         }, 500);
     }
 
+    // 通过 voiceURI 在排序后的原始列表中查找索引
+    findVoiceIndexByName(voiceName) {
+        if (!this._rawVoiceList || !voiceName) return -1;
+        return this._rawVoiceList.findIndex(v => v.voiceURI === voiceName || v.name === voiceName);
+    }
+
     async loadVoices() {
         if (this.isApp && this.nativeTTS) {
             // APP 环境：获取原生 TTS 音色
             try {
                 const result = await this.nativeTTS.getSupportedVoices();
-                this.voices = result.voices || [];
-                console.log('[TTS] 原生音色列表:', this.voices.map(v => ({ name: v.name, lang: v.lang })));
+                // 保存原始列表（与原生插件同样按 name 排序）
+                const rawVoices = result.voices || [];
+                this._rawVoiceList = [...rawVoices].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                console.log('[TTS] 原生音色列表（按name排序）:', this._rawVoiceList.map((v, i) => `${i}:${v.name}/${v.voiceURI}`));
                 
-                // 优先选择中文音色
+                this.voices = rawVoices;
+                // 优先选择中文音色（仅影响显示，不影响索引映射）
                 const zhVoices = this.voices.filter(v => v.lang && v.lang.startsWith('zh'));
                 if (zhVoices.length > 0) {
                     this.voices = zhVoices.concat(this.voices.filter(v => !v.lang || !v.lang.startsWith('zh')));
@@ -844,9 +853,16 @@ Lumina.TTS.Manager = class {
                     category: 'playback'
                 };
                 
-                // 添加音色选择
+                // 添加音色选择 - 使用 voiceURI 匹配
                 if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                    speakOptions.voice = this.settings.voiceIndex;
+                    const selectedVoice = this.voices[this.settings.voiceIndex];
+                    if (selectedVoice) {
+                        // 通过 voiceURI 在原始列表中查找正确索引
+                        const voiceName = selectedVoice.voiceURI || selectedVoice.name;
+                        const correctIndex = this.findVoiceIndexByName(voiceName);
+                        speakOptions.voice = correctIndex >= 0 ? correctIndex : this.settings.voiceIndex;
+                        console.log('[TTS] 选择音色:', voiceName, '索引:', speakOptions.voice);
+                    }
                 }
                 
                 await this.nativeTTS.speak(speakOptions);
@@ -1163,9 +1179,15 @@ Lumina.TTS.Manager = class {
                 category: 'playback'
             };
             
-            // 添加音色选择（如果有设置）
+            // 添加音色选择 - 使用 voiceURI 匹配
             if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                speakOptions.voice = this.settings.voiceIndex;
+                const selectedVoice = this.voices[this.settings.voiceIndex];
+                if (selectedVoice) {
+                    const voiceName = selectedVoice.voiceURI || selectedVoice.name;
+                    const correctIndex = this.findVoiceIndexByName(voiceName);
+                    speakOptions.voice = correctIndex >= 0 ? correctIndex : this.settings.voiceIndex;
+                    console.log('[TTS] 选择音色:', voiceName, '索引:', speakOptions.voice);
+                }
             }
             
             await this.nativeTTS.speak(speakOptions);

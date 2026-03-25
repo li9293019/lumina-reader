@@ -511,7 +511,7 @@ Lumina.Search = {
                     Lumina.DOM.searchPanel.classList.remove('open');
                 }
 
-                // 高亮搜索结果（延迟确保渲染完成）
+                // 高亮搜索结果（延迟确保渲染完成，移动端需要更长时间）
                 setTimeout(() => {
                     const target = Lumina.DOM.contentWrapper.querySelector(`.doc-line[data-index="${globalIndex}"]`);
                     if (target) {
@@ -519,8 +519,11 @@ Lumina.Search = {
                         state.search.highlightedIndex = globalIndex;
                         document.querySelectorAll('.search-result-item.active').forEach(i => i.classList.remove('active'));
                         item.classList.add('active');
+                        
+                        // 滚动到视口中央，确保用户能看到
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                }, 100);
+                }, window.innerWidth <= 768 ? 400 : 150);
             });
         });
     },

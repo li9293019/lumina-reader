@@ -67,6 +67,9 @@ Lumina.TTS.Manager = class {
         // 监听原生层保活广播（防止后台 WebView 休眠）
         this.setupKeepAliveListener();
         
+        // 设置媒体会话（耳机线控支持）
+        this.setupMediaSession();
+        
         return true;
     }
     
@@ -188,6 +191,10 @@ Lumina.TTS.Manager = class {
                 this.isPlaying = true;
                 this.updateUI();
                 
+                // 更新媒体会话（耳机线控支持）
+                this.updateMediaSessionMetadata();
+                this.updateMediaSessionState('playing');
+                
                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
                 setTimeout(() => this.speakCurrent(), 100);
@@ -269,6 +276,10 @@ Lumina.TTS.Manager = class {
         this.currentFileKey = state.currentFile?.fileKey;
         this.isPlaying = true;
         this.updateUI();
+        
+        // 更新媒体会话（耳机线控锁屏显示）
+        this.updateMediaSessionMetadata();
+        this.updateMediaSessionState('playing');
         
         // 显示提示
         const hintText = Lumina.I18n.t('enterPageMode');
@@ -795,6 +806,229 @@ Lumina.TTS.Manager = class {
         this.stopServiceKeepAlive();
         
         window.getSelection().removeAllRanges();
+        
+        // 清除媒体会话状态
+        this.updateMediaSessionState('none');
+    }
+
+    // 暂停朗读（保持状态，可以恢复）- 用于耳机线控
+    pause() {
+        if (!this.isPlaying) return;
+        
+        // 记录当前状态
+        this._wasPlayingBeforePause = true;
+        this._pausedPageIdx = Lumina.State.app.currentPageIdx;
+        this._pausedChapterIdx = Lumina.State.app.currentChapterIndex;
+        
+        // 停止朗读
+        if (this.synth) this.synth.cancel();
+        if (this.isApp && this.nativeTTS) {
+            this.nativeTTS.stop().catch(() => {});
+        }
+        
+        this.isPlaying = false;
+        this.updateUI();
+        this.stopServiceKeepAlive();
+        this.updateBackgroundState(false, '已暂停');
+        this.updateMediaSessionState('paused');
+        
+        console.log('[TTS] 已暂停，等待恢复');
+    }
+
+    // 恢复朗读（从暂停位置继续）- 用于耳机线控
+    resume() {
+        if (this.isPlaying) return;
+        if (!this._wasPlayingBeforePause) {
+            // 如果之前没有暂停，不做任何操作
+            return;
+        }
+        
+        this.isPlaying = true;
+        this.isPageMode = true; // 确保是页面模式
+        
+        // 恢复页面位置
+        if (this._pausedPageIdx !== undefined) {
+            Lumina.State.app.currentPageIdx = this._pausedPageIdx;
+            Lumina.State.app.currentChapterIndex = this._pausedChapterIdx;
+            Lumina.Renderer.renderCurrentChapter();
+        }
+        
+        this.updateUI();
+        this.speakCurrentPage();
+        this.updateMediaSessionState('playing');
+        
+        console.log('[TTS] 已恢复朗读');
+    }
+
+    // 下一页 - 用于耳机线控双击
+    async nextPage() {
+        if (!this.isPageMode && !this._wasPlayingBeforePause) return;
+        
+        console.log('[TTS] 耳机控制：下一页');
+        
+        // 先停止当前朗读
+        if (this.synth) this.synth.cancel();
+        if (this.isApp && this.nativeTTS) {
+            this.nativeTTS.stop().catch(() => {});
+        }
+        
+        const state = Lumina.State.app;
+        const chapter = state.chapters[state.currentChapterIndex];
+        if (!chapter) return;
+        
+        // 翻到下一页
+        state.currentPageIdx++;
+        
+        // 检查是否超出当前章节
+        if (!chapter.pageRanges) {
+            chapter.pageRanges = Lumina.Pagination.calculateRanges(chapter.items);
+        }
+        
+        if (state.currentPageIdx >= chapter.pageRanges.length) {
+            // 需要到下一章节
+            if (state.currentChapterIndex < state.chapters.length - 1) {
+                state.currentChapterIndex++;
+                state.currentPageIdx = 0;
+                Lumina.Renderer.renderCurrentChapter();
+            } else {
+                // 已经是最后一章，停止
+                this.stop();
+                Lumina.UI.showToast(Lumina.I18n.t('ttsFinished'));
+                return;
+            }
+        } else {
+            Lumina.Renderer.renderCurrentChapter();
+        }
+        
+        // 如果之前在朗读，继续朗读新页面
+        if (this.isPlaying || this._wasPlayingBeforePause) {
+            this.isPlaying = true;
+            this.isPageMode = true;
+            setTimeout(() => this.speakCurrentPage(), 150);
+        }
+        
+        this.updateMediaSessionMetadata();
+    }
+
+    // 上一页 - 用于耳机线控三击
+    async previousPage() {
+        if (!this.isPageMode && !this._wasPlayingBeforePause) return;
+        
+        console.log('[TTS] 耳机控制：上一页');
+        
+        // 先停止当前朗读
+        if (this.synth) this.synth.cancel();
+        if (this.isApp && this.nativeTTS) {
+            this.nativeTTS.stop().catch(() => {});
+        }
+        
+        const state = Lumina.State.app;
+        
+        // 翻到上一页
+        state.currentPageIdx--;
+        
+        // 检查是否需要到上一章节
+        if (state.currentPageIdx < 0) {
+            if (state.currentChapterIndex > 0) {
+                state.currentChapterIndex--;
+                const prevChapter = state.chapters[state.currentChapterIndex];
+                if (!prevChapter.pageRanges) {
+                    prevChapter.pageRanges = Lumina.Pagination.calculateRanges(prevChapter.items);
+                }
+                state.currentPageIdx = Math.max(0, prevChapter.pageRanges.length - 1);
+                Lumina.Renderer.renderCurrentChapter();
+            } else {
+                // 已经是第一章第一页，保持在原位置
+                state.currentPageIdx = 0;
+            }
+        } else {
+            Lumina.Renderer.renderCurrentChapter();
+        }
+        
+        // 如果之前在朗读，继续朗读新页面
+        if (this.isPlaying || this._wasPlayingBeforePause) {
+            this.isPlaying = true;
+            this.isPageMode = true;
+            setTimeout(() => this.speakCurrentPage(), 150);
+        }
+        
+        this.updateMediaSessionMetadata();
+    }
+
+    // 设置媒体会话（耳机线控支持）
+    setupMediaSession() {
+        if (!('mediaSession' in navigator)) {
+            console.log('[TTS] 浏览器不支持 Media Session API');
+            return;
+        }
+        
+        // 设置操作处理器
+        navigator.mediaSession.setActionHandler('play', () => {
+            console.log('[TTS] MediaSession: play');
+            if (this._wasPlayingBeforePause) {
+                this.resume();
+            } else {
+                this.start();
+            }
+        });
+        
+        navigator.mediaSession.setActionHandler('pause', () => {
+            console.log('[TTS] MediaSession: pause');
+            this.pause();
+        });
+        
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            console.log('[TTS] MediaSession: nexttrack');
+            this.nextPage();
+        });
+        
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            console.log('[TTS] MediaSession: previoustrack');
+            this.previousPage();
+        });
+        
+        // 添加快进快退支持（某些耳机长按快进/倒退）
+        try {
+            navigator.mediaSession.setActionHandler('seekforward', () => {
+                console.log('[TTS] MediaSession: seekforward');
+                this.nextPage();
+            });
+            
+            navigator.mediaSession.setActionHandler('seekbackward', () => {
+                console.log('[TTS] MediaSession: seekbackward');
+                this.previousPage();
+            });
+        } catch (e) {
+            // 某些浏览器不支持
+        }
+        
+        console.log('[TTS] Media Session 已设置');
+    }
+
+    // 更新媒体会话元数据（锁屏显示）
+    updateMediaSessionMetadata() {
+        if (!('mediaSession' in navigator)) return;
+        
+        const state = Lumina.State.app;
+        const chapter = state.chapters[state.currentChapterIndex];
+        const chapterTitle = chapter ? (chapter.title || `第${state.currentChapterIndex + 1}章`) : '未知章节';
+        const fileName = state.currentFile?.name?.replace(/\.[^/.]+$/, '') || 'Lumina Reader';
+        
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: chapterTitle,
+            artist: '正在朗读',
+            album: fileName,
+            artwork: [
+                { src: 'assets/icons/icon-96x96.png', sizes: '96x96', type: 'image/png' },
+                { src: 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }
+            ]
+        });
+    }
+
+    // 更新媒体会话播放状态
+    updateMediaSessionState(state) {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.playbackState = state;
     }
 
     restartIfPlaying() {
@@ -852,7 +1086,7 @@ Lumina.TTS.Manager = class {
             let textToAdd = '';
             if (item.type === 'paragraph' || item.type === 'text') {
                 textToAdd = item.text || '';
-            } else if (item.type === 'heading') {
+            } else if (item.type && item.type.startsWith('heading')) {
                 // 优先使用 display（带有自定义章节序号），否则根据 level 生成
                 if (item.display) {
                     textToAdd = item.display;
@@ -1242,7 +1476,9 @@ Lumina.TTS.Manager = class {
         
         const item = chapter.items[relativeIdx];
         
-        if (!item || !item.text || item.type === 'image' || !item.text.trim()) {
+        // 修复：允许标题类型（heading1, heading2, ...）
+        const isHeading = item.type && item.type.startsWith('heading');
+        if (!item || item.type === 'image' || (!isHeading && !item.text) || (isHeading && !item.text && !item.display)) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
             setTimeout(() => this.speakCurrent(), 50);
@@ -1253,7 +1489,7 @@ Lumina.TTS.Manager = class {
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
         
         // 分句 - 标题优先使用 display（带有自定义章节序号）
-        const textToRead = (item.type === 'heading' && item.display) ? item.display : item.text;
+        const textToRead = (isHeading && item.display) ? item.display : item.text;
         this.currentSentences = this.splitIntoSentences(textToRead);
         
         // 逐句朗读

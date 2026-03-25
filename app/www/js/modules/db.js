@@ -227,7 +227,9 @@ Lumina.DB.IndexedDBImpl = class {
             content: file.content,
             cover: file.cover || null, 
             customRegex: file.customRegex || { chapter: '', section: '' },
-            chapterNumbering: file.chapterNumbering || 'none', 
+            chapterNumbering: file.chapterNumbering || 'none',
+            annotations: file.annotations || [],
+            heatMap: file.heatMap || null,  // 导出热力图数据
             lastChapter: file.lastChapter || 0, 
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || '',
@@ -256,7 +258,11 @@ Lumina.DB.IndexedDBImpl = class {
                     fileName: book.fileName, fileType: book.fileType || 'txt', fileSize: book.fileSize || 0,
                     content: book.content, wordCount: book.wordCount || 0, cover: book.cover || null,
                     customRegex: book.customRegex || { chapter: '', section: '' },
+                    chapterNumbering: book.chapterNumbering || 'none',
+                    annotations: book.annotations || [],
+                    heatMap: book.heatMap || null,  // 恢复热力图数据
                     lastChapter: book.lastChapter || 0, chapterTitle: book.chapterTitle || '',
+                    lastScrollIndex: book.lastScrollIndex || 0,
                     lastReadTime: book.lastReadTime || new Date().toISOString()
                 });
                 results.success++;
@@ -292,7 +298,9 @@ Lumina.DB.IndexedDBImpl = class {
             wordCount: file.wordCount, 
             cover: file.cover || null,
             customRegex: file.customRegex,
-            chapterNumbering: file.chapterNumbering || 'none',  
+            chapterNumbering: file.chapterNumbering || 'none',
+            annotations: file.annotations || [],
+            heatMap: file.heatMap || null,  // 导出热力图数据
             lastChapter: file.lastChapter || 0,
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || ''
@@ -1066,7 +1074,11 @@ Lumina.DB.SQLiteImpl = class {
                     wordCount: book.wordCount || 0,
                     cover: book.cover || null,
                     customRegex: book.customRegex || {chapter: '', section: ''},
+                    chapterNumbering: book.chapterNumbering || 'none',
+                    annotations: book.annotations || [],
+                    heatMap: book.heatMap || null,  // 恢复热力图数据
                     lastChapter: book.lastChapter || 0,
+                    lastScrollIndex: book.lastScrollIndex || 0,
                     chapterTitle: book.chapterTitle || '',
                     lastReadTime: book.lastReadTime || new Date().toISOString()
                 });

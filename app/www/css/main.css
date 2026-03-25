@@ -488,6 +488,29 @@ padding: 0;
 box-sizing: border-box;
 }
 
+/* 输入控件统一字体 - 使用动态字体变量 */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"],
+input[type="week"],
+textarea {
+font-family: var(--font-family-dynamic);
+}
+
+/* placeholder 也使用动态字体 */
+input::placeholder,
+textarea::placeholder {
+font-family: var(--font-family-dynamic);
+}
+
 html {
 font-size: 16px;
 }
@@ -728,7 +751,6 @@ background: var(--bg-secondary);
 color: var(--text-primary);
 font-size: 0.9em;
 outline: none;
-font-family: inherit;
 }
 
 .search-input:focus {

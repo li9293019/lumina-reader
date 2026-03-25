@@ -321,16 +321,46 @@ Lumina.DataManager = class {
 
     async exportSingle(fileKey) {
         const data = await Lumina.DB.adapter.exportFile(fileKey);
-        if (data) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+        if (!data) {
+            Lumina.UI.showToast(Lumina.I18n.t('exportFailed'));
+            return;
+        }
+        
+        const jsonContent = JSON.stringify(data, null, 2);
+        const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
+        
+        // App 环境下使用 Filesystem 插件保存到 Documents/LuminaReader/
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+        if (isApp && Capacitor.Plugins?.Filesystem) {
+            const { Filesystem } = Capacitor.Plugins;
+            try {
+                // 确保目录存在
+                try {
+                    await Filesystem.mkdir({
+                        path: 'LuminaReader',
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                } catch (e) {
+                    // 目录已存在
+                }
+                
+                // 写入文件
+                await Filesystem.writeFile({
+                    path: `LuminaReader/${fileName}`,
+                    data: jsonContent,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                
+                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+            } catch (err) {
+                console.error('[Export] Filesystem error:', err);
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + (err.message || '无法写入文件'));
+            }
+        } else {
+            // 浏览器环境：使用下载
+            this.downloadJSON(jsonContent, fileName);
             Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
         }
     }
@@ -514,6 +544,12 @@ Lumina.DataManager = class {
                 wordCount: data.wordCount || 0,
                 cover: data.cover || null,
                 customRegex: data.customRegex || { chapter: '', section: '' },
+                chapterNumbering: data.chapterNumbering || 'none',
+                annotations: data.annotations || [],
+                heatMap: data.heatMap || null,  // 恢复热力图数据
+                lastChapter: data.lastChapter || 0,
+                lastScrollIndex: data.lastScrollIndex || 0,
+                chapterTitle: data.chapterTitle || '',
                 lastReadTime: new Date().toISOString()
             });
             await this.refreshStats();
@@ -848,33 +884,51 @@ Lumina.HistoryActions = {
         }
     },
     
-    // 导出文件
+    // 导出文件（历史面板右滑导出）- 统一使用 DB.adapter.exportFile 保持格式一致
     async exportFile(fileKey) {
-        try {
-            const fileData = await Lumina.DB.adapter.getFile(fileKey);
-            if (!fileData) {
-                Lumina.UI.showToast(Lumina.I18n.t('fileDataLost'));
-                return;
-            }
-            
-            const exportData = {
-                version: '1.0',
-                exportTime: new Date().toISOString(),
-                file: fileData
-            };
-            
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${fileData.fileName}.lumina.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
-        } catch (err) {
-            console.error('Export file error:', err);
+        // 统一使用 DB.adapter.exportFile，确保与书库导出格式一致
+        const data = await Lumina.DB.adapter.exportFile(fileKey);
+        if (!data) {
             Lumina.UI.showToast(Lumina.I18n.t('exportFailed'));
+            return;
+        }
+        
+        const jsonContent = JSON.stringify(data, null, 2);
+        const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
+        
+        // App 环境下使用 Filesystem 插件保存到 Documents/LuminaReader/
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+        if (isApp && Capacitor.Plugins?.Filesystem) {
+            const { Filesystem } = Capacitor.Plugins;
+            try {
+                // 确保目录存在
+                try {
+                    await Filesystem.mkdir({
+                        path: 'LuminaReader',
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                } catch (e) {
+                    // 目录已存在
+                }
+                
+                // 写入文件
+                await Filesystem.writeFile({
+                    path: `LuminaReader/${fileName}`,
+                    data: jsonContent,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                
+                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+            } catch (err) {
+                console.error('[Export] Filesystem error:', err);
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + (err.message || '无法写入文件'));
+            }
+        } else {
+            // 浏览器环境：使用下载
+            this.downloadJSON(jsonContent, fileName);
+            Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
         }
     },
     

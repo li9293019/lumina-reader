@@ -843,22 +843,28 @@ Lumina.TTS.Manager = class {
             this.startServiceKeepAlive();
             
             if (this.isApp && this.nativeTTS) {
-                // APP 环境
-                const speakOptions = {
-                    text: pageText,
-                    lang: 'zh-CN',
-                    rate: this.settings.rate,
-                    pitch: this.settings.pitch,
-                    volume: this.settings.volume,
-                    category: 'playback'
-                };
+                // APP 环境：按500字分段朗读（避免崩溃）
+                const MAX_PAGE_BATCH = 500;
+                const batches = this.splitTextIntoBatches(pageText, MAX_PAGE_BATCH);
                 
-                // 添加音色选择
-                if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                    speakOptions.voice = this.settings.voiceIndex;
+                for (const batch of batches) {
+                    if (!this.isPlaying) return;
+                    
+                    const speakOptions = {
+                        text: batch,
+                        lang: 'zh-CN',
+                        rate: this.settings.rate,
+                        pitch: this.settings.pitch,
+                        volume: this.settings.volume,
+                        category: 'playback'
+                    };
+                    
+                    if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
+                        speakOptions.voice = this.settings.voiceIndex;
+                    }
+                    
+                    await this.nativeTTS.speak(speakOptions);
                 }
-                
-                await this.nativeTTS.speak(speakOptions);
                 
                 // 当前页朗读完成，自动翻页
                 if (this.isPlaying && this.isPageMode) {
@@ -903,6 +909,35 @@ Lumina.TTS.Manager = class {
         } catch (e) {
             console.error('[TTS] 页面模式朗读失败:', e);
         }
+    }
+    
+    // 将长文本分批（页面听书模式用，避免TTS崩溃）
+    splitTextIntoBatches(text, maxLength) {
+        if (text.length <= maxLength) return [text];
+        
+        const batches = [];
+        let remaining = text;
+        
+        while (remaining.length > maxLength) {
+            // 找到不超过maxLength的最后一个句号位置
+            let cutPos = maxLength;
+            const lastPeriod = remaining.lastIndexOf('。', maxLength);
+            const lastExclaim = remaining.lastIndexOf('！', maxLength);
+            const lastQuestion = remaining.lastIndexOf('？', maxLength);
+            const lastSentenceEnd = Math.max(lastPeriod, lastExclaim, lastQuestion);
+            
+            if (lastSentenceEnd > maxLength * 0.5) {
+                // 如果找到句子结束位置（且不太靠前），在这里切分
+                cutPos = lastSentenceEnd + 1;
+            }
+            // 否则直接按maxLength切分
+            
+            batches.push(remaining.substring(0, cutPos));
+            remaining = remaining.substring(cutPos);
+        }
+        
+        if (remaining) batches.push(remaining);
+        return batches;
     }
 
     isMobileDevice() {

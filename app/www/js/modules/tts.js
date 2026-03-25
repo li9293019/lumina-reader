@@ -67,22 +67,6 @@ Lumina.TTS.Manager = class {
         // 监听原生层保活广播（防止后台 WebView 休眠）
         this.setupKeepAliveListener();
         
-        // 初始化调试面板
-        this.initTestPanel();
-        
-        // 延迟检查插件（确保原生插件已加载）
-        setTimeout(() => {
-            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
-                console.log('[TTS] 延迟检测 - 可用插件:', Object.keys(Capacitor.Plugins));
-                if (Capacitor.Plugins.TTSEnhanced && !this.useEnhancedTTS) {
-                    console.log('[TTS] 发现增强版插件，切换使用');
-                    this.nativeTTS = Capacitor.Plugins.TTSEnhanced;
-                    this.useEnhancedTTS = true;
-                    this.updateTestPanel();
-                }
-            }
-        }, 1000);
-
         return true;
     }
     
@@ -323,153 +307,6 @@ Lumina.TTS.Manager = class {
         }
     }
     
-    // 初始化测试面板
-    initTestPanel() {
-        // 绑定测试按钮
-        for (let i = 0; i < 5; i++) {
-            const btn = document.getElementById(`ttsTestVoice${i}`);
-            if (btn) {
-                btn.addEventListener('click', () => this.testVoice(i));
-            }
-        }
-        const refreshBtn = document.getElementById('ttsTestRefresh');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => this.updateTestPanel());
-        }
-        
-        // 绑定打开系统设置按钮
-        const settingsBtn = document.getElementById('ttsOpenSystemSettings');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => this.openSystemTTSSettings());
-        }
-        
-        // 初始更新
-        this.updateTestPanel();
-    }
-    
-    // 更新测试面板
-    updateTestPanel() {
-        const infoEl = document.getElementById('ttsTestInfo');
-        if (!infoEl) return;
-        
-        // 检查是否有增强版插件（本地插件可能未加载，尝试标准插件扩展）
-        let hasEnhanced = false;
-        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
-            console.log('[TTS] 可用插件:', Object.keys(Capacitor.Plugins));
-            hasEnhanced = !!Capacitor.Plugins.TTSEnhanced;
-            // 如果没有增强版，标记为标准版但尝试使用 voiceURI
-            if (!hasEnhanced && this.isApp) {
-                console.log('[TTS] 增强版插件未加载，将尝试通过标准插件传递 voiceURI');
-            }
-        }
-        
-        let html = `<div><strong>插件:</strong> ${hasEnhanced ? '增强版(支持voiceURI)' : '标准版(索引)'}</div>`;
-        html += `<div><strong>当前设置:</strong> voiceIndex=${this.settings.voiceIndex !== undefined ? this.settings.voiceIndex : '未设置'}</div>`;
-        
-        if (this.voices && this.voices.length > 0) {
-            html += `<div style="margin-top: 8px;"><strong>显示音色列表 (${this.voices.length}个):</strong></div>`;
-            this.voices.forEach((v, i) => {
-                const isSelected = i === (this.settings.voiceIndex || 0);
-                html += `<div style="color: ${isSelected ? 'var(--accent-color)' : 'inherit'}; margin: 2px 0;">${i}: ${v.displayName || v.name} (voiceURI: ${v.voiceURI || 'N/A'})</div>`;
-            });
-        } else {
-            html += `<div style="color: #999;">音色列表未加载</div>`;
-        }
-        
-        if (this._rawVoiceList && this._rawVoiceList.length > 0) {
-            html += `<div style="margin-top: 8px;"><strong>原始音色列表 (${this._rawVoiceList.length}个):</strong></div>`;
-            this._rawVoiceList.forEach((v, i) => {
-                const voiceName = v.voiceURI || v.name;
-                const selectedVoice = this.voices[this.settings.voiceIndex || 0];
-                const isSelected = selectedVoice && (selectedVoice.voiceURI === voiceName || selectedVoice.name === voiceName);
-                html += `<div style="color: ${isSelected ? 'var(--accent-color)' : '#666'}; margin: 2px 0; font-size: 11px;">${i}: ${v.name} / ${v.voiceURI || 'N/A'}</div>`;
-            });
-        }
-        
-        infoEl.innerHTML = html;
-    }
-    
-    // 打开系统 TTS 设置
-    openSystemTTSSettings() {
-        if (this.isApp) {
-            // 使用 Capacitor 打开系统设置
-            try {
-                // 尝试使用原生代码打开 TTS 设置
-                if (Capacitor.Plugins.App) {
-                    // 使用 App 插件打开设置
-                    Capacitor.Plugins.App.openUrl({ url: 'android.settings.TTS_SETTINGS' });
-                } else {
-                    // 降级方案：显示手动引导
-                    Lumina.UI.showToast('请手动打开：设置 → 其他设置 → 无障碍 → TTS输出');
-                }
-            } catch (e) {
-                console.error('[TTS] 打开设置失败:', e);
-                Lumina.UI.showToast('请手动打开：设置 → 其他设置 → 无障碍 → TTS输出');
-            }
-        } else {
-            // Web 环境提示
-            Lumina.UI.showToast('Web 环境请在操作系统设置中查找 TTS 设置');
-        }
-    }
-    
-    // 测试指定索引的音色 - 尝试使用 voiceURI 直接设置
-    async testVoice(index) {
-        console.log('[TTS] 测试音色索引:', index);
-        
-        if (!this._rawVoiceList || index >= this._rawVoiceList.length) {
-            Lumina.UI.showToast('音色索引超出范围');
-            return;
-        }
-        
-        const voice = this._rawVoiceList[index];
-        const voiceName = voice.voiceURI || voice.name;
-        
-        Lumina.UI.showToast(`测试: ${voiceName}`);
-        
-        // 测试朗读
-        const testText = `这是音色 ${index} ${voiceName} 的测试`;
-        
-        try {
-            if (this.isApp && this.nativeTTS) {
-                // 检查是否有增强版插件可用
-                if (Capacitor.Plugins.TTSEnhanced) {
-                    console.log('[TTS] 使用增强版插件测试 voiceURI:', voiceName);
-                    await Capacitor.Plugins.TTSEnhanced.speak({
-                        text: testText,
-                        lang: 'zh-CN',
-                        rate: 1.0,
-                        pitch: 1.0,
-                        volume: 1.0,
-                        voiceURI: voiceName, // 直接传递 voiceURI
-                        category: 'playback'
-                    });
-                } else {
-                    // 使用标准插件，尝试传递 voiceURI 和索引
-                    console.log('[TTS] 使用标准插件测试，索引:', index, 'voiceURI:', voiceName);
-                    const speakOptions = {
-                        text: testText,
-                        lang: 'zh-CN',
-                        rate: 1.0,
-                        pitch: 1.0,
-                        volume: 1.0,
-                        voice: index,
-                        category: 'playback'
-                    };
-                    // 尝试额外传递 voiceURI（如果插件支持）
-                    speakOptions.voiceURI = voiceName;
-                    await this.nativeTTS.speak(speakOptions);
-                }
-            } else if (this.synth) {
-                const utterance = new SpeechSynthesisUtterance(testText);
-                utterance.lang = 'zh-CN';
-                this.synth.speak(utterance);
-            }
-        } catch (e) {
-            console.error('[TTS] 测试音色失败:', e);
-            Lumina.UI.showToast('测试失败: ' + e.message);
-        }
-    }
-    
     // 启动前台服务保活（解决熄屏问题）
     startServiceKeepAlive() {
         if (!this.isApp) return;
@@ -535,12 +372,6 @@ Lumina.TTS.Manager = class {
             }
             this.currentFileKey = currentKey;
         }, 500);
-    }
-
-    // 通过 voiceURI 在排序后的原始列表中查找索引
-    findVoiceIndexByName(voiceName) {
-        if (!this._rawVoiceList || !voiceName) return -1;
-        return this._rawVoiceList.findIndex(v => v.voiceURI === voiceName || v.name === voiceName);
     }
 
     async loadVoices() {
@@ -618,16 +449,11 @@ Lumina.TTS.Manager = class {
                     this.settings.voiceIndex = parseInt(btn.dataset.index);
                     this.settings.voiceURI = btn.dataset.voice;
                     this.saveSettings();
-                    // 更新测试面板
-                    this.updateTestPanel();
                 } else {
                     this.updateSettings('voice', btn.dataset.voice);
                 }
             });
         });
-        
-        // 更新测试面板
-        this.updateTestPanel();
     }
 
     splitIntoSentences(text) {
@@ -1027,16 +853,9 @@ Lumina.TTS.Manager = class {
                     category: 'playback'
                 };
                 
-                // 添加音色选择 - 使用 voiceURI 匹配
+                // 添加音色选择
                 if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                    const selectedVoice = this.voices[this.settings.voiceIndex];
-                    if (selectedVoice) {
-                        // 通过 voiceURI 在原始列表中查找正确索引
-                        const voiceName = selectedVoice.voiceURI || selectedVoice.name;
-                        const correctIndex = this.findVoiceIndexByName(voiceName);
-                        speakOptions.voice = correctIndex >= 0 ? correctIndex : this.settings.voiceIndex;
-                        console.log('[TTS] 选择音色:', voiceName, '索引:', speakOptions.voice);
-                    }
+                    speakOptions.voice = this.settings.voiceIndex;
                 }
                 
                 await this.nativeTTS.speak(speakOptions);
@@ -1353,15 +1172,9 @@ Lumina.TTS.Manager = class {
                 category: 'playback'
             };
             
-            // 添加音色选择 - 使用 voiceURI 匹配
+            // 添加音色选择
             if (this.settings.voiceIndex !== undefined && this.settings.voiceIndex >= 0) {
-                const selectedVoice = this.voices[this.settings.voiceIndex];
-                if (selectedVoice) {
-                    const voiceName = selectedVoice.voiceURI || selectedVoice.name;
-                    const correctIndex = this.findVoiceIndexByName(voiceName);
-                    speakOptions.voice = correctIndex >= 0 ? correctIndex : this.settings.voiceIndex;
-                    console.log('[TTS] 选择音色:', voiceName, '索引:', speakOptions.voice);
-                }
+                speakOptions.voice = this.settings.voiceIndex;
             }
             
             await this.nativeTTS.speak(speakOptions);

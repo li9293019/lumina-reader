@@ -520,8 +520,8 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             const result = await this.dbBridge.delete(fileKey);
             if (result.success) {
                 this.cache.delete(fileKey);
+                this.listCache = null;  // 彻底清除列表缓存
                 this.listTimestamp = 0;
-                this.backgroundRefresh();
                 
                 if (this.localCacheReady) {
                     await this.localCache.deleteFile(fileKey);
@@ -1000,8 +1000,8 @@ Lumina.DB.SQLiteImpl = class {
         
         if (result) {
             this.cache.delete(fileKey);
+            this.listCache = null;  // 彻底清除列表缓存
             this.listTimestamp = 0;
-            this.backgroundRefresh();
             
             // 同时删除本地缓存
             if (this.localCacheReady) {

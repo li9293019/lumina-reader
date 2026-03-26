@@ -118,7 +118,7 @@ Lumina.Config.defaultSettings = {
     dropCap: false,
     fontSize: 20,
     lineHeight: 15,
-    paragraphSpacing: 0,
+    paragraphSpacing: 3,
     pageWidth: 80,
     margin: 40,
     ignoreEmptyLines: false,

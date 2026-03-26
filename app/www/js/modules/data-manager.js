@@ -433,13 +433,22 @@ Lumina.DataManager = class {
             btn.classList.add('loading');
             
             try {
+                // 检查当前是否有打开的文件
+                const isCurrentFileInLibrary = Lumina.State.app.currentFile?.fileKey && 
+                    files.some(f => f.fileKey === Lumina.State.app.currentFile.fileKey);
+                
                 // 清空所有文件
                 for (const file of files) {
                     await Lumina.DB.adapter.deleteFile(file.fileKey);
                 }
                 
                 // 如果当前打开的文件在书库中，标记为不自动保存
-                Lumina.State.app.currentFile.skipSave = true;
+                if (isCurrentFileInLibrary) {
+                    Lumina.State.app.currentFile.skipSave = true;
+                }
+                
+                // 清除说明书导入标记，以便下次刷新时重新导入
+                localStorage.removeItem('luminaGuideImported');
                 
                 // 刷新显示
                 await this.refreshStats();
@@ -449,6 +458,11 @@ Lumina.DataManager = class {
                 await Lumina.DB.loadHistoryFromDB();
                 
                 Lumina.UI.showToast(Lumina.I18n.t('libraryCleared'));
+                
+                // 如果当前有打开的文件，返回欢迎页面
+                if (isCurrentFileInLibrary) {
+                    Lumina.Actions.returnToWelcome();
+                }
             } catch (err) {
                 console.error('Clear library error:', err);
                 Lumina.UI.showToast(Lumina.I18n.t('clearFailed'));
@@ -1850,6 +1864,10 @@ Lumina.DB.clearHistory = async () => {
         for (const f of files) await Lumina.DB.adapter.deleteFile(f.fileKey);
     }
     localStorage.removeItem('luminaHistory');
+    
+    // 清除说明书导入标记，以便下次刷新时重新导入
+    localStorage.removeItem('luminaGuideImported');
+    
     Lumina.Renderer.renderHistoryFromDB([]);
     if (Lumina.DataManager) {
         Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();

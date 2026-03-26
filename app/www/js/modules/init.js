@@ -106,10 +106,73 @@ Lumina.init = async () => {
         Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
         Lumina.DataManager.updateSettingsBar();
     }
+    
+    // HTTP 模式下尝试导入默认说明书
+    if (!window.location.protocol.startsWith('file')) {
+        await Lumina.importDefaultGuideIfNeeded();
+    }
 
     if (!Lumina.State.app.document.items.length) {
         Lumina.DOM.sidebarLeft.classList.remove('visible');
         Lumina.DOM.readingArea.classList.remove('with-sidebar');
+    }
+};
+
+// ==================== 默认说明书导入 ====================
+// 仅在 HTTP(S) 模式下工作：从 guide.md 文件读取并导入
+// file:// 模式下由于浏览器安全限制（CORS），无法使用 fetch，故此功能不可用
+Lumina.importDefaultGuideIfNeeded = async () => {
+    // 检查是否已导入过
+    if (localStorage.getItem('luminaGuideImported') === 'true') return;
+    if (!Lumina.State.app.dbReady) return;
+    
+    try {
+        // 检查书库是否为空
+        const files = await Lumina.DB.adapter.getAllFiles();
+        if (files.length > 0) {
+            localStorage.setItem('luminaGuideImported', 'true');
+            return;
+        }
+        
+        // 尝试从 guide.md 读取
+        const response = await fetch('./guide.md');
+        if (!response.ok) return;
+        
+        const text = await response.text();
+        if (!text || text.length < 100) return;
+        
+        // 解析 Markdown
+        const parsed = Lumina.Plugin?.Markdown?.Parser?.parse 
+            ? Lumina.Plugin.Markdown.Parser.parse(text) 
+            : Lumina.Parser.parseTXT(text);
+        
+        if (!parsed?.items?.length) return;
+        
+        // 保存到数据库
+        const fileKey = `流萤阅读器使用指南.md_${text.length}_${Date.now()}`;
+        const saved = await Lumina.DB.adapter.saveFile(fileKey, {
+            fileName: '流萤阅读器使用指南.md',
+            fileType: 'md',
+            fileSize: new Blob([text]).size,
+            content: parsed.items,
+            wordCount: text.length,
+            lastChapter: 0,
+            lastScrollIndex: 0,
+            chapterTitle: '',
+            lastReadTime: new Date().toISOString(),
+            customRegex: { chapter: '', section: '' },
+            chapterNumbering: 'none',
+            annotations: [],
+            cover: null,
+            heatMap: null
+        });
+        
+        if (saved) {
+            localStorage.setItem('luminaGuideImported', 'true');
+            await Lumina.DB.loadHistoryFromDB();
+        }
+    } catch (err) {
+        // 静默失败
     }
 };
 

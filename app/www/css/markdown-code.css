@@ -1,0 +1,227 @@
+/* ==================== Markdown 代码高亮样式 ====================
+ * 纯 CSS 实现，不依赖 PrismJS 语言组件
+ * 基于正则的关键字匹配由 PrismJS 核心处理，这里只提供配色
+ */
+
+/* 代码块基础样式 */
+.markdown-pre {
+    margin: var(--paragraph-spacing, 0.8em) 0;
+    padding: 1em;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+}
+
+.markdown-pre code {
+    font-family: var(--font-mono);
+    font-size: calc(var(--font-size, 18px) * 0.85);
+    line-height: 1.6;
+    background: transparent;
+}
+
+/* 确保 PrismJS 或内置高亮的 token 颜色正确显示 */
+/* 如果 PrismJS 加载了语言组件，这些样式会增强显示效果 */
+
+/* 关键字 - 使用强调色 */
+.token.keyword,
+.token.control-flow,
+.token.module,
+.token.namespace,
+.token.import,
+.token.export,
+.token.from,
+.token.as,
+.token.async,
+.token.await,
+.token.yield,
+.token.return,
+.token.throw,
+.token.try,
+.token.catch,
+.token.finally,
+.token.if,
+.token.else,
+.token.switch,
+.token.case,
+.token.default,
+.token.break,
+.token.continue,
+.token.while,
+.token.do,
+.token.for,
+.token.in,
+.token.of,
+.token.class,
+.token.extends,
+.token.implements,
+.token.interface,
+.token.enum,
+.token.const,
+.token.let,
+.token.var,
+.token.function,
+.token.static,
+.token.public,
+.token.private,
+.token.protected,
+.token.internal,
+.token.new,
+.token.this,
+.token.super,
+.token.null,
+.token.undefined,
+.token.true,
+.token.false {
+    color: var(--accent-hover, #c9a06c);
+    font-weight: 600;
+}
+
+/* 字符串 - 使用柔和的绿色 */
+.token.string,
+.token.template-string,
+.token.char,
+.token.regex,
+.token.attr-value {
+    color: #7ec699;
+}
+
+/* 注释 - 使用柔和灰色 */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: var(--text-muted, #6e6e6e);
+    font-style: italic;
+}
+
+/* 数字 - 使用橙色 */
+.token.number,
+.token.boolean,
+.token.constant {
+    color: #f08d49;
+}
+
+/* 函数 - 使用蓝色 */
+.token.function,
+.token.method,
+.token.function-name,
+.token.class-name {
+    color: #6196cc;
+}
+
+/* 变量/标识符 - 使用主文字色 */
+.token.variable,
+.token.identifier,
+.token.property,
+.token.parameter {
+    color: var(--text-primary, #d1d1d1);
+}
+
+/* 运算符 - 使用次文字色 */
+.token.operator,
+.token.punctuation,
+.token.bracket,
+.token.brace,
+.token.parenthesis {
+    color: var(--text-secondary, #a0a0a0);
+}
+
+/* 标签名（HTML/XML）- 使用红色系 */
+.token.tag,
+.token.selector,
+.token.entity,
+.token.url {
+    color: #e2777a;
+}
+
+/* 属性名 - 使用橙色 */
+.token.attr-name {
+    color: #f8c555;
+}
+
+/* 装饰器/注解 - 使用紫色 */
+.token.decorator,
+.token.annotation,
+.token.atrule {
+    color: #cc99cd;
+}
+
+/* 插入的代码 */
+.token.inserted {
+    color: #7ec699;
+    background: rgba(126, 198, 153, 0.1);
+}
+
+/* 删除的代码 */
+.token.deleted {
+    color: #e2777a;
+    background: rgba(226, 119, 122, 0.1);
+}
+
+/* 重要标记 */
+.token.important {
+    font-weight: bold;
+    color: var(--accent-color, #c9a06c);
+}
+
+/* 粗体标记 */
+.token.bold {
+    font-weight: bold;
+}
+
+/* 斜体标记 */
+.token.italic {
+    font-style: italic;
+}
+
+/* 浅色主题适配 */
+[data-theme="light"] .token.string,
+[data-theme="parchment"] .token.string,
+[data-theme="sprout"] .token.string,
+[data-theme="slate"] .token.string,
+[data-theme="mist"] .token.string,
+[data-theme="mint"] .token.string,
+[data-theme="rose"] .token.string {
+    color: #22863a;
+}
+
+[data-theme="light"] .token.keyword,
+[data-theme="parchment"] .token.keyword,
+[data-theme="sprout"] .token.keyword,
+[data-theme="slate"] .token.keyword,
+[data-theme="mist"] .token.keyword,
+[data-theme="mint"] .token.keyword,
+[data-theme="rose"] .token.keyword {
+    color: #d73a49;
+}
+
+[data-theme="light"] .token.function,
+[data-theme="parchment"] .token.function,
+[data-theme="sprout"] .token.function,
+[data-theme="slate"] .token.function,
+[data-theme="mist"] .token.function,
+[data-theme="mint"] .token.function,
+[data-theme="rose"] .token.function {
+    color: #6f42c1;
+}
+
+[data-theme="light"] .token.number,
+[data-theme="parchment"] .token.number,
+[data-theme="sprout"] .token.number,
+[data-theme="slate"] .token.number,
+[data-theme="mist"] .token.number,
+[data-theme="mint"] .token.number,
+[data-theme="rose"] .token.number {
+    color: #005cc5;
+}
+
+[data-theme="light"] .token.comment,
+[data-theme="parchment"] .token.comment,
+[data-theme="sprout"] .token.comment,
+[data-theme="slate"] .token.comment,
+[data-theme="mist"] .token.comment,
+[data-theme="mint"] .token.comment,
+[data-theme="rose"] .token.comment {
+    color: #6a737d;
+}

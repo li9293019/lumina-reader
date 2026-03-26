@@ -221,6 +221,16 @@ Lumina.UI = {
             
             // 水平滑动超过阈值，且水平移动大于垂直移动（避免与滚动冲突）
             if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY)) {
+                // 【关键修复】检查是否在 code 或 table 区域内滑动，如果是则不翻页
+                const target = e.target;
+                const isInCodeBlock = target.closest('.markdown-pre, .markdown-code, pre[class*="language-"]');
+                const isInTable = target.closest('.markdown-table, table');
+                
+                if (isInCodeBlock || isInTable) {
+                    // 在代码块或表格内滑动，不触发翻页
+                    return;
+                }
+                
                 if (e.cancelable) {
                     e.preventDefault();
                 }

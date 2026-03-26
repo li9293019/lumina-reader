@@ -116,6 +116,14 @@ Lumina.Renderer.preloadNextPageImages = (chapter, currentPageIdx) => {
 };
 
 Lumina.Renderer.createDocLineElement = (item, index) => {
+    // 【插件钩子】尝试让插件创建元素
+    if (Lumina.PluginManager) {
+        const hookResult = Lumina.PluginManager.executeHook('createElement', item, index);
+        if (hookResult) {
+            return hookResult;
+        }
+    }
+    
     const div = document.createElement('div');
     div.className = 'doc-line';
     div.dataset.index = index;
@@ -165,6 +173,8 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
         div.appendChild(img);
     } else {
         let content = item.display || item.text;
+        // 防御：确保 content 是字符串
+        if (typeof content !== 'string') content = String(content || '');
         content = Lumina.Renderer.getCleanText(content);
         if (item.isEmpty || (!content.trim() && !Lumina.State.settings.ignoreEmptyLines)) {
             div.innerHTML = '&nbsp;'; // 使用不换行空格确保高度
@@ -182,6 +192,8 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
 };
 
 Lumina.Renderer.getCleanText = (txt) => {
+    // 防御：确保 txt 是字符串
+    if (typeof txt !== 'string') return txt || '';
     if (['chap', 'part', 'sect'].some(prefix => txt.toLowerCase().startsWith(prefix))) return txt;
     
     const specialChars = new Set(`!@#$%^&*()_+-=[]{}|;':"\\,./?`);

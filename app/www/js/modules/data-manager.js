@@ -1167,7 +1167,18 @@ Lumina.DB.HistoryDataBuilder = {
                     text: item.text,
                     ...(item.display !== undefined && { display: item.display }),
                     ...(item.level !== undefined && { level: item.level }),
-                    ...(item.alt !== undefined && { alt: item.alt })
+                    ...(item.alt !== undefined && { alt: item.alt }),
+                    // 【关键】保留 Markdown 的 items（列表、表格等）
+                    ...(item.items !== undefined && { items: item.items }),
+                    // 【关键】保留 Markdown 的 inlineContent（行内格式）
+                    ...(item.inlineContent !== undefined && { inlineContent: item.inlineContent }),
+                    // 保留其他可能需要的字段
+                    ...(item.ordered !== undefined && { ordered: item.ordered }),
+                    ...(item.start !== undefined && { start: item.start }),
+                    ...(item.headers !== undefined && { headers: item.headers }),
+                    ...(item.rows !== undefined && { rows: item.rows }),
+                    ...(item.language !== undefined && { language: item.language }),
+                    ...(item.raw !== undefined && { raw: item.raw })
                 };
                 
                 // 处理图片
@@ -1741,6 +1752,11 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
                     const level = parseInt(item.type.replace('heading', '')) || 1;
                     const newItem = Lumina.Parser.processHeading(level, item.text || '');
                     item.display = newItem.display;
+                    // 【关键】保留 Markdown 的 inlineContent
+                    // 如果原 item 有 inlineContent，则保留，不覆盖
+                    if (!item.inlineContent && newItem.inlineContent) {
+                        item.inlineContent = newItem.inlineContent;
+                    }
                 }
             });
         }

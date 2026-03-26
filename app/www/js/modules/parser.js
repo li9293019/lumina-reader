@@ -1020,8 +1020,17 @@ Lumina.Parser.imageDataToBase64 = (data) => {
     }
 };
 
-Lumina.Parser.parseTextFile = (content, ext) => {
+Lumina.Parser.parseTextFile = (content, ext, file = null) => {
     if (typeof content !== 'string') return { items: [], type: ext };
+    
+    // 【插件钩子】尝试让插件处理
+    if (Lumina.PluginManager) {
+        const hookResult = Lumina.PluginManager.executeHook('beforeParse', file, content);
+        if (hookResult && hookResult.handled && hookResult.data) {
+            return hookResult.data;
+        }
+    }
+    
     const lines = content.split(/\r?\n/);
     const results = [];
     Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];

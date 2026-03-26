@@ -136,13 +136,14 @@ Lumina.Actions = {
                 Lumina.State.app.currentFile.encoding = originalEncoding;
                 const parser = Lumina.Config.fileTypes[fileType]?.parser;
                 if (!parser) throw new Error('Unsupported format');
-                result = Lumina.Parser[parser](text, fileType);
+                result = Lumina.Parser[parser](text, fileType, file);
             }
 
             wordCount = Lumina.Utils.calculateWordCount(result.items);
             Lumina.State.app.document = result;
             Lumina.State.app.currentFile.wordCount = wordCount;
             Lumina.State.app.currentFile.name = file.name;
+            Lumina.State.app.currentFile.file = file;
 
             Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];
             Lumina.State.app.chapters = Lumina.Parser.buildChapters(result.items);

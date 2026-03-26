@@ -92,7 +92,7 @@ Lumina.Parser.reparseDocumentStructure = async () => {
     if (ext === 'docx' || ext === 'pdf') {
         Lumina.Parser.reanalyzeDocumentItems();
     } else {
-        const result = Lumina.Parser.parseTextFile(Lumina.State.app.currentFile.rawContent, ext);
+        const result = Lumina.Parser.parseTextFile(Lumina.State.app.currentFile.rawContent, ext, Lumina.State.app.currentFile.file);
         Lumina.State.app.document = result;
     }
 

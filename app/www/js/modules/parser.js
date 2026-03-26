@@ -240,6 +240,7 @@ Lumina.Parser.RegexCache = {
 
     detectChapter(text, useCustom = false) {
         if (!text) return null;
+        if (text.includes('.........')) return null;
         const trimmed = text.trim();
 
         if (useCustom) {
@@ -574,7 +575,9 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
             const textItems = paragraphs.map(p => ({
                 type: 'text',
                 content: p.text,
-                y: p.y
+                y: p.y,
+                isHeading: p.isHeading,
+                level: p.level
             }));
 
             // 合并文本和图片，按 Y 坐标排序
@@ -601,12 +604,22 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
         for (const page of pageContents) {
             for (const item of page.items) {
                 if (item.type === 'text') {
-                    // 将 PDF 文本转换为段落
-                    results.push({
-                        type: 'paragraph',
-                        text: item.content,
-                        display: item.content
-                    });
+                    // 检查是否是标题
+                    if (item.isHeading) {
+                        results.push({
+                            type: `heading${item.level || 1}`,
+                            level: item.level || 1,
+                            text: item.content,
+                            display: item.content
+                        });
+                    } else {
+                        // 将 PDF 文本转换为段落
+                        results.push({
+                            type: 'paragraph',
+                            text: item.content,
+                            display: item.content
+                        });
+                    }
                 } else if (item.type === 'image') {
                     results.push({
                         type: 'image',
@@ -643,7 +656,7 @@ Lumina.Parser.isParagraphEnd = (text) => {
     if (!text) return false;
     const trimmed = text.trim();
     if (trimmed.length === 0) return false;
-    const endPunctuations = /[。.！!；;…—~～")）]$/;
+    const endPunctuations = /[。.！!；;…—~～"”’)）]$/;
     const abbreviations = /(?:Mr|Mrs|Ms|Dr|Prof|No|vol|vs|etc|i\.e|e\.g|et\s+al|fig|Fig|Inc|Ltd|Jr|Sr|St|Ave|Rd|Blvd|Dept|Univ|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?$/i;
     return endPunctuations.test(trimmed) && !abbreviations.test(trimmed);
 };
@@ -738,8 +751,22 @@ Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '',
     for (let i = 0; i < lineTexts.length; i++) {
         const line = lineTexts[i];
         
+        // 【关键】检测是否为章节标题
+        const chapterInfo = Lumina.Parser.RegexCache.detectChapter(line.text, true);
+        if (chapterInfo) {
+            // 先保存当前段落
+            if (currentParagraph.trim()) {
+                paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });
+                currentParagraph = '';
+                currentParagraphY = null;
+            }
+            // 标题独立成段，不参与后续合并
+            paragraphs.push({ text: line.text, y: line.y, isHeading: true, level: chapterInfo.level });
+            continue;
+        }
+        
         // 【关键】过滤目录行：包含 '........' 或目录标题
-        if (/^\s*(目录|Content|Contents|Catalog|Catalogs)\s*$/i.test(line.text) || line.text.includes('........')) {
+        if (/^\s*(目\s*录|Content|Contents|Catalog|Catalogs)\s*$/i.test(line.text) || line.text.includes('........')) {
             // 如果当前有未完成的段落，先保存
             if (currentParagraph.trim()) {
                 paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });
@@ -750,7 +777,7 @@ Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '',
         }
 
         // 如果不含有常规标点且较短，允许独立成段
-        if (/[,.:;'"，。：；""''!！]/.test(line.text) === false && line.text.length < 8) {
+        if (/[,.:;'"，。：；“”‘’!！]/.test(line.text) === false && line.text.length < 8) {
             if (currentParagraph !== line.text) {
                 if (currentParagraph.trim()) {
                     paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });

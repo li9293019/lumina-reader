@@ -142,7 +142,7 @@ Lumina.Config.regexPatterns = {
     sectionDash: /^<?(\d+)[\-–—\.](\d+)\s*[:\-]?>?\s*(.*)/,
     sectionCn: /^<?第\s*[一二三四五六七八九十百千万零〇\d]+\s*[节集]>?\s*[:\-]?\s*(.*)/i,
     sectionEn: /^Section\s*(\d+)\s*[:\-]?\s*(.*)/i,
-    specialTitles: /^(阅读须知|版权说明|引言|序言|前言|楔子|尾声|创作后记|后记|Introduction|Prologue|Preface|Epilogue)$/i,
+    specialTitles: /^<?(阅读须知|版权说明|引言|序言|前言|楔子|尾声|创作后记|后记|附录|Introduction|Prologue|Preface|Epilogue)[:：]?(.*)>?$/i,
     mdHeading: /^(#{1,6})\s+(.+)$/,
     titleTag: /^\[T\]/i,
     subtitleTag: /^\[S\]/i

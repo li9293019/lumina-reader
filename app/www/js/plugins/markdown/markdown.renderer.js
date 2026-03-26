@@ -24,21 +24,21 @@ Lumina.Plugin.Markdown.Renderer = {
             // 如果 Prism 已存在（可能之前加载过），直接复用
             if (window.Prism) {
                 this.highlightState = { loaded: true, source: 'local', Prism: window.Prism };
-                console.log('[Markdown] 复用已加载的 Prism');
+                // console.log('[Markdown] 复用已加载的 Prism');
                 return;
             }
 
             // 加载 PrismJS 核心
-            console.log('[Markdown] 开始加载 PrismJS...');
+            // console.log('[Markdown] 开始加载 PrismJS...');
             await this.loadScript('./js/plugins/markdown/lib/prism/prism.min.js');
             
             // 根据当前主题加载对应代码高亮主题
             const theme = this.getCurrentTheme();
-            console.log('[Markdown] 加载代码高亮主题:', theme);
+            // console.log('[Markdown] 加载代码高亮主题:', theme);
             await this.loadCSS(`./js/plugins/markdown/lib/prism/themes/${theme}.css`, 'data-prism-theme', theme);
             
             this.highlightState = { loaded: true, source: 'local', Prism: window.Prism };
-            console.log('[Markdown] 代码高亮已加载 (主题: ' + theme + ')');
+            // console.log('[Markdown] 代码高亮已加载 (主题: ' + theme + ')');
         } catch (e) {
             console.error('[Markdown] 代码高亮加载失败:', e);
             this.highlightState = { loaded: false, source: null, Prism: null };
@@ -89,7 +89,7 @@ Lumina.Plugin.Markdown.Renderer = {
         };
         
         const codeTheme = themeMap[theme] || 'one-light';
-        console.log('[Markdown] 代码高亮主题映射:', theme, '->', codeTheme);
+        // console.log('[Markdown] 代码高亮主题映射:', theme, '->', codeTheme);
         return codeTheme;
     },
 
@@ -119,7 +119,7 @@ Lumina.Plugin.Markdown.Renderer = {
             if (dataAttr && dataValue) {
                 const existing = document.querySelector(`link[${dataAttr}="${dataValue}"]`);
                 if (existing) {
-                    console.log('[Markdown] CSS 主题已加载:', dataValue);
+                    // console.log('[Markdown] CSS 主题已加载:', dataValue);
                     resolve();
                     return;
                 }
@@ -132,7 +132,7 @@ Lumina.Plugin.Markdown.Renderer = {
                 link.setAttribute(dataAttr, dataValue);
             }
             link.onload = () => {
-                console.log('[Markdown] CSS 加载成功:', href);
+                // console.log('[Markdown] CSS 加载成功:', href);
                 resolve();
             };
             link.onerror = (e) => {
@@ -361,9 +361,9 @@ Lumina.Plugin.Markdown.Renderer = {
         try {
             await this.loadScript(`./js/plugins/markdown/lib/prism/components/prism-${actualLang}.min.js`);
             this.loadedLanguages.add(actualLang);
-            console.log('[Markdown] 语言组件加载成功:', actualLang);
+            // console.log('[Markdown] 语言组件加载成功:', actualLang);
         } catch (e) {
-            console.log('[Markdown] 语言组件加载失败:', actualLang, e.message);
+            // console.log('[Markdown] 语言组件加载失败:', actualLang, e.message);
         }
     },
 
@@ -371,11 +371,11 @@ Lumina.Plugin.Markdown.Renderer = {
      * 高亮单个代码元素
      */
     async highlightCodeElement(codeElement) {
-        console.log('[Markdown] 尝试高亮代码块:', codeElement.className);
+        // console.log('[Markdown] 尝试高亮代码块:', codeElement.className);
         
         // 等待高亮库就绪
         if (!this.highlightState.loaded) {
-            console.log('[Markdown] 高亮库未加载，尝试初始化...');
+            // console.log('[Markdown] 高亮库未加载，尝试初始化...');
             await this.initHighlighter();
         }
         
@@ -390,7 +390,7 @@ Lumina.Plugin.Markdown.Renderer = {
                     await this.loadLanguageComponent(lang);
                 }
                 
-                console.log('[Markdown] Prism 高亮:', lang || '纯文本');
+                // console.log('[Markdown] Prism 高亮:', lang || '纯文本');
                 
                 // 调用 Prism 高亮
                 this.highlightState.Prism.highlightElement(codeElement);
@@ -398,9 +398,9 @@ Lumina.Plugin.Markdown.Renderer = {
                 // 检查高亮是否生效
                 const hasTokens = codeElement.querySelector('.token');
                 if (hasTokens) {
-                    console.log('[Markdown] 代码高亮成功');
+                    // console.log('[Markdown] 代码高亮成功');
                 } else {
-                    console.log('[Markdown] 无 token 生成（语言可能不支持或纯文本）');
+                    // console.log('[Markdown] 无 token 生成（语言可能不支持或纯文本）');
                 }
             } catch (e) {
                 console.error('[Markdown] 代码高亮失败:', e);

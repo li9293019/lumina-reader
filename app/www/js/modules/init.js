@@ -86,7 +86,7 @@ Lumina.init = async () => {
     Lumina.DataManager = new Lumina.DataManager();
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用
     Lumina.DataManager.init();
-
+    
     // TTS 初始化（失败不阻塞）
     try {
         Lumina.TTS.manager = new Lumina.TTS.Manager();
@@ -115,6 +115,20 @@ Lumina.init = async () => {
     if (!Lumina.State.app.document.items.length) {
         Lumina.DOM.sidebarLeft.classList.remove('visible');
         Lumina.DOM.readingArea.classList.remove('with-sidebar');
+    }
+    
+    // 初始化文件打开器（处理从系统文件管理器打开的文件）
+    if (Lumina.FileOpener?.tryInit) {
+        console.log('[Init] 初始化 FileOpener...');
+        Lumina.FileOpener.tryInit();
+        
+        // 检查是否有从 Android 原生层接收的待处理文件
+        if (window.pendingOpenUrl) {
+            console.log('[Init] 发现待处理文件:', window.pendingOpenUrl);
+            const url = window.pendingOpenUrl;
+            window.pendingOpenUrl = null;
+            setTimeout(() => Lumina.FileOpener.handleIncomingUrl(url), 100);
+        }
     }
 };
 
@@ -170,6 +184,12 @@ Lumina.importDefaultGuideIfNeeded = async () => {
         if (saved) {
             localStorage.setItem('luminaGuideImported', 'true');
             await Lumina.DB.loadHistoryFromDB();
+            
+            // 更新设置面板的 storage-info-bar
+            if (Lumina.State.app.dbReady && Lumina.DataManager) {
+                Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
+                Lumina.DataManager.updateSettingsBar();
+            }
         }
     } catch (err) {
         // 静默失败

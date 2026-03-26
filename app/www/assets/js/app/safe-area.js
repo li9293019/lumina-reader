@@ -7,7 +7,7 @@
     const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
     
     if (!isApp) {
-        console.log('[SafeArea] 非 APP 环境，跳过');
+        // console.log('[SafeArea] 非 APP 环境，跳过');
         return;
     }
 

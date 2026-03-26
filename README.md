@@ -60,6 +60,61 @@ LuminaReader/
 - **App**：Capacitor 加载 `app/www/` 打包成 APK
 - **Web**：`web/server.py` 直接服务 `app/www/` 目录
 
+## 环境准备
+
+### 1. 安装 Node.js
+
+**Windows（推荐方式）：**
+```powershell
+# 方式一：官网下载安装包
+# 访问 https://nodejs.org/ 下载 LTS 版本（推荐 18.x 或 20.x）
+
+# 方式二：使用 winget（Windows 10/11 自带）
+winget install OpenJS.NodeJS.LTS
+```
+
+**macOS：**
+```bash
+# 使用 Homebrew
+brew install node@20
+```
+
+**验证安装：**
+```bash
+node -v    # 应输出版本号，如 v18.20.0
+npm -v     # 应输出版本号，如 10.2.0
+```
+
+### 2. 安装项目依赖
+
+```bash
+cd app
+npm install
+```
+
+### 3. Android 开发环境（可选，仅构建 APK 需要）
+
+| 工具 | 用途 | 下载地址 |
+|------|------|----------|
+| Java JDK 17 | Android 编译必需 | https://www.oracle.com/java/technologies/downloads/ |
+| Android Studio | Android SDK 管理 | https://developer.android.com/studio |
+
+安装完成后，在 Android Studio 的 SDK Manager 中安装：
+- Android SDK Platform 34（或更高版本）
+- Android SDK Build-Tools
+
+### 4. Python（一般 Windows 已自带）
+
+Web 服务器需要 Python 3.7+，一般 Windows 系统已预装。
+
+```bash
+python --version
+# 或
+python3 --version
+```
+
+---
+
 ## 插件系统
 
 **【新增】** 项目采用插件化架构，核心功能与扩展功能解耦：
@@ -80,7 +135,9 @@ js/plugins/
 
 ## 快速开始
 
-### Web 端
+> **提示**：首次使用请先完成上面的【环境准备】步骤
+
+### Web 端（最简单，推荐先尝试）
 
 ```bash
 cd web
@@ -94,18 +151,36 @@ start.bat
 ```bash
 cd app
 
-# 安装依赖（首次）
+# 首次安装依赖（如已执行过可跳过）
 npm install
 
 # 同步 Web 代码到 Android
 npx cap sync android
 
-# 构建 APK
+# 打开 Android Studio 运行或构建 APK
+npx cap open android
+```
+
+**构建 APK（命令行方式）：**
+```bash
 cd android
 .\gradlew.bat assembleDebug
+# 输出位置：app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## 开发工作流
+
+### 首次克隆项目后
+
+```bash
+# 1. 安装 Node 依赖
+cd app
+npm install
+
+# 2. 启动 Web 端测试
+cd ../web
+python server.py
+```
 
 ### 修改前端代码
 

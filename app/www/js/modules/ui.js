@@ -251,6 +251,8 @@ Lumina.UI = {
         // 正则帮助弹窗
         document.getElementById('regexHelpBtn').addEventListener('click', () => {
             document.getElementById('regexHelpPanel').classList.add('active');
+            // 更新多语言翻译（确保动态添加的内容被翻译）
+            Lumina.I18n.updateUI();
         });
 
         document.getElementById('closeRegexHelp').addEventListener('click', () => {

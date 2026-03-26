@@ -34,7 +34,7 @@ Object.assign(Lumina.Plugin.Markdown, {
      * 插件初始化
      */
     init() {
-        console.log('[Markdown Plugin] 初始化...');
+        // console.log('[Markdown Plugin] 初始化...');
         
         // 确保依赖已加载
         if (!Lumina.Plugin.Markdown.Parser || !Lumina.Plugin.Markdown.Renderer) {
@@ -55,7 +55,7 @@ Object.assign(Lumina.Plugin.Markdown, {
         // 监听主题切换
         this.observeThemeChange();
         
-        console.log('[Markdown Plugin] 已就绪');
+        // console.log('[Markdown Plugin] 已就绪');
     },
 
     /**
@@ -97,9 +97,9 @@ Object.assign(Lumina.Plugin.Markdown, {
         // 加载新主题
         try {
             await Renderer.loadCSS(`./js/plugins/markdown/lib/prism/themes/${newTheme}.css`, 'data-prism-theme', newTheme);
-            console.log('[Markdown] 代码高亮主题已更新:', newTheme);
+            // console.log('[Markdown] 代码高亮主题已更新:', newTheme);
         } catch (e) {
-            console.log('[Markdown] 代码高亮主题更新失败:', e);
+            // console.log('[Markdown] 代码高亮主题更新失败:', e);
         }
     },
 

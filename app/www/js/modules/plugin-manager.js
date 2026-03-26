@@ -118,7 +118,7 @@ Lumina.PluginManager = {
             if (plugin.init) {
                 plugin.init();
             }
-            console.log(`插件 [${plugin.name}] v${plugin.version || '1.0'} 已加载`);
+            // console.log(`插件 [${plugin.name}] v${plugin.version || '1.0'} 已加载`);
         } catch (e) {
             console.error(`插件 [${plugin.name}] 初始化失败:`, e);
         }

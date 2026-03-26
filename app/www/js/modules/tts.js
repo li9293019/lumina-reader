@@ -820,6 +820,175 @@ Lumina.TTS.Manager = class {
         }
     }
 
+    /**
+     * 提取单个 item 的纯文本内容（支持标准和 Markdown 元素）
+     * @param {Object} item - 文档元素
+     * @returns {string} - 纯文本
+     */
+    /**
+     * 从 inlineContent 提取纯文本（去除 Markdown 标记）
+     * @param {Array} inlineContent - 行内元素数组
+     * @returns {string} - 纯文本
+     */
+    extractTextFromInline(inlineContent) {
+        if (!inlineContent || !Array.isArray(inlineContent)) return '';
+        
+        return inlineContent.map(item => {
+            switch (item.type) {
+                case 'text':
+                case 'strong':  // 粗体
+                case 'em':      // 斜体
+                case 'del':     // 删除线
+                case 'code':    // 行内代码
+                    return item.content || '';
+                case 'link':    // 链接
+                    return item.content || item.href || '';
+                case 'image':   // 图片
+                    return item.alt || '';
+                default:
+                    return item.content || item.text || '';
+            }
+        }).join('');
+    }
+
+    /**
+     * 清理 Markdown 格式标记（备用方法）
+     * @param {string} text - 带 Markdown 标记的文本
+     * @returns {string} - 清理后的文本
+     */
+    cleanMarkdownMarks(text) {
+        if (!text) return '';
+        return text
+            // 粗体 **text** __text__
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            // 斜体 *text* _text_
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/_([^_]+)_/g, '$1')
+            // 删除线 ~~text~~
+            .replace(/~~([^~]+)~~/g, '$1')
+            // 行内代码 `code`
+            .replace(/`([^`]+)`/g, '$1')
+            // 链接 [text](url)
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            // 图片 ![alt](url)
+            .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+            // 多余空格
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * 提取单个 item 的纯文本内容（支持标准和 Markdown 元素）
+     * @param {Object} item - 文档元素
+     * @returns {string} - 纯文本
+     */
+    extractItemText(item) {
+        if (!item) return '';
+        
+        // 图片、分隔线无需朗读
+        if (item.type === 'image' || item.type === 'hr') return '';
+        
+        // 优先使用 inlineContent 提取纯文本（无 Markdown 标记）
+        if (item.inlineContent && Array.isArray(item.inlineContent)) {
+            return this.extractTextFromInline(item.inlineContent);
+        }
+        
+        // 段落和普通文本（清理可能的 Markdown 标记）
+        if (item.type === 'paragraph' || item.type === 'text') {
+            return this.cleanMarkdownMarks(item.text) || '';
+        }
+        
+        // 标题（含 heading1-6、title、subtitle）
+        if (item.type && (item.type.startsWith('heading') || item.type === 'title' || item.type === 'subtitle')) {
+            if (item.display) return item.display;
+            if (item.text) return this.cleanMarkdownMarks(item.text);
+        }
+        
+        // 代码块
+        if (item.type === 'codeblock') {
+            const lang = item.language ? `（${item.language}代码）` : '（代码块）';
+            return lang + (item.text || '');
+        }
+        
+        // 引用块
+        if (item.type === 'blockquote') {
+            // 有 items 属性（嵌套解析结果），递归提取
+            if (item.items && Array.isArray(item.items)) {
+                return item.items.map(subItem => this.extractItemText(subItem)).join('。');
+            }
+            // 优先使用 inlineContent，否则清理 text
+            if (item.inlineContent) {
+                return this.extractTextFromInline(item.inlineContent);
+            }
+            return this.cleanMarkdownMarks(item.text) || '';
+        }
+        
+        // 列表
+        if (item.type === 'list') {
+            const listTexts = [];
+            if (item.items && Array.isArray(item.items)) {
+                item.items.forEach((listItem, index) => {
+                    let prefix = item.ordered ? `${item.start + index}. ` : '• ';
+                    // 优先使用 inlineContent 提取纯文本
+                    let text = listItem.inlineContent 
+                        ? this.extractTextFromInline(listItem.inlineContent)
+                        : this.cleanMarkdownMarks(listItem.text) || '';
+                    // 处理嵌套列表
+                    if (listItem.items && Array.isArray(listItem.items)) {
+                        const nestedText = listItem.items.map(subItem => this.extractItemText(subItem)).join('。');
+                        text = text + '。' + nestedText;
+                    }
+                    listTexts.push(prefix + text);
+                });
+            }
+            return listTexts.join('。');
+        }
+        
+        // 表格
+        if (item.type === 'table') {
+            const tableTexts = [];
+            // 表头（使用 inlineContent 提取）
+            if (item.headers && Array.isArray(item.headers)) {
+                const headerTexts = item.headers.map(h => {
+                    if (h.inlineContent) {
+                        return this.extractTextFromInline(h.inlineContent);
+                    }
+                    return this.cleanMarkdownMarks(h.text) || '';
+                }).join('，');
+                if (headerTexts) tableTexts.push('表头：' + headerTexts);
+            }
+            // 表格数据
+            if (item.rows && Array.isArray(item.rows)) {
+                item.rows.forEach((row, rowIndex) => {
+                    if (Array.isArray(row)) {
+                        const rowTexts = row.map(cell => {
+                            if (cell.inlineContent) {
+                                return this.extractTextFromInline(cell.inlineContent);
+                            }
+                            return this.cleanMarkdownMarks(cell.text) || '';
+                        }).join('，');
+                        if (rowTexts) tableTexts.push(`第${rowIndex + 1}行：${rowTexts}`);
+                    }
+                });
+            }
+            return tableTexts.join('。');
+        }
+        
+        // 尝试使用 Markdown 插件的 getPlainText 方法（如果存在）
+        if (Lumina.Plugin?.Markdown?.getPlainText) {
+            try {
+                const mdText = Lumina.Plugin.Markdown.getPlainText(item);
+                if (mdText) return mdText;
+            } catch (e) {
+                // 忽略错误，继续使用默认逻辑
+            }
+        }
+        
+        // 默认：清理后返回 text 字段
+        return this.cleanMarkdownMarks(item.text) || item.display || '';
+    }
+
     // 页面听书模式：朗读整个页面的文本（解决熄屏间隔问题）
     async speakCurrentPage() {
         if (!this.isPlaying || !this.isPageMode) return;
@@ -854,19 +1023,7 @@ Lumina.TTS.Manager = class {
             const item = chapter.items[i];
             if (!item || item.type === 'image') continue;
             
-            let textToAdd = '';
-            if (item.type === 'paragraph' || item.type === 'text') {
-                textToAdd = item.text || '';
-            } else if (item.type && item.type.startsWith('heading')) {
-                // 优先使用 display（带有自定义章节序号），否则根据 level 生成
-                if (item.display) {
-                    textToAdd = item.display;
-                } else {
-                    const level = item.level || 1;
-                    const prefix = '第' + ['一', '二', '三', '四', '五', '六'][level - 1] || level;
-                    textToAdd = prefix + '章 ' + (item.text || '');
-                }
-            }
+            const textToAdd = this.extractItemText(item);
             
             if (textToAdd) {
                 pageText += textToAdd + '。';
@@ -1088,7 +1245,10 @@ Lumina.TTS.Manager = class {
         }
         
         const item = chapter.items[relativeIdx];
-        if (!item || !item.text || item.type === 'image' || !item.text.trim()) {
+        const itemText = this.extractItemText(item);
+        
+        // 修复：支持 Markdown 元素（list、table、blockquote 等）
+        if (!item || item.type === 'image' || !itemText.trim()) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
             setTimeout(() => this.speakCurrent(), 50);
@@ -1101,8 +1261,8 @@ Lumina.TTS.Manager = class {
             return;
         }
         
-        // 预分句 - 标题优先使用 display（带有自定义章节序号）
-        const textForSplit = (item.type === 'heading' && item.display) ? item.display : item.text;
+        // 使用 extractItemText 获取要朗读的文本（支持所有 Markdown 元素类型）
+        const textForSplit = itemText;
         this.currentSentences = this.splitIntoSentences(textForSplit);
         
         // 防止TTS崩溃：限制单次朗读文本长度（最多500字）
@@ -1289,10 +1449,10 @@ Lumina.TTS.Manager = class {
         }
         
         const item = chapter.items[relativeIdx];
+        const itemText = this.extractItemText(item);
         
-        // 修复：允许标题类型（heading1, heading2, ...）
-        const isHeading = item.type && item.type.startsWith('heading');
-        if (!item || item.type === 'image' || (!isHeading && !item.text) || (isHeading && !item.text && !item.display)) {
+        // 修复：支持 Markdown 元素（list、table、blockquote、codeblock 等）
+        if (!item || item.type === 'image' || !itemText.trim()) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
             setTimeout(() => this.speakCurrent(), 50);
@@ -1302,8 +1462,8 @@ Lumina.TTS.Manager = class {
         // 获取段落元素
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
         
-        // 分句 - 标题优先使用 display（带有自定义章节序号）
-        const textToRead = (isHeading && item.display) ? item.display : item.text;
+        // 使用 extractItemText 获取要朗读的文本（支持所有 Markdown 元素类型）
+        const textToRead = itemText;
         this.currentSentences = this.splitIntoSentences(textToRead);
         
         // 逐句朗读

@@ -250,6 +250,14 @@ Lumina.I18n.data = {
         paginationEnabled: '启用分页导航',
         paginationMaxWords: '单页字数上限',
         paginationImageWords: '图片等效字数',
+        // 文件被动打开相关
+        fileReceiving: '正在接收: $1',
+        fileReceiveProgress: '接收中... $1%',
+        fileAssembling: '正在组装...',
+        fileParsing: '正在解析...',
+        fileOpened: '已打开: $1',
+        fileProcessFailed: '文件处理失败: $1',
+        fileTransferFailed: '传输失败: $1',
     },
     zh1: {
         zh: '简体中文',
@@ -500,6 +508,14 @@ Lumina.I18n.data = {
         paginationEnabled: '啟用分頁導航',
         paginationMaxWords: '單頁字數上限',
         paginationImageWords: '圖片等效字數',
+        // 文件被動打開相關
+        fileReceiving: '正在接收: $1',
+        fileReceiveProgress: '接收中... $1%',
+        fileAssembling: '正在組裝...',
+        fileParsing: '正在解析...',
+        fileOpened: '已打開: $1',
+        fileProcessFailed: '文件處理失敗: $1',
+        fileTransferFailed: '傳輸失敗: $1',
     },
     en: {
         zh: '简体中文',
@@ -755,6 +771,14 @@ Lumina.I18n.data = {
         paginationEnabled: 'Enable Pagination',
         paginationMaxWords: 'Max Words Per Page',
         paginationImageWords: 'Image Equivalent Words',
+        // File opening related
+        fileReceiving: 'Receiving: $1',
+        fileReceiveProgress: 'Receiving... $1%',
+        fileAssembling: 'Assembling...',
+        fileParsing: 'Parsing...',
+        fileOpened: 'Opened: $1',
+        fileProcessFailed: 'File processing failed: $1',
+        fileTransferFailed: 'Transfer failed: $1',
     }
 };
 

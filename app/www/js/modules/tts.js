@@ -24,6 +24,9 @@ Lumina.TTS.Manager = class {
         this.isPageMode = false; // true=页面模式，false=段落模式
         this._longPressTimer = null;
         this._isLongPress = false;
+        
+        // 插件引擎
+        this.pluginEngine = null;
     }
 
     async init() {
@@ -282,7 +285,16 @@ Lumina.TTS.Manager = class {
     // 朗读提示词后开始页面朗读
     async speakHintAndStartPage(hintText) {
         try {
-            if (this.isApp && this.nativeTTS) {
+            // 优先使用插件引擎（如 Azure TTS）
+            const pluginEngine = this.getPluginEngine();
+            if (pluginEngine) {
+                await pluginEngine.speak({
+                    text: hintText,
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume
+                });
+            } else if (this.isApp && this.nativeTTS) {
                 // APP 环境朗读提示词
                 await this.nativeTTS.speak({
                     text: hintText,
@@ -780,6 +792,10 @@ Lumina.TTS.Manager = class {
         if (this.isApp && this.nativeTTS) {
             this.nativeTTS.stop().catch(() => {});
         }
+        // 停止插件引擎
+        if (this.pluginEngine) {
+            this.pluginEngine.stop();
+        }
         this.clearAllHighlights();
         this.updateUI();
         this.currentSentences = [];
@@ -1042,8 +1058,48 @@ Lumina.TTS.Manager = class {
             // 启动前台服务
             this.startServiceKeepAlive();
             
-            if (this.isApp && this.nativeTTS) {
-                // APP 环境：按500字分段朗读（避免崩溃）
+            // 检查是否有插件引擎，优先使用
+            const pluginEngine = this.getPluginEngine();
+            
+            if (pluginEngine) {
+                // 插件引擎（如 Azure TTS）- 分段朗读避免 buffer 填满
+                try {
+                    // 将长文本分批（每批最多 500 字）
+                    const MAX_BATCH_SIZE = 500;
+                    const batches = this.splitTextIntoBatches(pageText, MAX_BATCH_SIZE);
+                    
+                    for (const batch of batches) {
+                        if (!this.isPlaying) return;
+                        
+                        // 听书模式不使用缓存
+                        await pluginEngine.speak({
+                            text: batch,
+                            rate: this.settings.rate,
+                            pitch: this.settings.pitch,
+                            volume: this.settings.volume,
+                            useCache: false
+                        });
+                    }
+                    
+                    // 当前页朗读完成，继续下一页
+                    if (this.isPlaying && this.isPageMode) {
+                        const nextPageIdx = state.currentPageIdx + 1;
+                        if (nextPageIdx >= chapter.pageRanges.length) {
+                            this.advanceToNextChapterOrStop();
+                        } else {
+                            state.currentPageIdx = nextPageIdx;
+                            Lumina.Renderer.renderCurrentChapter();
+                            setTimeout(() => this.speakCurrentPage(), 100);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[TTS] 插件引擎页面朗读失败:', err);
+                    // 失败时回退到系统 TTS
+                    this.clearPluginEngine();
+                    setTimeout(() => this.speakCurrentPage(), 100);
+                }
+            } else if (this.isApp && this.nativeTTS) {
+                // APP 环境原生 TTS：按500字分段朗读（避免崩溃）
                 const MAX_PAGE_BATCH = 500;
                 const batches = this.splitTextIntoBatches(pageText, MAX_PAGE_BATCH);
                 
@@ -1070,17 +1126,15 @@ Lumina.TTS.Manager = class {
                 if (this.isPlaying && this.isPageMode) {
                     const nextPageIdx = state.currentPageIdx + 1;
                     if (nextPageIdx >= chapter.pageRanges.length) {
-                        // 当前章已完，尝试进入下一章
                         this.advanceToNextChapterOrStop();
                     } else {
-                        // 继续翻页
                         state.currentPageIdx = nextPageIdx;
                         Lumina.Renderer.renderCurrentChapter();
                         setTimeout(() => this.speakCurrentPage(), 100);
                     }
                 }
             } else if (this.synth) {
-                // Web 环境
+                // Web 环境 - 系统 TTS
                 this.utterance = new SpeechSynthesisUtterance(pageText);
                 this.utterance.lang = 'zh-CN';
                 this.utterance.rate = this.settings.rate;
@@ -1187,11 +1241,52 @@ Lumina.TTS.Manager = class {
         return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
+    /**
+     * 获取插件提供的 TTS 引擎（如 Azure TTS）
+     * 优先使用 Azure TTS 插件（如果启用）
+     */
+    getPluginEngine() {
+        // 如果已经缓存了引擎实例，直接返回
+        if (this.pluginEngine) {
+            console.log('[TTS] 使用缓存的插件引擎');
+            return this.pluginEngine;
+        }
+        
+        // 直接检测 Azure TTS 插件
+        const azurePlugin = Lumina.Plugin?.AzureTTS;
+        console.log('[TTS] Azure 插件对象:', azurePlugin);
+        console.log('[TTS] Azure 配置:', azurePlugin?.config);
+        
+        if (azurePlugin && azurePlugin.config?.enabled && azurePlugin.config?.speechKey) {
+            console.log('[TTS] 找到可用的 Azure TTS 插件');
+            this.pluginEngine = azurePlugin;
+            return this.pluginEngine;
+        }
+        
+        console.log('[TTS] Azure TTS 不可用');
+        return null;
+    }
+
+    /**
+     * 清除插件引擎缓存（用于切换引擎后）
+     */
+    clearPluginEngine() {
+        this.pluginEngine = null;
+    }
+
     async speakCurrent() {
         if (!this.isPlaying) return;
         
         // 记录最后朗读时间（用于检测卡住）
         this._lastSpeakTime = Date.now();
+        
+        // 检查是否有插件提供的 TTS 引擎（如 Azure TTS），优先使用（支持 APP 和 Web）
+        const pluginEngine = this.getPluginEngine();
+        if (pluginEngine) {
+            console.log('[TTS] 使用 Azure TTS 插件');
+            await this.speakWithPlugin(pluginEngine);
+            return;
+        }
         
         // APP 环境使用原生 TTS
         if (this.isApp && this.nativeTTS) {
@@ -1515,6 +1610,184 @@ Lumina.TTS.Manager = class {
             this.clearAllHighlights();
             setTimeout(() => this.speakCurrent(), 100);
         }
+    }
+    
+    // ==================== 插件 TTS 支持 ====================
+    
+    /**
+     * 使用插件引擎朗读（如 Azure TTS）
+     * 实现方式与原生 APP TTS 类似，逐句朗读以支持高亮
+     */
+    async speakWithPlugin(engine) {
+        if (!this.isPlaying) return;
+        
+        const state = Lumina.State.app;
+        const chapter = state.chapters[state.currentChapterIndex];
+        
+        if (!chapter) {
+            this.stop();
+            return;
+        }
+        
+        // 章节边界检查
+        if (this.currentItemIndex > chapter.endIndex) {
+            if (state.currentChapterIndex < state.chapters.length - 1) {
+                state.currentChapterIndex++;
+                state.currentPageIdx = 0;
+                this.currentItemIndex = state.chapters[state.currentChapterIndex].startIndex;
+                this.currentSentenceIndex = 0;
+                this.currentHighlightIndex = -1;
+                
+                Lumina.Renderer.renderCurrentChapter();
+                setTimeout(() => this.speakCurrent(), 300);
+                return;
+            } else {
+                this.stop();
+                Lumina.UI.showToast(Lumina.I18n.t('ttsFinished'));
+                return;
+            }
+        }
+        
+        // 分页检查
+        const relativeIdx = this.currentItemIndex - chapter.startIndex;
+        if (!chapter.pageRanges) {
+            chapter.pageRanges = Lumina.Pagination.calculateRanges(chapter.items);
+        }
+        const currentPageIdx = state.currentPageIdx || 0;
+        const currentRange = chapter.pageRanges[currentPageIdx];
+        
+        if (relativeIdx < currentRange.start || relativeIdx > currentRange.end) {
+            const targetPageIdx = Lumina.Pagination.findPageIndex(chapter.pageRanges, relativeIdx);
+            if (targetPageIdx !== currentPageIdx) {
+                state.currentPageIdx = targetPageIdx;
+                Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
+                setTimeout(() => this.speakCurrent(), 200);
+                return;
+            }
+        }
+        
+        const item = chapter.items[relativeIdx];
+        const itemText = this.extractItemText(item);
+        
+        // 跳过图片和空文本
+        if (!item || item.type === 'image' || !itemText.trim()) {
+            this.currentItemIndex++;
+            this.currentSentenceIndex = 0;
+            setTimeout(() => this.speakCurrent(), 50);
+            return;
+        }
+        
+        // 获取段落元素
+        this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
+        
+        // 获取要朗读的文本
+        const textToRead = itemText;
+        this.currentSentences = this.splitIntoSentences(textToRead);
+        
+        // Azure TTS 缓存开关（true=启用缓存预加载，false=实时合成）
+        // 目前缓存机制还有问题，默认关闭
+        const useCache = false;
+        
+        // 缓存功能开关（目前还有问题，默认关闭）
+        if (useCache) {
+            // 预加载当前段落前3句
+            const preloadCount = Math.min(3, this.currentSentences.length);
+            console.log(`[TTS] 段落开始，预加载前${preloadCount}句...`);
+            for (let k = 0; k < preloadCount; k++) {
+                engine.preload({ text: this.currentSentences[k], useCache });
+            }
+            
+            // 如果段落很短（1-2句），尝试预加载下一段的前几句
+            if (this.currentSentences.length <= 2) {
+                const nextItemIndex = this.currentItemIndex + 1;
+                const chapter = state.chapters[state.currentChapterIndex];
+                const relativeIdx = nextItemIndex - chapter.startIndex;
+                if (relativeIdx >= 0 && relativeIdx < chapter.items.length) {
+                    const nextItem = chapter.items[relativeIdx];
+                    const nextText = this.extractItemText(nextItem);
+                    const nextSentences = this.splitIntoSentences(nextText);
+                    for (let k = 0; k < Math.min(2, nextSentences.length); k++) {
+                        engine.preload({ text: nextSentences[k], useCache });
+                    }
+                }
+            }
+            
+            // 等待第一句预加载完成（最多等3秒，给用户流畅体验）
+            await this._waitForCache(engine, this.currentSentences[0], 3000);
+        }
+        
+        // 逐句朗读
+        for (let i = this.currentSentenceIndex; i < this.currentSentences.length; i++) {
+            if (!this.isPlaying) return;
+            
+            this.currentSentenceIndex = i;
+            const sentence = this.currentSentences[i];
+            
+            // 预加载下一句（仅在缓存开启时）
+            if (useCache) {
+                const nextIdx = i + 3;
+                if (nextIdx < this.currentSentences.length) {
+                    engine.preload({ text: this.currentSentences[nextIdx], useCache });
+                }
+            }
+            
+            // 更新高亮
+            this.clearAllHighlights();
+            if (this.currentParagraphEl) {
+                this.highlightSentenceInParagraph(i);
+                this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            try {
+                console.log('[TTS] 调用插件引擎朗读:', sentence.substring(0, 20) + '...');
+                // 使用插件引擎朗读（优先走缓存）
+                await engine.speak({
+                    text: sentence,
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume,
+                    useCache  // 一般模式使用缓存
+                });
+                console.log('[TTS] 插件引擎朗读完成');
+                
+            } catch (e) {
+                console.error('[TTS] 插件引擎朗读失败:', e.message, e.stack);
+                // 如果插件引擎失败，切换到系统 TTS
+                if (e.message?.includes('未初始化') || e.message?.includes('失败')) {
+                    console.log('[TTS] 插件引擎不可用，切换到系统 TTS');
+                    this.clearPluginEngine();
+                    setTimeout(() => this.speakCurrent(), 100);
+                    return;
+                }
+                // 其他错误继续下一句
+                continue;
+            }
+        }
+        
+        // 本段落朗读完成，继续下一段
+        if (this.isPlaying) {
+            this.currentItemIndex++;
+            this.currentSentenceIndex = 0;
+            this.currentHighlightIndex = -1;
+            this.clearAllHighlights();
+            setTimeout(() => this.speakCurrent(), 100);
+        }
+    }
+    
+    // 等待文本进入缓存（轮询检查）
+    async _waitForCache(engine, text, timeoutMs = 1500) {
+        const start = Date.now();
+        const checkInterval = 50; // 每50ms检查一次
+        
+        while (Date.now() - start < timeoutMs) {
+            if (engine.isCached(text)) {
+                console.log('[TTS] 预加载完成，耗时:', Date.now() - start, 'ms');
+                return true;
+            }
+            await new Promise(r => setTimeout(r, checkInterval));
+        }
+        console.log('[TTS] 预加载等待超时，直接开始朗读');
+        return false;
     }
     
     // 在段落内高亮特定句子（APP 环境，简化版）

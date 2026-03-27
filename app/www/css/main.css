@@ -2222,17 +2222,12 @@ border-bottom: 1px solid var(--border-color);
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding-bottom: 12px;
+padding: 0 12px 12px 24px;
 }
 
 .about-title {
-margin-left: 24px;
 font-size: 1.3em;
 font-weight: 600;
-}
-
-.about-title .btn-icon {
-    margin-right: 12px;
 }
 
 .about-body {

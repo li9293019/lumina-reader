@@ -79,6 +79,11 @@
 <script src="./js/plugins/markdown/markdown.parser.js"></script>
 <script src="./js/plugins/markdown/markdown.renderer.js"></script>
 <script src="./js/plugins/markdown/markdown.plugin.js"></script>
+<!-- Azure TTS 插件 -->
+<link rel="stylesheet" href="./js/plugins/azure-tts/azure-tts.css">
+<script src="./js/plugins/azure-tts/speech-sdk.bundle.js"></script>
+<script src="./js/plugins/azure-tts/azure-tts.engine.js"></script>
+<script src="./js/plugins/azure-tts/azure-tts.plugin.js"></script>
 
 <script src="./js/modules/init.js"></script>
 </head>
@@ -489,6 +494,20 @@
                 <div class="setting-group">
                     <div class="setting-label" data-i18n="ttsSettings"></div>
 
+                    <!-- Azure TTS 按钮入口 -->
+                    <div class="azure-tts-toggle-row" id="azureTtsRow">
+                        <div class="azure-tts-info" id="azureTtsInfo">
+                            <div class="setting-label" style="margin-bottom: 0;">
+                                <span data-i18n="azureTTSEnable"></span>
+                                <span class="settings-hint" data-i18n="azureTTSHint"></span>
+                            </div>
+                        </div>
+                        <label class="azure-toggle-switch" id="azureTtsSwitchWrapper">
+                            <input type="checkbox" id="azureTtsToggle">
+                            <span class="azure-toggle-slider"></span>
+                        </label>
+                    </div>
+
                     <div class="setting-label" data-i18n="ttsVoice"></div>
                     <div class="setting-options" id="ttsVoiceOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <!-- 动态生成 -->
@@ -791,5 +810,79 @@
         }
     })();
 </script>
+
+<!-- Azure TTS 设置对话框 -->
+<div class="about-panel" id="azureTtsDialog">
+    <div class="about-content" style="max-width: 520px;">
+        <div class="about-header">
+            <span class="about-title" data-i18n="azureTTSTitle">Azure 语音服务</span>
+            <button class="btn-icon" id="azureTtsDialogClose" data-i18n-tooltip="close">
+                <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+            </button>
+        </div>
+        
+        <div class="about-body azure-dialog-body" style="padding-top: 24px;">
+            <!-- Speech Key -->
+            <div class="azure-dialog-section">
+                <div class="setting-label">
+                    <span data-i18n="azureSpeechKey">Speech Key</span>
+                    <button class="option-btn" id="azureDialogTest" style="margin-left: 8px; padding: 4px 12px; font-size: 12px;" data-i18n="azureTest">测试</button>
+                </div>
+                <textarea class="regex-input" id="azureDialogKey" rows="2" data-i18n-placeholder="azureSpeechKeyPlaceholder" style="resize: none; font-family: monospace;"></textarea>
+            </div>
+            
+            <!-- 区域选择 -->
+            <div class="azure-dialog-section">
+                <div class="setting-label" data-i18n="azureRegion">服务区域</div>
+                <div class="azure-capsule-group" id="azureRegionOptions">
+                    <button class="azure-capsule" data-value="eastasia" data-i18n="azureRegionEastAsia">东亚</button>
+                    <button class="azure-capsule" data-value="southeastasia" data-i18n="azureRegionSEAsia">东南亚</button>
+                    <button class="azure-capsule" data-value="westus" data-i18n="azureRegionWestUS">美西</button>
+                    <button class="azure-capsule" data-value="eastus" data-i18n="azureRegionEastUS">美东</button>
+                    <button class="azure-capsule" data-value="westeurope" data-i18n="azureRegionWestEurope">西欧</button>
+                </div>
+            </div>
+            
+            <!-- 音色选择 -->
+            <div class="azure-dialog-section">
+                <div class="setting-label" data-i18n="azureVoice">音色</div>
+                <div class="azure-capsule-group" id="azureVoiceOptions">
+                    <button class="azure-capsule" data-value="zh-CN-XiaoxiaoNeural">Xiaoxiao ♀</button>
+                    <button class="azure-capsule" data-value="zh-CN-YunxiNeural">Yunxi ♂</button>
+                    <button class="azure-capsule" data-value="zh-CN-YunjianNeural">Yunjian ♂</button>
+                    <button class="azure-capsule" data-value="zh-CN-YunxiaNeural">Yunxia ♂</button>
+                    <button class="azure-capsule" data-value="zh-CN-XiaoyiNeural">Xiaoyi ♀</button>
+                    <button class="azure-capsule" data-value="zh-CN-YunyangNeural">Yunyang ♂</button>
+                    <button class="azure-capsule" data-value="zh-CN-XiaochenNeural">Xiaochen ♀</button>
+                    <button class="azure-capsule" data-value="zh-CN-XiaohanNeural">Xiaohan ♀</button>
+                </div>
+            </div>
+            
+            <!-- 风格选择 -->
+            <div class="azure-dialog-section">
+                <div class="setting-label" data-i18n="azureStyle">风格</div>
+                <div class="azure-capsule-group" id="azureStyleOptions">
+                    <button class="azure-capsule" data-value="general" data-i18n="azureStyleGeneral">通用</button>
+                    <button class="azure-capsule" data-value="assistant" data-i18n="azureStyleAssistant">助手</button>
+                    <button class="azure-capsule" data-value="chat" data-i18n="azureStyleChat">聊天</button>
+                    <button class="azure-capsule" data-value="customerservice" data-i18n="azureStyleService">客服</button>
+                    <button class="azure-capsule" data-value="newscast" data-i18n="azureStyleNews">新闻</button>
+                    <button class="azure-capsule" data-value="affectionate" data-i18n="azureStyleWarm">亲切</button>
+                    <button class="azure-capsule" data-value="cheerful" data-i18n="azureStyleCheerful">愉快</button>
+                    <button class="azure-capsule" data-value="sad" data-i18n="azureStyleSad">悲伤</button>
+                    <button class="azure-capsule" data-value="angry" data-i18n="azureStyleAngry">生气</button>
+                    <button class="azure-capsule" data-value="calm" data-i18n="azureStyleCalm">平静</button>
+                    <button class="azure-capsule" data-value="serious" data-i18n="azureStyleSerious">严肃</button>
+                </div>
+            </div>
+            
+
+            
+            <!-- 状态提示 -->
+            <div id="azureDialogStatus" class="azure-status" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

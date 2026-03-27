@@ -23,7 +23,8 @@ Lumina.PluginManager = {
             'createElement': [],    // 创建元素：返回 DOM 可自定义渲染
             'afterRender': [],      // 渲染后：DOM 操作
             'fileLoad': [],         // 文件加载时：检测文件类型
-            'settingsRender': []    // 设置面板渲染：添加插件设置
+            'settingsRender': [],   // 设置面板渲染：添加插件设置
+            'ttsEngineProvider': [] // TTS 引擎提供者（插件可提供自定义 TTS）
         };
         
         this.loadPluginStates();

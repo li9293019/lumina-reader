@@ -1,5 +1,10 @@
 /**
  * 安全区域适配 - 使用 Capacitor 插件获取实际数值
+ * 
+ * 修复要点：
+ * 1. localStorage 缓存安全区域值 - 防止新实例启动时获取不到
+ * 2. 多层级重试机制 - 确保最终能获取到正确的值
+ * 3. 校验机制 - 如果 CSS env() 返回 0，使用插件或缓存值
  */
 
 (function() {
@@ -12,7 +17,40 @@
     }
 
     let safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
-    let cachedSafeArea = null; // 缓存第一次成功获取的安全区域值
+    let cachedSafeArea = null; // 内存缓存
+    const STORAGE_KEY = 'lumina_safe_area_cache';
+    const MAX_RETRY_COUNT = 5;
+    let retryCount = 0;
+
+    // 从 localStorage 读取缓存的安全区域
+    function loadCachedSafeAreaFromStorage() {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const data = JSON.parse(stored);
+                // 验证数据有效性
+                if (data && typeof data.top === 'number' && typeof data.bottom === 'number') {
+                    console.log('[SafeArea] 从 localStorage 加载缓存:', data);
+                    return data;
+                }
+            }
+        } catch (e) {
+            console.warn('[SafeArea] 读取 localStorage 缓存失败:', e);
+        }
+        return null;
+    }
+
+    // 保存安全区域到 localStorage
+    function saveSafeAreaToStorage(data) {
+        try {
+            if (data && typeof data.top === 'number') {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                console.log('[SafeArea] 已保存到 localStorage:', data);
+            }
+        } catch (e) {
+            console.warn('[SafeArea] 保存到 localStorage 失败:', e);
+        }
+    }
 
     // 从 Capacitor Device 插件获取安全区域
     async function fetchSafeAreaFromPlugin() {
@@ -126,14 +164,17 @@
         return { top, bottom, left: 0, right: 0 };
     }
 
-    // 综合获取安全区域
+    // 综合获取安全区域（带重试逻辑）
     async function getSafeArea() {
-        // 如果已有缓存值，直接使用（确保手机不变的值始终一致）
+        // 如果已有内存缓存值，直接使用
         if (cachedSafeArea) {
             safeAreaData = cachedSafeArea;
-            console.log('[SafeArea] 使用缓存值:', safeAreaData);
+            console.log('[SafeArea] 使用内存缓存值:', safeAreaData);
             return safeAreaData;
         }
+
+        // 尝试从 localStorage 加载缓存
+        const storageCache = loadCachedSafeAreaFromStorage();
         
         // 优先从插件获取（包括0值，因为可能是正确的）
         const pluginData = await fetchSafeAreaFromPlugin();
@@ -153,8 +194,12 @@
             // CSS env() 有正值，使用 CSS
             safeAreaData = cssData;
             console.log('[SafeArea] 使用 CSS env() 数据:', safeAreaData);
+        } else if (storageCache && (storageCache.top > 0 || storageCache.bottom > 0)) {
+            // 两者都是0或无值，使用 localStorage 缓存
+            safeAreaData = storageCache;
+            console.log('[SafeArea] 使用 localStorage 缓存数据:', safeAreaData);
         } else if (pluginData) {
-            // 两者都是0或无值，优先使用插件（可能是正确的0）
+            // 优先使用插件（可能是正确的0）
             safeAreaData = pluginData;
             console.log('[SafeArea] 使用插件数据(0值):', safeAreaData);
         } else if (cssData) {
@@ -167,10 +212,14 @@
             console.log('[SafeArea] 使用屏幕计算数据:', safeAreaData);
         }
         
-        // 缓存第一次成功获取的值（确保数据有效）
+        // 缓存到内存
         if (safeAreaData && typeof safeAreaData.top === 'number') {
             cachedSafeArea = { ...safeAreaData };
-            console.log('[SafeArea] 已缓存安全区域值:', cachedSafeArea);
+            
+            // 如果获取到了有效的安全区域值，保存到 localStorage
+            if (safeAreaData.top > 0 || safeAreaData.bottom > 0) {
+                saveSafeAreaToStorage(safeAreaData);
+            }
         }
         
         return safeAreaData;
@@ -188,6 +237,28 @@
         // 确保数据有效
         if (!safeAreaData || typeof safeAreaData.top !== 'number') {
             safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+        }
+
+        // 检查是否需要重试（如果安全区域为0且未达到最大重试次数）
+        if (safeAreaData.top === 0 && safeAreaData.bottom === 0) {
+            const storageCache = loadCachedSafeAreaFromStorage();
+            if (storageCache && (storageCache.top > 0 || storageCache.bottom > 0)) {
+                // 使用 localStorage 缓存作为备选
+                console.log('[SafeArea] 使用 localStorage 缓存作为备选:', storageCache);
+                safeAreaData = storageCache;
+            } else if (retryCount < MAX_RETRY_COUNT) {
+                retryCount++;
+                console.log(`[SafeArea] 安全区域为0，${retryCount}/${MAX_RETRY_COUNT} 秒后重试...`);
+                setTimeout(() => {
+                    // 清除缓存强制重新获取
+                    cachedSafeArea = null;
+                    setupSafeArea();
+                }, 500 * retryCount); // 递增延迟
+                return;
+            }
+        } else {
+            // 成功获取到有效值，重置重试计数
+            retryCount = 0;
         }
 
         // 设置 CSS 变量
@@ -208,11 +279,17 @@
         // 防止 safeAreaData 未定义或被重置，优先使用缓存值
         if (!safeAreaData || typeof safeAreaData.top !== 'number') {
             if (cachedSafeArea) {
-                console.warn('[SafeArea] 数据丢失，使用缓存值');
+                console.warn('[SafeArea] 数据丢失，使用内存缓存值');
                 safeAreaData = cachedSafeArea;
             } else {
-                console.warn('[SafeArea] 数据不可用，使用默认值');
-                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+                const storageCache = loadCachedSafeAreaFromStorage();
+                if (storageCache) {
+                    console.warn('[SafeArea] 数据丢失，使用 localStorage 缓存值');
+                    safeAreaData = storageCache;
+                } else {
+                    console.warn('[SafeArea] 数据不可用，使用默认值');
+                    safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+                }
             }
         }
         
@@ -258,11 +335,17 @@
         // 防止 safeAreaData 未定义或被重置，优先使用缓存值
         if (!safeAreaData || typeof safeAreaData.top !== 'number') {
             if (cachedSafeArea) {
-                console.warn('[SafeArea] toggle: 数据丢失，使用缓存值');
+                console.warn('[SafeArea] toggle: 数据丢失，使用内存缓存值');
                 safeAreaData = cachedSafeArea;
             } else {
-                console.warn('[SafeArea] toggle: 数据不可用，使用默认值');
-                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+                const storageCache = loadCachedSafeAreaFromStorage();
+                if (storageCache) {
+                    console.warn('[SafeArea] toggle: 数据丢失，使用 localStorage 缓存值');
+                    safeAreaData = storageCache;
+                } else {
+                    console.warn('[SafeArea] toggle: 数据不可用，使用默认值');
+                    safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+                }
             }
         }
         
@@ -308,6 +391,14 @@
         }
     };
 
+    // 重新加载安全区域（用于手动触发）
+    window.refreshSafeArea = function() {
+        console.log('[SafeArea] 手动刷新安全区域');
+        cachedSafeArea = null;
+        retryCount = 0;
+        setupSafeArea();
+    };
+
     // 初始化 - 确保 DOM 已准备好
     function init() {
         if (!document.body) {
@@ -334,6 +425,7 @@
         setup: setupSafeArea,
         apply: applySafeArea,
         toggleImmersive: window.toggleImmersiveSafeArea,
+        refresh: window.refreshSafeArea,
         getData: () => safeAreaData
     };
 })();

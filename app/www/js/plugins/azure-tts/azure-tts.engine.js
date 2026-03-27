@@ -1,6 +1,6 @@
 // ==================== Azure TTS 引擎 ====================
-// 封装 Azure Speech SDK 调用，提供统一的 speak/stop 接口
-// 支持音频缓存和预加载，减少句间延迟
+// 封装 Azure Speech SDK 调用，提供统一的合成和播放接口
+// 缓存逻辑由 TaskManager 负责
 
 Lumina.Plugin = Lumina.Plugin || {};
 Lumina.Plugin.AzureTTS = Lumina.Plugin.AzureTTS || {};
@@ -13,15 +13,10 @@ Lumina.Plugin.AzureTTS.Engine = class {
         this.currentKey = null;
         this.currentRegion = null;
         
-        // 音频缓存 (textHash -> ArrayBuffer)
-        this.cache = new Map();
-        this.maxCacheSize = 10; // 一般模式缓存10句，听书模式不缓存
-        
-        // 预加载控制
-        this.preloadAbort = null;
+        // 任务管理器
+        this.taskManager = null;
         
         // 当前播放控制
-        this._currentRequestId = null;
         this._audioContext = null;
         
         // 可用音色
@@ -35,6 +30,11 @@ Lumina.Plugin.AzureTTS.Engine = class {
             { name: 'zh-CN-XiaochenNeural', displayName: '晓晨', gender: 'Female' },
             { name: 'zh-CN-XiaohanNeural', displayName: '晓涵', gender: 'Female' }
         ];
+    }
+    
+    // 设置任务管理器
+    setTaskManager(taskManager) {
+        this.taskManager = taskManager;
     }
 
     init(speechKey, region = 'eastasia') {
@@ -54,58 +54,16 @@ Lumina.Plugin.AzureTTS.Engine = class {
         this.currentRegion = region;
         this.isInitialized = true;
         
-        console.log('[AzureTTS] 初始化成功');
+        // console.log('[AzureTTS] 初始化成功');
         return true;
     }
 
-    // 生成缓存 key (基于文本和语音参数)
-    _cacheKey(text, voice, style) {
-        // 简单 hash：取前30字符 + 参数
-        const prefix = text.slice(0, 30).replace(/\s/g, '');
-        return `${voice}_${style || 'general'}_${prefix}_${text.length}`;
-    }
-
-    // 预加载音频（后台静默合成）
-    async preload(options) {
-        if (!this.isInitialized || this.cache.size >= this.maxCacheSize) return;
-        if (options.useCache === false) return;
-        
-        const { text, voice, style } = options;
-        const key = this._cacheKey(text, voice, style);
-        
-        // 已缓存则跳过
-        if (this.cache.has(key)) return;
-        
-        // 创建可取消的预加载
-        this.preloadAbort?.abort();
-        const abortController = new AbortController();
-        this.preloadAbort = abortController;
-        
-        const startTime = performance.now();
-        try {
-            const audioData = await this._synthesize(text, voice, style, 1.0, 0, 100);
-            
-            if (!abortController.signal.aborted && audioData) {
-                this._addToCache(key, audioData);
-                console.log(`[AzureTTS] 预加载完成: "${text.substring(0, 20)}...", 缓存数: ${this.cache.size}, 耗时: ${(performance.now() - startTime).toFixed(0)}ms`);
-            }
-        } catch (e) {
-            // 预加载失败静默处理
-        }
-    }
-
-    // 添加缓存（LRU 淘汰）
-    _addToCache(key, audioData) {
-        if (this.cache.size >= this.maxCacheSize) {
-            // 删除最旧的条目
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
-        }
-        this.cache.set(key, audioData);
-    }
-
-    // 合成音频（返回 ArrayBuffer）
+    // 合成音频（返回 ArrayBuffer）- 纯合成，不处理缓存
     _synthesize(text, voice, style, rate, pitch, volume) {
+        if (!this.isInitialized) {
+            return Promise.reject(new Error('Azure TTS 未初始化'));
+        }
+        
         return new Promise((resolve, reject) => {
             const stream = this.SpeechSDK.AudioOutputStream.createPullStream();
             const audioConfig = this.SpeechSDK.AudioConfig.fromStreamOutput(stream);
@@ -137,65 +95,41 @@ Lumina.Plugin.AzureTTS.Engine = class {
         });
     }
 
-    // 朗读（带缓存）
+    // 朗读（调用 TaskManager，支持缓存）
     async speak(options) {
-        const { text, voice, style, rate = 1.0, pitch = 0, volume = 100, useCache = true } = options;
+        const { text, voice, style, rate = 1.0, pitch = 0, volume = 100 } = options;
         
         if (!this.isInitialized) {
             throw new Error('Azure TTS 未初始化');
         }
         
-        const requestId = Date.now();
-        const startTime = performance.now();
-        this.stop(); // 停止之前的
-        this._currentRequestId = requestId;
-        this.isPlaying = true;
+        const params = { voice, style, rate, pitch };
         
-        // 听书模式(useCache=false)不走缓存
-        let audioData = null;
-        const cacheKey = useCache ? this._cacheKey(text, voice, style) : null;
-        
-        if (useCache) {
-            audioData = this.cache.get(cacheKey);
-            if (audioData) {
-                console.log(`[AzureTTS] 缓存命中: "${text.substring(0, 20)}...", 缓存数: ${this.cache.size}`);
-            }
+        // 使用 TaskManager 朗读（自动处理缓存）
+        if (this.taskManager && this.taskManager.config.enabled) {
+            return this.taskManager.speak(text, params);
         }
         
-        // 缓存未命中，实时合成
-        if (!audioData) {
-            try {
-                console.log(`[AzureTTS] 缓存未命中，开始合成: "${text.substring(0, 20)}..."`);
-                audioData = await this._synthesize(text, voice, style, rate, pitch, volume);
-                // 只有一般模式才写入缓存
-                if (useCache) {
-                    this._addToCache(cacheKey, audioData);
-                }
-                console.log(`[AzureTTS] 合成完成，耗时: ${(performance.now() - startTime).toFixed(0)}ms`);
-            } catch (e) {
-                this.isPlaying = false;
-                throw e;
-            }
-        }
-        
-        // 播放
-        return this._play(audioData, rate, requestId);
+        // 无缓存，直接实时合成
+        const audioData = await this._synthesize(text, voice, style, rate, pitch, volume);
+        return this._play(audioData, rate);
+    }
+    
+    // 预加载（供外部调用）
+    preload(text, params) {
+        if (!this.taskManager || !this.taskManager.config.enabled) return;
+        this.taskManager.preload(text, params);
     }
 
     // 播放音频
-    _play(audioData, rate, requestId) {
+    _play(audioData, rate) {
         return new Promise((resolve, reject) => {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const ctx = new AudioContext();
             this._audioContext = ctx;
+            this.isPlaying = true;
             
             ctx.decodeAudioData(audioData.slice(0), (buffer) => {
-                if (this._currentRequestId !== requestId) {
-                    ctx.close().catch(() => {});
-                    resolve();
-                    return;
-                }
-                
                 const source = ctx.createBufferSource();
                 source.buffer = buffer;
                 source.playbackRate.value = rate;
@@ -203,24 +137,17 @@ Lumina.Plugin.AzureTTS.Engine = class {
                 
                 source.onended = () => {
                     ctx.close().catch(() => {});
-                    if (this._currentRequestId === requestId) {
-                        this.isPlaying = false;
-                    }
+                    this.isPlaying = false;
                     resolve();
                 };
                 
                 source.start(0);
             }, (err) => {
                 ctx.close().catch(() => {});
+                this.isPlaying = false;
                 reject(err);
             });
         });
-    }
-
-    // 检查文本是否在缓存中
-    isInCache(text, voice, style) {
-        const key = this._cacheKey(text, voice, style);
-        return this.cache.has(key);
     }
 
     // 构建 SSML
@@ -253,9 +180,8 @@ Lumina.Plugin.AzureTTS.Engine = class {
     }
 
     stop() {
-        this._currentRequestId = null;
         this.isPlaying = false;
-        this.preloadAbort?.abort();
+        this.taskManager?.stop();
         
         if (this._audioContext?.state !== 'closed') {
             this._audioContext?.close().catch(() => {});
@@ -273,15 +199,11 @@ Lumina.Plugin.AzureTTS.Engine = class {
         this.isPlaying = true;
     }
 
-    clearCache() {
-        this.cache.clear();
-    }
-
     destroy() {
         this.stop();
-        this.clearCache();
+        this.taskManager?.clear();
         this.isInitialized = false;
     }
 };
 
-console.log('[AzureTTS] Engine 已加载（带缓存）');
+// console.log('[AzureTTS] Engine 已加载（集成 TaskManager v2）');

@@ -264,6 +264,91 @@ Lumina.UI = {
                 document.getElementById('regexHelpPanel').classList.remove('active');
             }
         });
+
+        // TTS 帮助按钮 - 打开语音朗读指南
+        document.getElementById('ttsHelpBtn')?.addEventListener('click', async () => {
+            await this.openTTSGuide();
+        });
+    },
+
+    // 打开 TTS 使用指南
+    async openTTSGuide() {
+        const guideFileName = '语音朗读使用指南.md';
+        
+        try {
+            // 1. 检查书库中是否已有该文件
+            const files = await Lumina.DB.adapter.getAllFiles();
+            const existingFile = files.find(f => f.fileName === guideFileName || f.fileName?.includes('tts-guide'));
+            
+            if (existingFile) {
+                // 已有，从历史记录打开
+                console.log('[TTS Help] 从书库打开:', existingFile.fileKey);
+                await Lumina.HistoryActions.openFile(existingFile.fileKey);
+                return;
+            }
+            
+            // 2. 没有则加载内置的 tts-guide.md
+            console.log('[TTS Help] 加载内置指南...');
+            const response = await fetch('./tts-guide.md');
+            if (!response.ok) {
+                Lumina.UI.showToast('指南文件加载失败');
+                return;
+            }
+            
+            const text = await response.text();
+            if (!text || text.length < 100) {
+                Lumina.UI.showToast('指南文件内容无效');
+                return;
+            }
+            
+            // 3. 解析 Markdown
+            const parsed = Lumina.Plugin?.Markdown?.Parser?.parse 
+                ? Lumina.Plugin.Markdown.Parser.parse(text) 
+                : Lumina.Parser.parseTXT(text);
+            
+            if (!parsed?.items?.length) {
+                Lumina.UI.showToast('指南解析失败');
+                return;
+            }
+            
+            // 4. 保存到数据库
+            const fileKey = `${guideFileName}_${text.length}_${Date.now()}`;
+            const saved = await Lumina.DB.adapter.saveFile(fileKey, {
+                fileName: guideFileName,
+                fileType: 'md',
+                fileSize: new Blob([text]).size,
+                content: parsed.items,
+                wordCount: text.length,
+                lastChapter: 0,
+                lastScrollIndex: 0,
+                chapterTitle: '',
+                lastReadTime: new Date().toISOString(),
+                customRegex: { chapter: '', section: '' },
+                chapterNumbering: 'none',
+                annotations: [],
+                cover: null,
+                heatMap: null
+            });
+            
+            if (!saved) {
+                Lumina.UI.showToast('保存指南失败');
+                return;
+            }
+            
+            // 5. 刷新历史记录并打开
+            await Lumina.DB.loadHistoryFromDB();
+            await Lumina.HistoryActions.openFile(fileKey);
+            
+            // 6. 更新存储统计
+            if (Lumina.State.app.dbReady && Lumina.DataManager) {
+                Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
+                Lumina.DataManager.updateSettingsBar();
+            }
+            
+        } catch (err) {
+            console.error('[TTS Help] 打开指南失败:', err);
+            Lumina.UI.showToast('打开指南失败');
+        }
     },
 
     setupImmersiveMode() {

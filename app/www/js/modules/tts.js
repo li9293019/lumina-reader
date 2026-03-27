@@ -37,12 +37,12 @@ Lumina.TTS.Manager = class {
             if (Capacitor.Plugins && Capacitor.Plugins.TTSEnhanced) {
                 this.nativeTTS = Capacitor.Plugins.TTSEnhanced;
                 this.useEnhancedTTS = true;
-                console.log('[TTS] 使用增强版 TTS 插件 (TTSEnhanced)');
+                // console.log('[TTS] 使用增强版 TTS 插件 (TTSEnhanced)');
             } else if (Capacitor.Plugins && Capacitor.Plugins.TextToSpeech) {
                 // 回退到标准插件
                 this.nativeTTS = Capacitor.Plugins.TextToSpeech;
                 this.useEnhancedTTS = false;
-                console.log('[TTS] 使用标准原生 TTS 插件');
+                // console.log('[TTS] 使用标准原生 TTS 插件');
             } else {
                 console.warn('[TTS] 原生 TTS 插件未找到');
                 this.isApp = false;
@@ -317,7 +317,7 @@ Lumina.TTS.Manager = class {
                 });
             }
         } catch (e) {
-            console.log('[TTS] 提示词朗读失败:', e);
+            // console.log('[TTS] 提示词朗读失败:', e);
         }
         // 开始朗读页面内容
         this.speakCurrentPage();
@@ -334,14 +334,14 @@ Lumina.TTS.Manager = class {
                 if (this.isPlaying && this.synth) {
                     // 定期唤醒 speechSynthesis，防止被系统暂停
                     if (this.synth.paused) {
-                        console.log('[TTS] 检测到合成器暂停，尝试恢复');
+                        // console.log('[TTS] 检测到合成器暂停，尝试恢复');
                         this.synth.resume();
                     }
                     // 关键：如果正在播放但不在朗读状态（可能被系统卡住了），强制继续
                     if (this.isPlaying && !this.synth.speaking && !this.synth.pending) {
                         const now = Date.now();
                         if (this._lastSpeakTime && now - this._lastSpeakTime > 5000) {
-                            console.log('[TTS] 检测到朗读卡住，强制继续');
+                            // console.log('[TTS] 检测到朗读卡住，强制继续');
                             this._lastSpeakTime = now;
                             Promise.resolve().then(() => this.speakCurrent());
                         }
@@ -428,7 +428,7 @@ Lumina.TTS.Manager = class {
                 // 保存原始列表（与原生插件同样按 name 排序）
                 const rawVoices = result.voices || [];
                 this._rawVoiceList = [...rawVoices].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-                console.log('[TTS] 原生音色列表（按name排序）:', this._rawVoiceList.map((v, i) => `${i}:${v.name}/${v.voiceURI}`));
+                // console.log('[TTS] 原生音色列表（按name排序）:', this._rawVoiceList.map((v, i) => `${i}:${v.name}/${v.voiceURI}`));
                 
                 this.voices = rawVoices;
                 // 优先选择中文音色（仅影响显示，不影响索引映射）
@@ -651,12 +651,12 @@ Lumina.TTS.Manager = class {
                         isPlaying: true, 
                         title: title || '正在朗读...' 
                     });
-                    console.log('[TTS] 后台状态已更新');
+                    // console.log('[TTS] 后台状态已更新');
                 }, 500);
-                console.log('[TTS] 后台服务已启动');
+                // console.log('[TTS] 后台服务已启动');
             } else {
                 await TTSBackground.stopService();
-                console.log('[TTS] 后台服务已停止');
+                // console.log('[TTS] 后台服务已停止');
             }
         } catch (e) {
             console.warn('[TTS] 后台服务控制失败:', e);
@@ -689,7 +689,7 @@ Lumina.TTS.Manager = class {
             if (!TTSBackground) return;
             
             const result = await TTSBackground.checkBatteryOptimization();
-            console.log('[TTS] 电池优化检查:', result);
+            // console.log('[TTS] 电池优化检查:', result);
             
             if (result.needRequest && !this.batteryOptimizationRequested) {
                 this.batteryOptimizationRequested = true;
@@ -1248,22 +1248,22 @@ Lumina.TTS.Manager = class {
     getPluginEngine() {
         // 如果已经缓存了引擎实例，直接返回
         if (this.pluginEngine) {
-            console.log('[TTS] 使用缓存的插件引擎');
+            // console.log('[TTS] 使用缓存的插件引擎');
             return this.pluginEngine;
         }
         
         // 直接检测 Azure TTS 插件
         const azurePlugin = Lumina.Plugin?.AzureTTS;
-        console.log('[TTS] Azure 插件对象:', azurePlugin);
-        console.log('[TTS] Azure 配置:', azurePlugin?.config);
+        // console.log('[TTS] Azure 插件对象:', azurePlugin);
+        // console.log('[TTS] Azure 配置:', azurePlugin?.config);
         
         if (azurePlugin && azurePlugin.config?.enabled && azurePlugin.config?.speechKey) {
-            console.log('[TTS] 找到可用的 Azure TTS 插件');
+            // console.log('[TTS] 找到可用的 Azure TTS 插件');
             this.pluginEngine = azurePlugin;
             return this.pluginEngine;
         }
         
-        console.log('[TTS] Azure TTS 不可用');
+        // console.log('[TTS] Azure TTS 不可用');
         return null;
     }
 
@@ -1283,7 +1283,7 @@ Lumina.TTS.Manager = class {
         // 检查是否有插件提供的 TTS 引擎（如 Azure TTS），优先使用（支持 APP 和 Web）
         const pluginEngine = this.getPluginEngine();
         if (pluginEngine) {
-            console.log('[TTS] 使用 Azure TTS 插件');
+            // console.log('[TTS] 使用 Azure TTS 插件');
             await this.speakWithPlugin(pluginEngine);
             return;
         }
@@ -1378,7 +1378,7 @@ Lumina.TTS.Manager = class {
             }
             // 只取到endSentenceIndex，剩余的下次朗读
             textToRead = this.currentSentences.slice(this.currentSentenceIndex, batchEndSentenceIndex).join('');
-            console.log('[TTS] 长段落分批朗读，本次', textToRead.length, '字，剩余', this.currentSentences.slice(batchEndSentenceIndex).join('').length, '字');
+            // console.log('[TTS] 长段落分批朗读，本次', textToRead.length, '字，剩余', this.currentSentences.slice(batchEndSentenceIndex).join('').length, '字');
         }
         
         this.utterance = new SpeechSynthesisUtterance(textToRead);
@@ -1470,7 +1470,7 @@ Lumina.TTS.Manager = class {
                 this.currentSentenceIndex = batchEndSentenceIndex;
                 this.currentHighlightIndex = -1;
                 this.clearSentenceHighlightsOnly();
-                console.log('[TTS] 继续朗读本段落，从句子', this.currentSentenceIndex, '开始');
+                // console.log('[TTS] 继续朗读本段落，从句子', this.currentSentenceIndex, '开始');
                 Promise.resolve().then(() => this.speakCurrent());
             } else {
                 // 本段落朗读完成，跳到下一段
@@ -1684,36 +1684,10 @@ Lumina.TTS.Manager = class {
         const textToRead = itemText;
         this.currentSentences = this.splitIntoSentences(textToRead);
         
-        // Azure TTS 缓存开关（true=启用缓存预加载，false=实时合成）
-        // 目前缓存机制还有问题，默认关闭
-        const useCache = false;
-        
-        // 缓存功能开关（目前还有问题，默认关闭）
-        if (useCache) {
-            // 预加载当前段落前3句
-            const preloadCount = Math.min(3, this.currentSentences.length);
-            console.log(`[TTS] 段落开始，预加载前${preloadCount}句...`);
-            for (let k = 0; k < preloadCount; k++) {
-                engine.preload({ text: this.currentSentences[k], useCache });
-            }
-            
-            // 如果段落很短（1-2句），尝试预加载下一段的前几句
-            if (this.currentSentences.length <= 2) {
-                const nextItemIndex = this.currentItemIndex + 1;
-                const chapter = state.chapters[state.currentChapterIndex];
-                const relativeIdx = nextItemIndex - chapter.startIndex;
-                if (relativeIdx >= 0 && relativeIdx < chapter.items.length) {
-                    const nextItem = chapter.items[relativeIdx];
-                    const nextText = this.extractItemText(nextItem);
-                    const nextSentences = this.splitIntoSentences(nextText);
-                    for (let k = 0; k < Math.min(2, nextSentences.length); k++) {
-                        engine.preload({ text: nextSentences[k], useCache });
-                    }
-                }
-            }
-            
-            // 等待第一句预加载完成（最多等3秒，给用户流畅体验）
-            await this._waitForCache(engine, this.currentSentences[0], 3000);
+        // ==================== 向前看窗口预加载 ====================
+        // 段落开始时，填充向前看窗口（从第0句开始，确保后面N句已缓存）
+        if (engine.fillWindow && this.currentSentenceIndex === 0) {
+            this._fillWindowForPlugin(engine, chapter, relativeIdx, -1, this.currentSentences);
         }
         
         // 逐句朗读
@@ -1723,38 +1697,44 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = i;
             const sentence = this.currentSentences[i];
             
-            // 预加载下一句（仅在缓存开启时）
-            if (useCache) {
-                const nextIdx = i + 3;
-                if (nextIdx < this.currentSentences.length) {
-                    engine.preload({ text: this.currentSentences[nextIdx], useCache });
-                }
+            // 跳过纯标点符号的句子（Azure可能合成失败）
+            const meaningfulChars = sentence.replace(/[\s\n\r""''（）()【】\[\]《》<>、，。！？；：,.!?;:\-\—]/g, '');
+            if (meaningfulChars.length < 2) {
+                // console.log(`[TTS] 跳过纯标点句子: "${sentence}"`);
+                continue;
             }
             
             // 更新高亮
             this.clearAllHighlights();
             if (this.currentParagraphEl) {
-                this.highlightSentenceInParagraph(i);
-                this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const highlightedSpan = this.highlightSentenceInParagraph(i);
+                if (highlightedSpan) {
+                    highlightedSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            // ==================== 每次朗读后更新窗口 ====================
+            // 读完第i句，确保后面N句已预加载（自动跨段落）
+            if (engine.fillWindow) {
+                this._fillWindowForPlugin(engine, chapter, relativeIdx, i, this.currentSentences);
             }
             
             try {
-                console.log('[TTS] 调用插件引擎朗读:', sentence.substring(0, 20) + '...');
-                // 使用插件引擎朗读（优先走缓存）
+                // console.log('[TTS] 调用插件引擎朗读:', sentence.substring(0, 20) + '...');
                 await engine.speak({
                     text: sentence,
                     rate: this.settings.rate,
                     pitch: this.settings.pitch,
-                    volume: this.settings.volume,
-                    useCache  // 一般模式使用缓存
+                    volume: this.settings.volume
                 });
-                console.log('[TTS] 插件引擎朗读完成');
+                // console.log('[TTS] 插件引擎朗读完成');
                 
             } catch (e) {
                 console.error('[TTS] 插件引擎朗读失败:', e.message, e.stack);
-                // 如果插件引擎失败，切换到系统 TTS
                 if (e.message?.includes('未初始化') || e.message?.includes('失败')) {
-                    console.log('[TTS] 插件引擎不可用，切换到系统 TTS');
+                    // console.log('[TTS] 插件引擎不可用，切换到系统 TTS');
                     this.clearPluginEngine();
                     setTimeout(() => this.speakCurrent(), 100);
                     return;
@@ -1774,43 +1754,125 @@ Lumina.TTS.Manager = class {
         }
     }
     
-    // 等待文本进入缓存（轮询检查）
-    async _waitForCache(engine, text, timeoutMs = 1500) {
-        const start = Date.now();
-        const checkInterval = 50; // 每50ms检查一次
+    // 为插件填充向前看窗口
+    _fillWindowForPlugin(engine, chapter, currentParagraphIdx, currentSentenceIdx, currentSentences) {
+        if (!engine.fillWindow) return;
         
-        while (Date.now() - start < timeoutMs) {
-            if (engine.isCached(text)) {
-                console.log('[TTS] 预加载完成，耗时:', Date.now() - start, 'ms');
-                return true;
-            }
-            await new Promise(r => setTimeout(r, checkInterval));
+        // 构建获取后续段落的回调
+        let nextParaIdx = 0;
+        const getNextParagraph = (idx) => {
+            const paraIdx = currentParagraphIdx + 1 + idx;
+            if (paraIdx >= chapter.items.length) return null;
+            
+            const item = chapter.items[paraIdx];
+            if (!item || item.type === 'image') return null;
+            
+            const text = this.extractItemText(item);
+            if (!text) return null;
+            
+            return {
+                sentences: this.splitIntoSentences(text),
+                source: `paragraph_${paraIdx}`
+            };
+        };
+        
+        engine.fillWindow(currentSentenceIdx, currentSentences, getNextParagraph);
+    }
+    
+    // 统一的保守检测：是否应该使用段落级高亮
+    _shouldUseParagraphHighlight() {
+        if (!this.currentParagraphEl) return true;
+        
+        // 检测1：包含列表项
+        if (this.currentParagraphEl.querySelector('li, ul, ol')) {
+            return true;
         }
-        console.log('[TTS] 预加载等待超时，直接开始朗读');
+        
+        // 检测2：包含表格
+        if (this.currentParagraphEl.querySelector('table, tr, td')) {
+            return true;
+        }
+        
+        // 检测3：包含代码块
+        if (this.currentParagraphEl.querySelector('pre, code')) {
+            return true;
+        }
+        
+        // 检测4：直接子元素包含复杂结构（但不是简单的 <span> 或 <strong>）
+        const complexTags = ['DIV', 'UL', 'OL', 'LI', 'TABLE', 'PRE', 'BLOCKQUOTE'];
+        const hasComplexChildren = Array.from(this.currentParagraphEl.children).some(
+            child => complexTags.includes(child.tagName)
+        );
+        if (hasComplexChildren) {
+            return true;
+        }
+        
         return false;
     }
     
     // 在段落内高亮特定句子（APP 环境，简化版）
+    // 返回：成功高亮的 span 元素，如果是段落级高亮则返回 null
     highlightSentenceInParagraph(sentenceIndex) {
-        if (!this.currentParagraphEl) return;
+        if (!this.currentParagraphEl) return null;
         
-        // 获取段落文本并查找句子位置
-        const fullText = this.currentParagraphEl.textContent;
-        const sentences = this.splitIntoSentences(fullText);
+        // 统一检测：复杂结构使用段落级高亮
+        if (this._shouldUseParagraphHighlight()) {
+            this.currentParagraphEl.classList.add('tts-highlight');
+            return null;
+        }
         
-        if (sentenceIndex >= sentences.length) return;
+        // 使用当前保存的句子数组（与朗读时一致），而不是重新从 DOM 获取
+        const sentences = this.currentSentences;
+        // console.log('[TTS Debug] 句子数组:', sentences);
         
-        // 计算该句子在段落中的位置
-        let charIndex = 0;
-        for (let i = 0; i < sentenceIndex; i++) {
-            const idx = fullText.indexOf(sentences[i], charIndex);
-            if (idx >= 0) charIndex = idx + sentences[i].length;
+        if (!sentences || sentenceIndex >= sentences.length) {
+            // console.log('[TTS Debug] 句子索引越界或数组为空');
+            return null;
         }
         
         const targetSentence = sentences[sentenceIndex];
-        const sentenceStart = fullText.indexOf(targetSentence, charIndex);
+        // console.log('[TTS Debug] 目标句子:', targetSentence);
         
-        if (sentenceStart < 0) return;
+        // 获取 DOM 文本用于定位
+        const fullText = this.currentParagraphEl.textContent;
+        // console.log('[TTS Debug] DOM文本长度:', fullText.length);
+        // console.log('[TTS Debug] DOM文本前100字:', fullText.substring(0, 100));
+        
+        // 计算该句子在段落中的位置（基于当前句子数组）
+        let charIndex = 0;
+        for (let i = 0; i < sentenceIndex; i++) {
+            // 在 DOM 文本中查找前序句子的位置
+            const prevSentence = sentences[i];
+            const idx = fullText.indexOf(prevSentence, charIndex);
+            // console.log(`[TTS Debug] 查找前序句子[${i}]: "${prevSentence.substring(0, 20)}..." 从位置${charIndex}开始，结果:`, idx);
+            if (idx >= 0) {
+                charIndex = idx + prevSentence.length;
+            } else {
+                // 如果找不到（文本不一致），跳过这句的长度估算
+            // console.log(`[TTS Debug] 前序句子[${i}]未找到，使用估算位置`);
+                charIndex += prevSentence.length;
+            }
+        }
+        
+        // 在 DOM 中查找目标句子
+        let sentenceStart = fullText.indexOf(targetSentence, charIndex);
+        // console.log('[TTS Debug] 目标句子起始位置:', sentenceStart, '(从', charIndex, '开始查找)');
+        
+        // 如果精确查找失败，尝试模糊查找（忽略 Markdown 标记差异）
+        if (sentenceStart < 0) {
+            // 清理后的句子（去除 Markdown 标记）
+            const cleanedSentence = this.cleanMarkdownMarks(targetSentence);
+            const cleanedFullText = this.cleanMarkdownMarks(fullText);
+            sentenceStart = cleanedFullText.indexOf(cleanedSentence, charIndex);
+            // console.log('[TTS Debug] 模糊查找结果:', sentenceStart);
+            
+            // 如果还是找不到，使用估算位置
+            if (sentenceStart < 0) {
+                sentenceStart = charIndex;
+            }
+        }
+        
+        if (sentenceStart < 0 || sentenceStart >= fullText.length) return;
         
         // 尝试在 DOM 中找到这个句子并高亮
         try {
@@ -1834,18 +1896,165 @@ Lumina.TTS.Manager = class {
                 currentChar += nodeLength;
             }
             
+            // console.log('[TTS Debug] TreeWalker结果: startNode=', !!startNode, 'endNode=', !!endNode);
+            // console.log('[TTS Debug] startOffset=', startOffset, 'endOffset=', endOffset);
+            
             if (startNode && endNode) {
+                // 验证 offset 是否有效
+                const startValid = startOffset >= 0 && startOffset <= startNode.textContent.length;
+                const endValid = endOffset >= 0 && endOffset <= endNode.textContent.length;
+                
+                // console.log('[TTS Debug] offset有效性: startValid=', startValid, 'endValid=', endValid);
+                
+                if (!startValid || !endValid) {
+                    console.warn('[TTS] 高亮位置无效，跳过句子高亮');
+                    return null;
+                }
+                
                 range.setStart(startNode, startOffset);
                 range.setEnd(endNode, endOffset);
-                const span = document.createElement('span');
-                span.className = 'tts-sentence-highlight';
-                range.surroundContents(span);
-                this.sentenceElements.push(span);
+                
+            // console.log('[TTS Debug] Range创建成功, canSurround=', this._canSurround(range));
+                
+                // 检查 Range 是否跨越元素边界
+                if (this._canSurround(range)) {
+                    // 安全使用 surroundContents
+                    const span = document.createElement('span');
+                    span.className = 'tts-sentence-highlight';
+                    range.surroundContents(span);
+                    this.sentenceElements.push(span);
+                // console.log('[TTS Debug] 单节点高亮成功');
+                    return span;  // 返回高亮的 span
+                } else {
+                    // 跨越边界时，使用安全的多节点高亮
+                    const firstSpan = this._highlightCrossBoundary(range);
+                // console.log('[TTS Debug] 跨节点高亮结果:', firstSpan);
+                    return firstSpan;  // 返回第一个高亮的 span
+                }
+            } else {
+                // 找不到节点，降级到段落高亮
+                console.warn('[TTS] 无法定位句子节点，使用段落高亮');
+                this.currentParagraphEl.classList.add('tts-highlight');
+                return null;
             }
         } catch (e) {
-            // 如果失败，只保留段落高亮
-            console.warn('[TTS] 句子高亮失败:', e);
+            // 如果失败，降级到段落高亮
+            console.warn('[TTS] 句子高亮失败，降级到段落高亮:', e);
+            this.currentParagraphEl.classList.add('tts-highlight');
+            return null;
         }
+    }
+    
+    // 检查 Range 是否可以安全使用 surroundContents
+    _canSurround(range) {
+        // surroundContents 要求：起止在同一个父元素内
+        const startContainer = range.startContainer;
+        const endContainer = range.endContainer;
+        
+        // 情况1：起止在同一个 Text 节点
+        if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+            return true;
+        }
+        
+        // 情况2：起止不同，但都在同一个父元素内
+        if (startContainer.parentNode === endContainer.parentNode) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // 处理跨越元素边界的高亮（安全版：不提取内容，只做视觉标记）
+    // 返回：第一个成功高亮的 span（用于滚动定位）
+    _highlightCrossBoundary(range) {
+        // 策略：遍历 Range 中的所有 Text 节点，分别高亮
+        // 这样可以避免破坏 DOM 结构
+        
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        // 找到 Range 内的所有 Text 节点
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            if (range.intersectsNode(node)) {
+                textNodes.push(node);
+            }
+        }
+        
+        let firstSpan = null;  // 记录第一个高亮的 span
+        
+        // 对第一个 Text 节点做部分高亮（如果 Range 从这里开始）
+        for (let i = 0; i < textNodes.length; i++) {
+            const textNode = textNodes[i];
+            const nodeRange = document.createRange();
+            nodeRange.selectNodeContents(textNode);
+            
+            // 计算与目标 Range 的交集
+            const intersectionRange = range.cloneRange();
+            
+            // 设置交集的起点
+            if (i === 0) {
+                // 第一个节点，使用 Range 的实际起点
+                try {
+                    intersectionRange.setStart(range.startContainer, range.startOffset);
+                } catch (e) {
+                    continue; // 跳过无法设置的节点
+                }
+            } else {
+                // 后续节点，从节点开头开始
+                intersectionRange.setStart(textNode, 0);
+            }
+            
+            // 设置交集的终点
+            if (i === textNodes.length - 1) {
+                // 最后一个节点，使用 Range 的实际终点
+                try {
+                    intersectionRange.setEnd(range.endContainer, range.endOffset);
+                } catch (e) {
+                    continue;
+                }
+            } else {
+                // 前面的节点，到节点结尾结束
+                intersectionRange.setEnd(textNode, textNode.textContent.length);
+            }
+            
+            // 检查这个交集是否有效
+            if (intersectionRange.collapsed) continue;
+            
+            // 尝试在这个交集上使用 surroundContents
+            // 由于我们在单个 Text 节点内操作，应该是安全的
+            try {
+                const span = document.createElement('span');
+                span.className = 'tts-sentence-highlight';
+                intersectionRange.surroundContents(span);
+                this.sentenceElements.push(span);
+                if (!firstSpan) firstSpan = span;  // 记录第一个 span
+            } catch (e) {
+                // 如果失败，尝试更简单的方式：直接包裹整个 Text 节点
+                if (intersectionRange.toString().trim() === textNode.textContent.trim()) {
+                    try {
+                        const span = document.createElement('span');
+                        span.className = 'tts-sentence-highlight';
+                        const parent = textNode.parentNode;
+                        if (parent) {
+                            parent.replaceChild(span, textNode);
+                            span.appendChild(textNode);
+                            this.sentenceElements.push(span);
+                            if (!firstSpan) firstSpan = span;  // 记录第一个 span
+                        }
+                    } catch (e2) {
+                        // 忽略失败
+                    }
+                }
+            }
+        }
+        
+        return firstSpan;  // 返回第一个高亮的 span（用于滚动定位）
     }
     
 
@@ -1853,7 +2062,24 @@ Lumina.TTS.Manager = class {
         // 防御：如果不支持boundary，不执行
         if (!this.supportsBoundary) return;
         
-        if (!this.currentParagraphEl || !this.currentSentences[sentenceIndex]) return;
+        // console.log('[TTS Debug] === highlightSentence (Web Speech) ===');
+        // console.log('[TTS Debug] sentenceIndex:', sentenceIndex);
+        // console.log('[TTS Debug] currentParagraphEl:', this.currentParagraphEl?.tagName);
+        // console.log('[TTS Debug] currentSentences:', this.currentSentences);
+        
+        if (!this.currentParagraphEl || !this.currentSentences[sentenceIndex]) {
+            // console.log('[TTS Debug] 缺少段落或句子');
+            return;
+        }
+        
+        // 统一检测：复杂结构使用段落级高亮
+        if (this._shouldUseParagraphHighlight()) {
+            // console.log('[TTS Debug] 检测到复杂结构，使用段落级高亮');
+            this.clearAllHighlights();
+            this.currentParagraphEl.classList.add('tts-highlight');
+            this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
         
         // 仅清除句子高亮，保留段落高亮（如果存在）
         this.clearSentenceHighlightsOnly();
@@ -1863,9 +2089,12 @@ Lumina.TTS.Manager = class {
 
         const fullText = this.currentParagraphEl.textContent;
         const targetSentence = this.currentSentences[sentenceIndex];
+        // console.log('[TTS Debug] 目标句子:', targetSentence);
+        // console.log('[TTS Debug] DOM文本长度:', fullText.length);
+        
         let charIndex = 0;
-
         for (let i = 0; i < sentenceIndex; i++) charIndex += this.currentSentences[i].length;
+        // console.log('[TTS Debug] 计算的起始位置:', charIndex);
 
         const range = document.createRange();
         const treeWalker = document.createTreeWalker(this.currentParagraphEl, NodeFilter.SHOW_TEXT, null, false);
@@ -1876,31 +2105,53 @@ Lumina.TTS.Manager = class {
             if (!startNode && currentChar + nodeLength > charIndex) {
                 startNode = node;
                 startOffset = charIndex - currentChar;
+                // console.log('[TTS Debug] 找到startNode:', node.textContent.substring(0, 20), 'offset:', startOffset);
             }
             if (startNode && currentChar + nodeLength >= charIndex + targetSentence.length) {
                 endNode = node;
                 endOffset = (charIndex + targetSentence.length) - currentChar;
+                // console.log('[TTS Debug] 找到endNode:', node.textContent.substring(0, 20), 'offset:', endOffset);
                 break;
             }
             currentChar += nodeLength;
         }
+        
+        // console.log('[TTS Debug] TreeWalker结果: startNode=', !!startNode, 'endNode=', !!endNode);
 
         if (startNode && endNode) {
             try {
                 range.setStart(startNode, startOffset);
                 range.setEnd(endNode, endOffset);
-                const highlightSpan = document.createElement('span');
-                highlightSpan.className = 'tts-sentence-highlight';
-                range.surroundContents(highlightSpan);
-                this.sentenceElements.push(highlightSpan);
+                // console.log('[TTS Debug] canSurround:', this._canSurround(range));
                 
-                // 🔴 关键修复2：确保滚动到可视区域（桌面端）
-                highlightSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // 检查 Range 是否跨越元素边界
+                if (this._canSurround(range)) {
+                    const highlightSpan = document.createElement('span');
+                    highlightSpan.className = 'tts-sentence-highlight';
+                    range.surroundContents(highlightSpan);
+                    this.sentenceElements.push(highlightSpan);
+                    // console.log('[TTS Debug] 单节点高亮成功');
+                    // 滚动到句子
+                    highlightSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // 跨越边界时，使用安全的多节点高亮
+                    const firstSpan = this._highlightCrossBoundary(range);
+                    // console.log('[TTS Debug] 跨节点高亮结果:', firstSpan);
+                    // 滚动到第一个高亮的 span
+                    if (firstSpan) {
+                        firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
             } catch (e) {
-                // 降级：如果surroundContents失败（跨元素边界），使用段落高亮
+                // 降级：如果高亮失败，使用段落高亮
+                console.warn('[TTS] 句子高亮失败，降级到段落高亮:', e);
                 this.currentParagraphEl.classList.add('tts-highlight');
                 this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
+        } else {
+            // console.log('[TTS Debug] 未找到startNode或endNode');
         }
     }
 

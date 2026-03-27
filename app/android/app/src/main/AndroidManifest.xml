@@ -16,8 +16,10 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:taskAffinity=""
             android:exported="true"
-            android:keepScreenOn="true">
+            android:keepScreenOn="true"
+            android:windowSoftInputMode="adjustResize">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

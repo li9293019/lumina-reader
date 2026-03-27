@@ -5,10 +5,11 @@ Lumina.Plugin.AzureTTS = Lumina.Plugin.AzureTTS || {};
 
 Object.assign(Lumina.Plugin.AzureTTS, {
     name: 'azure-tts',
-    version: '1.0.0',
-    description: 'Azure 语音服务朗读支持',
+    version: '2.0.0',
+    description: 'Azure 语音服务朗读支持（支持预加载缓存）',
     
     engine: null,
+    taskManager: null,
     
     // 默认配置
     config: {
@@ -18,7 +19,13 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         voice: 'zh-CN-XiaoxiaoNeural',
         style: 'general',
         rate: 1.0,
-        pitch: 0
+        pitch: 0,
+        cache: {
+            enabled: true,          // 总开关
+            preloadCount: 5,        // 预加载句数
+            cacheDepth: 5,          // 缓存深度（总缓存 = preloadCount * cacheDepth）
+            waitTimeout: 2000       // 等待超时(ms)
+        }
     },
     
     STORAGE_KEY: 'lumina_azure_tts_config',
@@ -28,7 +35,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         'zh-CN-XiaoxiaoNeural': ['general', 'assistant', 'chat', 'customerservice', 'newscast', 'affectionate', 'angry', 'calm', 'cheerful', 'sad', 'serious'],
         'zh-CN-YunxiNeural': ['general', 'assistant', 'chat', 'customerservice', 'newscast', 'angry', 'cheerful', 'sad', 'serious'],
         'zh-CN-YunjianNeural': ['general'],
-        'zh-CN-YunxiaNeural': ['general'], // 少年音只支持通用
+        'zh-CN-YunxiaNeural': ['general'],
         'zh-CN-XiaoyiNeural': ['general'],
         'zh-CN-YunyangNeural': ['general', 'customerservice', 'narration'],
         'zh-CN-XiaochenNeural': ['general'],
@@ -36,15 +43,27 @@ Object.assign(Lumina.Plugin.AzureTTS, {
     },
 
     init() {
-        console.log('[AzureTTS Plugin] 初始化...');
+        // console.log('[AzureTTS Plugin] 初始化...');
         
         this.loadConfig();
         
-        // 等待引擎类加载（脚本可能还没执行完）
+        // 初始化 TaskManager
+        const preloadCount = this.config.cache?.preloadCount ?? 5;
+        const cacheDepth = this.config.cache?.cacheDepth ?? 5;
+        this.taskManager = new Lumina.Plugin.AzureTTS.TaskManager({
+            enabled: this.config.cache?.enabled !== false,
+            windowSize: preloadCount,
+            maxCacheSize: preloadCount * cacheDepth,  // 总缓存量 = 预加载 * 深度
+            waitTimeout: this.config.cache?.waitTimeout ?? 2000
+        });
+        
+        // 等待引擎类加载
         let engineAttempts = 0;
         const waitForEngine = () => {
             if (Lumina.Plugin.AzureTTS.Engine) {
                 this.engine = new Lumina.Plugin.AzureTTS.Engine();
+                this.engine.setTaskManager(this.taskManager);
+                this.taskManager.setEngine(this.engine);
                 this._initUI();
             } else if (engineAttempts < 50) {
                 engineAttempts++;
@@ -59,44 +78,44 @@ Object.assign(Lumina.Plugin.AzureTTS, {
     },
     
     _initUI() {
-        // 使用轮询等待 DOM 元素出现
         let attempts = 0;
         const waitForDOM = () => {
             const toggle = document.getElementById('azureTtsToggle');
             const dialog = document.getElementById('azureTtsDialog');
             
             if (toggle && dialog) {
-                console.log('[AzureTTS] DOM 元素已就绪，开始绑定事件');
                 this.bindToggleUI();
                 this.bindDialogEvents();
+                this.updateCacheUI();
             } else {
                 attempts++;
-                if (attempts < 50) { // 最多等待 5 秒
+                if (attempts < 50) {
                     setTimeout(waitForDOM, 100);
-                } else {
-                    console.error('[AzureTTS] DOM 元素加载超时');
                 }
             }
         };
         
-        // 开始轮询
         setTimeout(waitForDOM, 100);
         
-        // 延迟初始化引擎
         setTimeout(() => {
             if (this.config.enabled && this.config.speechKey) {
                 this.engine.init(this.config.speechKey, this.config.region);
             }
         }, 1000);
         
-        console.log('[AzureTTS Plugin] 已就绪（等待 DOM）');
+        // console.log('[AzureTTS Plugin] 已就绪');
     },
 
     loadConfig() {
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY);
             if (saved) {
-                this.config = { ...this.config, ...JSON.parse(saved) };
+                const parsed = JSON.parse(saved);
+                this.config = { ...this.config, ...parsed };
+                this.config.cache = { 
+                    ...this.config.cache,
+                    ...parsed.cache 
+                };
             }
         } catch (e) {
             console.warn('[AzureTTS] 加载配置失败:', e);
@@ -111,32 +130,18 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
 
-    // 绑定设置面板开关
     bindToggleUI() {
         const toggle = document.getElementById('azureTtsToggle');
         const info = document.getElementById('azureTtsInfo');
         
-        if (!toggle || !info) {
-            console.warn('[AzureTTS] 找不到元素 #azureTtsToggle 或 #azureTtsInfo');
-            return;
-        }
+        if (!toggle || !info) return;
         
-        console.log('[AzureTTS] 绑定开关事件');
-        
-        // 设置初始状态
         toggle.checked = this.config.enabled;
         
-        // 点击左侧信息区域打开对话框
-        info.addEventListener('click', () => {
-            this.openDialog();
-        });
+        info.addEventListener('click', () => this.openDialog());
         
-        // 开关使用 change 事件
         toggle.addEventListener('change', async () => {
-            console.log('[AzureTTS] 开关变化，新状态:', toggle.checked);
-            
             if (toggle.checked) {
-                // 开启：有配置直接启用，无配置弹出对话框
                 if (this.config.speechKey && this.config.speechKey.length > 20) {
                     this.config.enabled = true;
                     this.saveConfig();
@@ -144,13 +149,10 @@ Object.assign(Lumina.Plugin.AzureTTS, {
                     Lumina.TTS?.manager?.clearPluginEngine?.();
                     Lumina.UI?.showToast?.(Lumina.I18n.t('azureTTSEnabled'));
                 } else {
-                    // 无配置，弹出对话框
                     await this.openDialog();
-                    // 关闭后检查是否有配置
                     toggle.checked = !!this.config.speechKey;
                 }
             } else {
-                // 关闭：恢复系统 TTS
                 this.config.enabled = false;
                 this.saveConfig();
                 this.engine.destroy();
@@ -160,43 +162,68 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         });
     },
 
-    // 打开设置对话框
+    updateCacheUI() {
+        // 开关状态
+        const cacheToggleTrack = document.getElementById('azureCacheToggleTrack');
+        if (cacheToggleTrack) {
+            cacheToggleTrack.classList.toggle('active', this.config.cache?.enabled !== false);
+        }
+        
+        // 预加载句数滑块
+        const preloadSlider = document.getElementById('azurePreloadSlider');
+        const preloadValue = document.getElementById('azurePreloadValue');
+        const preloadCount = this.config.cache?.preloadCount ?? 5;
+        if (preloadSlider) preloadSlider.value = preloadCount;
+        if (preloadValue) preloadValue.textContent = preloadCount;
+        
+        // 缓存深度滑块
+        const depthSlider = document.getElementById('azureDepthSlider');
+        const depthValue = document.getElementById('azureDepthValue');
+        const cacheDepth = this.config.cache?.cacheDepth ?? 5;
+        if (depthSlider) depthSlider.value = cacheDepth;
+        if (depthValue) depthValue.textContent = cacheDepth;
+        
+        // 应用 i18n 翻译
+        this._applyI18n();
+    },
+    
+    _applyI18n() {
+        // 翻译所有带有 data-i18n 属性的元素
+        const dialog = document.getElementById('azureTtsDialog');
+        if (!dialog) return;
+        
+        dialog.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (key && Lumina.I18n?.t) {
+                el.textContent = Lumina.I18n.t(key);
+            }
+        });
+    },
+
     openDialog() {
-        console.log('[AzureTTS] openDialog 被调用');
         return new Promise((resolve) => {
             const dialog = document.getElementById('azureTtsDialog');
-            console.log('[AzureTTS] 对话框元素:', dialog);
-            
             if (!dialog) {
-                console.error('[AzureTTS] 找不到对话框元素 #azureTtsDialog');
                 resolve(false);
                 return;
             }
             
-            console.log('[AzureTTS] 准备显示对话框');
             this._dialogResolve = resolve;
-            
-            // 加载当前配置到对话框
             this.loadDialogValues();
-            
-            // 显示对话框 (使用 about-panel 的 active 类)
+            this.updateCacheUI();
+            this.updateStatsDisplay();
             dialog.classList.add('active');
             
-            console.log('[AzureTTS] 对话框已显示，classList:', dialog.classList.toString());
-            
-            // 聚焦到 key 输入框
             setTimeout(() => {
                 document.getElementById('azureDialogKey')?.focus();
             }, 100);
         });
     },
 
-    // 关闭对话框
     closeDialog(confirmed = false) {
         const dialog = document.getElementById('azureTtsDialog');
         if (dialog) dialog.classList.remove('active');
         
-        // 隐藏状态提示
         const status = document.getElementById('azureDialogStatus');
         if (status) status.style.display = 'none';
         
@@ -206,24 +233,16 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
 
-    // 加载配置到对话框
     loadDialogValues() {
-        // Key
         const keyInput = document.getElementById('azureDialogKey');
         if (keyInput) keyInput.value = this.config.speechKey;
         
-        // 区域
         this.updateCapsuleGroup('azureRegionOptions', this.config.region);
-        
-        // 音色
         this.updateCapsuleGroup('azureVoiceOptions', this.config.voice);
-        
-        // 风格（根据当前音色过滤可用选项）
         this.updateCapsuleGroup('azureStyleOptions', this.config.style);
         this.updateStyleOptions(this.config.voice);
     },
 
-    // 更新胶囊按钮组的选中状态
     updateCapsuleGroup(groupId, activeValue) {
         const group = document.getElementById(groupId);
         if (!group) return;
@@ -233,7 +252,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         });
     },
     
-    // 根据音色更新风格选项的可用状态
     updateStyleOptions(voice) {
         const supportedStyles = this.voiceStyles[voice] || ['general'];
         const styleGroup = document.getElementById('azureStyleOptions');
@@ -253,7 +271,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
             }
         });
         
-        // 如果当前选中的风格不支持，切换到通用
         const currentActive = styleGroup.querySelector('.azure-capsule.active');
         if (currentActive && currentActive.disabled) {
             const generalBtn = styleGroup.querySelector('[data-value="general"]');
@@ -264,135 +281,128 @@ Object.assign(Lumina.Plugin.AzureTTS, {
             }
         }
         
-        // 兜底：如果没有选中的风格，选择通用
         if (!styleGroup.querySelector('.azure-capsule.active')) {
             const generalBtn = styleGroup.querySelector('[data-value="general"]');
-            if (generalBtn) {
-                generalBtn.classList.add('active');
-                this.saveCurrentConfig();
-            }
+            if (generalBtn) generalBtn.classList.add('active');
         }
     },
 
-    // 更新滑块显示值
-    updateSliderValue(slider) {
-        const container = slider.closest('.slider-control');
-        const display = container?.querySelector('.slider-value');
-        if (!display) return;
-        
-        const divider = parseInt(container.dataset.divider) || 1;
-        const unit = container.dataset.unit || '';
-        let value = parseFloat(slider.value) / divider;
-        
-        if (slider.id === 'azureRateSlider') {
-            display.textContent = value.toFixed(1) + unit;
-        } else {
-            const sign = value > 0 ? '+' : '';
-            display.textContent = sign + value + unit;
-        }
-    },
-
-    // 绑定对话框事件
     bindDialogEvents() {
-        console.log('[AzureTTS] 绑定对话框事件');
-        
-        // 关闭按钮
         const closeBtn = document.getElementById('azureTtsDialogClose');
-        if (closeBtn) {
-            closeBtn.onclick = () => {
-                console.log('[AzureTTS] 关闭按钮点击');
-                this.closeDialog(true);
-            };
-        } else {
-            console.warn('[AzureTTS] 找不到关闭按钮');
-        }
+        if (closeBtn) closeBtn.onclick = () => this.closeDialog(true);
         
-        // 点击遮罩关闭
         const dialog = document.getElementById('azureTtsDialog');
         if (dialog) {
             dialog.onclick = (e) => {
-                if (e.target === dialog) {
-                    console.log('[AzureTTS] 遮罩点击');
-                    this.closeDialog(true);
-                }
+                if (e.target === dialog) this.closeDialog(true);
             };
-        } else {
-            console.warn('[AzureTTS] 找不到对话框');
         }
         
-        // ESC 键关闭 - 只绑定一次
         if (!Lumina.Plugin.AzureTTS._escBound) {
             document.onkeydown = (e) => {
                 if (e.key === 'Escape') {
                     const dlg = document.getElementById('azureTtsDialog');
-                    if (dlg?.classList.contains('active')) {
-                        console.log('[AzureTTS] ESC 按下');
-                        this.closeDialog(true);
-                    }
+                    if (dlg?.classList.contains('active')) this.closeDialog(true);
                 }
             };
             Lumina.Plugin.AzureTTS._escBound = true;
         }
         
-        // 胶囊按钮点击 - 即点即存
         ['azureRegionOptions', 'azureVoiceOptions', 'azureStyleOptions'].forEach(groupId => {
             const group = document.getElementById(groupId);
-            if (!group) {
-                console.warn(`[AzureTTS] 找不到胶囊组: ${groupId}`);
-                return;
-            }
+            if (!group) return;
             
-            // 为每个胶囊按钮绑定点击事件
             group.querySelectorAll('.azure-capsule').forEach(capsule => {
                 capsule.onclick = () => {
-                    console.log(`[AzureTTS] 胶囊点击: ${capsule.dataset.value}`);
-                    
-                    // 更新选中状态
                     group.querySelectorAll('.azure-capsule').forEach(btn => btn.classList.remove('active'));
                     capsule.classList.add('active');
                     
-                    // 如果切换了音色，更新风格选项的可用状态
                     if (groupId === 'azureVoiceOptions') {
                         this.updateStyleOptions(capsule.dataset.value);
                     }
-                    
-                    // 立即保存配置
                     this.saveCurrentConfig();
                 };
             });
         });
         
-        // 注意：语速和音调现在使用阅读器全局设置 (Lumina.State.settings.ttsRate, ttsPitch)
-        
-        // Key 输入框 - 失去焦点或按回车时保存
         const keyInput = document.getElementById('azureDialogKey');
         if (keyInput) {
-            keyInput.onchange = () => {
-                this.saveCurrentConfig();
-            };
+            keyInput.onchange = () => this.saveCurrentConfig();
             keyInput.onkeydown = (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     this.saveCurrentConfig();
                 }
             };
-        } else {
-            console.warn('[AzureTTS] 找不到 Key 输入框');
         }
         
-        // 测试按钮
         const testBtn = document.getElementById('azureDialogTest');
-        if (testBtn) {
-            testBtn.onclick = () => {
-                console.log('[AzureTTS] 测试按钮点击');
-                this.testConfig();
+        if (testBtn) testBtn.onclick = () => this.testConfig();
+        
+        // 缓存开关（使用 toggle-switch 样式）
+        const cacheToggleRow = document.getElementById('azureCacheToggleRow');
+        const cacheToggleTrack = document.getElementById('azureCacheToggleTrack');
+        if (cacheToggleRow && cacheToggleTrack) {
+            cacheToggleRow.onclick = () => {
+                const newState = !cacheToggleTrack.classList.contains('active');
+                cacheToggleTrack.classList.toggle('active', newState);
+                this.config.cache.enabled = newState;
+                this.taskManager?.setEnabled(newState);
+                this.saveConfig();
             };
-        } else {
-            console.warn('[AzureTTS] 找不到测试按钮');
+        }
+        
+        // 预加载句数滑块
+        const preloadSlider = document.getElementById('azurePreloadSlider');
+        if (preloadSlider) {
+            preloadSlider.oninput = (e) => {
+                const value = parseInt(e.target.value);
+                this.config.cache.preloadCount = value;
+                if (this.taskManager) {
+                    this.taskManager.config.windowSize = value;
+                    // 更新最大缓存量
+                    const cacheDepth = this.config.cache.cacheDepth ?? 5;
+                    this.taskManager.maxCacheSize = value * cacheDepth;
+                }
+                const valueDisplay = document.getElementById('azurePreloadValue');
+                if (valueDisplay) valueDisplay.textContent = value;
+            };
+            preloadSlider.onchange = () => this.saveConfig();
+        }
+        
+        // 缓存深度滑块
+        const depthSlider = document.getElementById('azureDepthSlider');
+        if (depthSlider) {
+            depthSlider.oninput = (e) => {
+                const value = parseInt(e.target.value);
+                this.config.cache.cacheDepth = value;
+                // 更新最大缓存量
+                if (this.taskManager) {
+                    const preloadCount = this.config.cache.preloadCount ?? 5;
+                    this.taskManager.maxCacheSize = preloadCount * value;
+                }
+                const valueDisplay = document.getElementById('azureDepthValue');
+                if (valueDisplay) valueDisplay.textContent = value;
+            };
+            depthSlider.onchange = () => this.saveConfig();
         }
     },
 
-    // 保存当前对话框配置（不关闭对话框，不显示 toast）
+    updateStatsDisplay() {
+        const stats = this.taskManager?.getStats();
+        if (!stats) return;
+        
+        const hitRateEl = document.getElementById('statHitRate');
+        const cacheSizeEl = document.getElementById('statCacheSize');
+        const synthesizedEl = document.getElementById('statSynthesized');
+        const avgTimeEl = document.getElementById('statAvgTime');
+        
+        if (hitRateEl) hitRateEl.textContent = stats.hitRate + '%';
+        if (cacheSizeEl) cacheSizeEl.textContent = stats.cacheSize;
+        if (synthesizedEl) synthesizedEl.textContent = Lumina.Utils?.formatWordCount?.(stats.synthesizedChars) || stats.synthesizedChars;
+        if (avgTimeEl) avgTimeEl.textContent = (stats.avgSynthesisTime / 1000).toFixed(1) + 's';
+    },
+
     saveCurrentConfig() {
         const key = document.getElementById('azureDialogKey')?.value?.trim() || '';
         
@@ -401,7 +411,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         this.config.voice = this.getActiveCapsuleValue('azureVoiceOptions') || 'zh-CN-XiaoxiaoNeural';
         this.config.style = this.getActiveCapsuleValue('azureStyleOptions') || 'general';
         
-        // 如果 key 存在且长度正确，启用引擎但不显示 toast
         if (key && key.length > 20) {
             this.config.enabled = true;
             this.saveConfig();
@@ -411,25 +420,20 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
 
-    // 获取胶囊按钮组中选中的值
     getActiveCapsuleValue(groupId) {
         const group = document.getElementById(groupId);
         if (!group) return null;
-        
         const active = group.querySelector('.azure-capsule.active');
         return active?.dataset?.value;
     },
 
-    // 快速测试音色
     async testVoice(voice) {
         if (!this.config.speechKey) return;
         
-        // 检查当前风格是否支持，不支持则使用通用
         const supportedStyles = this.voiceStyles[voice] || ['general'];
         const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
         
         try {
-            // 使用当前引擎直接朗读
             await this.engine.speak({
                 text: Lumina.I18n.t('azureTestText'),
                 voice: voice,
@@ -442,7 +446,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
 
-    // 测试配置
     async testConfig() {
         const keyInput = document.getElementById('azureDialogKey');
         const key = keyInput?.value?.trim();
@@ -455,7 +458,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         this.showStatus(Lumina.I18n.t('azureTesting'), 'info');
         
-        // 使用阅读器全局设置
         const globalRate = Lumina.State?.settings?.ttsRate || 10;
         const globalPitch = Lumina.State?.settings?.ttsPitch || 10;
         const azureRate = Math.max(0.5, Math.min(2.0, globalRate / 10));
@@ -469,11 +471,9 @@ Object.assign(Lumina.Plugin.AzureTTS, {
             return;
         }
         
-        // 检查当前风格是否支持，不支持则使用通用
         const supportedStyles = this.voiceStyles[this.config.voice] || ['general'];
         const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
         
-        // 使用 Promise.race 添加超时检测
         const testPromise = testEngine.speak({
             text: Lumina.I18n.t('azureTestText'),
             voice: this.config.voice,
@@ -483,7 +483,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         });
         
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('连接超时，请检查网络和 Key')), 10000);
+            setTimeout(() => reject(new Error('连接超时')), 10000);
         });
         
         try {
@@ -495,7 +495,6 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
 
-    // 显示状态
     showStatus(message, type) {
         const status = document.getElementById('azureDialogStatus');
         if (!status) return;
@@ -505,85 +504,59 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         status.style.display = 'block';
         
         if (type === 'success' || type === 'error') {
-            setTimeout(() => {
-                status.style.display = 'none';
-            }, 3000);
+            setTimeout(() => status.style.display = 'none', 3000);
         }
     },
 
     // ==================== TTS 引擎接口 ====================
     
+    // 获取朗读参数（供外部统一使用）
+    _getParams() {
+        const globalRate = Lumina.State?.settings?.ttsRate || 10;
+        const globalPitch = Lumina.State?.settings?.ttsPitch || 10;
+        const azureRate = Math.max(0.5, Math.min(2.0, globalRate / 10));
+        const azurePitch = Math.max(-50, Math.min(50, ((globalPitch - 5) / 15) * 100 - 50));
+        
+        const supportedStyles = this.voiceStyles[this.config.voice] || ['general'];
+        const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
+        
+        return {
+            voice: this.config.voice,
+            style,
+            rate: azureRate,
+            pitch: azurePitch
+        };
+    },
+    
     async speak(options) {
-        console.log('[AzureTTS] speak 被调用:', options.text?.substring(0, 20) + '...');
+        // console.log('[AzureTTS] speak 被调用:', options.text?.substring(0, 20) + '...');
         
         if (!this.config.enabled || !this.config.speechKey) {
-            console.error('[AzureTTS] 未启用或未配置');
             throw new Error('Azure TTS 未启用');
         }
         
         if (!this.engine.isInitialized) {
-            console.log('[AzureTTS] 引擎未初始化，尝试初始化');
             const success = this.engine.init(this.config.speechKey, this.config.region);
-            if (!success) {
-                console.error('[AzureTTS] 引擎初始化失败');
-                throw new Error('初始化失败');
-            }
+            if (!success) throw new Error('初始化失败');
         }
         
-        // 使用阅读器全局设置中的语速和音调
-        const globalRate = Lumina.State?.settings?.ttsRate || 10;
-        const globalPitch = Lumina.State?.settings?.ttsPitch || 10;
+        const params = this._getParams();
         
-        // 转换为 Azure 格式
-        const azureRate = Math.max(0.5, Math.min(2.0, globalRate / 10));
-        const azurePitch = Math.max(-50, Math.min(50, ((globalPitch - 5) / 15) * 100 - 50));
-        
-        console.log('[AzureTTS] 调用引擎 speak:', { voice: this.config.voice, rate: azureRate, pitch: azurePitch });
-        
-        // 检查当前风格是否支持，不支持则使用通用
-        const supportedStyles = this.voiceStyles[this.config.voice] || ['general'];
-        const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
-        if (style !== this.config.style) {
-            console.log('[AzureTTS] 风格不支持，使用通用风格:', style);
-        }
-        
-        return this.engine.speak({
-            text: options.text,
-            voice: this.config.voice,
-            style: style,
-            rate: azureRate,
-            pitch: azurePitch,
-            volume: (options.volume ?? 1.0) * 100,
-            useCache: options.useCache !== false  // 默认使用缓存
-        });
+        // 调用 TaskManager 朗读（自动处理缓存命中/未命中）
+        await this.taskManager.speak(options.text, params);
     },
 
-    // 预加载音频（后台静默合成）
-    preload(options) {
-        if (!this.config.enabled || !this.config.speechKey || !this.engine?.isInitialized) {
-            return;
-        }
+    // ==================== 向前看窗口填充 ====================
+    // currentIdx: 当前读到第几句（-1表示段落开始，还没读）
+    // sentences: 当前段落的所有句子
+    // getNextParagraph: 获取下一段的回调函数
+    fillWindow(currentIdx, sentences, getNextParagraph) {
+        if (!this.config.enabled || !this.config.speechKey) return;
+        if (!this.engine?.isInitialized) return;
+        if (!this.taskManager) return;
         
-        // 听书模式不预加载
-        if (options.useCache === false) return;
-        
-        const supportedStyles = this.voiceStyles[this.config.voice] || ['general'];
-        const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
-        
-        // 异步预加载，不阻塞
-        this.engine.preload({
-            text: options.text,
-            voice: this.config.voice,
-            style: style
-        });
-    },
-
-    // 检查文本是否在缓存中
-    isCached(text) {
-        if (!this.engine) return false;
-        const supportedStyles = this.voiceStyles[this.config.voice] || ['general'];
-        const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
-        return this.engine.isInCache(text, this.config.voice, style);
+        const params = this._getParams();
+        this.taskManager.fillWindow(null, currentIdx, sentences, params, getNextParagraph);
     },
 
     stop() {
@@ -599,11 +572,15 @@ Object.assign(Lumina.Plugin.AzureTTS, {
     },
 
     isPlaying() {
-        return this.engine?.getPlayingState() || false;
+        return this.engine?.isPlaying || false;
     },
 
     getConfig() {
         return { ...this.config };
+    },
+    
+    getCacheStats() {
+        return this.taskManager?.getStats();
     }
 });
 
@@ -612,16 +589,4 @@ if (Lumina.PluginManager) {
     Lumina.PluginManager.register(Lumina.Plugin.AzureTTS);
 }
 
-// 全局调试接口
-window.testAzureTTS = () => {
-    const plugin = Lumina.Plugin?.AzureTTS;
-    if (!plugin) {
-        console.error('[AzureTTS] 插件未加载');
-        return;
-    }
-    console.log('[AzureTTS] 当前配置:', plugin.getConfig());
-    console.log('[AzureTTS] 引擎状态:', plugin.engine?.isInitialized);
-    plugin.openDialog();
-};
-
-console.log('[AzureTTS] Plugin 已加载');
+// console.log('[AzureTTS] Plugin v2 已加载（支持预加载缓存）');

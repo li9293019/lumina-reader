@@ -1,5 +1,6 @@
 package com.lumina.reader;
 
+import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
@@ -17,6 +18,7 @@ import com.lumina.reader.plugins.TTSBackgroundPlugin;
 import com.lumina.reader.plugins.TTSEnhancedPlugin;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,6 +30,7 @@ import java.util.concurrent.Executors;
  * 2. 批量确认（每 5 块确认一次），减少 JSBridge 调用
  * 3. 零延迟发送，全速传输
  * 4. 后台线程池，避免阻塞 UI
+ * 5. 单实例管理 - 防止从外部应用打开时创建多个实例
  */
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "LuminaFileOpener";
@@ -54,7 +57,57 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TTSBackgroundPlugin.class);
         registerPlugin(TTSEnhancedPlugin.class);
         
+        // 检查是否是多实例启动，如果是则结束当前实例并将任务带到前台
+        if (handleMultiInstanceLaunch()) {
+            return;
+        }
+        
         handleIntent(getIntent());
+    }
+    
+    /**
+     * 处理多实例启动情况
+     * 当从外部应用打开文件时，防止创建新的 Activity 实例
+     * @return true 如果当前实例被结束，需要停止后续初始化
+     */
+    private boolean handleMultiInstanceLaunch() {
+        // 如果不是根任务，说明是在新任务栈中启动的
+        if (!isTaskRoot()) {
+            Intent intent = getIntent();
+            Uri data = intent.getData();
+            String action = intent.getAction();
+            
+            // 如果是 VIEW 或 SEND 动作且有数据，需要将现有实例带到前台并传递数据
+            if ((Intent.ACTION_VIEW.equals(action) || Intent.ACTION_SEND.equals(action)) && data != null) {
+                Log.d(TAG, "检测到多实例启动，将现有实例带到前台");
+                
+                // 创建 Intent 带到已存在的实例
+                Intent bringToFront = new Intent(this, MainActivity.class);
+                bringToFront.setAction(action);
+                bringToFront.setData(data);
+                bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                
+                // 如果是 SEND，需要额外传递 EXTRA_STREAM
+                if (Intent.ACTION_SEND.equals(action)) {
+                    Uri sendData = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                    if (sendData != null) {
+                        bringToFront.putExtra(Intent.EXTRA_STREAM, sendData);
+                    }
+                }
+                
+                startActivity(bringToFront);
+            } else {
+                // 其他情况，简单带到前台
+                Intent bringToFront = new Intent(this, MainActivity.class);
+                bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(bringToFront);
+            }
+            
+            // 结束当前实例
+            finish();
+            return true;
+        }
+        return false;
     }
     
     private synchronized ExecutorService getExecutor() {
@@ -69,7 +122,28 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         bridge.onNewIntent(intent);
+        
+        // 确保 Activity 在前台
+        if (intent.getData() != null || Intent.ACTION_SEND.equals(intent.getAction())) {
+            // 将 Activity 带到前台
+            bringToFront();
+        }
+        
         handleIntent(intent);
+    }
+    
+    /**
+     * 将当前 Activity 带到前台
+     */
+    private void bringToFront() {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (am != null) {
+            List<ActivityManager.AppTask> tasks = am.getAppTasks();
+            if (tasks != null && !tasks.isEmpty()) {
+                tasks.get(0).moveToFront();
+                Log.d(TAG, "Activity 已带到前台");
+            }
+        }
     }
     
     private void handleIntent(Intent intent) {
@@ -81,9 +155,12 @@ public class MainActivity extends BridgeActivity {
         if (Intent.ACTION_VIEW.equals(action) && data != null) {
             processFileUri(data);
         } else if (Intent.ACTION_SEND.equals(action)) {
+            // 优先使用 EXTRA_STREAM，其次使用 data
             Uri sendData = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             if (sendData != null) {
                 processFileUri(sendData);
+            } else if (data != null) {
+                processFileUri(data);
             }
         }
     }

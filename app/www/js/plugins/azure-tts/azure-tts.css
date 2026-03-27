@@ -1,5 +1,19 @@
 /* ==================== Azure TTS 插件样式 ==================== */
 
+/* Azure 对话框字体跟随阅读器设置 */
+#azureTtsDialog {
+    font-family: var(--font-family-dynamic);
+}
+
+#azureTtsDialog * {
+    font-family: inherit;
+}
+
+/* 确保胶囊按钮也使用动态字体 */
+#azureTtsDialog .azure-capsule {
+    font-family: var(--font-family-dynamic);
+}
+
 /* 设置面板中的 Azure TTS 按钮行 */
 .azure-tts-toggle-row {
     display: flex;
@@ -213,26 +227,100 @@
     border-radius: 4px;
 }
 
-/* 滑块容器 */
-.azure-dialog-section .slider-control {
-    margin-top: 0;
+/* ==================== 缓存设置卡片 ==================== */
+.azure-cache-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 20px;
 }
 
-.azure-dialog-section .slider-container {
-    display: flex;
+/* 开关行 - 复用阅读器设置面板的 toggle-switch 样式 */
+.azure-cache-card .toggle-switch {
+    padding: 8px 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+
+
+/* 滑块区域：3列2行 grid */
+.azure-sliders-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    margin-bottom: 12px;
     align-items: center;
-    gap: 12px;
 }
 
-.azure-dialog-section .slider {
-    flex: 1;
+.azure-slider-label {
+    font-size: 0.95em;
+    color: var(--text-primary);
+    white-space: nowrap;
 }
 
-.azure-dialog-section .slider-value {
-    min-width: 48px;
-    text-align: right;
-    font-size: 13px;
+.azure-slider-value {
+    font-size: 0.95em;
     color: var(--text-secondary);
+    text-align: right;
+    min-width: 24px;
+}
+
+.azure-sliders-grid .slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    -webkit-appearance: none;
+}
+
+.azure-sliders-grid .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    cursor: pointer;
+}
+
+/* ==================== 统计指标 ==================== */
+.azure-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* 小屏幕时改为2列 */
+@media (max-width: 480px) {
+    .azure-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.azure-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 4px;
+}
+
+.azure-stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent-color);
+    line-height: 1.2;
+}
+
+.azure-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* 暗色主题适配 */

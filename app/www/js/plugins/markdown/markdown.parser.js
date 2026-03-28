@@ -201,6 +201,7 @@ Lumina.Plugin.Markdown.Parser = {
 
     /**
      * 解析表格
+     * 优化：超大表格使用简化解析避免卡顿
      */
     parseTable(lines, startIndex) {
         const headerLine = lines[startIndex];
@@ -222,12 +223,29 @@ Lumina.Plugin.Markdown.Parser = {
         const rows = [];
         let i = startIndex + 2;
         
+        // 估算表格大小，超大表格使用简化解析
+        let estimatedCells = 0;
+        const MAX_CELLS_FOR_FULL_PARSE = 200; // 最多 200 个单元格完整解析
+        
+        while (i < lines.length && lines[i].includes('|')) {
+            const row = this.parseTableRow(lines[i]);
+            estimatedCells += row.length;
+            if (estimatedCells > MAX_CELLS_FOR_FULL_PARSE) break;
+            i++;
+        }
+        
+        const useSimpleParse = estimatedCells > MAX_CELLS_FOR_FULL_PARSE;
+        
+        // 重新遍历解析
+        i = startIndex + 2;
         while (i < lines.length && lines[i].includes('|')) {
             const row = this.parseTableRow(lines[i]);
             if (row.length > 0) {
                 rows.push(row.map((cell, idx) => ({
                     text: cell,
-                    inlineContent: this.parseInline(cell),
+                    inlineContent: useSimpleParse 
+                        ? this.parseInlineSimple(cell)  // 简化解析
+                        : this.parseInline(cell),        // 完整解析
                     align: aligns[idx] || 'left'
                 })));
             }
@@ -241,7 +259,9 @@ Lumina.Plugin.Markdown.Parser = {
                 type: 'table',
                 headers: headers.map((h, idx) => ({
                     text: h,
-                    inlineContent: this.parseInline(h),
+                    inlineContent: useSimpleParse 
+                        ? this.parseInlineSimple(h)
+                        : this.parseInline(h),
                     align: aligns[idx] || 'left'
                 })),
                 rows,
@@ -272,6 +292,7 @@ Lumina.Plugin.Markdown.Parser = {
 
     /**
      * 解析引用块
+     * 保留换行符，让渲染器正确处理多行
      */
     parseBlockquote(lines, startIndex) {
         if (!lines[startIndex].startsWith('>')) return null;
@@ -289,15 +310,24 @@ Lumina.Plugin.Markdown.Parser = {
             i++;
         }
 
-        // 递归解析引用内的内容
+        // 保留原始换行，不递归解析为段落（避免 parseParagraph 把换行替换为空格）
         const innerText = content.join('\n');
-        const innerItems = this.parse(innerText).items;
+        
+        // 只有当内容包含块级结构（如列表、代码块等）时才递归解析
+        // 简单文本直接保留换行，让渲染器按行分割
+        const hasBlockStructure = content.some(line => 
+            line.match(/^[\*\-\+\d]\.\s/) ||  // 列表
+            line.match(/^```/) ||               // 代码块
+            line.match(/^#{1,6}\s/)             // 标题
+        );
+        
+        const innerItems = hasBlockStructure ? this.parse(innerText).items : [];
 
         return {
             item: {
                 type: 'blockquote',
                 text: innerText,
-                items: innerItems,  // 嵌套解析结果
+                items: innerItems,  // 嵌套解析结果（仅当包含块级结构时）
                 inlineContent: this.parseInline(innerText),
                 raw: lines.slice(startIndex, i).join('\n')
             },
@@ -641,5 +671,56 @@ Lumina.Plugin.Markdown.Parser = {
             result.push(current);
         }
         return result;
+    },
+
+    /**
+     * 简化版行内解析（用于超大表格）
+     * 只处理代码和加粗，跳过复杂格式，性能更好
+     */
+    parseInlineSimple(text) {
+        if (!text) return [{ type: 'text', content: '' }];
+        
+        const result = [];
+        let lastEnd = 0;
+        
+        // 简单的代码和加粗正则，不递归、不嵌套
+        const simpleRegex = /(`[^`]+`)|(\*\*[^*]+\*\*)/g;
+        let match;
+        
+        while ((match = simpleRegex.exec(text)) !== null) {
+            // 添加前面的普通文本
+            if (match.index > lastEnd) {
+                result.push({
+                    type: 'text',
+                    content: text.slice(lastEnd, match.index)
+                });
+            }
+            
+            if (match[1]) {
+                // 代码 `...`
+                result.push({
+                    type: 'code',
+                    content: match[1].slice(1, -1)
+                });
+            } else if (match[2]) {
+                // 加粗 **...**
+                result.push({
+                    type: 'strong',
+                    content: match[2].slice(2, -2)
+                });
+            }
+            
+            lastEnd = match.index + match[0].length;
+        }
+        
+        // 添加剩余文本
+        if (lastEnd < text.length) {
+            result.push({
+                type: 'text',
+                content: text.slice(lastEnd)
+            });
+        }
+        
+        return result.length > 0 ? result : [{ type: 'text', content: text }];
     }
 };

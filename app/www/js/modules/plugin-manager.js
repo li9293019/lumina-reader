@@ -134,13 +134,12 @@ Lumina.PluginManager = {
     },
 
     /**
-     * 从 localStorage 加载插件状态
+     * 从配置管理器加载插件状态
      */
     loadPluginStates() {
         try {
-            const saved = localStorage.getItem('lumina_plugin_states');
-            if (saved) {
-                const states = JSON.parse(saved);
+            const states = Lumina.ConfigManager.get('plugins');
+            if (states) {
                 Object.entries(states).forEach(([name, state]) => {
                     this.states.set(name, state);
                 });
@@ -156,7 +155,7 @@ Lumina.PluginManager = {
     savePluginStates() {
         try {
             const states = Object.fromEntries(this.states);
-            localStorage.setItem('lumina_plugin_states', JSON.stringify(states));
+            Lumina.ConfigManager.set('plugins', states);
         } catch (e) {
             console.warn('保存插件状态失败:', e);
         }

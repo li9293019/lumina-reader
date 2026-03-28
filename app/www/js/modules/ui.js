@@ -92,6 +92,11 @@ Lumina.UI = {
                 // 关闭注释面板
                 document.getElementById('annotationPanel')?.classList.remove('open');
                 if (panel.classList.contains('open') && key === 'search') Lumina.DOM.searchPanelInput.focus();
+                
+                // 设置面板打开时，刷新热力图标签显示
+                if (key === 'settings' && panel.classList.contains('open')) {
+                    Lumina.HeatMap?.refreshFromCurrentBook();
+                }
             });
         });
 
@@ -178,7 +183,7 @@ Lumina.UI = {
         const applyRegexBtn = document.getElementById('applyRegex');
         const resetSettingsBtn = document.getElementById('resetSettings');
         if (applyRegexBtn) applyRegexBtn.addEventListener('click', Lumina.Actions.applyRegexRules);
-        if (resetSettingsBtn) resetSettingsBtn.addEventListener('click', Lumina.Settings.reset);
+        if (resetSettingsBtn) resetSettingsBtn.addEventListener('click', () => Lumina.Settings.reset());
 
         Lumina.DOM.searchPanelInput.addEventListener('input', (e) => Lumina.Search.perform(e.target.value));
 
@@ -519,14 +524,15 @@ Lumina.UI = {
         if (isMobile || isCapacitor) return;
         
         document.addEventListener('mouseover', (e) => {
-            const target = e.target.closest('[data-i18n-tooltip], [data-tooltip-text]');
-            if (target?.dataset.tooltipText) {
-                Lumina.UI.showTooltip(target, target.dataset.tooltipText);
+            const target = e.target.closest('[data-i18n-tooltip], [data-tooltip-text], [data-tooltip]');
+            const text = target?.dataset.tooltipText || target?.dataset.tooltip;
+            if (text) {
+                Lumina.UI.showTooltip(target, text);
             }
         });
         
         document.addEventListener('mouseout', (e) => { 
-            if (e.target.closest('[data-i18n-tooltip], [data-tooltip-text]')) {
+            if (e.target.closest('[data-i18n-tooltip], [data-tooltip-text], [data-tooltip]')) {
                 Lumina.UI.hideTooltip(); 
             }
         });

@@ -28,7 +28,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         }
     },
     
-    STORAGE_KEY: 'lumina_azure_tts_config',
+    // 使用统一配置管理器，配置路径: azureTTS
     
     // 音色支持的风格映射
     voiceStyles: {
@@ -108,13 +108,12 @@ Object.assign(Lumina.Plugin.AzureTTS, {
 
     loadConfig() {
         try {
-            const saved = localStorage.getItem(this.STORAGE_KEY);
+            const saved = Lumina.ConfigManager.get('azureTTS');
             if (saved) {
-                const parsed = JSON.parse(saved);
-                this.config = { ...this.config, ...parsed };
+                this.config = { ...this.config, ...saved };
                 this.config.cache = { 
                     ...this.config.cache,
-                    ...parsed.cache 
+                    ...saved.cache 
                 };
             }
         } catch (e) {
@@ -124,10 +123,31 @@ Object.assign(Lumina.Plugin.AzureTTS, {
 
     saveConfig() {
         try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.config));
+            Lumina.ConfigManager.set('azureTTS', this.config);
         } catch (e) {
             console.warn('[AzureTTS] 保存配置失败:', e);
         }
+    },
+    
+    // 刷新 UI（从 ConfigManager 重新加载配置并更新界面）
+    refreshUI() {
+        // 重新加载配置
+        this.loadConfig();
+        
+        // 更新主界面开关
+        const toggle = document.getElementById('azureTtsToggle');
+        if (toggle) {
+            const oldValue = toggle.checked;
+            toggle.checked = this.config.enabled;
+            
+            // 触发 change 事件以确保 CSS 更新
+            if (oldValue !== toggle.checked) {
+                toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        
+        // 更新缓存 UI
+        this.updateCacheUI();
     },
 
     bindToggleUI() {

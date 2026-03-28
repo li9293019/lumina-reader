@@ -6,15 +6,12 @@ Lumina.Crypto = {
     VERSION: 0x01,
     
     // 默认设备密钥（无密码时使用）
+    // 使用固定值确保 WEB 和 APP 导出的文件可以互相通用
     async getDefaultKey() {
-        const deviceInfo = [
-            'LuminaReader',
-            'v2.0',
-            navigator.userAgent.slice(-20)
-        ].join('|');
-        
+        // 使用固定的默认密钥（不依赖设备信息）
+        const defaultKeyString = 'LuminaReaderDefaultKey2024v2.0';
         const encoder = new TextEncoder();
-        const data = encoder.encode(deviceInfo);
+        const data = encoder.encode(defaultKeyString);
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
         return new Uint8Array(hashBuffer);
     },
@@ -114,6 +111,7 @@ Lumina.Crypto = {
     // 解密 .lmn 文件
     async decrypt(arrayBuffer, password = null, onProgress = null) {
         const startTime = performance.now();
+        // 确保 data 是 Uint8Array，并复制数据以避免 buffer 偏移问题
         const data = new Uint8Array(arrayBuffer);
         
         // 1. 检查魔数
@@ -135,9 +133,8 @@ Lumina.Crypto = {
         const salt = data.slice(6, 22);
         const iv = data.slice(22, 34);
         
-        const view = new DataView(data.buffer);
-        const originalLength = view.getUint32(34, true);
-        
+        // 使用 data.buffer 创建 DataView，但要注意 byteOffset
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
         const ciphertext = data.slice(38);
         
         if (onProgress) onProgress(20);
@@ -182,9 +179,6 @@ Lumina.Crypto = {
         const result = JSON.parse(jsonStr);
         
         if (onProgress) onProgress(100);
-        
-        const duration = (performance.now() - startTime).toFixed(0);
-        console.log(`[Crypto] 解密完成，耗时 ${duration}ms`);
         
         return result;
     },

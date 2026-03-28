@@ -2,12 +2,74 @@
 
 Lumina.Settings = {
     load() {
-        const saved = localStorage.getItem('luminaSettings');
-        if (saved) Lumina.State.settings = { ...Lumina.Config.defaultSettings, ...JSON.parse(saved) };
-        else Lumina.State.settings = { ...Lumina.Config.defaultSettings };
+        // 使用新的配置管理器
+        const config = Lumina.ConfigManager.load();
+        
+        // 转换新格式到旧的 State.settings 格式（保持兼容性）
+        Lumina.State.settings = {
+            ...config.reading,
+            chapterRegex: config.regex.chapter,
+            sectionRegex: config.regex.section,
+            // TTS 设置映射
+            ttsRate: config.tts?.rate ?? 10,
+            ttsPitch: config.tts?.pitch ?? 10,
+            // 其他旧字段映射
+            paginationEnabled: config.pagination.enabled,
+            paginationMaxWords: config.pagination.maxWords,
+            paginationImageWords: config.pagination.imageWords,
+            encryptedExport: config.export.encrypted,
+            pdfExtractImages: config.pdf.extractImages,
+            pdfPasswordPreset: config.pdf.passwordPreset.enabled,
+            pdfSmartGuess: config.pdf.passwordPreset.smartGuess,
+        };
     },
 
-    save() { localStorage.setItem('luminaSettings', JSON.stringify(Lumina.State.settings)); },
+    save() {
+        // 从 State.settings 反向转换到新格式
+        const settings = Lumina.State.settings;
+        
+        Lumina.ConfigManager.set('reading', {
+            language: settings.language,
+            theme: settings.theme,
+            font: settings.font,
+            indent: settings.indent,
+            dropCap: settings.dropCap,
+            fontSize: settings.fontSize,
+            lineHeight: settings.lineHeight,
+            paragraphSpacing: settings.paragraphSpacing,
+            pageWidth: settings.pageWidth,
+            margin: settings.margin,
+            ignoreEmptyLines: settings.ignoreEmptyLines,
+            textCleaning: settings.textCleaning,
+            smoothScroll: settings.smoothScroll,
+            sidebarVisible: settings.sidebarVisible,
+            chapterNumbering: settings.chapterNumbering,
+        });
+        
+        // TTS 设置保存到新路径
+        Lumina.ConfigManager.set('tts', {
+            rate: settings.ttsRate ?? 10,
+            pitch: settings.ttsPitch ?? 10,
+            voiceURI: settings.ttsVoiceURI ?? null,
+            volume: settings.ttsVolume ?? 1.0,
+        });
+        
+        Lumina.ConfigManager.set('regex', {
+            chapter: settings.chapterRegex,
+            section: settings.sectionRegex,
+        });
+        
+        Lumina.ConfigManager.set('pagination', {
+            enabled: settings.paginationEnabled,
+            maxWords: settings.paginationMaxWords,
+            imageWords: settings.paginationImageWords,
+        });
+        
+        Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
+        Lumina.ConfigManager.set('pdf.extractImages', settings.pdfExtractImages);
+        Lumina.ConfigManager.set('pdf.passwordPreset.enabled', settings.pdfPasswordPreset);
+        Lumina.ConfigManager.set('pdf.passwordPreset.smartGuess', settings.pdfSmartGuess);
+    },
 
     async apply() {
         const settings = Lumina.State.settings;
@@ -15,36 +77,21 @@ Lumina.Settings = {
         document.documentElement.setAttribute('data-theme', settings.theme);
         
         // 设置状态栏颜色（APP 环境）
-        // 深色主题列表
         const darkThemes = ['dark', 'amoled', 'midnight', 'nebula', 'espresso'];
         const isDarkTheme = darkThemes.includes(settings.theme);
         
-        // 延迟设置状态栏，确保插件已加载
         setTimeout(() => {
             if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
                 try {
                     const StatusBar = Capacitor.Plugins.StatusBar;
-                    console.log('[StatusBar] 插件对象:', StatusBar);
                     if (StatusBar && StatusBar.setStyle) {
-                        // Capacitor StatusBar: style.DARK = 深色图标(浅色背景), style.LIGHT = 浅色图标(深色背景)
-                        // 浅色主题 -> 需要深色图标
-                        // 深色主题 -> 需要浅色图标
                         const style = isDarkTheme ? 'DARK' : 'LIGHT';
-                        StatusBar.setStyle({ style: style }).then(() => {
-                            console.log('[StatusBar] 样式设置成功:', style);
-                        }).catch(err => {
-                            console.error('[StatusBar] 设置失败:', err);
-                        });
-                    } else {
-                        console.warn('[StatusBar] 插件不可用');
+                        StatusBar.setStyle({ style: style }).catch(() => {});
                     }
-                } catch (e) {
-                    console.warn('[StatusBar] 异常:', e);
-                }
+                } catch (e) {}
             }
         }, 500);
         
-        // 保存主题类型供状态栏背景使用
         window.__isDarkTheme = isDarkTheme;
 
         let savedScrollIndex = null;
@@ -91,11 +138,8 @@ Lumina.Settings = {
         document.getElementById('chapterRegex').value = settings.chapterRegex;
         document.getElementById('sectionRegex').value = settings.sectionRegex;
 
-        // 加密导出开关
         const encryptedExportToggle = document.getElementById('encryptedExportToggle');
-        if (encryptedExportToggle) {
-            encryptedExportToggle.checked = settings.encryptedExport;
-        }
+        if (encryptedExportToggle) encryptedExportToggle.checked = settings.encryptedExport;
 
         const sidebarVisible = settings.sidebarVisible && Lumina.State.app.document.items.length;
         Lumina.DOM.sidebarLeft.classList.toggle('visible', sidebarVisible);
@@ -118,7 +162,12 @@ Lumina.Settings = {
     reset() {
         const oldFileName = Lumina.State.app.currentFile.name;
         const oldFileType = Lumina.State.app.currentFile.type;
-        Lumina.State.settings = { ...Lumina.Config.defaultSettings };
+        
+        // 重置配置
+        Lumina.ConfigManager.reset();
+        
+        // 重新加载
+        this.load();
         Lumina.Parser.RegexCache.updateCustomPatterns('', '');
 
         document.getElementById('chapterRegex').value = '';
@@ -130,8 +179,25 @@ Lumina.Settings = {
         document.getElementById('sectionRegexFeedback').textContent = '';
         document.getElementById('sectionRegexFeedback').classList.remove('error', 'valid', 'info');
 
-        Lumina.Settings.save();
-        Lumina.Settings.apply();
+        // 重置热力图预设内存状态
+        if (Lumina.HeatMap) {
+            Lumina.HeatMap.presets = [];
+        }
+        
+        // 重置 Azure TTS 配置并刷新 UI
+        if (Lumina.Plugin.AzureTTS) {
+            Lumina.Plugin.AzureTTS.refreshUI();
+            // 销毁引擎
+            Lumina.Plugin.AzureTTS.engine.destroy?.();
+        }
+        
+        // 重新加载 PDF 密码预设 UI
+        this.reloadPasswordPresetUI();
+
+        this.apply();
+        
+        // 显示重置成功提示
+        Lumina.UI.showToast(Lumina.I18n.t('resetSuccess') || '设置已重置');
         Lumina.I18n.updateUI();
         if (oldFileName) {
             Lumina.State.app.currentFile.name = oldFileName;
@@ -142,7 +208,6 @@ Lumina.Settings = {
 
     // 初始化 PDF 解析设置（密码预设器）
     initPasswordPreset() {
-        // 密码预设配置面板控制（开关状态由 data-setting-toggle 统一处理）
         const presetToggle = document.getElementById('pdfPasswordPresetToggle');
         const configPanel = document.getElementById('pdfPasswordPresetConfig');
         const lengthSlider = document.getElementById('pdfPasswordLength');
@@ -152,80 +217,245 @@ Lumina.Settings = {
         
         if (!presetToggle || !configPanel) return;
         
-        // 从独立配置加载（长度、前缀、常用密码）
-        const config = Lumina.PasswordPreset.getConfig();
+        // 从新配置加载
+        const config = Lumina.ConfigManager.get('pdf.passwordPreset');
         
-        // 同步 settings 到 PasswordPreset 配置
-        const syncSettingsToPreset = () => {
-            const settings = Lumina.State.settings;
-            config.enabled = settings.pdfPasswordPreset;
-            config.smartGuess = settings.pdfSmartGuess;
-            Lumina.PasswordPreset.saveConfig(config);
+        // 同步到 State.settings
+        const syncToState = () => {
+            Lumina.State.settings.pdfPasswordPreset = config.enabled;
+            Lumina.State.settings.pdfSmartGuess = config.smartGuess;
         };
+        syncToState();
         
-        // 初始同步
-        syncSettingsToPreset();
-        
-        // 监听设置变化，同步到 PasswordPreset
-        const originalSave = Lumina.Settings.save;
-        Lumina.Settings.save = function() {
+        // 监听设置变化
+        const originalSave = this.save;
+        this.save = function() {
             originalSave.call(this);
-            syncSettingsToPreset();
+            Lumina.ConfigManager.set('pdf.passwordPreset.enabled', Lumina.State.settings.pdfPasswordPreset);
+            Lumina.ConfigManager.set('pdf.passwordPreset.smartGuess', Lumina.State.settings.pdfSmartGuess);
         };
         
-        // 根据开关状态显示/隐藏配置面板
         const updatePanelVisibility = () => {
-            const isEnabled = Lumina.State.settings.pdfPasswordPreset;
-            configPanel.style.display = isEnabled ? 'block' : 'none';
+            configPanel.style.display = config.enabled ? 'block' : 'none';
         };
         updatePanelVisibility();
         
-        // 点击开关时更新面板显示
-        presetToggle.addEventListener('click', () => {
-            // 使用 setTimeout 等待 ui.js 中的处理完成
-            setTimeout(updatePanelVisibility, 0);
-        });
+        presetToggle.addEventListener('click', () => setTimeout(updatePanelVisibility, 0));
         
-        // 填充其他配置（长度、前缀、常用密码）
         if (lengthSlider) {
-            lengthSlider.value = config.length || 6;
-            if (lengthValue) lengthValue.textContent = config.length || 6;
-        }
-        if (prefixInput) prefixInput.value = config.prefix || '';
-        if (commonInput) commonInput.value = (config.commonPasswords || '').replace(/\|/g, ', ');
-        
-        // 长度滑块 - 实时保存到独立配置
-        if (lengthSlider) {
+            lengthSlider.value = config.length;
+            if (lengthValue) lengthValue.textContent = config.length;
             lengthSlider.addEventListener('input', () => {
-                const value = lengthSlider.value;
+                const value = parseInt(lengthSlider.value);
                 if (lengthValue) lengthValue.textContent = value;
-                
-                const currentConfig = Lumina.PasswordPreset.getConfig();
-                currentConfig.length = parseInt(value);
-                Lumina.PasswordPreset.saveConfig(currentConfig);
+                Lumina.ConfigManager.set('pdf.passwordPreset.length', value);
             });
         }
         
-        // 前缀输入 - 实时保存到独立配置
         if (prefixInput) {
+            prefixInput.value = config.prefix;
             prefixInput.addEventListener('change', () => {
-                const currentConfig = Lumina.PasswordPreset.getConfig();
-                currentConfig.prefix = prefixInput.value;
-                Lumina.PasswordPreset.saveConfig(currentConfig);
+                Lumina.ConfigManager.set('pdf.passwordPreset.prefix', prefixInput.value);
             });
         }
         
-        // 常用密码输入 - 实时保存到独立配置（逗号分隔转 | 分隔存储）
         if (commonInput) {
+            commonInput.value = (config.commonPasswords || '').replace(/\|/g, ', ');
             commonInput.addEventListener('change', () => {
-                const currentConfig = Lumina.PasswordPreset.getConfig();
                 const passwords = commonInput.value
                     .split(/[,，\s]+/)
                     .map(p => p.trim())
                     .filter(p => p.length > 0)
                     .join('|');
-                currentConfig.commonPasswords = passwords;
-                Lumina.PasswordPreset.saveConfig(currentConfig);
+                Lumina.ConfigManager.set('pdf.passwordPreset.commonPasswords', passwords);
+            });
+        }
+    },
+    
+    // 重新加载 PDF 密码预设 UI（用于重置和导入后）
+    reloadPasswordPresetUI() {
+        const config = Lumina.ConfigManager.get('pdf.passwordPreset');
+        const presetToggle = document.getElementById('pdfPasswordPresetToggle');
+        const configPanel = document.getElementById('pdfPasswordPresetConfig');
+        const lengthSlider = document.getElementById('pdfPasswordLength');
+        const lengthValue = document.getElementById('pdfPasswordLengthValue');
+        const prefixInput = document.getElementById('pdfPasswordPrefix');
+        const commonInput = document.getElementById('pdfCommonPasswords');
+        
+        if (presetToggle) {
+            presetToggle.querySelector('.toggle-track')?.classList.toggle('active', config.enabled);
+        }
+        if (configPanel) {
+            configPanel.style.display = config.enabled ? 'block' : 'none';
+        }
+        if (lengthSlider) {
+            lengthSlider.value = config.length;
+        }
+        if (lengthValue) {
+            lengthValue.textContent = config.length;
+        }
+        if (prefixInput) {
+            prefixInput.value = config.prefix;
+        }
+        if (commonInput) {
+            commonInput.value = (config.commonPasswords || '').replace(/\|/g, ', ');
+        }
+    },
+    
+    // APP 环境：显示文件选择器
+    showAppFilePicker() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        // APP 环境使用通用 MIME 类型，因为 Android 不认识 .lmn 扩展名
+        input.accept = '*/*';
+        // 临时添加到 DOM 防止被垃圾回收
+        input.style.display = 'none';
+        document.body.appendChild(input);
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 检查文件扩展名
+            const isLmn = file.name.toLowerCase().endsWith('.lmn');
+            const isJson = file.name.toLowerCase().endsWith('.json');
+            
+            if (!isLmn && !isJson) {
+                Lumina.UI.showToast(Lumina.I18n.t('configInvalidFileType') || '请选择 .json 或 .lmn 文件');
+                document.body.removeChild(input);
+                return;
+            }
+            
+            await this.handleConfigImport(file);
+            // 清理
+            document.body.removeChild(input);
+        };
+        
+        // 监听取消选择（通过 visibilitychange）
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                // APP 回到前台，检查是否有文件被选择
+                setTimeout(() => {
+                    if (input.parentNode) {
+                        document.body.removeChild(input);
+                    }
+                }, 1000);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange, { once: true });
+        
+        input.click();
+    },
+    
+    // 处理配置导入
+    async handleConfigImport(file) {
+        const ext = file.name.toLowerCase().split('.').pop();
+        if (ext !== 'json' && ext !== 'lmn') {
+            Lumina.UI.showToast(Lumina.I18n.t('configInvalidFileType') || '请选择 .json 或 .lmn 文件');
+            return;
+        }
+        
+        // 显示加载提示
+        Lumina.UI.showToast(Lumina.I18n.t('readingFile') || '正在读取文件...', 0);
+        
+        // 自动根据文件扩展名检测是否加密
+        const isEncrypted = file.name.toLowerCase().endsWith('.lmn');
+        
+        try {
+            const result = await Lumina.ConfigManager.upload(file, isEncrypted);
+            
+            // 隐藏加载提示
+            const toast = document.querySelector('.toast');
+            if (toast) {
+                toast.classList.remove('show');
+            }
+            
+            if (result.success) {
+                // 重新加载并应用配置
+                Lumina.Settings.load();
+                await Lumina.Settings.apply();
+                
+                // 更新热力图预设内存状态
+                if (Lumina.HeatMap) {
+                    Lumina.HeatMap.loadPresets();
+                }
+                
+                // 刷新 Azure TTS UI（导入的配置已在 ConfigManager 中）
+                if (Lumina.Plugin.AzureTTS) {
+                    Lumina.Plugin.AzureTTS.refreshUI();
+                    // 如果已启用且配置有效，重新初始化引擎
+                    if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
+                        Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
+                    }
+                }
+                
+                // 重新加载 PDF 密码预设 UI
+                Lumina.Settings.reloadPasswordPresetUI();
+                
+                Lumina.I18n.updateUI();
+                Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess') || '配置导入成功');
+            } else {
+                Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${result.error}`);
+            }
+        } catch (err) {
+            Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${err.message}`);
+        }
+    },
+    
+    // ========== 配置备份与恢复 ==========
+    initConfigBackup() {
+        const exportBtn = document.getElementById('configExportBtn');
+        const importBtn = document.getElementById('configImportBtn');
+        const importFile = document.getElementById('configImportFile');
+        const encryptedToggle = document.getElementById('configEncryptToggle');
+        
+        // 初始化加密开关 toggle
+        if (encryptedToggle) {
+            // 点击 toggle 切换状态
+            encryptedToggle.addEventListener('click', () => {
+                const isActive = encryptedToggle.classList.contains('active');
+                if (isActive) {
+                    encryptedToggle.classList.remove('active');
+                } else {
+                    encryptedToggle.classList.add('active');
+                }
+            });
+        }
+        
+        if (exportBtn) {
+            exportBtn.addEventListener('click', async () => {
+                const encrypted = encryptedToggle?.classList.contains('active') || false;
+                // 生成带日期时间的文件名（使用本地时间）
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hour = String(now.getHours()).padStart(2, '0');
+                const minute = String(now.getMinutes()).padStart(2, '0');
+                const second = String(now.getSeconds()).padStart(2, '0');
+                const dateStr = `${year}${month}${day}_${hour}${minute}${second}`;
+                const filename = `lumina-config_${dateStr}`;
+                await Lumina.ConfigManager.download(filename, encrypted);
+            });
+        }
+        
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                // APP 环境使用系统文件选择器
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    this.showAppFilePicker();
+                } else {
+                    importFile?.click();
+                }
+            });
+            
+            importFile?.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                await this.handleConfigImport(file);
+                // 清空 input value，允许再次选择同一文件
+                e.target.value = '';
             });
         }
     }
@@ -329,4 +559,3 @@ Lumina.Font = {
         }
     }
 };
-

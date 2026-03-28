@@ -51,8 +51,8 @@ Lumina.Plugin.Markdown.Renderer = {
      */
     getCurrentTheme() {
         // 获取阅读器当前主题设置
-        const settings = JSON.parse(localStorage.getItem('luminaSettings') || '{}');
-        const theme = settings.theme || 'light';
+        const config = Lumina.ConfigManager?.load() || { reading: { theme: 'light' } };
+        const theme = config.reading?.theme || 'light';
         
         // 阅读器20个主题到代码高亮主题的映射
         // 分类依据：
@@ -77,15 +77,15 @@ Lumina.Plugin.Markdown.Renderer = {
             'midnight': 'okaidia',          // 午夜蓝(深蓝) -> 冷调暗色
             'nebula': 'twilight',            // 星云紫(深紫) -> 冷调暗色
             'dusk': 'twilight',              // 黄昏暮光(暗紫) -> 冷调暗色
-            'mauve': 'okaidia',             // 藕荷(暗紫灰) -> 冷调暗色
-            'taupe': 'tomorrow',            // 灰褐(暗褐) -> 暖暗
+            'mauve': 'okaidia',             // 藕荷(粉紫) -> 冷调暗色
+            'taupe': 'tomorrow',            // 灰褐(暖棕灰) -> 暖暗
             
             /* ========== 中间调主题 (5个) ========== */
             // 这些主题背景色介于深浅之间，根据具体色调选择
-            'olive': 'tomorrow',        // 橄榄灰(中绿灰) -> 较亮暗色
-            'straw': 'solarized-light',           // 稻草(中黄) -> 暖色（较亮）
-            'terracotta': 'tomorrow',      // 赤陶(中橙) -> 暖色
-            'sandstone': 'tomorrow',       // 砂石(中黄棕) -> 暖色
+            'olive': 'tomorrow',            // 橄榄灰(中绿灰) -> 较亮暗色
+            'straw': 'solarized-light',     // 稻草(浅黄褐) -> 暖色（较亮）
+            'terracotta': 'tomorrow',       // 赤陶(中橙) -> 暖色
+            'sandstone': 'default-light',           // 砂石(银灰) -> 明亮主题
         };
         
         const codeTheme = themeMap[theme] || 'one-light';
@@ -269,31 +269,134 @@ Lumina.Plugin.Markdown.Renderer = {
 
     /**
      * 渲染引用块
+     * 支持多行换行，多行文本按行分割渲染保持结构
      */
     renderBlockquote(container, item) {
         const blockquote = document.createElement('blockquote');
         blockquote.className = 'markdown-blockquote';
         
-        // 如果有嵌套解析的 items，递归渲染
+        // 如果有嵌套解析的 items（块级结构如列表、代码块），递归渲染
         if (item.items && item.items.length > 0) {
             item.items.forEach((subItem, idx) => {
-                const child = this.render(subItem, -1);  // 不设置索引
-                if (child) {
-                    // 移除 doc-line 类，避免重复
-                    child.classList.remove('doc-line');
-                    blockquote.appendChild(child);
+                // 处理段落类型的换行：如果段落的原始文本包含换行，分割成多行段落
+                if (subItem.type === 'paragraph' && subItem.raw && subItem.raw.includes('\n')) {
+                    // 使用已有的 inlineContent 来保留格式，通过换行符分割
+                    this.renderParagraphWithLineBreaks(blockquote, subItem);
+                } else {
+                    const child = this.render(subItem, -1);  // 不设置索引
+                    if (child) {
+                        // 移除 doc-line 类，避免重复
+                        child.classList.remove('doc-line');
+                        blockquote.appendChild(child);
+                    }
                 }
             });
-        } else if (item.inlineContent) {
-            // 简化的引用，直接渲染文本
-            const p = document.createElement('p');
-            this.renderInlineContent(p, item.inlineContent);
-            blockquote.appendChild(p);
+        } else if (item.text) {
+            // 文本内容：按行分割，每行一个段落，保留换行结构
+            const lines = item.text.split('\n').filter((line, idx, arr) => {
+                // 保留非空行，以及中间的空白行
+                return line.trim() || idx < arr.length - 1;
+            });
+            
+            if (lines.length === 0) {
+                // 空引用
+                blockquote.innerHTML = '<br>';
+            } else if (lines.length === 1) {
+                // 单行：直接渲染，保留行内格式
+                const p = document.createElement('p');
+                p.className = 'markdown-paragraph';
+                const inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(lines[0]);
+                this.renderInlineContent(p, inlineContent);
+                p.style.margin = '0';
+                blockquote.appendChild(p);
+            } else {
+                // 多行：每行一个段落，保留行内格式
+                lines.forEach((line) => {
+                    const p = document.createElement('p');
+                    p.className = 'markdown-paragraph';
+                    // 解析行内格式（加粗、斜体等）
+                    const inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(line);
+                    this.renderInlineContent(p, inlineContent);
+                    p.style.margin = '0.2em 0';
+                    blockquote.appendChild(p);
+                });
+            }
         } else {
-            blockquote.textContent = item.text;
+            // 空引用
+            blockquote.innerHTML = '<br>';
         }
         
         container.appendChild(blockquote);
+    },
+
+    /**
+     * 渲染包含换行的段落，保留行内格式
+     * 基于已有的 inlineContent 分割，而不是重新解析
+     */
+    renderParagraphWithLineBreaks(container, item) {
+        if (!item.inlineContent || !item.inlineContent.length) {
+            // 没有 inlineContent，回退到普通渲染
+            const p = document.createElement('p');
+            p.className = 'markdown-paragraph';
+            p.textContent = item.text || '';
+            p.style.margin = '0.2em 0';
+            container.appendChild(p);
+            return;
+        }
+
+        // 重建原始文本，记录每个字符对应的 inlineContent 索引
+        let fullText = '';
+        const charMapping = []; // 记录每个字符来自哪个 inlineContent 项
+        
+        item.inlineContent.forEach((contentItem, idx) => {
+            const text = contentItem.content || '';
+            for (let i = 0; i < text.length; i++) {
+                charMapping.push(idx);
+            }
+            fullText += text;
+        });
+
+        // 按换行符分割文本位置
+        const lineRanges = [];
+        let start = 0;
+        for (let i = 0; i < fullText.length; i++) {
+            if (fullText[i] === '\n') {
+                if (i > start) {
+                    lineRanges.push({ start, end: i });
+                }
+                start = i + 1;
+            }
+        }
+        if (start < fullText.length) {
+            lineRanges.push({ start, end: fullText.length });
+        }
+
+        // 为每一行创建段落
+        lineRanges.forEach(range => {
+            const p = document.createElement('p');
+            p.className = 'markdown-paragraph';
+            p.style.margin = '0.2em 0';
+
+            // 收集这一行涉及的 inlineContent 索引
+            const usedIndices = new Set();
+            for (let i = range.start; i < range.end; i++) {
+                if (charMapping[i] !== undefined) {
+                    usedIndices.add(charMapping[i]);
+                }
+            }
+
+            // 按顺序渲染涉及的 inlineContent 项
+            const sortedIndices = Array.from(usedIndices).sort((a, b) => a - b);
+            if (sortedIndices.length === 0) {
+                p.innerHTML = '<br>';
+            } else {
+                // 提取这一行对应的 inlineContent 片段
+                const lineContent = sortedIndices.map(idx => item.inlineContent[idx]);
+                this.renderInlineContent(p, lineContent);
+            }
+
+            container.appendChild(p);
+        });
     },
 
     /**
@@ -462,8 +565,13 @@ Lumina.Plugin.Markdown.Renderer = {
 
     /**
      * 渲染表格
+     * 使用 wrapper 实现移动端横向滚动，不影响 TTS 文本提取
      */
     renderTable(container, item) {
+        // 创建滚动容器（仅用于视觉布局，不影响 TTS 文本读取）
+        const wrapper = document.createElement('div');
+        wrapper.className = 'markdown-table-wrapper';
+        
         const table = document.createElement('table');
         table.className = 'markdown-table';
         
@@ -511,7 +619,8 @@ Lumina.Plugin.Markdown.Renderer = {
             table.appendChild(tbody);
         }
         
-        container.appendChild(table);
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
     },
 
     /**

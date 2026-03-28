@@ -921,10 +921,9 @@ Lumina.TTS.Manager = class {
             if (item.text) return this.cleanMarkdownMarks(item.text);
         }
         
-        // 代码块
+        // 代码块 - 跳过朗读，只提示类型
         if (item.type === 'codeblock') {
-            const lang = item.language ? `（${item.language}代码）` : '（代码块）';
-            return lang + (item.text || '');
+            return item.language ? `（${item.language}代码块）` : '（代码块）';
         }
         
         // 引用块
@@ -988,7 +987,10 @@ Lumina.TTS.Manager = class {
                     }
                 });
             }
-            return tableTexts.join('。');
+            const result = tableTexts.join('。');
+            // 调试用：检查表格文本提取
+            // console.log('[TTS Debug] 表格提取:', result.substring(0, 100) + '...');
+            return result;
         }
         
         // 尝试使用 Markdown 插件的 getPlainText 方法（如果存在）
@@ -2210,6 +2212,7 @@ Lumina.TTS.Manager = class {
 
     updateSettings(key, value) {
         if (key === 'voice') this.settings.voiceURI = value;
+        // UI 传入的已经是倍率值 (0.5-2.0)，直接存储
         if (key === 'rate') this.settings.rate = parseFloat(value);
         if (key === 'pitch') this.settings.pitch = parseFloat(value);
         if (key === 'volume') this.settings.volume = parseFloat(value);
@@ -2218,18 +2221,36 @@ Lumina.TTS.Manager = class {
     }
 
     saveSettings() {
-        localStorage.setItem('luminaTTS', JSON.stringify(this.settings));
+        // 将实际倍率 (0.1-2.0) 转换回滑动条值 (1-10) 存储
+        const sliderValue = (val) => Math.round((parseFloat(val) || 1.0) * 10);
+        Lumina.ConfigManager.set('tts', {
+            rate: sliderValue(this.settings.rate),
+            pitch: sliderValue(this.settings.pitch),
+            voiceURI: this.settings.voiceURI,
+            volume: this.settings.volume
+        });
     }
 
     loadSavedSettings() {
-        const saved = localStorage.getItem('luminaTTS');
+        const saved = Lumina.ConfigManager.get('tts');
         if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                this.settings = { ...this.settings, ...parsed };
-            } catch (e) {
-                console.warn('TTS 设置解析失败:', e);
-            }
+            // 转换滑动条值 (1-10) 为实际倍率 (0.1-2.0)
+            const normalizeRate = (val) => {
+                if (val === undefined || val === null) return 1.0;
+                const num = parseFloat(val);
+                if (isNaN(num)) return 1.0;
+                // 如果值大于 2，假设是 1-10 的滑动条值，需要转换
+                if (num > 2) return num / 10;
+                return num;
+            };
+            
+            this.settings = {
+                ...this.settings,
+                ...saved,
+                rate: normalizeRate(saved.rate),
+                pitch: normalizeRate(saved.pitch),
+                volume: saved.volume !== undefined ? saved.volume : 1.0
+            };
         }
     }
 

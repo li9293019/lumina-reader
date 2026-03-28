@@ -40,6 +40,7 @@
 --logo-firefly-glow: #e9c46a;
 --tooltip-bg: rgba(33, 37, 41, 0.95);
 --tooltip-text: #ffffff;
+--heat-color: #9da8b5;
 
 /* 排版变量 */
 --font-size: 18px;
@@ -85,6 +86,7 @@
 --logo-firefly-glow: #e6d4b8;
 --tooltip-bg: rgba(60, 55, 45, 0.95);
 --tooltip-text: #f7f3e8;
+--heat-color: #c0a791;
 }
 
 /* 春芽（暖绿） */
@@ -107,6 +109,7 @@
 --logo-firefly-glow: #e9c46a;
 --tooltip-bg: rgba(50, 60, 50, 0.95);
 --tooltip-text: #f0f4ec;
+--heat-color: #829e81;
 }
 
 /* 青石灰（冷灰） */
@@ -114,6 +117,7 @@
 --bg-primary: #f8fafc;
 --bg-secondary: #f1f5f9;
 --bg-tertiary: #e2e8f0;
+--heat-color: #8a939c;
 --text-primary: #1e293b;
 --text-secondary: #64748b;
 --text-muted: #94a3b8;
@@ -136,6 +140,7 @@
 --bg-primary: #f0f4f8;
 --bg-secondary: #e8eef5;
 --bg-tertiary: #dde5f0;
+--heat-color: #85a0bb;
 --text-primary: #2c3a4a;
 --text-secondary: #5a6b7d;
 --text-muted: #8a9aaa;
@@ -158,6 +163,7 @@
 --bg-primary: #f0fdfa;
 --bg-secondary: #e6f7f5;
 --bg-tertiary: #d1f0eb;
+--heat-color: #7baaa4;
 --text-primary: #134e4a;
 --text-secondary: #2d6b66;
 --text-muted: #5f9891;
@@ -180,6 +186,7 @@
 --bg-primary: #faf0f0;
 --bg-secondary: #f5e6e6;
 --bg-tertiary: #ebd5d5;
+--heat-color: #be9494;
 --text-primary: #451a1a;
 --text-secondary: #7c4e4e;
 --text-muted: #a77e7e;
@@ -202,6 +209,7 @@
 --bg-primary: #2b2622;
 --bg-secondary: #332d28;
 --bg-tertiary: #3d3630;
+--heat-color: #92744f;
 --text-primary: #e8e0d8;
 --text-secondary: #a89a8d;
 --text-muted: #6b6058;
@@ -224,6 +232,7 @@
 --bg-primary: #1a1a1a;
 --bg-secondary: #252525;
 --bg-tertiary: #363636;
+--heat-color: #caa26d;
 --text-primary: #d1d1d1;
 --text-secondary: #a0a0a0;
 --text-muted: #6e6e6e;
@@ -246,6 +255,7 @@
 --bg-primary: #000000;
 --bg-secondary: #0a0a0a;
 --bg-tertiary: #1f1f1f;
+--heat-color: #cea266;
 --text-primary: #b8b8b8;
 --text-secondary: #808080;
 --text-muted: #505050;
@@ -268,6 +278,7 @@
 --bg-primary: #1a1f2e;
 --bg-secondary: #161b28;
 --bg-tertiary: #232837;
+--heat-color: #758ed3;
 --text-primary: #d8dce8;
 --text-secondary: #8b92a8;
 --text-muted: #5a6070;
@@ -290,6 +301,7 @@
 --bg-primary: #1a1c26;
 --bg-secondary: #151720;
 --bg-tertiary: #222530;
+--heat-color: #b4a1db;
 --text-primary: #e2e0eb;
 --text-secondary: #9a96b0;
 --text-muted: #5e5a70;
@@ -312,6 +324,7 @@
 --bg-primary: #6b5b73;
 --bg-secondary: #5a4d61;
 --bg-tertiary: #4a3f50;
+--heat-color: #dab299;
 --text-primary: #f5f0e8;
 --text-secondary: #d4c4b0;
 --text-muted: #a89a8a;
@@ -334,11 +347,12 @@
 --bg-primary: #7d8471;
 --bg-secondary: #6e7562;
 --bg-tertiary: #5f6654;
+--heat-color: #a3a380;
 --text-primary: #f2f0e9;
 --text-secondary: #d4d1c5;
 --text-muted: #a8a598;
 --accent-color: #a3a380;
---accent-hover: #b5b592;
+--accent-hover: #a2b592;
 --border-color: #707865;
 --sidebar-bg: #777e6c;
 --scrollbar-track: #5f6654;
@@ -351,53 +365,56 @@
 --tooltip-text: #4a5040;
 }
 
-/* 灰褐（Taupe） */
+/* 灰褐（Taupe）- 温暖棕灰调 */
 [data-theme="taupe"] {
---bg-primary: #8e8279;
---bg-secondary: #7d7269;
---bg-tertiary: #6e635b;
---text-primary: #f5f3f0;
---text-secondary: #d9d4ce;
---text-muted: #a8a29e;
---accent-color: #a8a29e;
---accent-hover: #b8b2ae;
---border-color: #80756c;
---sidebar-bg: #867a71;
---scrollbar-track: #6e635b;
---scrollbar-thumb: #a09890;
---overlay-bg: rgba(60, 55, 50, 0.5);
---logo-page-main: #9c9087;
---logo-firefly-core: #f5deb3;
---logo-firefly-glow: #faf0e6;
---tooltip-bg: rgba(245, 243, 240, 0.95);
---tooltip-text: #5a5048;
+--bg-primary: #8c7c70;
+--bg-secondary: #7d6d61;
+--bg-tertiary: #6e5e52;
+--heat-color: #b5a175;
+--text-primary: #f5f0eb;
+--text-secondary: #e0d5c8;
+--text-muted: #b0a090;
+--accent-color: #c4a882;
+--accent-hover: #d4b892;
+--border-color: #7a6a5e;
+--sidebar-bg: #857565;
+--scrollbar-track: #6e5e52;
+--scrollbar-thumb: #a09080;
+--overlay-bg: rgba(60, 50, 45, 0.55);
+--logo-page-main: #9a8a7a;
+--logo-firefly-core: #e8c4a0;
+--logo-firefly-glow: #f5e0c8;
+--tooltip-bg: rgba(60, 50, 45, 0.95);
+--tooltip-text: #f5f0eb;
 }
 
-/* 稻草（Straw） */
+/* 稻草（Straw）- 柔和干草黄 */
 [data-theme="straw"] {
---bg-primary: #c9b96e;
---bg-secondary: #bdb064;
---bg-tertiary: #b0a55a;
---text-primary: #2a2210;
---text-secondary: #5c4d26; 
---text-muted: #8b7d45;
---accent-color: #5c4d26;
---accent-hover: #3d3218;
---border-color: #a89550;
---sidebar-bg: #c4b46a;
---scrollbar-track: #b0a55a;
---scrollbar-thumb: #8b7d45;
---overlay-bg: rgba(42, 34, 16, 0.4);
---logo-page-main: #5c4d26;
---logo-firefly-core: #ffd700;
---logo-firefly-glow: #ffed4e;
---tooltip-bg: rgba(42, 34, 16, 0.95);
---tooltip-text: #f0e6c8;
+--bg-primary: #c4b896;
+--bg-secondary: #b8ac8a;
+--bg-tertiary: #aca078;
+--heat-color: #96835b;
+--text-primary: #3d3525;
+--text-secondary: #5e5240;
+--text-muted: #8a7d65;
+--accent-color: #9a7d50;
+--accent-hover: #b09060;
+--border-color: #b0a480;
+--sidebar-bg: #c0b490;
+--scrollbar-track: #aca078;
+--scrollbar-thumb: #9a8d70;
+--overlay-bg: rgba(45, 40, 30, 0.45);
+--logo-page-main: #7a6b52;
+--logo-firefly-core: #d4b86a;
+--logo-firefly-glow: #e8d4a0;
+--tooltip-bg: rgba(45, 40, 30, 0.95);
+--tooltip-text: #f0e8d0;
 }
 
 /* 赤陶（Terracotta） */
 [data-theme="terracotta"] {
---bg-primary: #c9a090; 
+--bg-primary: #c9a090;
+--heat-color: #a37667;
 --bg-secondary: #bd9486;
 --bg-tertiary: #b08878;
 --text-primary: #3d2820;
@@ -417,48 +434,50 @@
 --tooltip-text: #faf0e8;
 }
 
-/* 藕荷（Mauve） */
+/* 藕荷（Mauve）- 烟紫灰调 */
 [data-theme="mauve"] {
---bg-primary: #9b8b9e;
---bg-secondary: #8a7a8d;
---bg-tertiary: #7a6a7d;
---text-primary: #f5f3f5;
---text-secondary: #e0dce3;
---text-muted: #b8b0c4;
---accent-color: #c4b5d4;
---accent-hover: #d4c9e0;
---border-color: #8e7e91;
---sidebar-bg: #948594;
---scrollbar-track: #7a6a7d;
---scrollbar-thumb: #b0a0b8;
---overlay-bg: rgba(65, 55, 70, 0.48);
---logo-page-main: #a89ca8;
---logo-firefly-core: #f0e6d2;
---logo-firefly-glow: #fff8dc;
---tooltip-bg: rgba(245, 243, 245, 0.95);
---tooltip-text: #5a4a5d;
+--bg-primary: #a090a0;
+--bg-secondary: #908090;
+--bg-tertiary: #807080;
+--heat-color: #d6b0c3;
+--text-primary: #f5f0f5;
+--text-secondary: #e0d8e0;
+--text-muted: #b8a8b8;
+--accent-color: #e0c0d0;
+--accent-hover: #f0d0e0;
+--border-color: #988898;
+--sidebar-bg: #988898;
+--scrollbar-track: #807080;
+--scrollbar-thumb: #b0a0b0;
+--overlay-bg: rgba(60, 50, 60, 0.5);
+--logo-page-main: #f0e8f0;
+--logo-firefly-core: #e8d0e0;
+--logo-firefly-glow: #f8e8f0;
+--tooltip-bg: rgba(50, 45, 50, 0.95);
+--tooltip-text: #f5f0f5;
 }
 
-/* 砂石（Sandstone） */
+/* 砂石（Sandstone）- 浅银白调 */
 [data-theme="sandstone"] {
---bg-primary: #a89f91;
---bg-secondary: #978e80;
---bg-tertiary: #867d6f;
---text-primary: #faf9f7;
---text-secondary: #e8e4de;
---text-muted: #c4bdb3;
---accent-color: #d4c4b0;
---accent-hover: #e6d6c4;
---border-color: #9b9284;
---sidebar-bg: #a0988a;
---scrollbar-track: #867d6f;
---scrollbar-thumb: #beb5a8;
---overlay-bg: rgba(70, 65, 55, 0.48);
---logo-page-main: #b8b0a0;
---logo-firefly-core: #ffec8b;
---logo-firefly-glow: #fffacd;
---tooltip-bg: rgba(250, 249, 247, 0.95);
---tooltip-text: #6b6255;
+--bg-primary: #d8dce0;
+--bg-secondary: #c8ccd0;
+--bg-tertiary: #b8bcc0;
+--heat-color: #a3a8ad;
+--text-primary: #4a5056;
+--text-secondary: #6a7076;
+--text-muted: #8a9096;
+--accent-color: #8a9298;
+--accent-hover: #9aa2a8;
+--border-color: #b8bcc0;
+--sidebar-bg: #e0e4e8;
+--scrollbar-track: #c8ccd0;
+--scrollbar-thumb: #a8b0b8;
+--overlay-bg: rgba(60, 65, 70, 0.4);
+--logo-page-main: #6a7278;
+--logo-firefly-core: #a8b0b8;
+--logo-firefly-glow: #c8d0d8;
+--tooltip-bg: rgba(45, 50, 55, 0.95);
+--tooltip-text: #f0f4f8;
 }
 
 /* 响应式 */
@@ -1535,7 +1554,7 @@ position: relative;
 overflow: hidden;
 }
 
-/* 背景条伪元素 - 基于关键词热度的宽度 */
+/* 背景条伪元素 - 双维度：宽度=章节长度，透明度=G点热度 */
 .toc-item::before {
 content: '';
 position: absolute;
@@ -1543,11 +1562,18 @@ left: 0;
 top: 0;
 bottom: 0;
 width: var(--heat-width, 0%);
-background: color-mix(in srgb, var(--accent-color) 25%, transparent);
+background: color-mix(in srgb, var(--heat-color, var(--accent-color)) calc(var(--heat-opacity, 0.25) * 80%), transparent);
 z-index: 0;
-transition: width 0.3s ease;
+transition: width 0.3s ease, background 0.3s ease;
 pointer-events: none;
-border-radius: 0 6px 6px 0;  /* 右边圆角，与目录项圆角大小一致 */
+border-radius: 0 6px 6px 0;
+}
+
+/* 深色主题下降低热力图混合比例，避免过于刺眼 */
+[data-theme="dark"] .toc-item::before,
+[data-theme="midnight"] .toc-item::before,
+[data-theme="amoled"] .toc-item::before {
+background: color-mix(in srgb, var(--heat-color, var(--accent-color)) calc(var(--heat-opacity, 0.25) * 70%), transparent);
 }
 
 /* 确保文字在背景条之上 */
@@ -4012,4 +4038,71 @@ transition: top 0.35s var(--ease-out-expo), height 0.35s var(--ease-out-expo);
 .immersive-hint.show {
 opacity: 1;
 transform: translate(-50%, -50%) scale(1);
+}
+
+/* ========== 热力图预设面板样式 ========== */
+
+/* 预设列表容器 */
+#heatPresetsList {
+    padding: 0 4px;
+}
+
+/* 预设项样式 */
+.heat-preset-item {
+    transition: background-color 0.15s ease;
+}
+
+.heat-preset-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+/* 预设项按钮 - 使用 option-btn 相同样式 */
+.heat-preset-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    border: 1px solid var(--border-color) !important;
+    background: var(--bg-secondary) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.heat-preset-btn:hover {
+    border-color: var(--accent-color) !important;
+    background: var(--bg-tertiary) !important;
+}
+
+.heat-preset-btn:active {
+    transform: scale(0.96);
+}
+
+/* 添加新预设区域 */
+#heatPresetNameInput,
+#heatPresetAddBtn {
+    height: 36px;
+    box-sizing: border-box;
+}
+
+#heatPresetAddBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 标签输入区域 */
+#heatPresetTagsContainer {
+    min-height: 36px;
+}
+
+/* 预设面板对话框 */
+#heatMapPresetsDialog .about-body {
+    padding: 16px 20px;
+}
+
+#heatMapPresetsDialog .about-content {
+    max-width: 520px;
 }

@@ -10,7 +10,8 @@
     font-family: var(--font-family-dynamic);
     /* 确保继承 doc-line 的间距 */
     margin: var(--paragraph-spacing, 0.8em) 0;
-    word-break: break-all;
+    word-break: break-word;  /* 更合理的换行策略 */
+    overflow-wrap: break-word;
 }
 
 /* 覆盖 doc-line 的默认样式，确保 Markdown 内容正确显示 */
@@ -46,6 +47,11 @@
     border-left: 3px solid var(--accent-color);
     background: var(--bg-secondary);
     color: var(--text-secondary);
+}
+
+/* Blockquote 内部段落的换行处理 */
+.markdown-blockquote p {
+    white-space: pre-wrap;  /* 保留换行符 */
 }
 
 .markdown-blockquote > *:first-child { margin-top: 0; }
@@ -123,6 +129,33 @@
 .markdown-li {
     margin: 0.3em 0;
     line-height: var(--line-height, 1.8);
+}
+
+/* 表格容器 - 移动端横向滚动 */
+.markdown-table-wrapper {
+    width: 100%;
+    margin: var(--paragraph-spacing, 0.8em) 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;  /* iOS 平滑滚动 */
+    border-radius: 4px;
+    /* 确保表格不被外部 word-break 影响 */
+    word-break: normal;
+    white-space: nowrap;
+}
+
+.markdown-table-wrapper .markdown-table {
+    width: auto;
+    min-width: 100%;
+    margin: 0;
+    /* 表格内部恢复正常换行 */
+    white-space: normal;
+}
+
+/* 表格单元格不换行，强制横向滚动 */
+.markdown-table-wrapper .markdown-table th,
+.markdown-table-wrapper .markdown-table td {
+    white-space: nowrap;
+    word-break: keep-all;
 }
 
 /* 表格 */

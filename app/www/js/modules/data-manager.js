@@ -1753,10 +1753,8 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         Lumina.State.settings.chapterNumbering = fileData.chapterNumbering || 'none';
         Lumina.UI.updateActiveButtons();
         
-        // 恢复热力图数据
-        if (fileData.heatMap) {
-            state.currentFile.heatMap = fileData.heatMap;
-        }
+        // 恢复热力图数据（始终重置，避免保留上一本书的数据）
+        state.currentFile.heatMap = fileData.heatMap || null;
 
         if (Lumina.State.settings.chapterRegex || Lumina.State.settings.sectionRegex) await Lumina.Parser.reparseWithRegex();
         else {

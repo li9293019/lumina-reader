@@ -80,6 +80,17 @@ Lumina.init = async () => {
     }
 
     Lumina.Font.preloadCritical();
+    
+    // 初始化配置管理器（首次使用会自动迁移旧配置）
+    Lumina.Settings.load();
+    
+    // 初始化配置备份功能（安全检查）
+    if (typeof Lumina.Settings.initConfigBackup === 'function') {
+        Lumina.Settings.initConfigBackup();
+    } else {
+        console.warn('[Init] initConfigBackup 方法未找到，可能正在使用缓存版本');
+    }
+    
     await Lumina.Settings.apply();
     Lumina.I18n.updateUI();
 
@@ -203,6 +214,8 @@ Lumina.importDefaultGuideIfNeeded = async () => {
 Lumina.HeatMap = {
     tags: [],
     cache: null, // 缓存计算结果
+    presets: [], // 标签预设列表
+    // 使用统一配置管理器，不再需要独立的 STORAGE_KEY
     
     init() {
         this.tagList = document.getElementById('heatTagList');
@@ -211,7 +224,9 @@ Lumina.HeatMap = {
         
         if (!this.input) return;
         
+        this.loadPresets();
         this.bindEvents();
+        this.bindPresetsEvents();
         this.updateAnalyzeButton();
     },
     
@@ -250,6 +265,245 @@ Lumina.HeatMap = {
         this.analyzeBtn?.addEventListener('click', () => this.analyze());
     },
     
+    // 预设面板事件绑定
+    bindPresetsEvents() {
+        const presetsBtn = document.getElementById('heatMapPresetsBtn');
+        const presetsDialog = document.getElementById('heatMapPresetsDialog');
+        const presetsClose = document.getElementById('heatMapPresetsClose');
+        
+        if (presetsBtn) {
+            presetsBtn.addEventListener('click', () => {
+                this.openPresetsDialog();
+            });
+        }
+        
+        if (presetsClose) {
+            presetsClose.addEventListener('click', () => {
+                presetsDialog?.classList.remove('active');
+            });
+        }
+        
+        // 点击遮罩关闭
+        presetsDialog?.addEventListener('click', (e) => {
+            if (e.target === presetsDialog) {
+                presetsDialog.classList.remove('active');
+            }
+        });
+        
+        // 添加预设按钮
+        const addBtn = document.getElementById('heatPresetAddBtn');
+        addBtn?.addEventListener('click', () => this.addPreset());
+        
+        // 预设面板中的标签输入
+        const presetTagInput = document.getElementById('heatPresetTagInput');
+        const presetTagList = document.getElementById('heatPresetTagList');
+        
+        if (presetTagInput) {
+            presetTagInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const value = presetTagInput.value.trim();
+                    if (value) {
+                        this.parsePresetTags(value);
+                        presetTagInput.value = '';
+                    }
+                } else if (e.key === 'Backspace' && !presetTagInput.value) {
+                    this.removePresetTag(-1);
+                }
+            });
+            
+            presetTagInput.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData('text');
+                this.parsePresetTags(pasted);
+            });
+            
+            presetTagInput.addEventListener('blur', () => {
+                const value = presetTagInput.value.trim();
+                if (value) {
+                    this.parsePresetTags(value);
+                    presetTagInput.value = '';
+                }
+            });
+        }
+    },
+    
+    // 打开预设面板
+    openPresetsDialog() {
+        this.tempPresetTags = [];
+        this.renderPresetsList();
+        this.renderPresetTags();
+        document.getElementById('heatPresetNameInput').value = '';
+        document.getElementById('heatMapPresetsDialog')?.classList.add('active');
+    },
+    
+    // 加载预设（从 ConfigManager）
+    loadPresets() {
+        try {
+            const presets = Lumina.ConfigManager.get('heatMap.presets');
+            if (presets && Array.isArray(presets)) {
+                this.presets = presets;
+            } else {
+                this.presets = [];
+            }
+        } catch (e) {
+            console.warn('[HeatMap] 加载预设失败:', e);
+            this.presets = [];
+        }
+    },
+    
+    // 保存预设（到 ConfigManager）
+    savePresets() {
+        try {
+            Lumina.ConfigManager.set('heatMap.presets', this.presets);
+        } catch (e) {
+            console.warn('[HeatMap] 保存预设失败:', e);
+        }
+    },
+    
+    // 添加预设
+    addPreset() {
+        const nameInput = document.getElementById('heatPresetNameInput');
+        const name = nameInput.value.trim();
+        
+        if (!name || this.tempPresetTags.length === 0) {
+            return;
+        }
+        
+        this.presets.push({
+            id: Date.now(),
+            name,
+            tags: [...this.tempPresetTags],
+            createdAt: Date.now()
+        });
+        
+        this.savePresets();
+        this.renderPresetsList();
+        
+        nameInput.value = '';
+        this.tempPresetTags = [];
+        this.renderPresetTags();
+    },
+    
+    // 删除预设
+    removePreset(id) {
+        this.presets = this.presets.filter(p => p.id !== id);
+        this.savePresets();
+        this.renderPresetsList();
+    },
+    
+    // 应用预设到当前小说
+    applyPreset(id) {
+        const preset = this.presets.find(p => p.id === id);
+        if (!preset) return;
+        
+        this.tags = [...preset.tags];
+        this.renderTags();
+        this.saveTags();
+        this.onKeywordsChange();
+        
+        document.getElementById('heatMapPresetsDialog')?.classList.remove('active');
+        Lumina.UI?.showToast?.(Lumina.I18n.t('presetApplied')?.replace?.('{name}', preset.name) || `已应用预设: ${preset.name}`);
+    },
+    
+    // 复制预设 tags 到剪贴板
+    async copyPreset(id) {
+        const preset = this.presets.find(p => p.id === id);
+        if (!preset) return;
+        
+        const text = preset.tags.join(', ');
+        try {
+            await navigator.clipboard.writeText(text);
+            Lumina.UI?.showToast?.(Lumina.I18n.t('presetCopied')?.replace?.('{name}', preset.name) || `已复制预设 "${preset.name}" 的标签`);
+        } catch (err) {
+            // 降级方案
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                Lumina.UI?.showToast?.(Lumina.I18n.t('presetCopied')?.replace?.('{name}', preset.name) || `已复制预设 "${preset.name}" 的标签`);
+            } catch (e) {
+                Lumina.UI?.showToast?.(Lumina.I18n.t('copyFailed') || '复制失败');
+            }
+            document.body.removeChild(textarea);
+        }
+    },
+    
+    // 渲染预设列表
+    renderPresetsList() {
+        const container = document.getElementById('heatPresetsList');
+        if (!container) return;
+        
+        if (this.presets.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 24px 4px;">${Lumina.I18n.t('noPresets')}</div>`;
+            return;
+        }
+        
+        container.innerHTML = this.presets.map(preset => `
+            <div class="heat-preset-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--border-color); gap: 12px;">
+                <div style="flex: 1; min-width: 0; overflow: hidden; padding-right: 4px;">
+                    <div style="font-weight: 500; margin-bottom: 5px; font-size: 14px; line-height: 1.3;">${Lumina.Utils.escapeHtml(preset.name)}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4;">
+                        ${Lumina.Utils.escapeHtml(preset.tags.join(', '))}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    <button class="btn-icon heat-preset-btn" onclick="Lumina.HeatMap.applyPreset(${preset.id})" data-tooltip="${Lumina.I18n.t('apply') || '应用'}">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-check" /></svg>
+                    </button>
+                    <button class="btn-icon heat-preset-btn" onclick="Lumina.HeatMap.copyPreset(${preset.id})" data-tooltip="${Lumina.I18n.t('copy') || '复制'}">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-copy" /></svg>
+                    </button>
+                    <button class="btn-icon heat-preset-btn" onclick="Lumina.HeatMap.removePreset(${preset.id})" data-tooltip="${Lumina.I18n.t('delete') || '删除'}">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-delete" /></svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    },
+    
+    // 临时预设标签操作
+    tempPresetTags: [],
+    
+    parsePresetTags(text) {
+        if (!text) return;
+        const separators = /[,，\s\n\r\t]+/;
+        const newTags = text.split(separators)
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+        
+        newTags.forEach(tag => {
+            if (!this.tempPresetTags.includes(tag)) {
+                this.tempPresetTags.push(tag);
+            }
+        });
+        this.renderPresetTags();
+    },
+    
+    removePresetTag(index) {
+        if (index === -1) {
+            this.tempPresetTags.pop();
+        } else {
+            this.tempPresetTags.splice(index, 1);
+        }
+        this.renderPresetTags();
+    },
+    
+    renderPresetTags() {
+        const tagList = document.getElementById('heatPresetTagList');
+        if (!tagList) return;
+        
+        tagList.innerHTML = this.tempPresetTags.map((tag, index) => `
+            <span class="tag-item" onclick="Lumina.HeatMap.removePresetTag(${index})">
+                ${Lumina.Utils.escapeHtml(tag)}
+            </span>
+        `).join('');
+    },
+    
     // 解析并添加 tags（支持中英文逗号、空格、换行）
     parseAndAddTags(text) {
         if (!text) return;
@@ -283,17 +537,19 @@ Lumina.HeatMap = {
     },
     
     renderTags() {
-        if (!this.tagList) return;
+        // 强制重新获取DOM元素，确保引用的元素存在
+        const tagList = document.getElementById('heatTagList');
+        if (!tagList) return;
         
-        this.tagList.innerHTML = this.tags.map((tag, index) => `
+        tagList.innerHTML = this.tags.map((tag, index) => `
             <span class="tag-item" data-index="${index}">
                 ${Lumina.Utils.escapeHtml(tag)}
             </span>
         `).join('');
         
-        this.tagList.querySelectorAll('.tag-item').forEach(el => {
+        tagList.querySelectorAll('.tag-item').forEach(el => {
             el.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止事件冒泡，防止关闭设置面板
+                e.stopPropagation();
                 this.removeTag(parseInt(el.dataset.index));
             });
         });
@@ -339,6 +595,9 @@ Lumina.HeatMap = {
             this.tags = []; // 新书本，清空
         }
         
+        // 强制重新获取DOM并渲染
+        this.tagList = document.getElementById('heatTagList');
+        this.input = document.getElementById('heatTagInput');
         this.renderTags();
     },
     
@@ -391,7 +650,7 @@ Lumina.HeatMap = {
         }
     },
     
-    // 核心分析算法 - 遍历 items 收集一级和二级标题
+    // 核心分析算法 - 双维度：宽度=章节长度，透明度=G点热度
     async analyze() {
         if (this.tags.length === 0) {
             this.clearHeat();
@@ -403,14 +662,12 @@ Lumina.HeatMap = {
         if (items.length === 0) return;
         
         // 收集器：一级标题和二级标题
-        // 与 generateTOC 逻辑一致：title/heading1/level-0 = 一级, subtitle/heading2 = 二级
-        const level1Titles = []; // { index, title, startIndex, endIndex, wordCount, matchCount }
-        const level2Titles = []; // { index, title, startIndex, endIndex, wordCount, matchCount }
+        const level1Titles = [];
+        const level2Titles = [];
         
         // 查找前言章节（如果有），前言视同 level-1
         const prefaceChapter = chapters.find(ch => ch.isPreface);
         if (prefaceChapter) {
-            // 前言作为一个特殊的"标题"，使用 chapter.startIndex
             level1Titles.push({
                 index: prefaceChapter.startIndex,
                 title: Lumina.I18n.t('preface') || '前言',
@@ -431,7 +688,6 @@ Lumina.HeatMap = {
             let isLevel2 = false;
             let titleText = '';
             
-            // 与 generateTOC 逻辑保持一致
             if (type === 'title' || type === 'heading1') {
                 isLevel1 = true;
                 titleText = item.display || item.text || '';
@@ -454,7 +710,7 @@ Lumina.HeatMap = {
                     index: i,
                     title: titleText,
                     startIndex: i,
-                    endIndex: items.length - 1, // 暂时设为末尾，后续修正
+                    endIndex: items.length - 1,
                     wordCount: 0,
                     matchCount: 0
                 });
@@ -463,21 +719,19 @@ Lumina.HeatMap = {
                     index: i,
                     title: titleText,
                     startIndex: i,
-                    endIndex: items.length - 1, // 暂时设为末尾，后续修正
+                    endIndex: items.length - 1,
                     wordCount: 0,
                     matchCount: 0
                 });
             }
         }
         
-        // 修正每个一级标题的结束位置（下一个一级标题之前）
+        // 修正标题结束位置
         for (let i = 0; i < level1Titles.length; i++) {
             if (i < level1Titles.length - 1) {
                 level1Titles[i].endIndex = level1Titles[i + 1].index - 1;
             }
         }
-        
-        // 修正每个二级标题的结束位置（下一个二级标题之前）
         for (let i = 0; i < level2Titles.length; i++) {
             if (i < level2Titles.length - 1) {
                 level2Titles[i].endIndex = level2Titles[i + 1].index - 1;
@@ -488,16 +742,34 @@ Lumina.HeatMap = {
         this.calculateTitleHeat(level1Titles, items);
         this.calculateTitleHeat(level2Titles, items);
         
-        // 找到两个维度中的最大热度，作为100%基准
-        let maxHeat = 0;
-        [...level1Titles, ...level2Titles].forEach(t => {
-            if (t.matchCount > maxHeat) maxHeat = t.matchCount;
+        // 计算双维度：宽度基于最大字数，透明度基于最大热度密度
+        const allTitles = [...level1Titles, ...level2Titles];
+        
+        // 找到最大字数作为100%基准（用于宽度）
+        let maxWordCount = 0;
+        allTitles.forEach(t => {
+            if (t.wordCount > maxWordCount) maxWordCount = t.wordCount;
         });
         
-        // 计算每个标题的宽度百分比（基于最大热度）
-        const allTitles = [...level1Titles, ...level2Titles];
+        // 找到最大热度密度作为100%基准（用于透明度）
+        let maxDensity = 0;
         allTitles.forEach(t => {
-            t.widthPercent = maxHeat > 0 ? Math.min(100, (t.matchCount / maxHeat) * 100) : 0;
+            const density = t.wordCount > 0 ? (t.matchCount / t.wordCount) * 1000 : 0;
+            t.density = density;
+            if (density > maxDensity) maxDensity = density;
+        });
+        
+        // 计算双维度
+        allTitles.forEach(t => {
+            // 宽度：相对于最大字数的比例（最小5%，最大100%）
+            t.widthPercent = maxWordCount > 0 
+                ? Math.max(5, (t.wordCount / maxWordCount) * 100) 
+                : 0;
+            
+            // 透明度：相对于最大密度的比例（0.15-1.0，G点密集时更显著）
+            t.opacity = maxDensity > 0 
+                ? Math.max(0.15, Math.min(1.0, t.density / maxDensity)) 
+                : 0.15;
         });
         
         // 保存和渲染
@@ -509,13 +781,10 @@ Lumina.HeatMap = {
     // 计算标题范围内的热度
     calculateTitleHeat(titles, items) {
         titles.forEach(title => {
-            // 提取范围内的文本
             let text = '';
             for (let i = title.startIndex; i <= title.endIndex && i < items.length; i++) {
                 text += (items[i].text || '') + ' ';
             }
-            
-            // 统计字数
             title.wordCount = text.length;
             
             // 统计关键词匹配
@@ -527,6 +796,7 @@ Lumina.HeatMap = {
         });
     },
     
+    // 双维度渲染：宽度=章节长度，透明度=G点热度
     render(heatData) {
         heatData.forEach(data => {
             const selector = `.toc-item[data-index="${data.index}"]`;
@@ -535,6 +805,7 @@ Lumina.HeatMap = {
             if (elements.length > 0) {
                 elements.forEach(el => {
                     el.style.setProperty('--heat-width', `${data.widthPercent}%`);
+                    el.style.setProperty('--heat-opacity', data.opacity);
                     el.dataset.hasHeat = 'true';
                 });
             }
@@ -555,17 +826,17 @@ Lumina.HeatMap = {
             return;
         }
         
-        // 合并更新，确保保留 keywords
+        // 合并更新，保存双维度数据
         currentFile.heatMap = {
             keywords: this.tags.join(','),
             chapters: heatData.map(h => ({
                 index: h.index,
-                width: Math.round(h.widthPercent)
+                width: Math.round(h.widthPercent),
+                opacity: Math.round(h.opacity * 100) / 100
             })),
             updatedAt: Date.now()
         };
         
-        // 触发数据库保存 - 立即保存，不使用防抖
         this.persistToDB();
     },
     
@@ -578,6 +849,7 @@ Lumina.HeatMap = {
                 const elements = document.querySelectorAll(`.toc-item[data-index="${h.index}"]`);
                 elements.forEach(el => {
                     el.style.setProperty('--heat-width', `${h.width}%`);
+                    el.style.setProperty('--heat-opacity', h.opacity || 0.25);
                     el.dataset.hasHeat = 'true';
                 });
             });
@@ -586,21 +858,67 @@ Lumina.HeatMap = {
         return false;
     },
     
-    // 打开书本时调用
-    onBookOpen() {
-        this.loadTags();
-        this.cache = null;
+    // 从当前书本刷新显示（设置面板打开时调用）
+    refreshFromCurrentBook() {
+        const currentFile = Lumina.State.app.currentFile;
+        
+        // 清空现有显示
+        this.tags = [];
+        const tagList = document.getElementById('heatTagList');
+        const input = document.getElementById('heatTagInput');
+        if (tagList) tagList.innerHTML = '';
+        if (input) input.value = '';
+        this.clearHeat();
+        
+        // 从当前书本重新加载
+        const savedKeywords = currentFile?.heatMap?.keywords || '';
+        if (savedKeywords) {
+            this.tags = savedKeywords.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        }
+        
+        // 重新获取DOM引用并渲染
+        this.tagList = document.getElementById('heatTagList');
+        this.input = document.getElementById('heatTagInput');
+        this.renderTags();
         this.updateAnalyzeButton();
         
-        // 如果有关键词，延迟等待目录渲染完成后恢复热力显示
+        // 恢复热力图（如果有关键词）
         if (this.tags.length > 0) {
-            setTimeout(() => {
-                if (!this.restoreFromBook() && this.shouldRealtime()) {
-                    this.analyze();
-                }
-            }, 600);
-        } else {
-            this.clearHeat();
+            if (!this.restoreFromBook()) {
+                this.analyze();
+            }
+        }
+    },
+    
+    // 打开书本时调用
+    onBookOpen() {
+        // 书本切换时强制清空，避免数据残留
+        this.tags = [];
+        this.cache = null;
+        this.updateAnalyzeButton();
+        this.clearHeat();
+        
+        // 从当前书本恢复热力图数据（如果有）
+        const currentFile = Lumina.State.app.currentFile;
+        const heatMap = currentFile?.heatMap;
+        
+        if (heatMap && heatMap.keywords) {
+            // 恢复标签
+            this.tags = heatMap.keywords.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            this.renderTags();
+            this.updateAnalyzeButton();
+            
+            // 恢复热力图渲染
+            if (heatMap.chapters) {
+                heatMap.chapters.forEach(h => {
+                    const elements = document.querySelectorAll(`.toc-item[data-index="${h.index}"]`);
+                    elements.forEach(el => {
+                        el.style.setProperty('--heat-width', `${h.width}%`);
+                        el.style.setProperty('--heat-opacity', h.opacity || 0.25);
+                        el.dataset.hasHeat = 'true';
+                    });
+                });
+            }
         }
     }
 };

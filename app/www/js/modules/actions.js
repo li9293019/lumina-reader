@@ -88,6 +88,9 @@ Lumina.Actions = {
             Lumina.HeatMap.updateAnalyzeButton();
         }
         
+        // 重置 currentFile.heatMap，避免保留上一本书的数据
+        Lumina.State.app.currentFile.heatMap = null;
+        
         // 重置页码为第一页
         Lumina.State.app.currentPageIdx = 0;
 

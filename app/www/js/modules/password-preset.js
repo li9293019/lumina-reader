@@ -10,31 +10,20 @@
  */
 
 Lumina.PasswordPreset = {
-    // 默认配置
-    defaultConfig: {
-        enabled: false,
-        smartGuess: true,
-        length: 6,
-        prefix: '',
-        commonPasswords: '123456|888888|000000|666666|111111|123123'
-    },
-
-    // 获取配置
+    // 使用统一配置管理器
     getConfig() {
-        const saved = localStorage.getItem('luminaPdfPasswordPreset');
-        if (saved) {
-            try {
-                return {...this.defaultConfig, ...JSON.parse(saved)};
-            } catch (e) {
-                console.error('[PasswordPreset] Failed to parse config:', e);
-            }
-        }
-        return {...this.defaultConfig};
+        const config = Lumina.ConfigManager.get('pdf.passwordPreset');
+        return config || {
+            enabled: false,
+            smartGuess: true,
+            length: 6,
+            prefix: '',
+            commonPasswords: ''
+        };
     },
 
-    // 保存配置
     saveConfig(config) {
-        localStorage.setItem('luminaPdfPasswordPreset', JSON.stringify(config));
+        Lumina.ConfigManager.set('pdf.passwordPreset', config);
     },
 
     /**
@@ -50,114 +39,133 @@ Lumina.PasswordPreset = {
         // 使用 pinyin-pro 获取拼音首字母
         if (typeof pinyinPro !== 'undefined') {
             try {
-                // 获取拼音首字母
                 const first = pinyinPro.pinyin(char, { 
                     toneType: 'none',
                     type: 'array'
                 })[0];
                 if (first) return first[0].toLowerCase();
-            } catch (e) {
-                // 失败则返回0
-            }
+            } catch (e) {}
         }
-        
-        // 无法识别的字符返回0
         return '0';
     },
 
     /**
-     * 小雨林密码专用：从文件名提取后三位字符
-     * 规则：6位密码 = xyl + 文件名前三位转换
-     * - 英文/数字：直接使用
-     * - 中文：取拼音首字母
-     * - 标点符号：跳过
-     * - 日文/其他：用0代替
-     * - 不足三位：末尾补0
-     * 注意：只有固定前缀为 xyl 时才适用此规则
+     * 生成智能密码（文件名前三位 + 数字组合）
      * @param {string} fileName - 文件名
-     * @returns {string|null} - 6位密码，不适用时返回 null
+     * @param {number} length - 密码长度（含前缀）
+     * @returns {string[]} - 密码候选列表
      */
-    generateXylPassword(fileName) {
-        // 获取配置，检查固定前缀是否为 xyl
+    generateSmartPasswords(fileName, length = 6) {
         const config = this.getConfig();
-        if (config.prefix !== 'xyl') {
-            return null;
+        const result = [];
+        
+        // 提取文件名前三位（去除"作品合集"等后缀）
+        let cleanName = fileName
+            .replace(/\.[^.]+$/, '')
+            .replace(/[（(【\[][^）)】\]]+[）)】\]]/g, '')
+            .replace(/作品合集/g, '')
+            .trim();
+        
+        // 取前三位
+        const prefixChars = cleanName.slice(0, 3).split('');
+        let prefix = '';
+        
+        for (const char of prefixChars) {
+            if (/[a-zA-Z0-9]/.test(char)) {
+                prefix += char.toLowerCase();
+            } else if (/[\u4e00-\u9fa5]/.test(char)) {
+                // 中文转拼音首字母
+                prefix += this.getPinyinInitial(char);
+            } else {
+                // 标点符号等跳过
+                continue;
+            }
         }
         
-        // 移除扩展名
-        let name = fileName.replace(/\.[^/.]+$/, '');
+        if (!prefix) prefix = 'xyl'; // 默认前缀（小雨林）
         
-        // 移除"作品合集"字样
-        name = name.replace(/作品合集/g, '');
-        
-        let result = '';
-        
-        for (let char of name) {
-            // 跳过空白和标点符号
-            if (/[\s\p{P}]/u.test(char)) continue;
-            
-            result += this.getPinyinInitial(char);
-            
-            // 取满3位就停止
-            if (result.length >= 3) break;
+        // 生成数字组合
+        const numLength = Math.max(0, length - prefix.length);
+        if (numLength === 0) {
+            result.push(prefix);
+        } else {
+            // 常见数字组合
+            const commonNums = ['0', '00', '000', '1', '01', '001', '123', '888', '666', '520'];
+            for (const num of commonNums) {
+                if (num.length <= numLength) {
+                    result.push(prefix + num.padStart(numLength, '0'));
+                }
+            }
+            // 0-9 组合
+            for (let i = 0; i < Math.pow(10, numLength); i++) {
+                const num = i.toString().padStart(numLength, '0');
+                result.push(prefix + num);
+            }
         }
         
-        // 不足3位，末尾补0
-        while (result.length < 3) {
-            result += '0';
-        }
-        
-        // 返回固定前缀 xyl + 后三位
-        return 'xyl' + result;
+        return [...new Set(result)];
     },
 
     /**
-     * 生成候选密码列表
-     * 优先级：1.智能猜测 2.常用密码 3.纯数字组合
+     * 生成完整密码候选列表
      * @param {string} fileName - 文件名
-     * @returns {string[]} - 候选密码列表
+     * @returns {string[]} - 所有密码候选
      */
     generatePasswords(fileName) {
-        // 从 settings 读取开关状态
-        const enabled = Lumina.State?.settings?.pdfPasswordPreset;
-        const smartGuess = Lumina.State?.settings?.pdfSmartGuess;
-        
-        if (!enabled) {
-            return [];
-        }
-
         const config = this.getConfig();
         const passwords = [];
-        const prefix = config.prefix || '';
-        const targetLength = config.length || 6;
         
-        // 1. 智能猜测（最高优先级）- 小雨林专用模式
-        if (smartGuess && fileName) {
-            const xylPassword = this.generateXylPassword(fileName);
-            // 只有当固定前缀为 xyl 时才添加小雨林密码
-            if (xylPassword) passwords.push(xylPassword);
+        // 1. 智能猜测（如果启用）
+        if (config.smartGuess) {
+            passwords.push(...this.generateSmartPasswords(fileName, config.length));
         }
         
-        // 2. 常用密码
+        // 2. 固定前缀 + 数字
+        if (config.prefix) {
+            const numLength = Math.max(0, config.length - config.prefix.length);
+            for (let i = 0; i < Math.pow(10, numLength); i++) {
+                const num = i.toString().padStart(numLength, '0');
+                passwords.push(config.prefix + num);
+            }
+        }
+        
+        // 3. 常用密码
         if (config.commonPasswords) {
-            config.commonPasswords.split('|').forEach(pwd => {
-                pwd = pwd.trim();
-                if (pwd && pwd.length >= 3 && pwd.length <= 20 && !passwords.includes(pwd)) {
-                    passwords.push(pwd);
-                }
-            });
+            passwords.push(...config.commonPasswords.split('|'));
         }
         
-        // 3. 纯数字组合（最低优先级）
-        const numericPatterns = [
-            '000000', '111111', '888888', '666666', '123456',
-            '12345678', '1234567890', '987654', '147258', '258369'
-        ];
-        numericPatterns.forEach(pwd => {
-            const sliced = pwd.slice(0, targetLength);
-            if (!passwords.includes(sliced)) passwords.push(sliced);
-        });
+        // 去重
+        return [...new Set(passwords)];
+    },
+
+    /**
+     * 尝试自动解密
+     * @param {ArrayBuffer} arrayBuffer - PDF 文件数据
+     * @param {string} fileName - 文件名
+     * @param {number} maxAttempts - 最大尝试次数
+     * @returns {Promise<{success: boolean, data?: ArrayBuffer, password?: string, error?: string}>}
+     */
+    async tryDecrypt(arrayBuffer, fileName, maxAttempts = 50) {
+        const config = this.getConfig();
+        if (!config.enabled) {
+            return { success: false, error: '密码预设未启用' };
+        }
+
+        const passwords = this.generatePasswords(fileName);
+        const attempts = passwords.slice(0, maxAttempts);
         
-        return passwords;
+        for (const password of attempts) {
+            try {
+                const result = await Lumina.Crypto.tryDecryptPDF(arrayBuffer, password);
+                if (result.success) {
+                    console.log('[PasswordPreset] 成功破解密码:', password);
+                    return { success: true, data: result.data, password };
+                }
+            } catch (e) {
+                // 继续尝试
+            }
+        }
+        
+        return { success: false, error: `尝试了 ${attempts.length} 个密码均未成功` };
     }
 };

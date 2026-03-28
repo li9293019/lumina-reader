@@ -53,6 +53,7 @@
 <script src="./js/modules/namespace.js"></script>
 <script src="./assets/js/app/file-opener-bridge.js"></script>
 <script src="./js/modules/config.js"></script>
+<script src="./js/modules/config-manager.js"></script>
 <script src="./js/modules/utils.js"></script>
 <script src="./js/modules/i18n.js"></script>
 <script src="./js/modules/db.js"></script>
@@ -440,7 +441,14 @@
                 </div>
 
                 <div class="setting-group">
-                    <div class="setting-label" data-i18n="heatMapKeywords"></div>
+                    <div class="setting-label" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span data-i18n="heatMapKeywords"></span>
+                        <button class="btn-icon" id="heatMapPresetsBtn" data-i18n-tooltip="heatMapPresetsTooltip" style="width: 28px; height: 28px; margin: -4px -8px -4px 0;">
+                            <svg class="icon" style="width: 18px; height: 18px;">
+                                <use href="#icon-settings" />
+                            </svg>
+                        </button>
+                    </div>
                     <div class="tag-input-container" id="heatKeywordsContainer">
                         <div class="tag-list" id="heatTagList"></div>
                         <input type="text" class="tag-input" id="heatTagInput" data-i18n-placeholder="heatMapHint" placeholder="用逗号或空格分割关键词">
@@ -615,7 +623,7 @@
                         <!-- 常用密码 -->
                         <div>
                             <div class="setting-label" data-i18n="pdfCommonPasswords"></div>
-                            <input type="text" class="regex-input" id="pdfCommonPasswords" data-i18n-placeholder="pdfCommonPasswordsPlaceholder" placeholder="123456, 888888, 000000, 666666">
+                            <input type="text" class="regex-input" id="pdfCommonPasswords" data-i18n-placeholder="pdfCommonPasswordsPlaceholder" placeholder="">
                         </div>
                     </div>
                 </div>
@@ -651,6 +659,25 @@
                         </div>
                     </div>
                     <button class="option-btn" id="openDataManager" style="width: 100%;" data-i18n="manageData"></button>
+                </div>
+
+                <!-- 配置备份与恢复 -->
+                <div class="setting-group">
+                    <div class="setting-label" data-i18n="configBackup"></div>
+                    <div class="setting-hint" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;" data-i18n="configBackupHint"></div>
+                    
+                    <div class="toggle-switch" style="margin-bottom: 12px;">
+                        <span class="toggle-label" data-i18n="configEncrypt"></span>
+                        <div class="toggle-track" id="configEncryptToggle">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="option-btn" id="configExportBtn" style="flex: 1;" data-i18n="configExport"></button>
+                        <button class="option-btn" id="configImportBtn" style="flex: 1;" data-i18n="configImport"></button>
+                        <input type="file" id="configImportFile" accept=".json,.lmn" style="display: none;">
+                    </div>
                 </div>
 
                 <div class="setting-group">
@@ -989,6 +1016,39 @@
             
             <!-- 状态提示 -->
             <div id="azureDialogStatus" class="azure-status" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 热力图标签预设面板 -->
+<div class="about-panel" id="heatMapPresetsDialog">
+    <div class="about-content" style="max-width: 480px;">
+        <div class="about-header">
+            <span class="about-title" data-i18n="heatMapPresetsTitle">标签预设管理</span>
+            <button class="btn-icon" id="heatMapPresetsClose" data-i18n-tooltip="close">
+                <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+            </button>
+        </div>
+        
+        <div class="about-body" style="padding-top: 20px;">
+            <!-- 预设列表 -->
+            <div id="heatPresetsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
+                <!-- 动态生成预设项 -->
+            </div>
+            
+            <!-- 添加新预设 -->
+            <div style="border-top: 1px solid var(--border-color); padding: 16px 4px 4px;">
+                <div class="setting-label" data-i18n="heatMapAddPreset" style="margin-bottom: 10px;">添加新预设</div>
+                <!-- 名称和添加按钮合并一行 -->
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <input type="text" class="regex-input" id="heatPresetNameInput" data-i18n-placeholder="heatMapPresetNamePlaceholder" placeholder="预设名称（如：言情、仙侠）" style="flex: 1; margin-bottom: 0; height: 36px;">
+                    <button class="option-btn" id="heatPresetAddBtn" data-i18n="add" style="height: 36px; padding: 0 20px; font-size: 13px;">添加</button>
+                </div>
+                <div class="tag-input-container" id="heatPresetTagsContainer" style="margin-bottom: 0; min-height: 36px;">
+                    <div class="tag-list" id="heatPresetTagList"></div>
+                    <input type="text" class="tag-input" id="heatPresetTagInput" data-i18n-placeholder="heatMapHint" placeholder="用逗号或空格分割关键词">
+                </div>
+            </div>
         </div>
     </div>
 </div>

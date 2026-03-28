@@ -130,6 +130,9 @@ Lumina.init = async () => {
             setTimeout(() => Lumina.FileOpener.handleIncomingUrl(url), 100);
         }
     }
+    
+    // 初始化密码预设器设置
+    Lumina.Settings.initPasswordPreset();
 };
 
 // ==================== 默认说明书导入 ====================

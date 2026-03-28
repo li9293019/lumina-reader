@@ -134,15 +134,18 @@ Lumina.Config.defaultSettings = {
     encryptedExport: false,
     paginationMaxWords: 3000,
     paginationImageWords: 300,
+    pdfExtractImages: true,
+    pdfPasswordPreset: false,
+    pdfSmartGuess: true,
 };
 
 Lumina.Config.regexPatterns = {
-    chineseChapter: /^<?第\s*[一二三四五六七八九十百千万零〇\d]+\s*[章卷]>?\s*[:\-]?\s*(.*)/i,
-    englishChapter: /^(Chapter|Chap|Part|Book)\s*(\d+[\.:\-]?\d*)\s*[:\-]?\s*(.*)/i,
-    sectionDash: /^<?(\d+)[\-–—\.](\d+)\s*[:\-]?>?\s*(.*)/,
-    sectionCn: /^<?第\s*[一二三四五六七八九十百千万零〇\d]+\s*[节集]>?\s*[:\-]?\s*(.*)/i,
-    sectionEn: /^Section\s*(\d+)\s*[:\-]?\s*(.*)/i,
-    specialTitles: /^<?(阅读须知|版权说明|引言|序言|前言|楔子|尾声|创作后记|后记|附录|Introduction|Prologue|Preface|Epilogue)[:：]?(.*)>?$/i,
+    chineseChapter: /^[<第]\s*[一二三四五六七八九十百千万零〇壹贰叁肆伍陆柒捌玖拾佰仟萬上中下\d]+\s*[部章卷>][.、：:]?\s*(.{0,15})/i,
+    englishChapter: /^(Chapter|Chap|Part|Book)\s*(\d+[\.:\-]?\d*)\s*[:\-]?\s*(.{0,15})/i,
+    sectionDash: /^<?(\d+)[\-–—\.](\d+)\s*[:\-]?>?\s*(.{0,15})/,
+    sectionCn: /^[<第]\s*[一二三四五六七八九十百千万零〇壹贰叁肆伍陆柒捌玖拾佰仟萬\d]+\s*[节集>][:\-\s]?\s*(.{0,15})/i,
+    sectionEn: /^Section\s*(\d+)\s*[:\-]?\s*(.{0,15})/i,
+    specialTitles: /^<?(阅读须知|版权说明|引言|序言|前言|楔子|尾声|创作后记|后记|附录|Introduction|Prologue|Preface|Epilogue)[:：]?(.{0,15})>?$/i,
     mdHeading: /^(#{1,6})\s+(.+)$/,
     titleTag: /^\[T\]/i,
     subtitleTag: /^\[S\]/i

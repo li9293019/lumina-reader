@@ -2318,6 +2318,8 @@ font-size: 0.95em;
 color: var(--text-secondary);
 margin-bottom: 16px;
 line-height: 1.5;
+white-space: pre-line;
+word-break: break-all;
 }
 
 .dialog-input-wrapper {

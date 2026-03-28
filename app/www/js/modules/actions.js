@@ -107,14 +107,16 @@ Lumina.Actions = {
             if (fileType === 'docx' || fileType === 'pdf') {
                 const arrayBuffer = await file.arrayBuffer();
                 if (fileType === 'docx') {
-                    result = await Lumina.Parser.parseDOCX(arrayBuffer);
+                    // DOCX 解析，支持加密文件
+                    result = await this.parseDOCXWithPassword(arrayBuffer, file.name);
                 } else {
-                    // PDF 解析带进度显示
+                    // PDF 解析带进度显示，传入文件名用于密码预设器
                     const t = Lumina.I18n.t;
                     const loadingText = Lumina.DOM.loadingScreen?.querySelector('.loading-text');
+                    const fileName = file.name || '';
                     
                     if (!loadingText) {
-                        result = await Lumina.Parser.parsePDF(arrayBuffer);
+                        result = await Lumina.Parser.parsePDF(arrayBuffer, null, fileName);
                     } else {
                         // 设置初始文本
                         loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'}...`;
@@ -125,7 +127,12 @@ Lumina.Actions = {
                         result = await Lumina.Parser.parsePDF(arrayBuffer, (current, total) => {
                             const percent = Math.round((current / total) * 100);
                             loadingText.textContent = `${t('pdfParsing') || 'PDF 解析中'} ${percent}% (${current}/${total})`;
-                        });
+                        }, fileName);
+                    }
+                    
+                    // 用户取消了密码输入
+                    if (!result) {
+                        return;
                     }
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
@@ -214,7 +221,7 @@ Lumina.Actions = {
                 Lumina.UI.showToast(`${Lumina.State.app.currentFile.encoding} → UTF-8`, 2000);
             }
         } catch (err) {
-            // 忽略用户取消操作（PDF 密码输入取消等）
+            // 忽略用户取消操作（PDF/DOCX 密码输入取消等）
             const isCancelled = err.message === 'Password cancelled' || 
                                err.message?.includes('cancelled') ||
                                err.message?.includes('No password') ||
@@ -228,6 +235,98 @@ Lumina.Actions = {
         } finally {
             Lumina.State.app.ui.isProcessing = false;
             Lumina.DOM.loadingScreen.classList.remove('active');
+        }
+    },
+
+    /**
+     * 解析 DOCX 文件，支持密码保护
+     * @param {ArrayBuffer} arrayBuffer - 文件内容
+     * @param {string} fileName - 文件名（用于错误提示）
+     * @returns {Promise<{items: Array, type: string}>}
+     */
+    async parseDOCXWithPassword(arrayBuffer, fileName) {
+        let password = null;
+        let isRetry = false;
+        
+        while (true) {
+            try {
+                // 尝试解析（带密码或不带密码）
+                return await Lumina.Parser.parseDOCX(arrayBuffer, password);
+            } catch (err) {
+                console.log('[DOCX] Parse error:', err.message);
+                
+                // 检查是否是解密库问题（Web/APP 端加密 DOCX 支持有限）
+                // 这种情况直接显示不支持，不进入密码重试循环
+                if (err.message === 'DOCX decryption library not available' || 
+                    err.message?.includes('not a function')) {
+                    const t = Lumina.I18n.t;
+                    Lumina.UI.showDialog(
+                        t('docxEncryptedNotSupported') || 
+                        '加密的 DOCX 文档暂不支持。建议：\n1. 在 Word 中打开并另存为 PDF\n2. 或使用未加密的 DOCX 文件',
+                        'alert'
+                    );
+                    throw new Error('Password cancelled');
+                }
+                
+                // 检查是否是加密文件或密码错误
+                const isEncrypted = err.message === 'DOCX encrypted' || 
+                                   err.message === 'Password incorrect' ||
+                                   (err.message && err.message.includes('end of central directory'));
+                
+                if (!isEncrypted) {
+                    // 不是加密相关的错误，直接抛出
+                    throw err;
+                }
+                
+                // 检查是否第一次尝试（无密码）且是加密文件
+                // 如果是，说明是加密文件但库不可用，直接提示不支持
+                if (!password && err.message === 'DOCX encrypted') {
+                    const t = Lumina.I18n.t;
+                    Lumina.UI.showDialog(
+                        t('docxEncryptedNotSupported') || 
+                        '加密的 DOCX 文档暂不支持。建议：\n1. 在 Word 中打开并另存为 PDF\n2. 或使用未加密的 DOCX 文件',
+                        'alert'
+                    );
+                    throw new Error('Password cancelled');
+                }
+                
+                // 隐藏 loading 界面，显示密码对话框
+                const wasLoadingActive = Lumina.DOM.loadingScreen?.classList.contains('active');
+                if (wasLoadingActive) {
+                    Lumina.DOM.loadingScreen.classList.remove('active');
+                }
+                
+                // 获取密码
+                const t = Lumina.I18n.t;
+                const title = isRetry ? (t('docxPasswordError') || '密码错误') : (t('docxPasswordRequired') || '需要密码');
+                const message = isRetry ? (t('docxPasswordRetry') || '密码不正确，请重试') : (t('docxPasswordPrompt') || '此 DOCX 文档已加密，请输入密码');
+                
+                const inputPassword = await new Promise((resolve) => {
+                    Lumina.UI.showDialog(message, 'prompt', (result) => {
+                        resolve(result);
+                    }, { 
+                        title, 
+                        inputType: 'password', 
+                        placeholder: t('pdfPasswordPlaceholder') || '请输入密码' 
+                    });
+                });
+                
+                // 恢复 loading 界面
+                if (wasLoadingActive) {
+                    Lumina.DOM.loadingScreen.classList.add('active');
+                }
+                
+                // 用户取消
+                if (inputPassword === null || inputPassword === false) {
+                    throw new Error('Password cancelled');
+                }
+                
+                password = inputPassword;
+                isRetry = true;
+                
+                // 延迟一下让 UI 更新
+                await new Promise(r => setTimeout(r, 100));
+            }
         }
     },
 

@@ -316,8 +316,71 @@ Lumina.Parser.processHeading = (level, rawText, cleanText = null) => {
 
 // ==================== 7. 文件解析器 ====================
 
-Lumina.Parser.parseDOCX = async (arrayBuffer) => {
-    const zip = await JSZip.loadAsync(arrayBuffer);
+/**
+ * DOCX 解密辅助函数
+ */
+Lumina.Parser.decryptDOCX = async (arrayBuffer, password) => {
+    // 检查库是否可用
+    const cryptoLib = window.officeCrypto;
+    if (!cryptoLib || typeof cryptoLib.decrypt !== 'function') {
+        console.error('[DOCX] officeCrypto not available');
+        throw new Error('DOCX decryption library not available');
+    }
+    
+    // 注意：officecrypto-tool 依赖 Node.js 的 Buffer 和 crypto 模块
+    // browserify 打包后在浏览器/APP WebView 中可能无法正常工作
+    // 这里尝试调用，如果失败会抛出错误
+    
+    // 转换为 Uint8Array，库需要这种格式
+    const inputData = new Uint8Array(arrayBuffer);
+    console.log('[DOCX] Calling officeCrypto.decrypt...');
+    
+    // 调用解密函数
+    const result = await cryptoLib.decrypt(inputData, {password});
+    console.log('[DOCX] Decryption successful');
+    
+    // 返回 ArrayBuffer
+    if (result.buffer) {
+        return result.buffer;
+    }
+    return result;
+};
+
+/**
+ * 解析 DOCX 文件
+ * @param {ArrayBuffer} arrayBuffer - DOCX 文件的 ArrayBuffer
+ * @param {string} password - 可选的解密密码
+ * @returns {Promise<{items: Array, type: string}>}
+ */
+Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
+    let zip;
+    
+    // 尝试用密码解密（如果需要）
+    if (password) {
+        try {
+            const decryptedBuffer = await Lumina.Parser.decryptDOCX(arrayBuffer, password);
+            zip = await JSZip.loadAsync(decryptedBuffer);
+        } catch (decryptError) {
+            console.error('[DOCX] Decryption error:', decryptError);
+            // 检查错误类型来给出更准确的提示
+            const errorMsg = decryptError.message ? decryptError.message.toLowerCase() : '';
+            if (errorMsg.includes('password') || errorMsg.includes('incorrect') || errorMsg.includes('invalid') || errorMsg.includes('not available')) {
+                throw new Error('Password incorrect');
+            }
+            // 其他错误也视为密码错误
+            throw new Error('Password incorrect');
+        }
+    } else {
+        try {
+            zip = await JSZip.loadAsync(arrayBuffer);
+        } catch (zipError) {
+            // 检查是否是加密文件（JSZip 无法读取加密文件）
+            if (zipError.message && zipError.message.includes('end of central directory')) {
+                throw new Error('DOCX encrypted');
+            }
+            throw zipError;
+        }
+    }
     let styleDefs = {};
     const images = {}, relsMap = {};
 
@@ -467,9 +530,11 @@ if (typeof pdfjsLib !== 'undefined') {
 /**
  * 解析 PDF 文件
  * @param {ArrayBuffer} arrayBuffer - PDF 文件的 ArrayBuffer
+ * @param {Function} onProgress - 进度回调函数
+ * @param {string} fileName - 文件名（用于密码预设器）
  * @returns {Promise<{items: Array, type: string}>}
  */
-Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
+Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') => {
     if (typeof pdfjsLib === 'undefined') {
         throw new Error('PDF.js library not loaded');
     }
@@ -479,10 +544,23 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
 
     // 用户取消标记
     let userCancelled = false;
-    let passwordHandled = false;
+    
+    // 密码预设相关状态（闭包变量，在 onPassword 多次调用间保持状态）
+    const passwordState = {
+        initialized: false,
+        passwords: [],
+        currentIndex: 0,
+        wasLoadingActive: false
+    };
+    
+    // 读取设置：是否提取图片
+    const extractImages = Lumina.State?.settings?.pdfExtractImages !== false;
+    // console.log(`[PDF] Extract images: ${extractImages}`);
 
+    let loadingTask = null;
+    
     try {
-        const loadingTask = pdfjsLib.getDocument({
+        loadingTask = pdfjsLib.getDocument({
             data: arrayBuffer,
             useSystemFonts: true,
             cMapUrl: './assets/js/cmaps/',
@@ -496,14 +574,38 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
                 throw new Error('Password cancelled');
             }
             
+            const t = Lumina.I18n.t;
             const isRetry = reason === 2;
-            const title = isRetry ? Lumina.I18n.t('pdfPasswordError') : Lumina.I18n.t('pdfPasswordRequired');
-            const message = isRetry ? Lumina.I18n.t('pdfPasswordRetry') : Lumina.I18n.t('pdfPasswordPrompt');
             
-            // 隐藏 loading，但保留状态标记以便后续恢复
+            // 第一次被调用：尝试预设密码
+            if (!isRetry && !passwordState.initialized && Lumina.PasswordPreset) {
+                passwordState.initialized = true;
+                passwordState.passwords = Lumina.PasswordPreset.generatePasswords(fileName);
+                passwordState.currentIndex = 0;
+                
+                if (passwordState.passwords.length > 0) {
+                    const loadingText = Lumina.DOM.loadingScreen?.querySelector('.loading-text');
+                    if (loadingText) {
+                        loadingText.textContent = `${t('pdfTryingPresetPasswords') || '正在尝试预设密码'} (${passwordState.passwords.length})...`;
+                    }
+                }
+            }
+            
+            // 尝试下一个预设密码
+            if (passwordState.currentIndex < passwordState.passwords.length) {
+                const password = passwordState.passwords[passwordState.currentIndex++];
+                updateCallback(password);
+                return;
+            }
+            
+            // 预设密码都试完了，显示输入对话框
+            const title = isRetry ? t('pdfPasswordError') : t('pdfPasswordRequired');
+            const message = isRetry ? t('pdfPasswordRetry') : 
+                           (passwordState.passwords.length > 0 ? t('pdfPresetPasswordsFailed') || '预设密码尝试失败，请手动输入' : t('pdfPasswordPrompt'));
+            
+            // 隐藏 loading
             const wasLoadingActive = Lumina.DOM.loadingScreen?.classList.contains('active');
             const loadingText = Lumina.DOM.loadingScreen?.querySelector('.loading-text');
-            const originalLoadingText = loadingText?.textContent;
             
             if (wasLoadingActive) Lumina.DOM.loadingScreen.classList.remove('active');
             
@@ -515,18 +617,18 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
                     return;
                 }
                 
-                // 恢复 loading 界面并显示解密中状态
+                // 恢复 loading 界面
                 if (wasLoadingActive && Lumina.DOM.loadingScreen) {
                     Lumina.DOM.loadingScreen.classList.add('active');
                     if (loadingText) {
-                        loadingText.textContent = `${Lumina.I18n.t('pdfDecrypting') || 'PDF 解密中'}...`;
+                        loadingText.textContent = `${t('pdfDecrypting') || 'PDF 解密中'}...`;
                     }
                 }
                 
                 // 延迟调用 updateCallback，让 UI 先更新
                 await new Promise(resolve => setTimeout(resolve, 100));
                 updateCallback(result);
-            }, { title, inputType: 'password', placeholder: Lumina.I18n.t('pdfPasswordPlaceholder') });
+            }, { title, inputType: 'password', placeholder: t('pdfPasswordPlaceholder') });
         };
 
         currentPdf = await loadingTask.promise;
@@ -568,11 +670,13 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
             carryOverText = newCarryOver || '';
             carryOverY = newCarryOverY || 0;
 
-            // 提取图片
-            const images = await Lumina.Parser.extractPDFImages(page, pageNum);
+            // 提取图片（根据设置决定是否提取）
+            const images = extractImages ? await Lumina.Parser.extractPDFImages(page, pageNum) : [];
             
             // 图片处理后让出主线程（图片 base64 转换可能阻塞）
-            await new Promise(r => setTimeout(r, 0));
+            if (extractImages) {
+                await new Promise(r => setTimeout(r, 0));
+            }
 
             // 将段落转换为文本项
             const textItems = paragraphs.map(p => ({
@@ -584,7 +688,9 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null) => {
             }));
 
             // 合并文本和图片，按 Y 坐标排序
-            const mergedItems = [...textItems, ...images].sort((a, b) => b.y - a.y);
+            const mergedItems = extractImages 
+                ? [...textItems, ...images].sort((a, b) => b.y - a.y)
+                : textItems;
 
             pageContents.push({
                 pageNum,

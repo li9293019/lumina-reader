@@ -71,41 +71,68 @@ public class MainActivity extends BridgeActivity {
      * @return true 如果当前实例被结束，需要停止后续初始化
      */
     private boolean handleMultiInstanceLaunch() {
-        // 如果不是根任务，说明是在新任务栈中启动的
-        if (!isTaskRoot()) {
+        // 检查是否有真正的 Lumina 实例已经在运行（不是在当前任务栈中）
+        if (hasExistingLuminaInstance()) {
             Intent intent = getIntent();
             Uri data = intent.getData();
             String action = intent.getAction();
             
-            // 如果是 VIEW 或 SEND 动作且有数据，需要将现有实例带到前台并传递数据
-            if ((Intent.ACTION_VIEW.equals(action) || Intent.ACTION_SEND.equals(action)) && data != null) {
-                Log.d(TAG, "检测到多实例启动，将现有实例带到前台");
-                
-                // 创建 Intent 带到已存在的实例
-                Intent bringToFront = new Intent(this, MainActivity.class);
-                bringToFront.setAction(action);
-                bringToFront.setData(data);
-                bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                
-                // 如果是 SEND，需要额外传递 EXTRA_STREAM
-                if (Intent.ACTION_SEND.equals(action)) {
-                    Uri sendData = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                    if (sendData != null) {
-                        bringToFront.putExtra(Intent.EXTRA_STREAM, sendData);
-                    }
+            Log.d(TAG, "检测到已有 Lumina 实例在运行，将现有实例带到前台");
+            
+            // 创建 Intent 带到已存在的实例
+            Intent bringToFront = new Intent(this, MainActivity.class);
+            if (action != null) bringToFront.setAction(action);
+            if (data != null) bringToFront.setData(data);
+            bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            // 如果是 SEND，需要额外传递 EXTRA_STREAM
+            if (Intent.ACTION_SEND.equals(action)) {
+                Uri sendData = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (sendData != null) {
+                    bringToFront.putExtra(Intent.EXTRA_STREAM, sendData);
                 }
-                
-                startActivity(bringToFront);
-            } else {
-                // 其他情况，简单带到前台
-                Intent bringToFront = new Intent(this, MainActivity.class);
-                bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                startActivity(bringToFront);
             }
+            
+            startActivity(bringToFront);
             
             // 结束当前实例
             finish();
             return true;
+        }
+        
+        // 没有已有实例，让当前 Activity 正常启动
+        Log.d(TAG, "没有检测到已有实例，正常启动");
+        return false;
+    }
+    
+    /**
+     * 检查是否有真正的 Lumina 实例已经在运行
+     * 通过检查最近任务列表中是否有 Lumina 的 Activity
+     */
+    private boolean hasExistingLuminaInstance() {
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (am != null) {
+                List<ActivityManager.AppTask> tasks = am.getAppTasks();
+                if (tasks != null) {
+                    for (ActivityManager.AppTask task : tasks) {
+                        ActivityManager.RecentTaskInfo taskInfo = task.getTaskInfo();
+                        if (taskInfo != null && taskInfo.baseActivity != null) {
+                            String packageName = taskInfo.baseActivity.getPackageName();
+                            // 找到 Lumina 的任务（不是当前任务）
+                            if ("com.lumina.reader".equals(packageName)) {
+                                // 检查这个任务是否是当前正在启动的任务
+                                if (taskInfo.id != getTaskId()) {
+                                    Log.d(TAG, "找到已有 Lumina 实例，任务 ID: " + taskInfo.id);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "检查已有实例时出错: " + e.getMessage());
         }
         return false;
     }

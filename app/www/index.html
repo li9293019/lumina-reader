@@ -36,6 +36,9 @@
 <script src="./assets/js/lib/pdf.min.js"></script>
 <script src="./assets/js/lib/encoding.min.js"></script>
 <script src="./assets/js/lib/docx.min.js"></script>
+<!-- officecrypto-tool 库（暂不使用，等待可靠的浏览器端实现）
+<script src="./assets/js/lib/officecrypto.min.js"></script>
+-->
 <script src="./assets/js/lib/pdf.worker.min.js"></script>
 
 <!-- 应用桥接 -->
@@ -59,6 +62,9 @@
 <script src="./js/modules/chapter.js"></script>
 <!-- 渲染引擎（包含搜索、热图、分页） -->
 <script src="./js/modules/renderer.js"></script>
+<!-- 密码预设器 -->
+<script src="./assets/js/lib/pinyin-pro.min.js"></script>
+    <script src="./js/modules/password-preset.js"></script>
 <!-- 语音朗读 -->
 <script src="./js/modules/crypto.js"></script>
 <script src="./js/modules/tts.js"></script>
@@ -559,6 +565,59 @@
                     <div class="regex-feedback" id="sectionRegexFeedback"></div>
                     
                     <button class="option-btn" id="applyRegex" style="margin-top: 8px; width: 100%;" data-i18n="apply"></button>
+                </div>
+
+                <!-- PDF 解析设置 -->
+                <div class="setting-group" id="pdfParseGroup">
+                    <div class="setting-label" data-i18n="pdfParse"></div>
+                    
+                    <!-- 提取图片 -->
+                    <div class="toggle-switch" id="pdfExtractImagesToggle" data-setting-toggle="pdfExtractImages">
+                        <span class="toggle-label" data-i18n="pdfExtractImages"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 启用预设密码 -->
+                    <div class="toggle-switch" id="pdfPasswordPresetToggle" data-setting-toggle="pdfPasswordPreset">
+                        <span class="toggle-label" data-i18n="pdfPasswordPreset"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 密码预设配置面板 -->
+                    <div id="pdfPasswordPresetConfig" style="display: none;">
+                        <!-- 启用智能猜测 -->
+                        <div class="toggle-switch" id="pdfSmartGuessToggle" data-setting-toggle="pdfSmartGuess">
+                            <span class="toggle-label" data-i18n="pdfSmartGuess"></span>
+                            <div class="toggle-track">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 密码长度滑块 -->
+                        <div class="slider-control" style="margin-bottom: 12px;">
+                            <div class="setting-label" data-i18n="pdfPasswordLength"></div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="pdfPasswordLength" min="3" max="20" value="6">
+                                <span class="slider-value" id="pdfPasswordLengthValue">6</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 固定前缀 -->
+                        <div style="margin-bottom: 12px;">
+                            <div class="setting-label" data-i18n="pdfPasswordPrefix"></div>
+                            <input type="text" class="regex-input" id="pdfPasswordPrefix" data-i18n-placeholder="pdfPasswordPrefixPlaceholder" placeholder="如：pdf、doc、file">
+                        </div>
+                        
+                        <!-- 常用密码 -->
+                        <div>
+                            <div class="setting-label" data-i18n="pdfCommonPasswords"></div>
+                            <input type="text" class="regex-input" id="pdfCommonPasswords" data-i18n-placeholder="pdfCommonPasswordsPlaceholder" placeholder="123456, 888888, 000000, 666666">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="setting-group">

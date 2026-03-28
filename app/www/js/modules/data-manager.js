@@ -1389,7 +1389,7 @@ Lumina.DB.loadHistoryFromDB = async () => {
         const files = await Lumina.DB.adapter.getAllFiles();
         Lumina.Renderer.renderHistoryFromDB(files);
     } catch (err) {
-        list.innerHTML = `<div class="history-empty"><div>${t('loadFailed')}</div></div>`;
+        list.innerHTML = `<div class="history-empty"><div>${Lumina.I18n.t('loadFailed')}</div></div>`;
     }
 };
 

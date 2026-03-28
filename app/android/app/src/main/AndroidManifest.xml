@@ -16,7 +16,8 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:taskAffinity=""
+            android:taskAffinity="com.lumina.reader.task"
+            android:excludeFromRecents="false"
             android:exported="true"
             android:keepScreenOn="true"
             android:windowSoftInputMode="adjustResize">

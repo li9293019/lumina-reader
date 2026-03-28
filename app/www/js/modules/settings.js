@@ -138,6 +138,96 @@ Lumina.Settings = {
             Lumina.State.app.currentFile.type = oldFileType;
             Lumina.DOM.fileInfo.textContent = oldFileName;
         }
+    },
+
+    // 初始化 PDF 解析设置（密码预设器）
+    initPasswordPreset() {
+        // 密码预设配置面板控制（开关状态由 data-setting-toggle 统一处理）
+        const presetToggle = document.getElementById('pdfPasswordPresetToggle');
+        const configPanel = document.getElementById('pdfPasswordPresetConfig');
+        const lengthSlider = document.getElementById('pdfPasswordLength');
+        const lengthValue = document.getElementById('pdfPasswordLengthValue');
+        const prefixInput = document.getElementById('pdfPasswordPrefix');
+        const commonInput = document.getElementById('pdfCommonPasswords');
+        
+        if (!presetToggle || !configPanel) return;
+        
+        // 从独立配置加载（长度、前缀、常用密码）
+        const config = Lumina.PasswordPreset.getConfig();
+        
+        // 同步 settings 到 PasswordPreset 配置
+        const syncSettingsToPreset = () => {
+            const settings = Lumina.State.settings;
+            config.enabled = settings.pdfPasswordPreset;
+            config.smartGuess = settings.pdfSmartGuess;
+            Lumina.PasswordPreset.saveConfig(config);
+        };
+        
+        // 初始同步
+        syncSettingsToPreset();
+        
+        // 监听设置变化，同步到 PasswordPreset
+        const originalSave = Lumina.Settings.save;
+        Lumina.Settings.save = function() {
+            originalSave.call(this);
+            syncSettingsToPreset();
+        };
+        
+        // 根据开关状态显示/隐藏配置面板
+        const updatePanelVisibility = () => {
+            const isEnabled = Lumina.State.settings.pdfPasswordPreset;
+            configPanel.style.display = isEnabled ? 'block' : 'none';
+        };
+        updatePanelVisibility();
+        
+        // 点击开关时更新面板显示
+        presetToggle.addEventListener('click', () => {
+            // 使用 setTimeout 等待 ui.js 中的处理完成
+            setTimeout(updatePanelVisibility, 0);
+        });
+        
+        // 填充其他配置（长度、前缀、常用密码）
+        if (lengthSlider) {
+            lengthSlider.value = config.length || 6;
+            if (lengthValue) lengthValue.textContent = config.length || 6;
+        }
+        if (prefixInput) prefixInput.value = config.prefix || '';
+        if (commonInput) commonInput.value = (config.commonPasswords || '').replace(/\|/g, ', ');
+        
+        // 长度滑块 - 实时保存到独立配置
+        if (lengthSlider) {
+            lengthSlider.addEventListener('input', () => {
+                const value = lengthSlider.value;
+                if (lengthValue) lengthValue.textContent = value;
+                
+                const currentConfig = Lumina.PasswordPreset.getConfig();
+                currentConfig.length = parseInt(value);
+                Lumina.PasswordPreset.saveConfig(currentConfig);
+            });
+        }
+        
+        // 前缀输入 - 实时保存到独立配置
+        if (prefixInput) {
+            prefixInput.addEventListener('change', () => {
+                const currentConfig = Lumina.PasswordPreset.getConfig();
+                currentConfig.prefix = prefixInput.value;
+                Lumina.PasswordPreset.saveConfig(currentConfig);
+            });
+        }
+        
+        // 常用密码输入 - 实时保存到独立配置（逗号分隔转 | 分隔存储）
+        if (commonInput) {
+            commonInput.addEventListener('change', () => {
+                const currentConfig = Lumina.PasswordPreset.getConfig();
+                const passwords = commonInput.value
+                    .split(/[,，\s]+/)
+                    .map(p => p.trim())
+                    .filter(p => p.length > 0)
+                    .join('|');
+                currentConfig.commonPasswords = passwords;
+                Lumina.PasswordPreset.saveConfig(currentConfig);
+            });
+        }
     }
 };
 

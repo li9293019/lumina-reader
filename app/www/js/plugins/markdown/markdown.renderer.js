@@ -15,14 +15,14 @@ Lumina.Plugin.Markdown.Renderer = {
 
     /**
      * 初始化代码高亮
-     * 纯本地策略：使用本地 PrismJS，根据主题自动匹配
+     * 修复：添加更强的验证和错误处理
      */
     async initHighlighter() {
         if (this.highlightState.loaded) return;
 
         try {
             // 如果 Prism 已存在（可能之前加载过），直接复用
-            if (window.Prism) {
+            if (window.Prism && window.Prism.languages) {
                 this.highlightState = { loaded: true, source: 'local', Prism: window.Prism };
                 // console.log('[Markdown] 复用已加载的 Prism');
                 return;
@@ -32,16 +32,28 @@ Lumina.Plugin.Markdown.Renderer = {
             // console.log('[Markdown] 开始加载 PrismJS...');
             await this.loadScript('./js/plugins/markdown/lib/prism/prism.min.js');
             
+            // 验证 Prism 是否真的加载成功
+            if (!window.Prism || !window.Prism.languages) {
+                throw new Error('Prism loaded but not found on window');
+            }
+            
             // 根据当前主题加载对应代码高亮主题
             const theme = this.getCurrentTheme();
             // console.log('[Markdown] 加载代码高亮主题:', theme);
-            await this.loadCSS(`./js/plugins/markdown/lib/prism/themes/${theme}.css`, 'data-prism-theme', theme);
+            try {
+                await this.loadCSS(`./js/plugins/markdown/lib/prism/themes/${theme}.css`, 'data-prism-theme', theme);
+            } catch (e) {
+                // CSS 加载失败不影响核心功能，使用默认样式
+                console.warn('[Markdown] 代码高亮主题加载失败，使用默认样式');
+            }
             
             this.highlightState = { loaded: true, source: 'local', Prism: window.Prism };
             // console.log('[Markdown] 代码高亮已加载 (主题: ' + theme + ')');
         } catch (e) {
             console.error('[Markdown] 代码高亮加载失败:', e);
             this.highlightState = { loaded: false, source: null, Prism: null };
+            // 重新抛出错误，让调用方知道初始化失败
+            throw e;
         }
     },
 
@@ -95,14 +107,69 @@ Lumina.Plugin.Markdown.Renderer = {
 
     /**
      * 动态加载脚本
+     * 修复：添加超时、重复加载检测和更强的错误处理
      */
     loadScript(src) {
         return new Promise((resolve, reject) => {
+            // 检查是否已存在相同的脚本（通过 src）
+            const existing = document.querySelector(`script[src="${src}"]`);
+            if (existing) {
+                // 脚本已存在，检查是否已加载完成
+                if (existing.dataset.loaded === 'true') {
+                    resolve();
+                    return;
+                }
+                // 脚本正在加载中，等待它完成
+                const checkLoaded = setInterval(() => {
+                    if (existing.dataset.loaded === 'true') {
+                        clearInterval(checkLoaded);
+                        resolve();
+                    }
+                }, 50);
+                // 最多等待 5 秒
+                setTimeout(() => {
+                    clearInterval(checkLoaded);
+                    resolve(); // 超时也 resolve，让调用方自行检查
+                }, 5000);
+                return;
+            }
+            
             const script = document.createElement('script');
             script.src = src;
             script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            
+            let timeoutId;
+            let isDone = false;
+            
+            const cleanup = () => {
+                isDone = true;
+                clearTimeout(timeoutId);
+            };
+            
+            script.onload = () => {
+                if (isDone) return;
+                cleanup();
+                script.dataset.loaded = 'true';
+                resolve();
+            };
+            
+            script.onerror = () => {
+                if (isDone) return;
+                cleanup();
+                // 标记为错误，但不阻止其他代码
+                script.dataset.error = 'true';
+                reject(new Error(`Failed to load ${src}`));
+            };
+            
+            // 5秒超时
+            timeoutId = setTimeout(() => {
+                if (isDone) return;
+                cleanup();
+                script.dataset.timeout = 'true';
+                console.warn(`[Markdown] 脚本加载超时: ${src}`);
+                reject(new Error(`Timeout loading ${src}`));
+            }, 5000);
+            
             document.head.appendChild(script);
         });
     },
@@ -401,42 +468,57 @@ Lumina.Plugin.Markdown.Renderer = {
 
     /**
      * 渲染代码块
+     * 修复：更强的错误处理和降级策略
      */
     renderCodeBlock(container, item) {
         try {
+            // 安全处理：确保 item.text 是字符串
+            const codeText = typeof item.text === 'string' ? item.text : 
+                            (item.text ? String(item.text) : '');
+            const language = typeof item.language === 'string' ? item.language.toLowerCase().trim() : '';
+            
             // 创建代码块容器（用于定位语言标签）
             const wrapper = document.createElement('div');
             wrapper.className = 'markdown-code-wrapper';
-            if (item.language) {
-                wrapper.setAttribute('data-lang', item.language.toUpperCase());
+            if (language) {
+                wrapper.setAttribute('data-lang', language.toUpperCase());
             }
             
             const pre = document.createElement('pre');
             pre.className = 'markdown-pre';
-            if (item.language) {
-                pre.classList.add(`language-${item.language}`);
+            if (language) {
+                pre.classList.add(`language-${language}`);
             }
             
             const code = document.createElement('code');
             code.className = 'markdown-code';
-            if (item.language) {
-                code.classList.add(`language-${item.language}`);
+            if (language) {
+                code.classList.add(`language-${language}`);
             }
             
             // 转义 HTML 特殊字符
-            code.textContent = item.text;
+            code.textContent = codeText;
             
             pre.appendChild(code);
             wrapper.appendChild(pre);
             container.appendChild(wrapper);
             
-            // 异步尝试高亮（添加错误保护）
-            this.highlightCodeElement(code).catch(() => {});
+            // 异步尝试高亮（添加完整错误保护）
+            // 使用 setTimeout 确保不阻塞渲染主线程
+            setTimeout(() => {
+                if (code.isConnected) { // 确保元素仍在 DOM 中
+                    this.highlightCodeElement(code).catch((e) => {
+                        // 静默处理高亮错误，保持原始文本显示
+                        // console.log('[Markdown] 代码高亮失败（已降级）:', e.message);
+                    });
+                }
+            }, 0);
         } catch (e) {
+            console.error('[Markdown] 代码块渲染失败:', e);
             // 降级：只显示纯文本
             const fallback = document.createElement('pre');
             fallback.className = 'markdown-pre';
-            fallback.textContent = item.text;
+            fallback.textContent = typeof item.text === 'string' ? item.text : String(item.text || '');
             container.appendChild(fallback);
         }
     },
@@ -447,10 +529,16 @@ Lumina.Plugin.Markdown.Renderer = {
     loadedLanguages: new Set(['markup', 'html', 'xml', 'mathml', 'svg']), // markup 是基础
     
     /**
+     * 正在加载中的语言（防止并发重复加载）
+     */
+    loadingLanguages: new Map(),
+    
+    /**
      * 加载指定语言的 PrismJS 组件
+     * 修复：添加并发控制和更强的错误处理
      */
     async loadLanguageComponent(lang) {
-        if (!lang || this.loadedLanguages.has(lang)) return;
+        if (!lang) return;
         
         // 语言别名映射
         const aliasMap = {
@@ -469,66 +557,170 @@ Lumina.Plugin.Markdown.Renderer = {
         };
         
         const actualLang = aliasMap[lang] || lang;
+        
+        // 已加载，直接返回
         if (this.loadedLanguages.has(actualLang)) return;
         
+        // 正在加载中，等待其完成
+        if (this.loadingLanguages.has(actualLang)) {
+            try {
+                await this.loadingLanguages.get(actualLang);
+            } catch (e) {
+                // 之前的加载失败了，继续尝试重新加载
+            }
+            return;
+        }
+        
+        // 创建加载 Promise
+        const loadPromise = this._doLoadLanguage(actualLang);
+        this.loadingLanguages.set(actualLang, loadPromise);
+        
+        try {
+            await loadPromise;
+        } finally {
+            // 加载完成后（无论成功失败），从 loading 中移除
+            // 使用 setTimeout 确保其他等待者先完成
+            setTimeout(() => {
+                this.loadingLanguages.delete(actualLang);
+            }, 0);
+        }
+    },
+    
+    /**
+     * 实际加载语言的内部方法
+     */
+    async _doLoadLanguage(actualLang) {
         try {
             // 依赖 clike 的语言需要先加载 clike
             const clikeDependents = ['csharp', 'gradle', 'java', 'kotlin', 'scala', 'groovy', 'cpp', 'c', 'objectivec', 'swift'];
-            if (clikeDependents.includes(actualLang) && !this.loadedLanguages.has('clike')) {
-                const clikePath = `./js/plugins/markdown/lib/prism/components/prism-clike.min.js`;
-                await this.loadScript(clikePath);
-                this.loadedLanguages.add('clike');
+            if (clikeDependents.includes(actualLang)) {
+                await this._ensureClikeLoaded();
             }
             
             const scriptPath = `./js/plugins/markdown/lib/prism/components/prism-${actualLang}.min.js`;
             await this.loadScript(scriptPath);
-            this.loadedLanguages.add(actualLang);
+            
+            // 验证语言是否真的加载成功
+            if (window.Prism && window.Prism.languages && window.Prism.languages[actualLang]) {
+                this.loadedLanguages.add(actualLang);
+                // console.log('[Markdown] 语言组件加载成功:', actualLang);
+            } else {
+                console.warn('[Markdown] 语言组件加载后未找到:', actualLang);
+            }
         } catch (e) {
             console.error('[Markdown] 语言组件加载失败:', actualLang, e.message);
+            // 抛出错误让上层知道加载失败
+            throw e;
+        }
+    },
+    
+    /**
+     * 确保 clike 基础语言已加载
+     * 修复：添加验证和重试机制
+     */
+    async _ensureClikeLoaded() {
+        if (this.loadedLanguages.has('clike')) return;
+        
+        // 检查 Prism 是否已经有 clike（可能通过其他方式加载）
+        if (window.Prism && window.Prism.languages && window.Prism.languages.clike) {
+            this.loadedLanguages.add('clike');
+            return;
+        }
+        
+        try {
+            const clikePath = `./js/plugins/markdown/lib/prism/components/prism-clike.min.js`;
+            await this.loadScript(clikePath);
+            
+            // 验证 clike 是否真的加载成功
+            if (window.Prism && window.Prism.languages && window.Prism.languages.clike) {
+                this.loadedLanguages.add('clike');
+                // console.log('[Markdown] clike 基础组件加载成功');
+            } else {
+                console.error('[Markdown] clike 基础组件加载后未找到');
+                throw new Error('clike not found after loading');
+            }
+        } catch (e) {
+            console.error('[Markdown] clike 基础组件加载失败:', e.message);
+            throw e;
         }
     },
 
     /**
      * 高亮单个代码元素
-     * 添加超时保护，防止 Prism 卡死
+     * 修复：更强的错误处理和超时保护
      */
     async highlightCodeElement(codeElement) {
-        // 等待高亮库就绪
-        if (!this.highlightState.loaded) {
-            await this.initHighlighter();
+        // 安全：检查元素是否有效
+        if (!codeElement || !codeElement.textContent) return;
+        
+        // 超大代码块跳过高亮（超过 5000 字符），避免性能问题
+        const codeLength = codeElement.textContent.length;
+        if (codeLength > 5000) {
+            // console.log('[Markdown] 代码块过大，跳过高亮:', codeLength, '字符');
+            return;
         }
         
-        if (this.highlightState.loaded && this.highlightState.Prism) {
+        // 等待高亮库就绪
+        if (!this.highlightState.loaded) {
             try {
-                // 检查语言
-                const langClass = Array.from(codeElement.classList).find(c => c.startsWith('language-'));
-                const lang = langClass ? langClass.replace('language-', '') : '';
-                
-                // 先加载语言组件（如果有指定语言）
-                if (lang) {
-                    await this.loadLanguageComponent(lang);
-                }
-                
-                // 使用 Promise.race 添加超时保护（3秒）
-                await Promise.race([
-                    new Promise((resolve) => {
-                        // 在下一个事件循环中执行高亮，避免阻塞渲染
-                        setTimeout(() => {
-                            try {
-                                this.highlightState.Prism.highlightElement(codeElement);
-                                resolve();
-                            } catch (e) {
-                                resolve(); // 即使失败也 resolve，避免阻塞
-                            }
-                        }, 0);
-                    }),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Highlight timeout')), 3000)
-                    )
-                ]);
+                await this.initHighlighter();
             } catch (e) {
-                // 失败时保持原始文本，不影响阅读
+                console.warn('[Markdown] 高亮库初始化失败，跳过高亮');
+                return;
             }
+        }
+        
+        if (!this.highlightState.loaded || !this.highlightState.Prism) {
+            return;
+        }
+        
+        // 获取语言
+        const langClass = Array.from(codeElement.classList).find(c => c.startsWith('language-'));
+        const lang = langClass ? langClass.replace('language-', '') : '';
+        
+        try {
+            // 先加载语言组件（如果有指定语言）
+            if (lang) {
+                try {
+                    await this.loadLanguageComponent(lang);
+                } catch (e) {
+                    // 语言加载失败，继续尝试无语言高亮（text）
+                    // console.log('[Markdown] 语言加载失败，使用纯文本:', lang);
+                }
+            }
+            
+            // 检查语言是否真的可用（Prism 核心自带一些语言如 javascript）
+            const langAvailable = lang && window.Prism && window.Prism.languages && window.Prism.languages[lang];
+            if (lang && !langAvailable) {
+                // 语言不可用，降级到纯文本
+                codeElement.classList.remove(`language-${lang}`);
+                codeElement.classList.add('language-text');
+            }
+            
+            // 使用 Promise.race 添加超时保护（2秒）
+            await Promise.race([
+                new Promise((resolve, reject) => {
+                    // 在下一个事件循环中执行高亮，避免阻塞渲染
+                    setTimeout(() => {
+                        try {
+                            // 再次检查 Prism 是否可用
+                            if (this.highlightState.Prism && codeElement.isConnected) {
+                                this.highlightState.Prism.highlightElement(codeElement);
+                            }
+                            resolve();
+                        } catch (e) {
+                            // 高亮失败，静默处理
+                            resolve();
+                        }
+                    }, 0);
+                }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Highlight timeout')), 2000)
+                )
+            ]);
+        } catch (e) {
+            // 失败时保持原始文本，不影响阅读
+            // console.log('[Markdown] 代码高亮失败:', e.message);
         }
     },
 

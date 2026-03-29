@@ -168,32 +168,75 @@ Lumina.Plugin.Markdown.Parser = {
 
     /**
      * 解析代码块
+     * 修复：正确处理嵌套代码块（如 markdown 代码块内包含其他代码块）
      */
     parseCodeBlock(lines, startIndex) {
         const line = lines[startIndex];
-        const fenceMatch = line.match(/^```(\w*)\s*$/);
+        const fenceMatch = line.match(/^(```+)(\w*)\s*$/);
         
         if (!fenceMatch) return null;
 
-        const language = fenceMatch[1] || '';
+        const fence = fenceMatch[1];  // 围栏标记（反引号数量）
+        const language = fenceMatch[2] || '';
         let content = '';
         let i = startIndex + 1;
         
-        while (i < lines.length) {
-            if (lines[i].match(/^```\s*$/)) {
-                i++;
-                break;
+        // 安全限制：最多解析 10000 行代码块
+        const MAX_CODE_BLOCK_LINES = 10000;
+        let lineCount = 0;
+        
+        // 嵌套深度计数：遇到相同长度的围栏开始加一，遇到结束减一
+        let depth = 1;
+        
+        while (i < lines.length && lineCount < MAX_CODE_BLOCK_LINES) {
+            const currentLine = lines[i];
+            
+            // 检查是否是相同长度的围栏
+            const startMatch = currentLine.match(/^(```+)(\w*)\s*$/);
+            if (startMatch) {
+                const currentFence = startMatch[1];
+                if (currentFence.length === fence.length) {
+                    // 相同长度的围栏
+                    if (startMatch[2]) {
+                        // 有语言标识，是嵌套代码块开始
+                        depth++;
+                        content += currentLine + '\n';
+                    } else {
+                        // 无语言标识，是代码块结束
+                        depth--;
+                        if (depth === 0) {
+                            i++;
+                            break;
+                        } else {
+                            // 嵌套代码块的结束
+                            content += currentLine + '\n';
+                        }
+                    }
+                    i++;
+                    lineCount++;
+                    continue;
+                }
             }
-            content += lines[i] + '\n';
+            
+            content += currentLine + '\n';
             i++;
+            lineCount++;
         }
+        
+        // 如果达到行数限制，记录警告
+        if (lineCount >= MAX_CODE_BLOCK_LINES && i < lines.length) {
+            console.warn('[Markdown] 代码块超过最大行数限制，已截断');
+        }
+
+        // 安全处理
+        const safeContent = typeof content === 'string' ? content.slice(0, -1) : '';
 
         return {
             item: {
                 type: 'codeblock',
-                language: language.toLowerCase(),
-                text: content.slice(0, -1), // 去掉最后的换行
-                inlineContent: [{ type: 'text', content: content.slice(0, -1) }],
+                language: language.toLowerCase().trim(),
+                text: safeContent,
+                inlineContent: [{ type: 'text', content: safeContent }],
                 raw: lines.slice(startIndex, i).join('\n')
             },
             nextIndex: i

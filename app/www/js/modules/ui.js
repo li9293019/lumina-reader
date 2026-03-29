@@ -91,7 +91,11 @@ Lumina.UI = {
                 Object.values(panels).forEach(({ panel: p }) => { if (p !== panel) p.classList.remove('open'); });
                 // 关闭注释面板
                 document.getElementById('annotationPanel')?.classList.remove('open');
-                if (panel.classList.contains('open') && key === 'search') Lumina.DOM.searchPanelInput.focus();
+                if (panel.classList.contains('open') && key === 'search') {
+                    Lumina.DOM.searchPanelInput.focus();
+                    // 刷新搜索标签i18n
+                    Lumina.Renderer?.updateSearchTabLabels?.();
+                }
                 
                 // 设置面板打开时，刷新热力图标签显示
                 if (key === 'settings' && panel.classList.contains('open')) {

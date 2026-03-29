@@ -460,35 +460,217 @@ Lumina.Renderer.updateChapterNavInfo = () => {
 // ==================== 10. 搜索功能 ====================
 
 Lumina.Search = {
-    perform(query) {
-        const state = Lumina.State.app;
-        state.search.currentQuery = query;
+    // 当前搜索标签：'document' | 'library'
+    currentTab: 'document',
+    // 搜索结果缓存
+    documentResults: [],
+    libraryResults: [],
+    // 搜索结果数量
+    docResultCount: 0,
+    libResultCount: 0,
+    // 当前搜索词
+    currentQuery: '',
 
-        if (!query || !state.document.items.length) {
-            Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+    // 初始化搜索标签
+    init() {
+        this.bindTabEvents();
+        
+        // 初始状态：隐藏选项卡容器（等待搜索结果）
+        const tabsContainer = document.getElementById('searchTabs');
+        if (tabsContainer) {
+            tabsContainer.style.display = 'none';
+        }
+    },
+
+    // 绑定选项卡事件（可重复调用）
+    bindTabEvents() {
+        const tabs = document.getElementById('searchTabs');
+        if (!tabs) return;
+
+        // 避免重复绑定
+        tabs.removeEventListener('click', this._tabClickHandler);
+        
+        this._tabClickHandler = (e) => {
+            const btn = e.target.closest('.search-tab');
+            if (!btn) return;
+
+            const tab = btn.dataset.tab;
+            if (tab && tab !== this.currentTab) {
+                this.switchTab(tab);
+            }
+        };
+
+        tabs.addEventListener('click', this._tabClickHandler);
+    },
+
+    // 切换搜索标签
+    switchTab(tab) {
+        this.currentTab = tab;
+
+        // 更新 UI
+        document.querySelectorAll('.search-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+
+        // 根据当前标签渲染对应结果
+        if (this.currentQuery) {
+            this.renderCurrentResults();
+        }
+    },
+
+    // 执行搜索（同时搜索文档和书库）
+    async perform(query) {
+        this.currentQuery = query;
+
+        if (!query) {
+            this.clearResults();
             return;
         }
 
+        // 同时执行两种搜索
+        const docPromise = this.searchDocument(query);
+        const libPromise = this.searchLibrary(query);
+
+        await Promise.all([docPromise, libPromise]);
+
+        // 更新计数显示
+        this.updateResultCounts();
+
+        // 根据结果决定显示哪个标签
+        this.determineTabVisibility();
+
+        // 渲染当前标签的结果
+        this.renderCurrentResults();
+
+        // 重新绑定选项卡事件（确保点击有效）
+        this.bindTabEvents();
+    },
+
+    // 文档内搜索
+    async searchDocument(query) {
+        const state = Lumina.State.app;
+        state.search.currentQuery = query;
         const lowerQuery = query.toLowerCase();
-        state.search.matches = [];
+
+        // 如果没有打开文档，结果为空
+        if (!state.document.items.length) {
+            this.documentResults = [];
+            this.docResultCount = 0;
+            return;
+        }
+
+        this.documentResults = [];
 
         state.chapters.forEach((chapter, chIdx) => {
             chapter.items.forEach((item, itemIdx) => {
                 if (item.text?.toLowerCase().includes(lowerQuery)) {
-                    state.search.matches.push({
-                        item, chapterIndex: chIdx, globalIndex: chapter.startIndex + itemIdx,
+                    this.documentResults.push({
+                        item,
+                        chapterIndex: chIdx,
+                        globalIndex: chapter.startIndex + itemIdx,
                         chapterTitle: chapter.isPreface ? Lumina.I18n.t('preface') : chapter.title
                     });
                 }
             });
         });
 
-        if (!state.search.matches.length) {
-            Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
+        this.docResultCount = this.documentResults.length;
+    },
+
+    // 书库搜索
+    async searchLibrary(query) {
+        const lowerQuery = query.toLowerCase();
+
+        try {
+            // 获取书库数据
+            const stats = await Lumina.DB.adapter.getStorageStats();
+            this.libraryResults = stats.files.filter(file => {
+                const fileName = file.fileName?.toLowerCase() || '';
+                return fileName.includes(lowerQuery);
+            });
+            this.libResultCount = this.libraryResults.length;
+        } catch (e) {
+            this.libraryResults = [];
+            this.libResultCount = 0;
+        }
+    },
+
+    // 更新结果计数显示
+    updateResultCounts() {
+        const docCountEl = document.getElementById('docResultCount');
+        const libCountEl = document.getElementById('libResultCount');
+
+        if (docCountEl) docCountEl.textContent = this.docResultCount;
+        if (libCountEl) libCountEl.textContent = this.libResultCount;
+    },
+    
+    // 更新搜索标签文本（i18n）
+    updateSearchTabLabels() {
+        const docTabLabel = document.querySelector('[data-tab="document"] span[data-i18n]');
+        const libTabLabel = document.querySelector('[data-tab="library"] span[data-i18n]');
+        if (docTabLabel) docTabLabel.textContent = Lumina.I18n.t('searchTabDocument');
+        if (libTabLabel) libTabLabel.textContent = Lumina.I18n.t('searchTabLibrary');
+    },
+
+    // 决定选项卡显示/隐藏
+    determineTabVisibility() {
+        const hasDocResults = this.docResultCount > 0;
+        const hasLibResults = this.libResultCount > 0;
+        const tabsContainer = document.getElementById('searchTabs');
+
+        if (!tabsContainer) return;
+
+        const docTab = tabsContainer.querySelector('[data-tab="document"]');
+        const libTab = tabsContainer.querySelector('[data-tab="library"]');
+
+        // 关键逻辑：只有一种结果类型时，或都没有结果时，隐藏整个选项卡容器
+        const hasOnlyOneType = (hasDocResults && !hasLibResults) || (!hasDocResults && hasLibResults);
+        const hasNoResults = !hasDocResults && !hasLibResults;
+        
+        if (hasOnlyOneType || hasNoResults) {
+            // 只有一种结果类型，或都没有结果，隐藏整个选项卡容器
+            tabsContainer.style.display = 'none';
+            
+            // 切换到正确的标签
+            if (hasDocResults && this.currentTab === 'library') {
+                this.currentTab = 'document';
+            } else if (hasLibResults && this.currentTab === 'document') {
+                this.currentTab = 'library';
+            }
             return;
         }
 
-        Lumina.DOM.searchResults.innerHTML = state.search.matches.map((match, idx) => {
+        // 有两种结果，显示选项卡容器
+        tabsContainer.style.display = 'flex';
+
+        // 两种结果都有，显示两个选项卡
+        if (docTab) docTab.style.display = '';
+        if (libTab) libTab.style.display = '';
+    },
+
+    // 渲染当前标签的结果
+    renderCurrentResults() {
+        if (this.currentTab === 'library') {
+            if (this.libraryResults.length) {
+                this.renderLibraryResults(this.libraryResults, this.currentQuery);
+            } else {
+                this.renderNoResults();
+            }
+        } else {
+            if (this.documentResults.length) {
+                this.renderDocumentResults(this.documentResults, this.currentQuery);
+            } else {
+                this.renderNoResults();
+            }
+        }
+    },
+
+    // 渲染文档搜索结果
+    renderDocumentResults(matches, query) {
+        const state = Lumina.State.app;
+        const lowerQuery = query.toLowerCase();
+
+        Lumina.DOM.searchResults.innerHTML = matches.map((match, idx) => {
             const text = match.item.text;
             const matchIndex = text.toLowerCase().indexOf(lowerQuery);
             const start = Math.max(0, matchIndex - 30);
@@ -514,7 +696,6 @@ Lumina.Search = {
 
                 Lumina.Search.clearHighlight();
 
-                // 🔧 关键修复：无论是否同章节，都调用 navigateToChapter 并传递 globalIndex
                 // 让 navigateToChapter 处理分页计算
                 Lumina.Actions.navigateToChapter(chapterIndex, globalIndex);
 
@@ -540,6 +721,62 @@ Lumina.Search = {
         });
     },
 
+    // 渲染书库搜索结果
+    renderLibraryResults(files, query) {
+        Lumina.DOM.searchResults.innerHTML = files.map((file, idx) => {
+            const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
+            const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
+            const fileName = Lumina.Utils.escapeHtml(file.fileName);
+            
+            // 高亮匹配的文件名
+            const lowerQuery = query.toLowerCase();
+            const matchIndex = fileName.toLowerCase().indexOf(lowerQuery);
+            let highlightedName = fileName;
+            if (matchIndex >= 0) {
+                const before = fileName.substring(0, matchIndex);
+                const match = fileName.substring(matchIndex, matchIndex + query.length);
+                const after = fileName.substring(matchIndex + query.length);
+                highlightedName = `${before}<span class="search-result-match">${match}</span>${after}`;
+            }
+
+            return `
+        <div class="search-result-item library-result-item" data-filekey="${file.fileKey}" data-index="${idx}">
+            <div class="search-result-context" style="font-weight: 500;">${highlightedName}</div>
+            <div class="search-result-info">
+                <span>${sizeStr}</span>
+                <span>${timeAgo}</span>
+            </div>
+        </div>
+    `;
+        }).join('');
+
+        Lumina.DOM.searchResults.querySelectorAll('.library-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const fileKey = item.dataset.filekey;
+                
+                // 打开文件
+                if (Lumina.DataManager && Lumina.DataManager.openFile) {
+                    Lumina.DataManager.openFile(fileKey);
+                }
+                
+                // 移动端自动关闭搜索面板
+                if (window.innerWidth <= 768) {
+                    Lumina.DOM.searchPanel.classList.remove('open');
+                }
+            });
+        });
+    },
+
+    // 渲染空状态
+    renderEmpty() {
+        Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+    },
+
+    // 渲染无结果状态
+    renderNoResults() {
+        Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
+    },
+
     getItemTypeLabel(type) {
         const labels = { title: Lumina.I18n.t('title'), subtitle: Lumina.I18n.t('subtitle'), paragraph: Lumina.I18n.t('paragraph'), list: Lumina.I18n.t('list') };
         if (type?.startsWith('heading')) return Lumina.I18n.t(type);
@@ -551,8 +788,31 @@ Lumina.Search = {
         state.search.matches = [];
         state.search.currentQuery = '';
         state.search.highlightedIndex = -1;
+        this.documentResults = [];
+        this.libraryResults = [];
+        this.docResultCount = 0;
+        this.libResultCount = 0;
+        this.currentQuery = '';
+        this.currentTab = 'document';
 
-        if (Lumina.DOM.searchResults) Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+        // 重置计数
+        this.updateResultCounts();
+
+        // 重置标签显示（保持隐藏，等待新的搜索结果）
+        const tabsContainer = document.getElementById('searchTabs');
+        if (tabsContainer) {
+            tabsContainer.style.display = 'none';  // 保持隐藏
+            const docTab = tabsContainer.querySelector('[data-tab="document"]');
+            const libTab = tabsContainer.querySelector('[data-tab="library"]');
+            if (docTab) {
+                docTab.classList.add('active');
+            }
+            if (libTab) {
+                libTab.classList.remove('active');
+            }
+        }
+
+        if (Lumina.DOM.searchResults) this.renderEmpty();
 
         const searchInput = document.getElementById('searchPanelInput');
         if (searchInput) searchInput.value = '';
@@ -570,4 +830,3 @@ Lumina.Search = {
         }
     }
 };
-

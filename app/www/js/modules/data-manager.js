@@ -4,6 +4,7 @@ Lumina.DataManager = class {
     constructor() {
         this.isPreloaded = false;
         this.currentStats = null;
+        this.currentView = Lumina.ConfigManager.get('library.viewMode') || 'card';
     }
 
     init() {
@@ -16,7 +17,76 @@ Lumina.DataManager = class {
             if (e.target.id === 'dataManagerPanel') this.close();
         });
 
-        // 事件绑定已移至 renderGrid 方法中
+        // 初始化视图切换
+        this.initViewToggle();
+    }
+
+    // 初始化视图切换
+    initViewToggle() {
+        const toggleBtn = document.getElementById('libViewToggle');
+        if (!toggleBtn) {
+            console.warn('[DataManager] View toggle button not found');
+            return;
+        }
+
+        // 设置初始图标
+        this.updateViewToggleIcon();
+
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 循环切换：card -> list -> compact -> card
+            const views = ['card', 'list', 'compact'];
+            const currentIndex = views.indexOf(this.currentView);
+            const nextView = views[(currentIndex + 1) % views.length];
+            
+            this.setView(nextView);
+        });
+    }
+
+    // 更新视图切换按钮图标
+    updateViewToggleIcon() {
+        const toggleBtn = document.getElementById('libViewToggle');
+        const icon = document.getElementById('viewToggleIcon');
+        if (!toggleBtn || !icon) {
+            console.warn('[DataManager] Toggle button or icon not found');
+            return;
+        }
+        
+        toggleBtn.dataset.view = this.currentView;
+        
+        const iconMap = {
+            'card': '#icon-grid',
+            'list': '#icon-list',
+            'compact': '#icon-compact'
+        };
+        
+        const iconId = iconMap[this.currentView] || '#icon-grid';
+        const use = icon.querySelector('use');
+        if (use) {
+            use.setAttribute('href', iconId);
+        }
+    }
+
+    // 切换视图
+    setView(view) {
+        if (this.currentView === view) return;
+        
+        this.currentView = view;
+        Lumina.ConfigManager.set('library.viewMode', view);
+        
+        // 更新按钮图标
+        this.updateViewToggleIcon();
+        
+        // 更新 grid 的 data-view 属性
+        const grid = document.getElementById('dataGrid');
+        if (grid) {
+            grid.dataset.view = view;
+        }
+
+        // 重新渲染
+        this.renderGrid();
     }
 
     async preload() {
@@ -39,6 +109,9 @@ Lumina.DataManager = class {
         if (window.SafeArea) {
             window.SafeArea.apply();
         }
+        
+        // 确保视图图标同步
+        this.updateViewToggleIcon();
         
         try {
             if (isSQLite) {
@@ -165,113 +238,117 @@ Lumina.DataManager = class {
     renderGrid() {
         const grid = document.getElementById('dataGrid');
         const { files } = this.currentStats;
-        const isMobile = window.innerWidth <= 768;
+
+        // 设置当前视图
+        grid.dataset.view = this.currentView;
 
         if (!files.length) {
             grid.innerHTML = `<div class="history-empty" style="grid-column: 1/-1; padding: 60px;"><svg class="icon"><use href="#icon-folder"/></svg><div>${Lumina.I18n.t('noDataToManage')}</div></div>`;
             return;
         }
 
-        grid.innerHTML = files.map(file => {
-            const hasCover = !!file.cover;
-            const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
-            const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
+        // 统一渲染所有视图
+        grid.innerHTML = files.map(file => this.renderCard(file)).join('');
+        
+        // 绑定事件
+        this.bindCardEvents();
+        Lumina.UI.setupCustomTooltip();
+    }
 
-            // 移动端：使用滑动容器结构  PC端：保持原有结构
-            if (isMobile) {
-                return `
-                <div class="data-card data-card-swipe" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
-                    <div class="data-card-swipe-container">
-                        <div class="data-card-actions data-actions-left" data-action="export">
-                            <svg class="icon"><use href="#icon-export"/></svg>
-                            <span>${Lumina.I18n.t('exportFile')}</span>
-                        </div>
-                        <div class="data-card-content">
-                            <div class="card-cover">
-                                ${hasCover ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">` : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`}
-                            </div>
-                            <div class="card-info">
-                                <div class="card-title" title="${Lumina.Utils.escapeHtml(file.fileName)}">${Lumina.Utils.escapeHtml(file.fileName)}</div>
-                                <div class="card-meta">${sizeStr} · ${timeAgo}</div>
-                                ${file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : ''}
-                            </div>
-                        </div>
-                        <div class="data-card-actions data-actions-right" data-action="delete">
-                            <svg class="icon"><use href="#icon-delete"/></svg>
-                            <span>${Lumina.I18n.t('deleteFile')}</span>
-                        </div>
-                    </div>
+    // 统一渲染卡片（一套HTML结构，CSS控制显示）
+    renderCard(file) {
+        const hasCover = !!file.cover;
+        const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
+        const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
+        const fileName = Lumina.Utils.escapeHtml(file.fileName);
+        const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
+        const coverHtml = hasCover 
+            ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">`
+            : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+        
+        return `
+        <div class="data-card" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
+            <!-- 滑动操作层（移动端显示，PC隐藏） -->
+            <div class="swipe-layer">
+                <div class="swipe-action export-action" data-action="export">
+                    <svg class="icon"><use href="#icon-export"/></svg>
+                    <span>${Lumina.I18n.t('exportFile')}</span>
                 </div>
-                `;
-            } else {
-                // PC 端保持原有结构（悬浮按钮）
-                return `
-                <div class="data-card" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
+                <div class="swipe-content">
                     <div class="card-cover">
-                        ${hasCover ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">` : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`}
+                        ${coverHtml}
                         <div class="cover-overlay">
                             <button class="cover-btn export-btn" data-tooltip-text="${Lumina.I18n.t('exportFile')}"><svg class="icon"><use href="#icon-export"/></svg></button>
                             <button class="cover-btn delete-btn" data-tooltip-text="${Lumina.I18n.t('deleteFile')}"><svg class="icon"><use href="#icon-delete"/></svg></button>
                         </div>
                     </div>
                     <div class="card-info">
-                        <div class="card-title" title="${Lumina.Utils.escapeHtml(file.fileName)}">${Lumina.Utils.escapeHtml(file.fileName)}</div>
+                        <div class="card-title" title="${fileName}">${fileName}</div>
                         <div class="card-meta">${sizeStr} · ${timeAgo}</div>
-                        ${file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : ''}
+                        ${chapterHtml}
+                    </div>
+                    <div class="list-actions">
+                        <button class="cover-btn export-btn" data-tooltip-text="${Lumina.I18n.t('exportFile')}"><svg class="icon"><use href="#icon-export"/></svg></button>
+                        <button class="cover-btn delete-btn" data-tooltip-text="${Lumina.I18n.t('deleteFile')}"><svg class="icon"><use href="#icon-delete"/></svg></button>
                     </div>
                 </div>
-                `;
-            }
-        }).join('');
-        
-        // 绑定事件
-        if (isMobile) {
-            this.bindSwipeForDataManager();
-        } else {
-            this.bindPCButtons();
-            Lumina.UI.setupCustomTooltip();
-        }
+                <div class="swipe-action delete-action" data-action="delete">
+                    <svg class="icon"><use href="#icon-delete"/></svg>
+                    <span>${Lumina.I18n.t('deleteFile')}</span>
+                </div>
+            </div>
+        </div>
+        `;
     }
 
-    // 绑定 PC 端按钮事件
-    bindPCButtons() {
+    // 统一绑定卡片事件（PC和移动端共用）
+    bindCardEvents() {
         const grid = document.getElementById('dataGrid');
+        const isMobile = window.innerWidth <= 768;
+        
         grid.querySelectorAll('.data-card').forEach(card => {
             const fileKey = card.dataset.filekey;
-            const exportBtn = card.querySelector('.export-btn');
-            const deleteBtn = card.querySelector('.delete-btn');
             
-            if (exportBtn) {
-                exportBtn.addEventListener('click', (e) => {
+            // 点击卡片打开（排除按钮区域）
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.cover-btn') || e.target.closest('.swipe-action')) return;
+                this.openFile(fileKey);
+            });
+            
+            // 导出按钮
+            const exportBtns = card.querySelectorAll('[data-action="export"], .export-btn');
+            exportBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.exportSingle(fileKey);
                 });
-            }
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', (e) => {
+            });
+            
+            // 删除按钮
+            const deleteBtns = card.querySelectorAll('[data-action="delete"], .delete-btn');
+            deleteBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.confirmDelete(fileKey, card);
                 });
-            }
-            
-            // 点击卡片打开
-            card.addEventListener('click', (e) => {
-                if (!e.target.closest('.cover-btn')) {
-                    this.openFile(fileKey);
-                }
             });
         });
+        
+        // 移动端绑定滑动手势
+        if (isMobile) {
+            this.bindSwipeForDataManager();
+        }
     }
 
     // 绑定移动端滑动手势
     bindSwipeForDataManager() {
         const grid = document.getElementById('dataGrid');
-        const cards = grid.querySelectorAll('.data-card-swipe');
+        const cards = grid.querySelectorAll('.data-card');
         
         cards.forEach(card => {
             const fileKey = card.dataset.filekey;
-            const container = card.querySelector('.data-card-swipe-container');
-            const content = card.querySelector('.data-card-content');
+            const container = card.querySelector('.swipe-layer');
+            const content = card.querySelector('.swipe-content');
             
             let startX = 0;
             let startY = 0;

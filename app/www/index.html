@@ -129,6 +129,9 @@
 <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></symbol>
 <symbol id="icon-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></symbol>
 <symbol id="icon-library" viewBox="0 0 24 24"><rect x="3" y="5" width="4" height="15" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></symbol>
+<symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="icon-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+<symbol id="icon-compact" viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" rx="1"/><rect x="10" y="3" width="4" height="4" rx="1"/><rect x="17" y="3" width="4" height="4" rx="1"/><rect x="3" y="10" width="4" height="4" rx="1"/><rect x="10" y="10" width="4" height="4" rx="1"/><rect x="17" y="10" width="4" height="4" rx="1"/><rect x="3" y="17" width="4" height="4" rx="1"/><rect x="10" y="17" width="4" height="4" rx="1"/><rect x="17" y="17" width="4" height="4" rx="1"/></symbol>
 <symbol id="icon-export" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></symbol>
 <symbol id="icon-import" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></symbol>
 <symbol id="icon-delete" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></symbol>
@@ -718,6 +721,15 @@
             <div class="search-input-wrapper">
                 <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
             </div>
+            <!-- 搜索类型标签 -->
+            <div class="search-tabs" id="searchTabs">
+                <button class="search-tab active" data-tab="document">
+                    <span data-i18n="searchTabDocument">全文</span>(<span id="docResultCount">0</span>)
+                </button>
+                <button class="search-tab" data-tab="library">
+                    <span data-i18n="searchTabLibrary">书库</span>(<span id="libResultCount">0</span>)
+                </button>
+            </div>
             <div class="search-results" id="searchResults"></div>
         </aside>
 
@@ -846,6 +858,10 @@
                 <div class="panel-header">
                     <span class="panel-title" data-i18n="localLibrary"></span>
                     <div class="header-actions">
+                        <!-- 视图切换 -->
+                        <button class="btn-icon view-toggle-btn" id="libViewToggle" data-view="card" data-i18n-tooltip="switchView">
+                            <svg class="icon" id="viewToggleIcon"><use href="#icon-grid" /></svg>
+                        </button>
                         <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" title="清空书库">
                             <svg class="icon"><use href="#icon-delete" /></svg>
                         </button>
@@ -983,12 +999,12 @@
                 <!-- 滑块区域：grid 布局 -->
                 <div class="azure-sliders-grid">
                     <!-- 第1行 -->
-                    <label class="azure-slider-label" data-i18n="azurePreloadCount">预加载句数</label>
+                    <div class="azure-slider-label" data-i18n="azurePreloadCount">预加载句数</div>
                     <input type="range" id="azurePreloadSlider" min="1" max="10" value="5" class="slider">
                     <span class="azure-slider-value" id="azurePreloadValue">5</span>
                     
                     <!-- 第2行 -->
-                    <label class="azure-slider-label" data-i18n="azureCacheDepth">缓存深度</label>
+                    <div class="azure-slider-label" data-i18n="azureCacheDepth">缓存深度</div>
                     <input type="range" id="azureDepthSlider" min="1" max="10" value="5" class="slider">
                     <span class="azure-slider-value" id="azureDepthValue">5</span>
                 </div>

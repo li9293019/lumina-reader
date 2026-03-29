@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索选项卡样式 Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 40px 20px;
+        }
+        
+        .demo-section {
+            max-width: 400px;
+            margin: 0 auto 60px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        .demo-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        /* ========== 方案1：胶囊式 ========== */
+        .style-1 .search-tabs {
+            display: flex;
+            gap: 8px;
+            padding: 8px 0;
+            justify-content: center;
+        }
+        
+        .style-1 .search-tab {
+            padding: 6px 16px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 16px;
+            transition: all 0.2s ease;
+        }
+        
+        .style-1 .search-tab:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .style-1 .search-tab.active {
+            color: #d4a373;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* ========== 方案2：极简下划线式 ========== */
+        .style-2 .search-tabs {
+            display: flex;
+            gap: 24px;
+            padding: 8px 0;
+            justify-content: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .style-2 .search-tab {
+            padding: 8px 4px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.2s;
+        }
+        
+        .style-2 .search-tab.active {
+            color: #d4a373;
+        }
+        
+        .style-2 .search-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -9px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #d4a373;
+        }
+        
+        /* ========== 方案3：分段控制器式 ========== */
+        .style-3 .search-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 4px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        
+        .style-3 .search-tab {
+            flex: 1;
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .style-3 .search-tab.active {
+            color: #333;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        /* ========== 方案4：标签徽章式 ========== */
+        .style-4 .search-tabs {
+            display: flex;
+            gap: 12px;
+            padding: 8px 0;
+            justify-content: center;
+        }
+        
+        .style-4 .search-tab {
+            padding: 4px 12px;
+            border: 1px solid #e0e0e0;
+            background: white;
+            color: #666;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .style-4 .search-tab:hover {
+            border-color: #d4a373;
+            color: #d4a373;
+        }
+        
+        .style-4 .search-tab.active {
+            color: white;
+            background: #d4a373;
+            border-color: #d4a373;
+        }
+        
+        /* 当前方案（现有样式） */
+        .style-current .search-tabs {
+            display: flex;
+            gap: 0;
+            padding: 0 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        
+        .style-current .search-tab {
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .style-current .search-tab:hover {
+            color: #333;
+            background: #f0f0f0;
+        }
+        
+        .style-current .search-tab.active {
+            color: #d4a373;
+            background: white;
+        }
+        
+        .style-current .search-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #d4a373;
+        }
+        
+        .results-area {
+            margin-top: 16px;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 8px;
+            min-height: 60px;
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 当前方案 -->
+    <div class="demo-section style-current">
+        <div class="demo-title">当前方案（背景条+下划线）</div>
+        <input type="text" class="search-input" placeholder="搜索全文..." value="作品">
+        <div class="search-tabs">
+            <button class="search-tab active" onclick="switchTab(this, 'current')">全文(1)</button>
+            <button class="search-tab" onclick="switchTab(this, 'current')">书库(3)</button>
+        </div>
+        <div class="results-area">搜索结果区域...</div>
+    </div>
+
+    <!-- 方案1：胶囊式 -->
+    <div class="demo-section style-1">
+        <div class="demo-title">方案1：胶囊式（推荐）</div>
+        <input type="text" class="search-input" placeholder="搜索全文..." value="作品">
+        <div class="search-tabs">
+            <button class="search-tab active" onclick="switchTab(this, 1)">全文(1)</button>
+            <button class="search-tab" onclick="switchTab(this, 1)">书库(3)</button>
+        </div>
+        <div class="results-area">搜索结果区域...</div>
+    </div>
+
+    <!-- 方案2：极简下划线式 -->
+    <div class="demo-section style-2">
+        <div class="demo-title">方案2：极简下划线式</div>
+        <input type="text" class="search-input" placeholder="搜索全文..." value="作品">
+        <div class="search-tabs">
+            <button class="search-tab active" onclick="switchTab(this, 2)">全文(1)</button>
+            <button class="search-tab" onclick="switchTab(this, 2)">书库(3)</button>
+        </div>
+        <div class="results-area">搜索结果区域...</div>
+    </div>
+
+    <!-- 方案3：分段控制器式 -->
+    <div class="demo-section style-3">
+        <div class="demo-title">方案3：分段控制器式（iOS风）</div>
+        <input type="text" class="search-input" placeholder="搜索全文..." value="作品">
+        <div class="search-tabs">
+            <button class="search-tab active" onclick="switchTab(this, 3)">全文(1)</button>
+            <button class="search-tab" onclick="switchTab(this, 3)">书库(3)</button>
+        </div>
+        <div class="results-area">搜索结果区域...</div>
+    </div>
+
+    <!-- 方案4：标签徽章式 -->
+    <div class="demo-section style-4">
+        <div class="demo-title">方案4：标签徽章式</div>
+        <input type="text" class="search-input" placeholder="搜索全文..." value="作品">
+        <div class="search-tabs">
+            <button class="search-tab active" onclick="switchTab(this, 4)">全文(1)</button>
+            <button class="search-tab" onclick="switchTab(this, 4)">书库(3)</button>
+        </div>
+        <div class="results-area">搜索结果区域...</div>
+    </div>
+
+    <script>
+        function switchTab(btn, styleNum) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.search-tab').forEach(tab => tab.classList.remove('active'));
+            btn.classList.add('active');
+        }
+    </script>
+
+</body>
+</html>

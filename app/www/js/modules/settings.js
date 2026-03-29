@@ -21,6 +21,9 @@ Lumina.Settings = {
             pdfExtractImages: config.pdf.extractImages,
             pdfPasswordPreset: config.pdf.passwordPreset.enabled,
             pdfSmartGuess: config.pdf.passwordPreset.smartGuess,
+            pdfPasswordLength: config.pdf.passwordPreset.length,
+            pdfPasswordPrefix: config.pdf.passwordPreset.prefix,
+            pdfCommonPasswords: config.pdf.passwordPreset.commonPasswords,
         };
     },
 
@@ -67,8 +70,13 @@ Lumina.Settings = {
         
         Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
         Lumina.ConfigManager.set('pdf.extractImages', settings.pdfExtractImages);
-        Lumina.ConfigManager.set('pdf.passwordPreset.enabled', settings.pdfPasswordPreset);
-        Lumina.ConfigManager.set('pdf.passwordPreset.smartGuess', settings.pdfSmartGuess);
+        Lumina.ConfigManager.set('pdf.passwordPreset', {
+            enabled: settings.pdfPasswordPreset,
+            smartGuess: settings.pdfSmartGuess,
+            length: settings.pdfPasswordLength,
+            prefix: settings.pdfPasswordPrefix,
+            commonPasswords: settings.pdfCommonPasswords
+        });
     },
 
     async apply() {
@@ -135,8 +143,15 @@ Lumina.Settings = {
         });
 
         Lumina.UI.updateActiveButtons();
-        document.getElementById('chapterRegex').value = settings.chapterRegex;
-        document.getElementById('sectionRegex').value = settings.sectionRegex;
+        // 只有当前输入框不是焦点时才更新值（避免覆盖用户正在输入的内容）
+        const chapterInput = document.getElementById('chapterRegex');
+        const sectionInput = document.getElementById('sectionRegex');
+        if (document.activeElement !== chapterInput) {
+            chapterInput.value = settings.chapterRegex;
+        }
+        if (document.activeElement !== sectionInput) {
+            sectionInput.value = settings.sectionRegex;
+        }
 
         const encryptedExportToggle = document.getElementById('encryptedExportToggle');
         if (encryptedExportToggle) encryptedExportToggle.checked = settings.encryptedExport;
@@ -224,6 +239,9 @@ Lumina.Settings = {
         const syncToState = () => {
             Lumina.State.settings.pdfPasswordPreset = config.enabled;
             Lumina.State.settings.pdfSmartGuess = config.smartGuess;
+            Lumina.State.settings.pdfPasswordLength = config.length;
+            Lumina.State.settings.pdfPasswordPrefix = config.prefix;
+            Lumina.State.settings.pdfCommonPasswords = config.commonPasswords;
         };
         syncToState();
         
@@ -275,6 +293,14 @@ Lumina.Settings = {
     // 重新加载 PDF 密码预设 UI（用于重置和导入后）
     reloadPasswordPresetUI() {
         const config = Lumina.ConfigManager.get('pdf.passwordPreset');
+        
+        // 同步到 State.settings
+        Lumina.State.settings.pdfPasswordPreset = config.enabled;
+        Lumina.State.settings.pdfSmartGuess = config.smartGuess;
+        Lumina.State.settings.pdfPasswordLength = config.length;
+        Lumina.State.settings.pdfPasswordPrefix = config.prefix;
+        Lumina.State.settings.pdfCommonPasswords = config.commonPasswords;
+        
         const presetToggle = document.getElementById('pdfPasswordPresetToggle');
         const configPanel = document.getElementById('pdfPasswordPresetConfig');
         const lengthSlider = document.getElementById('pdfPasswordLength');

@@ -43,6 +43,7 @@ Lumina.Plugin.Markdown.Parser = {
         }
 
         const lines = content.split(/\r?\n/);
+        
         const items = [];
         let i = 0;
 

@@ -444,14 +444,14 @@ Lumina.HeatMap = {
         }
         
         container.innerHTML = this.presets.map(preset => `
-            <div class="heat-preset-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--border-color); gap: 12px;">
-                <div style="flex: 1; min-width: 0; overflow: hidden; padding-right: 4px;">
-                    <div style="font-weight: 500; margin-bottom: 5px; font-size: 14px; line-height: 1.3;">${Lumina.Utils.escapeHtml(preset.name)}</div>
-                    <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4;">
+            <div class="heat-preset-item">
+                <div>
+                    <div class="preset-name">${Lumina.Utils.escapeHtml(preset.name)}</div>
+                    <div class="preset-tags">
                         ${Lumina.Utils.escapeHtml(preset.tags.join(', '))}
                     </div>
                 </div>
-                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                <div class="preset-actions">
                     <button class="btn-icon heat-preset-btn" onclick="Lumina.HeatMap.applyPreset(${preset.id})" data-tooltip="${Lumina.I18n.t('apply') || '应用'}">
                         <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-check" /></svg>
                     </button>

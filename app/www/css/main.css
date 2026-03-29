@@ -66,6 +66,31 @@
 --ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
 }
 
+/* 键盘打开时隐藏底部安全距离（APP 环境） */
+body.keyboard-open {
+--safe-area-bottom: 0px !important;
+}
+
+/* 强制覆盖所有使用安全距离的元素 */
+body.keyboard-open * {
+--safe-area-bottom: 0px !important;
+}
+
+/* 具体元素覆盖 */
+body.keyboard-open .app-container,
+body.keyboard-open #appContainer,
+body.keyboard-open .sidebar-right,
+body.keyboard-open #sidebarRight,
+body.keyboard-open .sidebar-left,
+body.keyboard-open #sidebarLeft {
+padding-bottom: 0 !important;
+}
+
+body.keyboard-open .content-scroll,
+body.keyboard-open #contentScroll {
+padding-bottom: 0 !important;
+}
+
 /* 暖调羊皮纸 */
 [data-theme="parchment"] {
 --bg-primary: #f7f3e8;
@@ -1786,6 +1811,7 @@ color: var(--text-primary);
 font-family: var(--font-family-dynamic);
 font-size: 0.85em;
 margin-bottom: 4px;
+overflow: visible;
 }
 
 .regex-input:focus {
@@ -4049,11 +4075,48 @@ transform: translate(-50%, -50%) scale(1);
 
 /* 预设项样式 */
 .heat-preset-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+    gap: 12px;
     transition: background-color 0.15s ease;
 }
 
-.heat-preset-item:hover {
-    background-color: var(--bg-secondary);
+.heat-preset-item:last-child {
+    border-bottom: none;
+}
+
+/* 预设项内容区 */
+.heat-preset-item > div:first-child {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 4px;
+}
+
+.heat-preset-item .preset-name {
+    font-weight: 500;
+    margin-bottom: 5px;
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.heat-preset-item .preset-tags {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+
+/* 预设项按钮组 */
+.heat-preset-item .preset-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
 }
 
 /* 预设项按钮 - 使用 option-btn 相同样式 */
@@ -4098,9 +4161,51 @@ transform: translate(-50%, -50%) scale(1);
     min-height: 36px;
 }
 
+/* 预设列表容器 */
+#heatPresetsList {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+/* 添加新预设区域 */
+.heat-preset-add-section {
+    border-top: 1px solid var(--border-color);
+    padding: 16px 4px 4px;
+}
+
+.heat-preset-add-section .setting-label {
+    margin-bottom: 10px;
+}
+
+/* 预设输入行 */
+.heat-preset-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.heat-preset-input-row .regex-input {
+    flex: 1;
+    margin-bottom: 0;
+    height: 36px;
+}
+
+.heat-preset-input-row .option-btn {
+    height: 36px;
+    padding: 0 20px;
+    font-size: 13px;
+}
+
+/* 标签输入容器 */
+#heatPresetTagsContainer {
+    margin-bottom: 0;
+    min-height: 36px;
+}
+
 /* 预设面板对话框 */
 #heatMapPresetsDialog .about-body {
-    padding: 16px 20px;
+    padding: 20px;
 }
 
 #heatMapPresetsDialog .about-content {

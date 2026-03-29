@@ -208,6 +208,9 @@ Lumina.UI = {
 
         window.addEventListener('resize', () => setTimeout(Lumina.Settings.apply, 250));
 
+        // 键盘显示/隐藏检测（APP 环境）
+        this.setupKeyboardDetection();
+
         let touchStartX = 0, touchStartY = 0;
         const SWIPE_THRESHOLD = 50;
 
@@ -274,6 +277,105 @@ Lumina.UI = {
         document.getElementById('ttsHelpBtn')?.addEventListener('click', async () => {
             await this.openTTSGuide();
         });
+    },
+
+    // 检测键盘显示/隐藏，在键盘显示时隐藏底部安全距离并滚动输入框到可视区域
+    setupKeyboardDetection() {   
+        // 方法1: 监听输入框焦点事件（最简单可靠）
+        const handleFocus = (e) => {
+            const tagName = e.target.tagName;
+            if (tagName === 'INPUT' || tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                lastFocusedInput = e.target;
+                document.body.classList.add('keyboard-open');
+                // 刷新安全区域
+                if (window.refreshSafeArea) window.refreshSafeArea();
+                
+
+            }
+        };
+        
+        const handleBlur = (e) => {
+            const tagName = e.target.tagName;
+            if (tagName === 'INPUT' || tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                setTimeout(() => {
+                    const activeElement = document.activeElement;
+                    const activeTag = activeElement?.tagName;
+                    if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && !activeElement?.isContentEditable) {
+                        document.body.classList.remove('keyboard-open');
+                        keyboardHeight = 0;
+                        // 刷新安全区域
+                        if (window.refreshSafeArea) window.refreshSafeArea();
+                    }
+                }, 200);
+            }
+        };
+        
+        document.addEventListener('focusin', handleFocus, true);
+        document.addEventListener('focusout', handleBlur, true);
+        
+        // 方法2: Capacitor Keyboard 插件（支持获取键盘高度）
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Keyboard) {
+            try {
+                const Keyboard = Capacitor.Plugins.Keyboard;
+                Keyboard.addListener('keyboardWillShow', (info) => {
+                    keyboardHeight = info?.keyboardHeight || 0;
+                    console.log('[Keyboard] Capacitor: Will show, height:', keyboardHeight);
+                    document.body.classList.add('keyboard-open');
+                    if (window.refreshSafeArea) window.refreshSafeArea();
+                    // 滚动当前聚焦的输入框
+
+                });
+                Keyboard.addListener('keyboardWillHide', () => {
+                    console.log('[Keyboard] Capacitor: Will hide');
+                    document.body.classList.remove('keyboard-open');
+                    keyboardHeight = 0;
+                    if (window.refreshSafeArea) window.refreshSafeArea();
+                });
+                console.log('[Keyboard] Capacitor plugin registered');
+            } catch (e) {
+                console.warn('[Keyboard] Capacitor plugin failed:', e);
+            }
+        }
+        
+        // 方法3: Visual Viewport API（估算键盘高度）
+        if (window.visualViewport) {
+            let initialHeight = window.visualViewport.height;
+            window.visualViewport.addEventListener('resize', () => {
+                const currentHeight = window.visualViewport.height;
+                const isKeyboard = currentHeight < initialHeight * 0.85;
+                const wasKeyboardOpen = document.body.classList.contains('keyboard-open');
+                document.body.classList.toggle('keyboard-open', isKeyboard);
+                
+                if (isKeyboard) {
+                    keyboardHeight = initialHeight - currentHeight;
+                    // 滚动当前聚焦的输入框
+
+                } else {
+                    keyboardHeight = 0;
+                }
+                
+                if (wasKeyboardOpen !== isKeyboard && window.refreshSafeArea) window.refreshSafeArea();
+                if (!isKeyboard && currentHeight > initialHeight * 0.95) {
+                    initialHeight = currentHeight;
+                }
+            });
+        }
+        
+        // 添加手动测试函数
+        window.testKeyboard = (show, height = 300) => {
+            if (show) {
+                document.body.classList.add('keyboard-open');
+                keyboardHeight = height;
+                console.log('[Keyboard] Manually added class, height:', height);
+
+            } else {
+                document.body.classList.remove('keyboard-open');
+                keyboardHeight = 0;
+                console.log('[Keyboard] Manually removed class');
+            }
+            console.log('[Keyboard] Current classes:', document.body.className);
+            if (window.refreshSafeArea) window.refreshSafeArea();
+        };
     },
 
     // 打开 TTS 使用指南
@@ -715,8 +817,27 @@ Lumina.UI = {
             });
             input.addEventListener('blur', () => {
                 if (Lumina.Utils.validateRegex(input.value)) {
-                    Lumina.State.settings[`${type}Regex`] = input.value;
-                    Lumina.Settings.save();
+                    const oldValue = Lumina.State.settings[`${type}Regex`];
+                    const newValue = input.value;
+                    // 只有值真正改变时才保存和刷新
+                    if (oldValue !== newValue) {
+                        Lumina.State.settings[`${type}Regex`] = newValue;
+                        Lumina.Settings.save();
+                        // 如果文档已加载，重新渲染以应用新的章节正则
+                        if (Lumina.State.app.document.items?.length > 0) {
+                            // 重新识别章节
+                            Lumina.Parser.recognizeChapters(Lumina.State.app.document.items);
+                            // 重新渲染当前视图
+                            const currentIdx = Lumina.Renderer.getCurrentVisibleIndex();
+                            Lumina.Renderer.renderCurrentChapter(currentIdx);
+                            Lumina.Renderer.updateChapterNavInfo();
+                            // 如果热力图有tag数据，刷新热力图（因为章节变了）
+                            if (Lumina.HeatMap?.tags?.length > 0) {
+                                Lumina.HeatMap.cache = null; // 清除缓存，强制重新分析
+                                Lumina.HeatMap.analyze();
+                            }
+                        }
+                    }
                 }
             });
         });

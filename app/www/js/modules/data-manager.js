@@ -1775,6 +1775,9 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
 
         state.chapters = Lumina.Parser.buildChapters(state.document.items);
         state.currentChapterIndex = fileData.lastChapter || 0;
+        
+        // 设置默认页码为第1页，renderCurrentChapter 会根据 savedScrollIndex 覆盖为上次阅读位置
+        state.currentPageIdx = 0;
 
         Lumina.Renderer.generateTOC();
         const savedScrollIndex = fileData.lastScrollIndex;
@@ -1797,6 +1800,12 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
             Lumina.DOM.sidebarLeft.classList.remove('visible');
             Lumina.DOM.readingArea.classList.remove('with-sidebar');
             Lumina.State.settings.sidebarVisible = false;
+            // 移动端：关闭所有右侧面板
+            Lumina.DOM.sidebarRight?.classList.remove('open');
+            Lumina.DOM.historyPanel?.classList.remove('open');
+            Lumina.DOM.searchPanel?.classList.remove('open');
+            Lumina.DOM.aboutPanel?.classList.remove('active');
+            document.getElementById('annotationPanel')?.classList.remove('open');
         }
 
         if (savedScrollIndex !== undefined && savedScrollIndex !== null) {

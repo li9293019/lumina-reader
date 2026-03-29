@@ -1030,21 +1030,21 @@
             </button>
         </div>
         
-        <div class="about-body" style="padding-top: 20px;">
+        <div class="about-body">
             <!-- 预设列表 -->
-            <div id="heatPresetsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
+            <div id="heatPresetsList">
                 <!-- 动态生成预设项 -->
             </div>
             
             <!-- 添加新预设 -->
-            <div style="border-top: 1px solid var(--border-color); padding: 16px 4px 4px;">
-                <div class="setting-label" data-i18n="heatMapAddPreset" style="margin-bottom: 10px;">添加新预设</div>
+            <div class="heat-preset-add-section">
+                <div class="setting-label" data-i18n="heatMapAddPreset">添加新预设</div>
                 <!-- 名称和添加按钮合并一行 -->
-                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                    <input type="text" class="regex-input" id="heatPresetNameInput" data-i18n-placeholder="heatMapPresetNamePlaceholder" placeholder="预设名称（如：言情、仙侠）" style="flex: 1; margin-bottom: 0; height: 36px;">
-                    <button class="option-btn" id="heatPresetAddBtn" data-i18n="add" style="height: 36px; padding: 0 20px; font-size: 13px;">添加</button>
+                <div class="heat-preset-input-row">
+                    <input type="text" class="regex-input" id="heatPresetNameInput" data-i18n-placeholder="heatMapPresetNamePlaceholder" placeholder="预设名称（如：言情、仙侠）">
+                    <button class="option-btn" id="heatPresetAddBtn" data-i18n="add">添加</button>
                 </div>
-                <div class="tag-input-container" id="heatPresetTagsContainer" style="margin-bottom: 0; min-height: 36px;">
+                <div class="tag-input-container" id="heatPresetTagsContainer">
                     <div class="tag-list" id="heatPresetTagList"></div>
                     <input type="text" class="tag-input" id="heatPresetTagInput" data-i18n-placeholder="heatMapHint" placeholder="用逗号或空格分割关键词">
                 </div>

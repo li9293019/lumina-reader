@@ -26,6 +26,9 @@ Lumina.Actions = {
         Lumina.State.app.currentFile.handle = file;
         Lumina.State.app.currentFile.skipSave = false; // 重置保存标记
 
+        // 重置页码为第一页（必须在 restoreFileFromDB 之前）
+        Lumina.State.app.currentPageIdx = 0;
+        
         if (Lumina.State.app.dbReady) {
             const exactMatch = await Lumina.DB.adapter.getFile(fileKey);
             if (exactMatch) {
@@ -39,7 +42,8 @@ Lumina.Actions = {
                     if (confirmed) {
                         await Lumina.DB.adapter.deleteFile(existingByName.fileKey);
                         await Lumina.DB.loadHistoryFromDB();
-                        await this.processFileContinue(file, fileKey);
+                        const success = await this.processFileContinue(file, fileKey);
+        if (!success) return;  // 处理失败（如用户取消），不继续执行
                     }
                 });
                 return;
@@ -49,6 +53,16 @@ Lumina.Actions = {
     },
 
     async processFileContinue(file, fileKey) {
+        // 移动端：关闭所有面板（热启动/文件唤醒时也生效）
+        const isMobileView = window.innerWidth <= 768;
+        if (isMobileView) {
+            Lumina.DOM.sidebarRight?.classList.remove('open');
+            Lumina.DOM.historyPanel?.classList.remove('open');
+            Lumina.DOM.searchPanel?.classList.remove('open');
+            Lumina.DOM.aboutPanel?.classList.remove('active');
+            document.getElementById('annotationPanel')?.classList.remove('open');
+        }
+        
         // 重置章节正则表达式设置
         Lumina.State.settings.chapterNumbering = 'none';
         Lumina.State.settings.chapterRegex = '';
@@ -135,7 +149,9 @@ Lumina.Actions = {
                     
                     // 用户取消了密码输入
                     if (!result) {
-                        return;
+                        Lumina.DOM.loadingScreen.classList.remove('active');
+                        Lumina.State.app.ui.isProcessing = false;
+                        return false;  // 返回 false 表示处理失败
                     }
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
@@ -223,6 +239,8 @@ Lumina.Actions = {
             if (Lumina.State.app.currentFile.encoding && !['UTF-8', 'UTF8'].includes(Lumina.State.app.currentFile.encoding)) {
                 Lumina.UI.showToast(`${Lumina.State.app.currentFile.encoding} → UTF-8`, 2000);
             }
+            
+            return true;  // 处理成功
         } catch (err) {
             // 忽略用户取消操作（PDF/DOCX 密码输入取消等）
             const isCancelled = err.message === 'Password cancelled' || 
@@ -235,6 +253,7 @@ Lumina.Actions = {
             } else {
                 Lumina.UI.showDialog(`Error: ${err.message}`);
             }
+            return false;  // 处理失败
         } finally {
             Lumina.State.app.ui.isProcessing = false;
             Lumina.DOM.loadingScreen.classList.remove('active');
@@ -445,6 +464,11 @@ Lumina.Actions = {
         // 保存原始状态，以便在出错时恢复
         const originalItems = [...Lumina.State.app.document.items];
         
+        // 保存热力图数据
+        const savedHeatMap = Lumina.State.app.currentFile?.heatMap ? 
+            JSON.parse(JSON.stringify(Lumina.State.app.currentFile.heatMap)) : null;
+        const savedHeatTags = Lumina.HeatMap?.tags ? [...Lumina.HeatMap.tags] : [];
+        
         try {
             Lumina.State.settings.chapterRegex = chapterVal;
             Lumina.State.settings.sectionRegex = sectionVal;
@@ -452,6 +476,21 @@ Lumina.Actions = {
             Lumina.Settings.save();
             
             await Lumina.Parser.reparseWithRegex();
+            
+            // 恢复热力图数据
+            if (savedHeatMap) {
+                Lumina.State.app.currentFile.heatMap = savedHeatMap;
+            }
+            if (savedHeatTags.length > 0 && Lumina.HeatMap) {
+                Lumina.HeatMap.tags = savedHeatTags;
+                Lumina.HeatMap.renderTags();
+                // 强制清除缓存，使用新的章节索引重新分析
+                Lumina.HeatMap.cache = null;
+                // 延迟一点等待DOM更新，然后重新分析
+                setTimeout(() => {
+                    Lumina.HeatMap.analyze();
+                }, 100);
+            }
             
             if (Lumina.State.app.currentFile.name && Lumina.State.app.dbReady && Lumina.State.app.currentFile.fileKey) {
                 await Lumina.DB.saveHistory(Lumina.State.app.currentFile.name, Lumina.State.app.currentFile.type, Lumina.State.app.currentFile.wordCount);

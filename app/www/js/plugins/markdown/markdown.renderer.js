@@ -403,34 +403,42 @@ Lumina.Plugin.Markdown.Renderer = {
      * 渲染代码块
      */
     renderCodeBlock(container, item) {
-        // 创建代码块容器（用于定位语言标签）
-        const wrapper = document.createElement('div');
-        wrapper.className = 'markdown-code-wrapper';
-        if (item.language) {
-            wrapper.setAttribute('data-lang', item.language.toUpperCase());
+        try {
+            // 创建代码块容器（用于定位语言标签）
+            const wrapper = document.createElement('div');
+            wrapper.className = 'markdown-code-wrapper';
+            if (item.language) {
+                wrapper.setAttribute('data-lang', item.language.toUpperCase());
+            }
+            
+            const pre = document.createElement('pre');
+            pre.className = 'markdown-pre';
+            if (item.language) {
+                pre.classList.add(`language-${item.language}`);
+            }
+            
+            const code = document.createElement('code');
+            code.className = 'markdown-code';
+            if (item.language) {
+                code.classList.add(`language-${item.language}`);
+            }
+            
+            // 转义 HTML 特殊字符
+            code.textContent = item.text;
+            
+            pre.appendChild(code);
+            wrapper.appendChild(pre);
+            container.appendChild(wrapper);
+            
+            // 异步尝试高亮（添加错误保护）
+            this.highlightCodeElement(code).catch(() => {});
+        } catch (e) {
+            // 降级：只显示纯文本
+            const fallback = document.createElement('pre');
+            fallback.className = 'markdown-pre';
+            fallback.textContent = item.text;
+            container.appendChild(fallback);
         }
-        
-        const pre = document.createElement('pre');
-        pre.className = 'markdown-pre';
-        if (item.language) {
-            pre.classList.add(`language-${item.language}`);
-        }
-        
-        const code = document.createElement('code');
-        code.className = 'markdown-code';
-        if (item.language) {
-            code.classList.add(`language-${item.language}`);
-        }
-        
-        // 转义 HTML 特殊字符
-        code.textContent = item.text;
-        
-        pre.appendChild(code);
-        wrapper.appendChild(pre);
-        container.appendChild(wrapper);
-        
-        // 异步尝试高亮
-        this.highlightCodeElement(code);
     },
 
     /**
@@ -455,30 +463,38 @@ Lumina.Plugin.Markdown.Renderer = {
             'md': 'markdown',
             'html': 'markup',
             'xml': 'markup',
-            'htm': 'markup'
+            'htm': 'markup',
+            'cs': 'csharp',
+            'c#': 'csharp'
         };
         
         const actualLang = aliasMap[lang] || lang;
         if (this.loadedLanguages.has(actualLang)) return;
         
         try {
-            await this.loadScript(`./js/plugins/markdown/lib/prism/components/prism-${actualLang}.min.js`);
+            // 依赖 clike 的语言需要先加载 clike
+            const clikeDependents = ['csharp', 'gradle', 'java', 'kotlin', 'scala', 'groovy', 'cpp', 'c', 'objectivec', 'swift'];
+            if (clikeDependents.includes(actualLang) && !this.loadedLanguages.has('clike')) {
+                const clikePath = `./js/plugins/markdown/lib/prism/components/prism-clike.min.js`;
+                await this.loadScript(clikePath);
+                this.loadedLanguages.add('clike');
+            }
+            
+            const scriptPath = `./js/plugins/markdown/lib/prism/components/prism-${actualLang}.min.js`;
+            await this.loadScript(scriptPath);
             this.loadedLanguages.add(actualLang);
-            // console.log('[Markdown] 语言组件加载成功:', actualLang);
         } catch (e) {
-            // console.log('[Markdown] 语言组件加载失败:', actualLang, e.message);
+            console.error('[Markdown] 语言组件加载失败:', actualLang, e.message);
         }
     },
 
     /**
      * 高亮单个代码元素
+     * 添加超时保护，防止 Prism 卡死
      */
     async highlightCodeElement(codeElement) {
-        // console.log('[Markdown] 尝试高亮代码块:', codeElement.className);
-        
         // 等待高亮库就绪
         if (!this.highlightState.loaded) {
-            // console.log('[Markdown] 高亮库未加载，尝试初始化...');
             await this.initHighlighter();
         }
         
@@ -493,23 +509,26 @@ Lumina.Plugin.Markdown.Renderer = {
                     await this.loadLanguageComponent(lang);
                 }
                 
-                // console.log('[Markdown] Prism 高亮:', lang || '纯文本');
-                
-                // 调用 Prism 高亮
-                this.highlightState.Prism.highlightElement(codeElement);
-                
-                // 检查高亮是否生效
-                const hasTokens = codeElement.querySelector('.token');
-                if (hasTokens) {
-                    // console.log('[Markdown] 代码高亮成功');
-                } else {
-                    // console.log('[Markdown] 无 token 生成（语言可能不支持或纯文本）');
-                }
+                // 使用 Promise.race 添加超时保护（3秒）
+                await Promise.race([
+                    new Promise((resolve) => {
+                        // 在下一个事件循环中执行高亮，避免阻塞渲染
+                        setTimeout(() => {
+                            try {
+                                this.highlightState.Prism.highlightElement(codeElement);
+                                resolve();
+                            } catch (e) {
+                                resolve(); // 即使失败也 resolve，避免阻塞
+                            }
+                        }, 0);
+                    }),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Highlight timeout')), 3000)
+                    )
+                ]);
             } catch (e) {
-                console.error('[Markdown] 代码高亮失败:', e);
+                // 失败时保持原始文本，不影响阅读
             }
-        } else {
-            console.warn('[Markdown] 无法高亮：Prism 未就绪');
         }
     },
 

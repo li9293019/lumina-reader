@@ -263,12 +263,14 @@
 
         // 设置 CSS 变量
         const root = document.documentElement;
+        const isKeyboardOpen = document.body.classList.contains('keyboard-open');
         root.style.setProperty('--safe-area-top', safeAreaData.top + 'px');
-        root.style.setProperty('--safe-area-bottom', safeAreaData.bottom + 'px');
+        // 键盘打开时不设置底部安全区域（避免双 padding）
+        root.style.setProperty('--safe-area-bottom', isKeyboardOpen ? '0px' : (safeAreaData.bottom + 'px'));
         root.style.setProperty('--safe-area-left', safeAreaData.left + 'px');
         root.style.setProperty('--safe-area-right', safeAreaData.right + 'px');
 
-        console.log('[SafeArea] CSS 变量已设置:', safeAreaData);
+        console.log('[SafeArea] CSS 变量已设置:', safeAreaData, '键盘状态:', isKeyboardOpen);
 
         // 应用样式
         applySafeArea();
@@ -294,7 +296,9 @@
         }
         
         const top = safeAreaData.top + 'px';
-        const bottom = safeAreaData.bottom + 'px';
+        // 键盘打开时底部 padding 为 0
+        const isKeyboardOpen = document.body.classList.contains('keyboard-open');
+        const bottom = isKeyboardOpen ? '0px' : (safeAreaData.bottom + 'px');
 
         const elements = {
             topBar: document.querySelector('.top-bar'),
@@ -327,7 +331,7 @@
             panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
         });
 
-        console.log('[SafeArea] 样式已应用:', { top: safeAreaData.top, bottom: safeAreaData.bottom });
+        console.log('[SafeArea] 样式已应用:', { top: safeAreaData.top, bottom: safeAreaData.bottom, keyboardOpen: isKeyboardOpen });
     }
 
     // 沉浸模式切换
@@ -394,9 +398,15 @@
     // 重新加载安全区域（用于手动触发）
     window.refreshSafeArea = function() {
         console.log('[SafeArea] 手动刷新安全区域');
-        cachedSafeArea = null;
-        retryCount = 0;
-        setupSafeArea();
+        // 轻量级刷新：只重新应用样式（不重新获取数据），用于键盘状态变化
+        applySafeArea();
+        // 同时刷新 CSS 变量（因为 applySafeArea 可能使用内联样式）
+        const root = document.documentElement;
+        const isKeyboardOpen = document.body.classList.contains('keyboard-open');
+        if (safeAreaData) {
+            root.style.setProperty('--safe-area-bottom', isKeyboardOpen ? '0px' : (safeAreaData.bottom + 'px'));
+        }
+        console.log('[SafeArea] 轻量级刷新完成，键盘状态:', isKeyboardOpen);
     };
 
     // 初始化 - 确保 DOM 已准备好

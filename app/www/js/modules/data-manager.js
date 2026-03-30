@@ -5,6 +5,12 @@ Lumina.DataManager = class {
         this.isPreloaded = false;
         this.currentStats = null;
         this.currentView = Lumina.ConfigManager.get('library.viewMode') || 'card';
+        this.currentSort = Lumina.ConfigManager.get('library.sortBy') || 'time';
+        this.sortOrder = Lumina.ConfigManager.get('library.sortOrder') || 'desc';
+        
+        // 多选状态
+        this.isBatchMode = false;
+        this.selectedFiles = new Set();
     }
 
     init() {
@@ -19,6 +25,12 @@ Lumina.DataManager = class {
 
         // 初始化视图切换
         this.initViewToggle();
+        
+        // 初始化排序
+        this.initSort();
+        
+        // 初始化多选批量操作
+        this.initBatchMode();
     }
 
     // 初始化视图切换
@@ -87,6 +99,334 @@ Lumina.DataManager = class {
 
         // 重新渲染
         this.renderGrid();
+    }
+
+    // ==================== 排序功能 ====================
+    initSort() {
+        const sortBtn = document.getElementById('libSortBtn');
+        const sortMenu = document.getElementById('libSortMenu');
+        const directionBtn = document.getElementById('libSortDirectionBtn');
+        if (!sortBtn || !sortMenu) return;
+        
+        // 点击展开/收起下拉菜单
+        sortBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sortMenu.classList.toggle('open');
+        });
+        
+        // 点击排序方向按钮切换方向
+        if (directionBtn) {
+            directionBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 切换排序方向
+                this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+                
+                // 保存设置
+                Lumina.ConfigManager.set('library.sortOrder', this.sortOrder);
+                
+                // 更新UI并重新渲染
+                this.updateSortLabel();
+                this.updateSortMenu();
+                this.renderGrid();
+            });
+        }
+        
+        // 点击选项
+        sortMenu.querySelectorAll('.sort-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const sortBy = item.dataset.sort;
+                this.setSort(sortBy);
+                sortMenu.classList.remove('open');
+            });
+        });
+        
+        // 点击外部关闭
+        document.addEventListener('click', () => {
+            sortMenu.classList.remove('open');
+        });
+    }
+    
+    setSort(sortBy) {
+        if (this.currentSort === sortBy) {
+            // 切换排序方向
+            this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+        } else {
+            this.currentSort = sortBy;
+            this.sortOrder = 'desc'; // 默认倒序
+        }
+        
+        // 保存设置
+        Lumina.ConfigManager.set('library.sortBy', this.currentSort);
+        Lumina.ConfigManager.set('library.sortOrder', this.sortOrder);
+        
+        // 更新UI
+        this.updateSortLabel();
+        this.updateSortMenu();
+        this.renderGrid();
+    }
+    
+    updateSortLabel() {
+        const label = document.getElementById('libSortLabel');
+        const sortNames = {
+            'time': Lumina.I18n.t('sortByTime') || '最新阅读',
+            'added': Lumina.I18n.t('sortByAdded') || '添加时间',
+            'name': Lumina.I18n.t('sortByName') || '文件名称',
+            'size': Lumina.I18n.t('sortBySize') || '文件大小'
+        };
+        if (label) {
+            label.textContent = sortNames[this.currentSort] || sortNames.time;
+            label.dataset.sort = this.currentSort;
+        }
+        
+        // 更新排序方向图标
+        const directionIcon = document.getElementById('libSortDirectionIcon');
+        if (directionIcon) {
+            const use = directionIcon.querySelector('use');
+            if (use) {
+                use.setAttribute('href', this.sortOrder === 'desc' ? '#icon-caret-down' : '#icon-caret-up');
+            }
+        }
+        
+        // 更新排序按钮tooltip
+        const sortBtn = document.getElementById('libSortBtn');
+        if (sortBtn) {
+            sortBtn.dataset.i18nTooltip = this.sortOrder === 'desc' ? 'sortDesc' : 'sortAsc';
+            // 重新初始化tooltip
+            Lumina.UI.setupCustomTooltip?.();
+        }
+    }
+    
+    updateSortMenu() {
+        const menu = document.getElementById('libSortMenu');
+        if (!menu) return;
+        
+        menu.querySelectorAll('.sort-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.sort === this.currentSort);
+        });
+    }
+    
+    sortFiles(files) {
+        const sorted = [...files];
+        
+        switch (this.currentSort) {
+            case 'name':
+                sorted.sort((a, b) => this.sortOrder === 'desc' 
+                    ? b.fileName.localeCompare(a.fileName) 
+                    : a.fileName.localeCompare(b.fileName));
+                break;
+            case 'size':
+                sorted.sort((a, b) => this.sortOrder === 'desc'
+                    ? (b.fileSize || 0) - (a.fileSize || 0)
+                    : (a.fileSize || 0) - (b.fileSize || 0));
+                break;
+            case 'added':
+                // 添加时间 - 使用created_at字段
+                sorted.sort((a, b) => {
+                    const timeA = new Date(a.created_at || a.lastReadTime || 0).getTime();
+                    const timeB = new Date(b.created_at || b.lastReadTime || 0).getTime();
+                    return this.sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+                });
+                break;
+            case 'time':
+            default:
+                // 最新阅读 - 使用lastReadTime
+                sorted.sort((a, b) => {
+                    const timeA = new Date(a.lastReadTime || 0).getTime();
+                    const timeB = new Date(b.lastReadTime || 0).getTime();
+                    return this.sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+                });
+                break;
+        }
+        
+        return sorted;
+    }
+
+    // ==================== 多选批量操作 ====================
+    initBatchMode() {
+        // 批量导出选中
+        document.getElementById('libBatchExportBtn')?.addEventListener('click', () => {
+            this.batchExportSelected();
+        });
+        
+        // 批量删除选中
+        document.getElementById('libBatchDeleteBtn')?.addEventListener('click', () => {
+            this.batchDeleteSelected();
+        });
+        
+        // 取消多选
+        document.getElementById('libCancelBatchBtn')?.addEventListener('click', () => {
+            this.exitBatchMode();
+        });
+        
+        // 全选
+        document.getElementById('libSelectAllBtn')?.addEventListener('click', () => {
+            this.selectAll();
+        });
+        
+        // 反选
+        document.getElementById('libInvertSelectBtn')?.addEventListener('click', () => {
+            this.invertSelection();
+        });
+    }
+    
+    selectAll() {
+        if (!this.currentStats?.files) return;
+        
+        // 选中所有文件
+        this.currentStats.files.forEach(file => {
+            this.selectedFiles.add(file.fileKey);
+        });
+        
+        // 更新所有卡片外观
+        document.querySelectorAll('.data-card').forEach(card => {
+            card.classList.add('selected');
+        });
+        
+        this.updateSelectedCount();
+    }
+    
+    invertSelection() {
+        if (!this.currentStats?.files) return;
+        
+        // 遍历所有文件，切换选中状态
+        this.currentStats.files.forEach(file => {
+            if (this.selectedFiles.has(file.fileKey)) {
+                this.selectedFiles.delete(file.fileKey);
+            } else {
+                this.selectedFiles.add(file.fileKey);
+            }
+        });
+        
+        // 更新所有卡片外观
+        document.querySelectorAll('.data-card').forEach(card => {
+            const fileKey = card.dataset.filekey;
+            card.classList.toggle('selected', this.selectedFiles.has(fileKey));
+        });
+        
+        this.updateSelectedCount();
+    }
+    
+    enterBatchMode() {
+        if (this.isBatchMode) return;
+        this.isBatchMode = true;
+        this.selectedFiles.clear();
+        
+        // 切换 Header
+        document.getElementById('libNormalHeader').style.display = 'none';
+        document.getElementById('libBatchHeader').style.display = '';
+        document.getElementById('libFilterBar').style.display = 'none';
+        
+        // 重新渲染显示勾选框
+        this.renderGrid();
+        this.updateSelectedCount();
+    }
+    
+    exitBatchMode() {
+        if (!this.isBatchMode) return;
+        this.isBatchMode = false;
+        this.selectedFiles.clear();
+        
+        // 恢复 Header
+        document.getElementById('libNormalHeader').style.display = '';
+        document.getElementById('libBatchHeader').style.display = 'none';
+        document.getElementById('libFilterBar').style.display = '';
+        
+        // 重新渲染隐藏勾选框
+        this.renderGrid();
+    }
+    
+    toggleSelection(fileKey) {
+        if (this.selectedFiles.has(fileKey)) {
+            this.selectedFiles.delete(fileKey);
+        } else {
+            this.selectedFiles.add(fileKey);
+        }
+        
+        // 更新卡片外观
+        const card = document.querySelector(`.data-card[data-filekey="${fileKey}"]`);
+        if (card) {
+            card.classList.toggle('selected', this.selectedFiles.has(fileKey));
+        }
+        
+        this.updateSelectedCount();
+    }
+    
+    updateSelectedCount() {
+        const countEl = document.getElementById('libSelectedCount');
+        if (countEl) {
+            countEl.textContent = this.selectedFiles.size;
+        }
+    }
+    
+    async batchExportSelected() {
+        if (this.selectedFiles.size === 0) {
+            Lumina.UI.showToast(Lumina.I18n.t('noFilesSelected') || '请先选择文件');
+            return;
+        }
+        
+        // 使用 exportBatchByKeys 方法，确保格式与整库导出一致
+        await this.exportBatchByKeys(Array.from(this.selectedFiles));
+        this.exitBatchMode();
+    }
+    
+    // 根据文件键列表导出（支持部分导出和整库导出）
+    async exportBatchByKeys(fileKeys) {
+        const books = [];
+        for (const fileKey of fileKeys) {
+            // 直接使用 getFile 获取完整数据，确保与 exportBatch 格式一致
+            const fileData = await Lumina.DB.adapter.getFile(fileKey);
+            if (fileData) {
+                books.push(fileData);
+            }
+        }
+        
+        if (books.length === 0) {
+            Lumina.UI.showToast(Lumina.I18n.t('exportFailed') || '导出失败');
+            return;
+        }
+        
+        const batchData = {
+            version: 2,
+            exportType: 'batch',
+            exportDate: Lumina.DB.getLocalTimeString(),
+            appName: 'Lumina Reader',
+            books,
+            totalBooks: books.length
+        };
+        
+        await this.exportBatchData(batchData);
+    }
+    
+    async batchDeleteSelected() {
+        if (this.selectedFiles.size === 0) {
+            Lumina.UI.showToast(Lumina.I18n.t('noFilesSelected') || '请先选择文件');
+            return;
+        }
+        
+        const count = this.selectedFiles.size;
+        Lumina.UI.showDialog(
+            Lumina.I18n.t('confirmDeleteSelected', count) || `确认删除选中的 ${count} 个文件？`,
+            'confirm',
+            async (confirmed) => {
+                if (!confirmed) return;
+                
+                let success = 0;
+                for (const fileKey of this.selectedFiles) {
+                    try {
+                        await Lumina.DB.adapter.deleteFile(fileKey);
+                        success++;
+                    } catch (e) {
+                        console.error('Delete failed:', fileKey, e);
+                    }
+                }
+                
+                Lumina.UI.showToast(Lumina.I18n.t('filesDeleted', success) || `已删除 ${success} 个文件`);
+                await this.refreshStats();
+                await Lumina.DB.loadHistoryFromDB();
+                this.exitBatchMode();
+            }
+        );
     }
 
     async preload() {
@@ -199,7 +539,7 @@ Lumina.DataManager = class {
                 <svg class="icon" style="width:48px;height:48px;color:var(--warnning);"><use href="#icon-error"/></svg>
                 <div style="margin:16px 0;color:var(--text-secondary);">${message}</div>
                 <button class="option-btn" onclick="(${retryCallback})()" style="margin-top:8px;">
-                    ${t('retry') || '重试'}
+                    ${Lumina.I18n.t('retry') || '重试'}
                 </button>
             </div>
         `;
@@ -222,9 +562,21 @@ Lumina.DataManager = class {
 
     renderStats() {
         const { totalFiles, totalSize, imageCount } = this.currentStats;
-        document.getElementById('totalFilesCount').textContent = totalFiles;
-        document.getElementById('totalStorageSize').textContent = totalSize + 'MB';
-        document.getElementById('totalImagesCount').textContent = imageCount;
+        
+        // 更新简要统计信息（筛选栏右侧）
+        const statsCount = document.getElementById('libStatsCount');
+        const statsSize = document.getElementById('libStatsSize');
+        if (statsCount) statsCount.textContent = totalFiles;
+        if (statsSize) statsSize.textContent = `${totalSize} MB`;
+        
+        // 保持兼容性：如果有旧版统计栏也更新
+        const totalFilesEl = document.getElementById('totalFilesCount');
+        const totalSizeEl = document.getElementById('totalStorageSize');
+        const totalImagesEl = document.getElementById('totalImagesCount');
+        
+        if (totalFilesEl) totalFilesEl.textContent = totalFiles;
+        if (totalSizeEl) totalSizeEl.textContent = totalSize + ' MB';
+        if (totalImagesEl) totalImagesEl.textContent = imageCount;
     }
 
     updateSettingsBar() {
@@ -237,10 +589,16 @@ Lumina.DataManager = class {
 
     renderGrid() {
         const grid = document.getElementById('dataGrid');
-        const { files } = this.currentStats;
+        let { files } = this.currentStats;
+        
+        // 排序
+        files = this.sortFiles(files);
 
         // 设置当前视图
         grid.dataset.view = this.currentView;
+        
+        // 设置多选状态
+        grid.classList.toggle('batch-mode', this.isBatchMode);
 
         if (!files.length) {
             grid.innerHTML = `<div class="history-empty" style="grid-column: 1/-1; padding: 60px;"><svg class="icon"><use href="#icon-folder"/></svg><div>${Lumina.I18n.t('noDataToManage')}</div></div>`;
@@ -266,9 +624,20 @@ Lumina.DataManager = class {
             ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">`
             : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
         
+        // 多选勾选框（自定义SVG，非浏览器checkbox）
+        const checkboxHtml = `
+            <div class="card-checkbox" data-checkbox="true" title="${Lumina.I18n.t('selectFile') || '选择文件'}">
+                <svg class="checkbox-icon" viewBox="0 0 24 24">
+                    <rect class="checkbox-frame" x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <path class="checkbox-check" d="M7 12l4 4 6-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        `;
+        
         return `
         <div class="data-card" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
-            <!-- 滑动操作层（移动端显示，PC隐藏） -->
+            ${checkboxHtml}
+            <!-- 滑动操作层（移动端显示，PC隐藏；多选模式时禁用） -->
             <div class="swipe-layer">
                 <div class="swipe-action export-action" data-action="export">
                     <svg class="icon"><use href="#icon-export"/></svg>
@@ -309,9 +678,77 @@ Lumina.DataManager = class {
         grid.querySelectorAll('.data-card').forEach(card => {
             const fileKey = card.dataset.filekey;
             
-            // 点击卡片打开（排除按钮区域）
+            // 勾选框点击（进入多选模式或切换选中状态）
+            const checkbox = card.querySelector('.card-checkbox');
+            if (checkbox) {
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // 如果不在多选模式，先进入多选模式
+                    if (!this.isBatchMode) {
+                        this.enterBatchMode();
+                    }
+                    
+                    this.toggleSelection(fileKey);
+                });
+            }
+            
+            // 移动端长按支持（用于进入多选模式）
+            let longPressTimer = null;
+            let isLongPress = false;
+            const LONG_PRESS_DELAY = 500; // 毫秒
+            
+            const startLongPress = (e) => {
+                // 只在移动端或触摸设备上生效
+                if (!isMobile && e.type !== 'touchstart') return;
+                
+                isLongPress = false;
+                longPressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    // 阻止后续的click事件
+                    if (e.type === 'touchstart') {
+                        card.dataset.longPressTriggered = 'true';
+                    }
+                    
+                    // 如果不在多选模式，进入多选模式并选中当前卡片
+                    if (!this.isBatchMode) {
+                        this.enterBatchMode();
+                        this.toggleSelection(fileKey);
+                        
+                        // 触觉反馈
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, LONG_PRESS_DELAY);
+            };
+            
+            const cancelLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
+            
+            // 绑定长按事件
+            card.addEventListener('touchstart', startLongPress, { passive: true });
+            card.addEventListener('touchend', cancelLongPress);
+            card.addEventListener('touchmove', cancelLongPress);
+            card.addEventListener('touchcancel', cancelLongPress);
+            
+            // 点击卡片打开（排除按钮区域和勾选框）
             card.addEventListener('click', (e) => {
-                if (e.target.closest('.cover-btn') || e.target.closest('.swipe-action')) return;
+                // 如果是长按触发的，忽略此次点击
+                if (card.dataset.longPressTriggered === 'true') {
+                    card.dataset.longPressTriggered = '';
+                    return;
+                }
+                
+                // 多选模式下，整个卡片都是选择触发体
+                if (this.isBatchMode) {
+                    this.toggleSelection(fileKey);
+                    return;
+                }
+                
+                if (e.target.closest('.cover-btn') || e.target.closest('.swipe-action') || e.target.closest('.card-checkbox')) return;
                 this.openFile(fileKey);
             });
             
@@ -334,8 +771,8 @@ Lumina.DataManager = class {
             });
         });
         
-        // 移动端绑定滑动手势
-        if (isMobile) {
+        // 移动端绑定滑动手势（多选模式下禁用）
+        if (isMobile && !this.isBatchMode) {
             this.bindSwipeForDataManager();
         }
     }
@@ -819,6 +1256,28 @@ Lumina.DataManager = class {
         }
     }
     
+    // 通用批量导出（支持传入自定义数据）
+    async exportBatchData(batchData) {
+        if (!batchData || !batchData.books || batchData.books.length === 0) {
+            Lumina.UI.showToast(Lumina.I18n.t('libraryEmpty'));
+            return;
+        }
+        
+        try {
+            // 检查是否开启了加密导出
+            const encryptedExport = Lumina.State.settings.encryptedExport;
+            
+            if (encryptedExport) {
+                await this.batchExportEncrypted(batchData);
+            } else {
+                await this.batchExportPlain(batchData);
+            }
+        } catch (err) {
+            console.error('[Export] Error:', err);
+            Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
+        }
+    }
+    
     // 明文批量导出
     async batchExportPlain(batchData) {
         const jsonContent = JSON.stringify(batchData, null, 2);
@@ -1083,7 +1542,8 @@ Lumina.DataManager = class {
             lastChapter: data.lastChapter || 0,
             lastScrollIndex: data.lastScrollIndex || 0,
             chapterTitle: data.chapterTitle || '',
-            lastReadTime: new Date().toISOString()
+            lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
+            created_at: data.created_at || data.lastReadTime || Lumina.DB.getLocalTimeString()
         });
         await this.refreshStats();
         await Lumina.DB.loadHistoryFromDB();
@@ -1158,11 +1618,12 @@ Lumina.DataManager = class {
                 customRegex: data.customRegex || { chapter: '', section: '' },
                 chapterNumbering: data.chapterNumbering || 'none',
                 annotations: data.annotations || [],
-                heatMap: data.heatMap || null,  // 恢复热力图数据
+                heatMap: data.heatMap || null,
                 lastChapter: data.lastChapter || 0,
                 lastScrollIndex: data.lastScrollIndex || 0,
                 chapterTitle: data.chapterTitle || '',
-                lastReadTime: new Date().toISOString()
+                lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
+                created_at: data.created_at || data.lastReadTime || Lumina.DB.getLocalTimeString()
             });
             await this.refreshStats();
             await Lumina.DB.loadHistoryFromDB();
@@ -1299,7 +1760,7 @@ Lumina.DB.HistoryDataBuilder = {
             lastChapter: state.currentChapterIndex,
             lastScrollIndex: Lumina.Renderer.getCurrentVisibleIndex(),
             chapterTitle: currentChapter ? (currentChapter.isPreface ? Lumina.I18n.t('preface') : currentChapter.title) : '',
-            lastReadTime: new Date().toISOString(),
+            lastReadTime: Lumina.DB.getLocalTimeString(),
             customRegex: { chapter: Lumina.State.settings.chapterRegex, section: Lumina.State.settings.sectionRegex },
             chapterNumbering: Lumina.State.settings.chapterNumbering,
             annotations: [],
@@ -1355,7 +1816,7 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                     lastChapter: Lumina.State.app.currentChapterIndex,
                     lastScrollIndex: Lumina.Renderer.getCurrentVisibleIndex(),
                     chapterTitle: currentChapter ? (currentChapter.isPreface ? Lumina.I18n.t('preface') : currentChapter.title) : '',
-                    lastReadTime: new Date().toISOString(),
+                    lastReadTime: Lumina.DB.getLocalTimeString(),
                     chapterNumbering: Lumina.State.settings.chapterNumbering,
                     customRegex: { 
                         chapter: Lumina.State.settings.chapterRegex, 
@@ -1912,20 +2373,23 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
             });
         }
 
-        // 关键修改：只有非 SQLite 才显示"已从书库快速恢复"和立即保存
-        if (!isSQLite) {
-            Lumina.UI.showToast(t('dbUsingCache'));
-            // 仅在 IndexedDB 模式下立即保存（更新阅读时间）
-            if (state.dbReady && fileData.fileKey) {
-                try {
-                    fileData.lastReadTime = new Date().toISOString();
-                    await Lumina.DB.adapter.saveFile(fileData.fileKey, fileData);
-                } catch (err) { }
+        // 更新最后阅读时间（所有模式都执行）
+        if (state.dbReady && fileData.fileKey) {
+            try {
+                fileData.lastReadTime = Lumina.DB.getLocalTimeString();
+                await Lumina.DB.adapter.saveFile(fileData.fileKey, {
+                    ...fileData,
+                    lastReadTime: fileData.lastReadTime
+                });
+            } catch (err) { 
+                console.warn('[restoreFileFromDB] 更新阅读时间失败:', err);
             }
         }
-        // SQLite 模式下不立即保存，避免用本地缓存覆盖服务器数据
-        // 阅读进度会在滚动时通过 saveCurrentProgress 保存
-        // 注释会在编辑时通过 saveAnnotations 保存
+        
+        // 非 SQLite 模式显示"已从书库快速恢复"
+        if (!isSQLite) {
+            Lumina.UI.showToast(t('dbUsingCache'));
+        }
 
         await Lumina.DB.loadHistoryFromDB();
         Lumina.Search.clearResults();

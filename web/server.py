@@ -12,6 +12,7 @@ import gzip
 import io
 from pathlib import Path
 from http.server import ThreadingHTTPServer
+from datetime import datetime
 
 # 尝试使用 ujson，快 5-10 倍
 try:
@@ -110,12 +111,29 @@ class Database:
             try:
                 heat_map_json = JSON_ENCODE(data.get('heatMap')) if data.get('heatMap') is not None else None
                 
+                # 保留原有的 created_at（如果存在）
+                existing_created_at = None
+                try:
+                    cursor = conn.execute("SELECT created_at FROM books WHERE fileKey = ?", (fileKey,))
+                    row = cursor.fetchone()
+                    if row:
+                        existing_created_at = row[0]
+                except:
+                    pass
+                
+                # 优先使用前端传递的 created_at，其次是数据库现有的，最后是当前时间
+                created_at = data.get('created_at') or existing_created_at or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                last_read_time = data.get('lastReadTime', '')
+                print(f"[DEBUG] DB save lastReadTime: {last_read_time}, fileKey: {fileKey}")
+                
                 conn.execute("""
                     INSERT OR REPLACE INTO books (
                         fileKey, fileName, fileType, fileSize, content, wordCount,
                         lastChapter, lastScrollIndex, chapterTitle, lastReadTime,
-                        customRegex, chapterNumbering, annotations, cover, heatMap, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        customRegex, chapterNumbering, annotations, cover, heatMap, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     fileKey,
                     data.get('fileName', ''),
@@ -126,12 +144,14 @@ class Database:
                     data.get('lastChapter', 0),
                     data.get('lastScrollIndex', 0),
                     data.get('chapterTitle', ''),
-                    data.get('lastReadTime', ''),
+                    last_read_time,
                     JSON_ENCODE(data.get('customRegex', {})),
                     data.get('chapterNumbering', 'none'),
                     JSON_ENCODE(data.get('annotations', [])),
                     data.get('cover', None),
-                    heat_map_json
+                    heat_map_json,
+                    created_at,
+                    updated_at
                 ))
                 
                 conn.execute("COMMIT")
@@ -177,7 +197,7 @@ class Database:
             rows = conn.execute("""
                 SELECT fileKey, fileName, fileType, fileSize, wordCount, 
                     lastChapter, lastScrollIndex, chapterTitle, lastReadTime, 
-                    chapterNumbering, updated_at, cover
+                    chapterNumbering, created_at, updated_at, cover
                 FROM books 
                 ORDER BY lastReadTime DESC
             """).fetchall()
@@ -303,6 +323,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             return
         
         if path == '/api/save':
+            print(f"[DEBUG] Save request data: {data.get('data', {}).get('lastReadTime', 'NOT SET')}")
             success = db.save(data['fileKey'], data.get('data', {}))
             self._send_json({'success': success})
         

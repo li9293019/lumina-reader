@@ -33,6 +33,9 @@ Lumina.DB.StorageAdapter = class {
     async exportFile(fileKey) { return this.impl.exportFile(fileKey); }
 };
 
+// 使用 db.js 中定义的本地时间函数
+// Lumina.DB.getLocalTimeString 定义在 db.js 中
+
 Lumina.DB.IndexedDBImpl = class {
     constructor() {
         this.db = null;
@@ -82,6 +85,10 @@ Lumina.DB.IndexedDBImpl = class {
     async saveFile(fileKey, data) {
         if (!this.isReady || !this.db) return false;
         try {
+            // 获取现有记录，以保留 created_at（首次创建时间）
+            const existingRecord = await this.getFile(fileKey);
+            const createdAt = existingRecord?.created_at || data.created_at || Lumina.DB.getLocalTimeString();
+            
             const transaction = this.db.transaction(['fileData'], 'readwrite');
             const store = transaction.objectStore('fileData');
             
@@ -95,12 +102,13 @@ Lumina.DB.IndexedDBImpl = class {
                 lastChapter: data.lastChapter || 0,
                 lastScrollIndex: data.lastScrollIndex || 0,
                 chapterTitle: data.chapterTitle || '',
-                lastReadTime: data.lastReadTime || new Date().toISOString(),
+                lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
+                created_at: createdAt,  // 文件首次添加到库的时间（不变）
                 customRegex: data.customRegex || { chapter: '', section: '' },
                 chapterNumbering: data.chapterNumbering || 'none',
                 annotations: data.annotations || [],
                 cover: data.cover || null,
-                heatMap: data.heatMap || null  // 保存热力图数据
+                heatMap: data.heatMap || null
             };
             
             return new Promise((resolve) => {
@@ -188,7 +196,7 @@ Lumina.DB.IndexedDBImpl = class {
             chapterNumbering: oldData.chapterNumbering || 'none',
             annotations: oldData.annotations || [],
             cover: newData.cover || oldData.cover || null,
-            lastReadTime: new Date().toISOString()
+            lastReadTime: Lumina.DB.getLocalTimeString()
         };
         return this.saveFile(newKey, mergedData);
     }
@@ -236,7 +244,7 @@ Lumina.DB.IndexedDBImpl = class {
         return {
             version: this.DB_VERSION, 
             exportType: 'batch', 
-            exportDate: new Date().toISOString(),
+            exportDate: Lumina.DB.getLocalTimeString(),
             appName: 'Lumina Reader', 
             books, 
             totalBooks: books.length, 
@@ -257,7 +265,8 @@ Lumina.DB.IndexedDBImpl = class {
                     content: book.content, wordCount: book.wordCount || 0, cover: book.cover || null,
                     customRegex: book.customRegex || { chapter: '', section: '' },
                     lastChapter: book.lastChapter || 0, chapterTitle: book.chapterTitle || '',
-                    lastReadTime: book.lastReadTime || new Date().toISOString()
+                    lastReadTime: book.lastReadTime || Lumina.DB.getLocalTimeString(),
+                    created_at: book.created_at || book.lastReadTime || Lumina.DB.getLocalTimeString()
                 });
                 results.success++;
             } catch (err) {
@@ -284,7 +293,7 @@ Lumina.DB.IndexedDBImpl = class {
         return {
             version: this.DB_VERSION, 
             exportType: 'single', 
-            exportDate: new Date().toISOString(),
+            exportDate: Lumina.DB.getLocalTimeString(),
             appName: 'Lumina Reader', 
             fileName: file.fileName, 
             fileType: file.fileType,
@@ -295,7 +304,9 @@ Lumina.DB.IndexedDBImpl = class {
             chapterNumbering: file.chapterNumbering || 'none',  
             lastChapter: file.lastChapter || 0,
             lastScrollIndex: file.lastScrollIndex || 0,
-            chapterTitle: file.chapterTitle || ''
+            chapterTitle: file.chapterTitle || '',
+            lastReadTime: file.lastReadTime,
+            created_at: file.created_at || file.lastReadTime
         };
     }
 };
@@ -547,7 +558,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             chapterNumbering: oldData.chapterNumbering || 'none',
             annotations: oldData.annotations || [],
             cover: newData.cover || oldData.cover || null,
-            lastReadTime: new Date().toISOString()
+            lastReadTime: Lumina.DB.getLocalTimeString()
         };
         return this.saveFile(newKey, mergedData);
     }
@@ -565,7 +576,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
         return {
             version: 2,
             exportType: 'batch',
-            exportDate: new Date().toISOString(),
+            exportDate: Lumina.DB.getLocalTimeString(),
             appName: 'Lumina Reader',
             books,
             totalBooks: books.length
@@ -595,7 +606,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                     annotations: book.annotations || [],
                     cover: book.cover || null,
                     heatMap: book.heatMap || null,
-                    lastReadTime: new Date().toISOString()
+                    lastReadTime: Lumina.DB.getLocalTimeString()
                 });
                 results.success++;
                 if (onProgress) onProgress(i + 1, books.length, true);
@@ -1024,7 +1035,7 @@ Lumina.DB.SQLiteImpl = class {
             chapterNumbering: oldData.chapterNumbering || 'none',
             annotations: oldData.annotations || [],
             cover: newData.cover || oldData.cover || null,
-            lastReadTime: new Date().toISOString()
+            lastReadTime: Lumina.DB.getLocalTimeString()
         };
         return this.saveFile(newKey, mergedData);
     }
@@ -1042,7 +1053,7 @@ Lumina.DB.SQLiteImpl = class {
         return {
             version: 2,
             exportType: 'batch',
-            exportDate: new Date().toISOString(),
+            exportDate: Lumina.DB.getLocalTimeString(),
             appName: 'Lumina Reader',
             books,
             totalBooks: books.length
@@ -1068,7 +1079,8 @@ Lumina.DB.SQLiteImpl = class {
                     customRegex: book.customRegex || {chapter: '', section: ''},
                     lastChapter: book.lastChapter || 0,
                     chapterTitle: book.chapterTitle || '',
-                    lastReadTime: book.lastReadTime || new Date().toISOString()
+                    lastReadTime: book.lastReadTime || Lumina.DB.getLocalTimeString(),
+                    created_at: book.created_at || book.lastReadTime || Lumina.DB.getLocalTimeString()
                 });
                 results.success++;
             } catch (err) {

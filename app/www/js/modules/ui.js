@@ -433,7 +433,7 @@ Lumina.UI = {
                 lastChapter: 0,
                 lastScrollIndex: 0,
                 chapterTitle: '',
-                lastReadTime: new Date().toISOString(),
+                lastReadTime: Lumina.DB.getLocalTimeString(),
                 customRegex: { chapter: '', section: '' },
                 chapterNumbering: 'none',
                 annotations: [],

@@ -510,7 +510,7 @@ Lumina.Annotations = {
             const fileData = await Lumina.DB.adapter.getFile(fileKey);
             if (fileData) {
                 fileData.annotations = Lumina.State.app.annotations;
-                fileData.lastReadTime = new Date().toISOString();
+                fileData.lastReadTime = Lumina.DB.getLocalTimeString();
                 await Lumina.DB.adapter.saveFile(fileKey, fileData);
             }
         } catch (e) {

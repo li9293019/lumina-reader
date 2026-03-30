@@ -155,6 +155,10 @@
 <symbol id="icon-help-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17 12 17" stroke-width="2.5"/></symbol>
 <symbol id="icon-storage-local" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6h6M12 10h6"/></symbol>
 <symbol id="icon-storage-server" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 12c0 1.5 4 3 9 3s9-1.5 9-3"/><path d="M3 5v14c0 1.5 4 3 9 3s9-1.5 9-3V5"/></symbol>
+<symbol id="icon-select-all" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 12l4 4 6-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-invert-selection" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 3l3 3-3 3M8 21l-3-3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-caret-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-caret-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </defs>
 </svg>
 
@@ -855,39 +859,72 @@
         <!-- 书库管理面板 -->
         <div class="panel-overlay" id="dataManagerPanel">
             <div class="data-manager">
-                <div class="panel-header">
+                <!-- 正常模式 Header -->
+                <div class="panel-header" id="libNormalHeader">
                     <span class="panel-title" data-i18n="localLibrary"></span>
                     <div class="header-actions">
-                        <!-- 视图切换 -->
                         <button class="btn-icon view-toggle-btn" id="libViewToggle" data-view="card" data-i18n-tooltip="switchView">
                             <svg class="icon" id="viewToggleIcon"><use href="#icon-grid" /></svg>
                         </button>
-                        <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" data-tooltip-text="清空书库">
+                        <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary">
                             <svg class="icon"><use href="#icon-delete" /></svg>
-                        </button>
-                        <button class="btn-icon batch-export-btn" id="batchExportBtn" data-i18n-tooltip="batchExport" data-tooltip-text="批量导出书库">
-                            <svg class="icon"><use href="#icon-export" /></svg>
                         </button>
                         <button class="btn-icon" id="importDataBtn" data-i18n-tooltip="batchImport">
                             <svg class="icon"><use href="#icon-import" /></svg>
+                        </button>
+                        <button class="btn-icon batch-export-btn" id="batchExportBtn" data-i18n-tooltip="batchExport">
+                            <svg class="icon"><use href="#icon-export" /></svg>
                         </button>
                         <button class="btn-icon" id="closeDataManager" data-i18n-tooltip="close">
                             <svg class="icon"><use href="#icon-close" /></svg>
                         </button>
                     </div>
                 </div>
-                <div class="data-stats-bar" id="dataStatsBar">
-                    <div class="stat-item">
-                        <span class="stat-value" id="totalFilesCount"></span>
-                        <span class="stat-label" data-i18n="filesCount"></span>
+                
+                <!-- 多选模式 Header（默认隐藏） -->
+                <div class="panel-header lib-batch-header" id="libBatchHeader" style="display: none;">
+                    <div class="batch-header-left">
+                        <span class="panel-title"><span id="libSelectedCount">0</span> <span data-i18n="selectedCount">个已选择</span></span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="totalStorageSize"></span>
-                        <span class="stat-label" data-i18n="storageUsed"></span>
+                    <div class="header-actions">
+                        <button class="btn-icon" id="libSelectAllBtn" data-i18n-tooltip="selectAll">
+                            <svg class="icon"><use href="#icon-select-all" /></svg>
+                        </button>
+                        <button class="btn-icon" id="libInvertSelectBtn" data-i18n-tooltip="invertSelect">
+                            <svg class="icon"><use href="#icon-invert-selection" /></svg>
+                        </button>
+                        <button class="btn-icon" id="libBatchExportBtn" data-i18n-tooltip="exportSelected">
+                            <svg class="icon"><use href="#icon-export" /></svg>
+                        </button>
+                        <button class="btn-icon" id="libBatchDeleteBtn" data-i18n-tooltip="deleteSelected" style="color: var(--danger-color, #ef4444);">
+                            <svg class="icon"><use href="#icon-delete" /></svg>
+                        </button>
+                        <button class="btn-icon" id="libCancelBatchBtn" data-i18n-tooltip="cancel">
+                            <svg class="icon"><use href="#icon-close" /></svg>
+                        </button>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="totalImagesCount"></span>
-                        <span class="stat-label" data-i18n="imagesCount"></span>
+                </div>
+                
+                <!-- 筛选栏（正常模式显示） -->
+                <div class="lib-filter-bar" id="libFilterBar">
+                    <div class="sort-dropdown" id="libSortDropdown">
+                        <button class="sort-btn" id="libSortBtn">
+                            <span id="libSortLabel" data-sort="time" data-i18n="sortByTime">最新阅读</span>
+                        </button>
+                        <button class="sort-direction-btn" id="libSortDirectionBtn" data-i18n-tooltip="sortDesc">
+                            <svg class="icon sort-direction-icon" id="libSortDirectionIcon"><use href="#icon-caret-down" /></svg>
+                        </button>
+                        <div class="sort-menu" id="libSortMenu">
+                            <div class="sort-item active" data-sort="time" data-i18n="sortByTime">最新阅读</div>
+                            <div class="sort-item" data-sort="added" data-i18n="sortByAdded">添加时间</div>
+                            <div class="sort-item" data-sort="name" data-i18n="sortByName">文件名称</div>
+                            <div class="sort-item" data-sort="size" data-i18n="sortBySize">文件大小</div>
+                        </div>
+                    </div>
+                    <div class="lib-brief-stats" id="libBriefStats">
+                        <span class="stats-item"><span id="libStatsCount">0</span> <span data-i18n="booksUnit">本</span></span>
+                        <span class="stats-separator"></span>
+                        <span class="stats-item" id="libStatsSize">0 MB</span>
                     </div>
                 </div>
                 <!-- 加密导出开关 -->

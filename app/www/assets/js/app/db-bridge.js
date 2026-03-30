@@ -6,6 +6,12 @@
 // 检测运行环境
 const DB_isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.() || false;
 
+// 获取本地时间字符串（格式：YYYY-MM-DD HH:mm:ss）
+function getLocalTimeString() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+}
+
 class DatabaseBridge {
     constructor() {
         this.db = null;
@@ -58,7 +64,8 @@ class DatabaseBridge {
     }
 
     async createTables() {
-        const schema = `
+        // 先创建基础表结构
+        const baseSchema = `
             CREATE TABLE IF NOT EXISTS files (
                 file_key TEXT PRIMARY KEY,
                 file_name TEXT NOT NULL,
@@ -72,12 +79,26 @@ class DatabaseBridge {
                 last_read_time TEXT,
                 custom_regex TEXT,
                 chapter_numbering TEXT DEFAULT 'none',
-                cover_data_url TEXT
+                cover_data_url TEXT,
+                created_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_last_read ON files(last_read_time);
             CREATE INDEX IF NOT EXISTS idx_file_name ON files(file_name);
         `;
-        await this.db.execute(schema);
+        await this.db.execute(baseSchema);
+        
+        // 兼容旧数据库：检查并添加 created_at 字段
+        try {
+            const checkResult = await this.db.query(
+                "SELECT COUNT(*) as cnt FROM pragma_table_info('files') WHERE name='created_at'"
+            );
+            if (checkResult.values && checkResult.values[0].cnt === 0) {
+                await this.db.run('ALTER TABLE files ADD COLUMN created_at TEXT');
+                console.log('[DB] 已添加 created_at 字段');
+            }
+        } catch (e) {
+            console.log('[DB] 检查/添加字段失败（可能已存在）:', e);
+        }
     }
 
     async query(sql, params = []) {
@@ -120,6 +141,164 @@ class DatabaseBridge {
     mockRun(sql, params) {
         console.log('[DB] 内存模式执行:', sql);
         return { success: true };
+    }
+
+    // ========== 高层数据库操作方法 ==========
+
+    async save(fileKey, data) {
+        if (this.mockMode) {
+            this.memoryStore.set(fileKey, data);
+            return { success: true };
+        }
+
+        try {
+            // 检查是否已存在，以保留 created_at
+            const existing = await this.get(fileKey);
+            const createdAt = existing?.created_at || data.created_at || getLocalTimeString();
+
+            const sql = `
+                INSERT OR REPLACE INTO files (
+                    file_key, file_name, file_type, file_size, content, word_count,
+                    last_chapter, last_scroll_index, chapter_title, last_read_time,
+                    custom_regex, chapter_numbering, cover_data_url, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const params = [
+                fileKey,
+                data.fileName || data.file_name || '',
+                data.fileType || data.file_type || 'txt',
+                data.fileSize || data.file_size || 0,
+                JSON.stringify(data.content || []),
+                data.wordCount || data.word_count || 0,
+                data.lastChapter || data.last_chapter || 0,
+                data.lastScrollIndex || data.last_scroll_index || 0,
+                data.chapterTitle || data.chapter_title || '',
+                data.lastReadTime || data.last_read_time || getLocalTimeString(),
+                JSON.stringify(data.customRegex || data.custom_regex || {}),
+                data.chapterNumbering || data.chapter_numbering || 'none',
+                data.cover || data.cover_data_url || null,
+                createdAt
+            ];
+            await this.db.run(sql, params);
+            return { success: true };
+        } catch (err) {
+            console.error('[DB] 保存失败:', err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    async get(fileKey) {
+        if (this.mockMode) {
+            return this.memoryStore.get(fileKey) || null;
+        }
+
+        try {
+            const result = await this.db.query(
+                'SELECT * FROM files WHERE file_key = ?',
+                [fileKey]
+            );
+            if (result.values && result.values.length > 0) {
+                return this.rowToFile(result.values[0]);
+            }
+            return null;
+        } catch (err) {
+            console.error('[DB] 获取失败:', err);
+            return null;
+        }
+    }
+
+    async delete(fileKey) {
+        if (this.mockMode) {
+            this.memoryStore.delete(fileKey);
+            return { success: true };
+        }
+
+        try {
+            await this.db.run('DELETE FROM files WHERE file_key = ?', [fileKey]);
+            return { success: true };
+        } catch (err) {
+            console.error('[DB] 删除失败:', err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    async getList() {
+        if (this.mockMode) {
+            return Array.from(this.memoryStore.values());
+        }
+
+        try {
+            const result = await this.db.query(
+                'SELECT * FROM files ORDER BY last_read_time DESC'
+            );
+            return (result.values || []).map(row => this.rowToFile(row));
+        } catch (err) {
+            console.error('[DB] 获取列表失败:', err);
+            return [];
+        }
+    }
+
+    async getStats() {
+        if (this.mockMode) {
+            return {
+                totalFiles: this.memoryStore.size,
+                totalSize: 0
+            };
+        }
+
+        try {
+            const result = await this.db.query(
+                'SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as size FROM files'
+            );
+            if (result.values && result.values.length > 0) {
+                return {
+                    totalFiles: result.values[0].count,
+                    totalSize: result.values[0].size
+                };
+            }
+            return { totalFiles: 0, totalSize: 0 };
+        } catch (err) {
+            console.error('[DB] 获取统计失败:', err);
+            return { totalFiles: 0, totalSize: 0 };
+        }
+    }
+
+    // 将数据库行转换为文件对象
+    rowToFile(row) {
+        try {
+            return {
+                fileKey: row.file_key,
+                fileName: row.file_name,
+                fileType: row.file_type,
+                fileSize: row.file_size,
+                content: JSON.parse(row.content || '[]'),
+                wordCount: row.word_count,
+                lastChapter: row.last_chapter,
+                lastScrollIndex: row.last_scroll_index,
+                chapterTitle: row.chapter_title,
+                lastReadTime: row.last_read_time,
+                customRegex: JSON.parse(row.custom_regex || '{}'),
+                chapterNumbering: row.chapter_numbering,
+                cover: row.cover_data_url,
+                created_at: row.created_at,
+                // 兼容字段
+                file_key: row.file_key,
+                file_name: row.file_name,
+                file_type: row.file_type,
+                file_size: row.file_size,
+                word_count: row.word_count,
+                last_chapter: row.last_chapter,
+                last_scroll_index: row.last_scroll_index,
+                chapter_title: row.chapter_title,
+                last_read_time: row.last_read_time,
+                custom_regex: row.custom_regex,
+                chapter_numbering: row.chapter_numbering,
+                cover_data_url: row.cover_data_url
+            };
+        } catch (e) {
+            console.error('[DB] 数据转换失败:', e);
+            return null;
+        }
     }
 
     async close() {

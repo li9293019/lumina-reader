@@ -865,6 +865,12 @@ justify-content: space-between;
 flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+    #libNormalHeader {
+        padding: 16px 10px;
+    }
+}
+
 .panel-title {
 font-size: 1.1em;
 font-weight: 600;
@@ -4651,5 +4657,298 @@ transform: translate(-50%, -50%) scale(1);
         grid-template-columns: repeat(3, 1fr);
         gap: 4px;
         padding: 4px;
+    }
+}
+
+/* ==================== 书库管理 - 排序与多选功能 ==================== */
+
+/* 筛选栏 */
+.lib-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+/* 排序下拉 */
+.sort-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* 排序按钮组 - 统一高度，无中间分隔 */
+.sort-btn,
+.sort-direction-btn {
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px 0 0 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* 排序方向按钮 */
+.sort-direction-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* 整体悬停效果 - 两个按钮作为一体 */
+.sort-dropdown:hover .sort-btn,
+.sort-dropdown:hover .sort-direction-btn {
+    border-color: var(--accent-color);
+}
+
+.sort-direction-btn:hover {
+    color: var(--accent-color);
+}
+
+.sort-direction-btn .icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* 统计信息样式 */
+.lib-brief-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.lib-brief-stats .stats-separator {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.5;
+}
+
+.lib-brief-stats .stats-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sort-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 100%;
+    white-space: nowrap;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.2s;
+    z-index: 100;
+}
+
+.sort-menu.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.sort-item {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+    line-height: 1.4;
+}
+
+.sort-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.sort-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.sort-item:hover {
+    background: var(--bg-secondary);
+}
+
+.sort-item.active {
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+
+
+/* 多选模式 Header 左侧 */
+.batch-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.batch-action-link {
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.9);
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.batch-action-link:hover {
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+
+/* 多选模式 Header */
+.lib-batch-header {
+    background: var(--accent-color);
+    color: white;
+}
+
+/* DataManager 面板标题字体跟随阅读器设置 */
+#dataManagerPanel .panel-title {
+    font-family: var(--font-family-dynamic);
+}
+
+.lib-batch-header .panel-title {
+    color: white;
+}
+
+.lib-batch-header .btn-icon {
+    color: white;
+}
+
+.lib-batch-header .btn-icon:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* 卡片勾选框 */
+.card-checkbox {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    z-index: 10;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s;
+}
+
+/* 正常模式：hover 显示勾选框 */
+.data-card:hover .card-checkbox {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 多选模式：始终显示勾选框 */
+.data-grid.batch-mode .card-checkbox {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 选中状态的卡片 */
+.data-card.selected {
+    box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.data-card.selected .card-checkbox {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 勾选框图标 */
+.checkbox-icon {
+    width: 100%;
+    height: 100%;
+    color: rgba(255,255,255,0.8);
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+
+.checkbox-frame {
+    stroke: rgba(255,255,255,0.9);
+}
+
+.checkbox-check {
+    stroke: currentColor;
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    transition: stroke-dashoffset 0.2s;
+}
+
+/* 选中时显示勾 */
+.data-card.selected .checkbox-check {
+    stroke-dashoffset: 0;
+}
+
+.data-card.selected .checkbox-icon {
+    color: var(--accent-color);
+}
+
+.data-card.selected .checkbox-frame {
+    stroke: var(--accent-color);
+    fill: var(--accent-color);
+    fill-opacity: 0.1;
+}
+
+/* 多选模式下禁用滑动操作和hover覆盖层 */
+.data-grid.batch-mode .swipe-layer {
+    pointer-events: none;
+}
+
+.data-grid.batch-mode .card-checkbox {
+    pointer-events: auto;
+}
+
+/* 多选模式下隐藏hover操作按钮 */
+.data-grid.batch-mode .cover-overlay {
+    display: none !important;
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+    .lib-filter-bar {
+        padding: 10px 12px;
+    }
+    
+    .sort-btn {
+        padding: 5px 10px;
+        font-size: 13px;
+    }
+    
+    .lib-brief-stats {
+        font-size: 12px;
     }
 }

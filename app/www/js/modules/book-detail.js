@@ -178,6 +178,9 @@ Lumina.BookDetail = {
     
     // 关闭面板
     close() {
+        // 关闭语言选择菜单
+        this.closeLanguageMenu();
+        
         const panel = document.getElementById('bookDetailPanel');
         if (panel) {
             panel.classList.remove('active');
@@ -496,7 +499,7 @@ Lumina.BookDetail = {
         input.type = 'text';
         input.className = 'book-detail-info-input';
         input.value = currentValue === 'NA' ? '' : currentValue;
-        input.placeholder = 'YYYY 或 YYYY-MM 或 YYYY-MM-DD';
+        input.placeholder = 'YYYY / YYYY-MM / YYYY-MM-DD';
         
         input.addEventListener('blur', () => {
             const normalized = this.normalizePublishDate(input.value);
@@ -546,34 +549,71 @@ Lumina.BookDetail = {
         input.select();
     },
     
-    // 编辑语言
+    // 编辑语言 - 手风琴下拉菜单
     editLanguage() {
         const el = document.getElementById('bookDetailLanguage');
-        if (!el) return;
+        const menu = document.getElementById('bookDetailLanguageMenu');
+        if (!el || !menu) return;
         
-        const currentValue = el.textContent;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'book-detail-info-input';
-        input.value = currentValue === 'NA' ? '' : currentValue;
-        input.setAttribute('list', 'languageOptions');
+        const currentValue = el.textContent.trim();
         
-        input.addEventListener('blur', () => {
-            const newValue = input.value.trim() || 'NA';
+        // 如果菜单已打开，则关闭
+        if (menu.classList.contains('open')) {
+            this.closeLanguageMenu();
+            return;
+        }
+        
+        // 标记选中项
+        menu.querySelectorAll('.language-option').forEach(option => {
+            option.classList.toggle('active', option.dataset.value === currentValue);
+        });
+        
+        // 展开菜单
+        menu.classList.add('open');
+        
+        // 绑定选项点击事件
+        const handleOptionClick = (e) => {
+            const option = e.target.closest('.language-option');
+            if (!option) return;
+            
+            const newValue = option.dataset.value;
             el.textContent = newValue;
-            el.style.display = 'block';
-            input.remove();
-            this.saveMetadata({ language: newValue === 'NA' ? '' : newValue });
-        });
+            this.saveMetadata({ language: newValue });
+            this.closeLanguageMenu();
+        };
         
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-        });
+        menu._clickHandler = handleOptionClick;
+        menu.addEventListener('click', handleOptionClick);
         
-        el.style.display = 'none';
-        el.parentNode.appendChild(input);
-        input.focus();
-        input.select();
+        // 点击外部关闭
+        const handleOutsideClick = (e) => {
+            if (!el.contains(e.target) && !menu.contains(e.target)) {
+                this.closeLanguageMenu();
+            }
+        };
+        
+        document._languageOutsideHandler = handleOutsideClick;
+        setTimeout(() => {
+            document.addEventListener('click', handleOutsideClick);
+        }, 0);
+    },
+    
+    // 关闭语言选择菜单
+    closeLanguageMenu() {
+        const menu = document.getElementById('bookDetailLanguageMenu');
+        if (!menu) return;
+        
+        menu.classList.remove('open');
+        
+        // 移除事件监听
+        if (menu._clickHandler) {
+            menu.removeEventListener('click', menu._clickHandler);
+            delete menu._clickHandler;
+        }
+        if (document._languageOutsideHandler) {
+            document.removeEventListener('click', document._languageOutsideHandler);
+            delete document._languageOutsideHandler;
+        }
     },
     
     // 编辑简介

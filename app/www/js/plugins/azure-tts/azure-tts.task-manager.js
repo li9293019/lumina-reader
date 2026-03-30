@@ -30,6 +30,7 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
         this.currentKey = null;
         this.currentText = null;
         this.currentParams = null;
+        this.currentSpeakId = 0;  // 用于取消机制：每次 speak 增加 ID，过时 ID 的播放会被丢弃
         
         // 统计
         this.stats = {
@@ -153,6 +154,9 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             throw new Error('引擎未设置');
         }
         
+        // 生成本次朗读的唯一 ID，用于取消机制
+        const speakId = ++this.currentSpeakId;
+        
         const key = this._cacheKey(text, params);
         this.currentKey = key;
         this.currentParams = params;
@@ -171,7 +175,12 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
                 this.onStatsUpdate(this.getStats());
             }
             
-            return this.engine._play(cached.audioData, params.rate);
+            // 播放前检查是否已被取消
+            if (speakId !== this.currentSpeakId) {
+                // console.log('[AzureTTS] 朗读已被取消，丢弃缓存播放');
+                throw new Error('朗读已取消');
+            }
+            return this.engine._play(cached.audioData, params.rate, speakId);
         }
         
         // 2. 检查是否正在合成中（但不等待，直接实时合成）
@@ -185,7 +194,12 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
                     // console.log(`[AzureTTS] 预加载刚好完成: "${text.substring(0, 20)}..."`);
                     this.stats.hits++;
                     this.pendingSynthesis.delete(key);
-                    return this.engine._play(audioData, params.rate);
+                    // 播放前检查是否已被取消
+                    if (speakId !== this.currentSpeakId) {
+                        // console.log('[AzureTTS] 朗读已被取消，丢弃预加载播放');
+                        throw new Error('朗读已取消');
+                    }
+                    return this.engine._play(audioData, params.rate, speakId);
                 }
             } catch (e) {
                 // 200ms内没完成，直接实时合成
@@ -202,7 +216,12 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             throw new Error('合成失败');
         }
         
-        return this.engine._play(audioData, params.rate);
+        // 播放前检查是否已被取消
+        if (speakId !== this.currentSpeakId) {
+            // console.log('[AzureTTS] 朗读已被取消，丢弃实时合成播放');
+            throw new Error('朗读已取消');
+        }
+        return this.engine._play(audioData, params.rate, speakId);
     }
     
     // 执行合成
@@ -295,6 +314,9 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
     
     stop() {
         this.currentKey = null;
+        // 增加 speakId，使所有正在进行的旧请求失效
+        this.currentSpeakId++;
+        // console.log('[AzureTTS] 停止朗读，旧请求 ID 已失效');
     }
 };
 

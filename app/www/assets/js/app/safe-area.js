@@ -430,6 +430,21 @@
         setTimeout(() => setupSafeArea(), 100);
     });
 
+    // 应用从后台返回时重新应用安全边距（解决文件选择器返回后安全边距丢失问题）
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log('[SafeArea] 应用返回前台，重新应用安全边距');
+            setTimeout(() => {
+                // 根据当前是否处于沉浸模式，选择正确的应用方式
+                if (document.body.classList.contains('immersive-mode')) {
+                    window.toggleImmersiveSafeArea(true);
+                } else {
+                    applySafeArea();
+                }
+            }, 100);
+        }
+    });
+
     // 暴露到全局
     window.SafeArea = {
         setup: setupSafeArea,

@@ -66,6 +66,19 @@
 --ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
 }
 
+/* ========== 移动端优化：去 H5 化 ========== */
+/* 禁用点击高亮（避免蓝色背景暴露 H5 本质） */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 恢复输入框的焦点样式（不要误伤） */
+input:focus, 
+textarea:focus, 
+[contenteditable]:focus {
+    -webkit-tap-highlight-color: auto;
+}
+
 /* 键盘打开时隐藏底部安全距离（APP 环境�?*/
 body.keyboard-open {
 --safe-area-bottom: 0px !important;

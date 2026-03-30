@@ -317,6 +317,11 @@ Lumina.TTS.Manager = class {
                 });
             }
         } catch (e) {
+            // 如果是用户主动取消，不继续朗读页面内容
+            if (e.message === '朗读已取消' || e.message === '播放已被取消') {
+                // console.log('[TTS] 提示词朗读被取消');
+                return;
+            }
             // console.log('[TTS] 提示词朗读失败:', e);
         }
         // 开始朗读页面内容
@@ -1095,6 +1100,11 @@ Lumina.TTS.Manager = class {
                         }
                     }
                 } catch (err) {
+                    // 如果是用户主动取消，不处理错误，不继续朗读
+                    if (err.message === '朗读已取消' || err.message === '播放已被取消') {
+                        // console.log('[TTS] 插件引擎朗读被取消');
+                        return;
+                    }
                     console.error('[TTS] 插件引擎页面朗读失败:', err);
                     // 失败时回退到系统 TTS
                     this.clearPluginEngine();
@@ -1734,6 +1744,11 @@ Lumina.TTS.Manager = class {
                 // console.log('[TTS] 插件引擎朗读完成');
                 
             } catch (e) {
+                // 如果是用户主动取消，停止朗读
+                if (e.message === '朗读已取消' || e.message === '播放已被取消') {
+                    // console.log('[TTS] 插件引擎朗读被取消');
+                    return;
+                }
                 console.error('[TTS] 插件引擎朗读失败:', e.message, e.stack);
                 if (e.message?.includes('未初始化') || e.message?.includes('失败')) {
                     // console.log('[TTS] 插件引擎不可用，切换到系统 TTS');

@@ -110,9 +110,10 @@ Lumina.Plugin.AzureTTS.Engine = class {
             return this.taskManager.speak(text, params);
         }
         
-        // 无缓存，直接实时合成
+        // 无缓存，直接实时合成（也使用 TaskManager 的 speakId 机制）
+        const speakId = this.taskManager ? ++this.taskManager.currentSpeakId : 0;
         const audioData = await this._synthesize(text, voice, style, rate, pitch, volume);
-        return this._play(audioData, rate);
+        return this._play(audioData, rate, speakId);
     }
     
     // 预加载（供外部调用）
@@ -122,14 +123,34 @@ Lumina.Plugin.AzureTTS.Engine = class {
     }
 
     // 播放音频
-    _play(audioData, rate) {
+    _play(audioData, rate, speakId = null) {
         return new Promise((resolve, reject) => {
+            // 如果提供了 speakId，检查是否已被取消
+            if (speakId !== null && this.taskManager && speakId !== this.taskManager.currentSpeakId) {
+                // console.log('[AzureTTS Engine] 播放已被取消，跳过');
+                reject(new Error('播放已被取消'));
+                return;
+            }
+            
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const ctx = new AudioContext();
+            
+            // 保存所有活跃的音频上下文，用于 stop() 时全部关闭
+            if (!this._audioContexts) this._audioContexts = new Set();
+            this._audioContexts.add(ctx);
             this._audioContext = ctx;
             this.isPlaying = true;
             
             ctx.decodeAudioData(audioData.slice(0), (buffer) => {
+                // 再次检查是否已被取消
+                if (speakId !== null && this.taskManager && speakId !== this.taskManager.currentSpeakId) {
+                    // console.log('[AzureTTS Engine] decode 完成后发现已取消，不播放');
+                    ctx.close().catch(() => {});
+                    this._audioContexts.delete(ctx);
+                    reject(new Error('播放已被取消'));
+                    return;
+                }
+                
                 const source = ctx.createBufferSource();
                 source.buffer = buffer;
                 source.playbackRate.value = rate;
@@ -137,14 +158,20 @@ Lumina.Plugin.AzureTTS.Engine = class {
                 
                 source.onended = () => {
                     ctx.close().catch(() => {});
-                    this.isPlaying = false;
+                    this._audioContexts.delete(ctx);
+                    if (this._audioContexts.size === 0) {
+                        this.isPlaying = false;
+                    }
                     resolve();
                 };
                 
                 source.start(0);
             }, (err) => {
                 ctx.close().catch(() => {});
-                this.isPlaying = false;
+                this._audioContexts.delete(ctx);
+                if (this._audioContexts.size === 0) {
+                    this.isPlaying = false;
+                }
                 reject(err);
             });
         });
@@ -182,6 +209,16 @@ Lumina.Plugin.AzureTTS.Engine = class {
     stop() {
         this.isPlaying = false;
         this.taskManager?.stop();
+        
+        // 关闭所有活跃的音频上下文
+        if (this._audioContexts) {
+            this._audioContexts.forEach(ctx => {
+                if (ctx.state !== 'closed') {
+                    ctx.close().catch(() => {});
+                }
+            });
+            this._audioContexts.clear();
+        }
         
         if (this._audioContext?.state !== 'closed') {
             this._audioContext?.close().catch(() => {});

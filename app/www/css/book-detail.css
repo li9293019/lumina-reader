@@ -495,7 +495,7 @@
 .book-detail-info-list {
     background: var(--bg-secondary);
     border-radius: 12px;
-    overflow: hidden;
+    /* 移除 overflow: hidden，否则绝对定位的下拉菜单会被裁剪 */
 }
 
 .book-detail-info-item {
@@ -508,8 +508,14 @@
     box-sizing: border-box;
 }
 
+/* 第一个和最后一个子项设置圆角，保持整体圆角效果 */
+.book-detail-info-item:first-child {
+    border-radius: 12px 12px 0 0;
+}
+
 .book-detail-info-item:last-child {
     border-bottom: none;
+    border-radius: 0 0 12px 12px;
 }
 
 .book-detail-info-label {
@@ -565,6 +571,82 @@
 
 .book-detail-info-value.editable:hover svg {
     opacity: 1;
+}
+
+/* 语言选择下拉菜单 - 书库筛选框风格 */
+#bookDetailLanguageItem {
+    position: relative;
+    flex-wrap: wrap;
+}
+
+.book-detail-language-menu {
+    /* 绝对定位，不占用文档流空间 */
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    padding: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 10;
+    
+    /* 手风琴动画 */
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateY(-8px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    
+    /* Grid 布局 */
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+}
+
+/* 移动端：2列 */
+@media (max-width: 768px) {
+    .book-detail-language-menu {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.book-detail-language-menu.open {
+    max-height: none;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    padding: 8px;
+    gap: 8px;
+}
+
+.language-option {
+    padding: 12px 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    line-height: 1.4;
+    text-align: center;
+    /* 确保文字居中 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+}
+
+.language-option:hover {
+    background: var(--bg-secondary);
+}
+
+.language-option.active {
+    color: var(--accent-color);
+    font-weight: 500;
+    background: var(--bg-secondary);
 }
 
 /* 输入框样式 - 与原元素同尺寸 */

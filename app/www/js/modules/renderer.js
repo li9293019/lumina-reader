@@ -814,10 +814,8 @@ Lumina.Search = {
 
         if (Lumina.DOM.aggregateSearch) this.renderEmpty();
 
-        const searchInput = document.getElementById('searchPanelInput');
-        if (searchInput) searchInput.value = '';
-
-        Lumina.DOM.searchPanel.classList.remove('open');
+        // 注意：不再关闭搜索面板，也不清空输入框
+        // 用户主动删除内容时不应关闭面板，只有点击关闭按钮或点击外部时才关闭
         Lumina.Search.clearHighlight();
     },
 

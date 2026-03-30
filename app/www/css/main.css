@@ -13,7 +13,7 @@
 --content-padding: 40px;
 --sidebar-width: 320px;
 --file-info-max-width: 250px;
---nav-info-display: block;
+--nav-info-display: flex;
 --mobile-hidden-display: block;
 --toolbar-gap: 8px;
 --search-box-width: 0;
@@ -549,7 +549,7 @@ textarea {
 font-family: var(--font-family-dynamic);
 }
 
-/* placeholder 也使用动态字�?*/
+/* placeholder 也使用动态字 */
 input::placeholder,
 textarea::placeholder {
 font-family: var(--font-family-dynamic);
@@ -647,7 +647,7 @@ height: 100vh;
 width: 100vw;
 }
 
-/* 顶部工具�?*/
+/* 顶部工具 */
 .top-bar {
 position: fixed;
 width: 100%;
@@ -672,15 +672,27 @@ transition: transform 0.35s var(--ease-out-expo),
     padding-top 0.35s ease;
 }
 
+@media (max-width:768px) {
+    .top-bar {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .top-bar .btn-icon {
+        width: 36px;
+        height: 36px;
+    }
+}
+
 .toolbar-left,
 .toolbar-right {
 display: flex;
+justify-content: space-between;
 align-items: center;
 gap: var(--toolbar-gap);
 }
 
 .toolbar-left {
-flex: 1;
 min-width: 0;
 }
 
@@ -746,8 +758,17 @@ background: linear-gradient(90deg,
         rgba(212, 163, 115, 0.15) 100%);
 }
 
+.top-info-wrapper {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    align-items: start;
+    overflow: hidden;
+}
+
 .file-info,
 .chapter-nav-info {
+display: inline-block;
 font-size: 0.95em;
 color: var(--text-primary);
 white-space: nowrap;
@@ -765,6 +786,24 @@ max-width: var(--file-info-max-width);
 display: var(--nav-info-display);
 border-left: 1px solid var(--border-color);
 padding-left: 12px;
+}
+
+@media (max-width: 480px) {
+    .top-bar {
+        justify-content: space-around;
+    }
+    .top-info-wrapper {
+        flex: 0;
+    }
+    .toolbar-left {
+        justify-content: space-around;
+        flex: 2;
+    } 
+    .toolbar-right {
+        justify-content: space-around;
+        flex: 7;
+    }
+
 }
 
 .header-btn-container {
@@ -2894,7 +2933,7 @@ width: 18px;
 height: 18px;
 }
 
-/* 移动端滑动样�?*/
+/* 移动端滑动样 */
 @media (max-width: 768px) {
 .data-card-swipe {
 position: relative;

@@ -205,7 +205,9 @@
             </button>
             <button class="btn-icon" id="openFileBtn" data-i18n-tooltip="openFile">
                 <svg class="icon"><use href="#icon-folder" /></svg>
-            </button>
+            </button> 
+        </div>
+        <div class="top-info-wrapper">
             <span class="file-info" id="fileInfo"></span>
             <span class="chapter-nav-info" id="chapterNavInfo"></span>
         </div>
@@ -228,6 +230,9 @@
             </div>
             <button class="btn-icon" id="annotationBtn" data-i18n-tooltip="annotations">
                 <svg class="icon"><use href="#icon-bookmark" /></svg>
+            </button>
+            <button class="btn-icon" id="libraryBtn" data-i18n-tooltip="localLibrary">
+                <svg class="icon"><use href="#icon-library" /></svg>
             </button>
             <button class="btn-icon" id="historyBtn" data-i18n-tooltip="history">
                 <svg class="icon"><use href="#icon-history" /></svg>
@@ -700,9 +705,6 @@
             <div class="panel-header">
                 <span class="panel-title" data-i18n="history"></span>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <button class="btn-icon" id="openLibraryManager" data-i18n-tooltip="manageData">
-                        <svg class="icon"><use href="#icon-library" /></svg>
-                    </button>
                     <button class="btn-icon" id="closeHistory" data-i18n-tooltip="close">
                         <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
                     </button>

@@ -111,10 +111,12 @@ Lumina.UI = {
             Lumina.Search.clearHighlight();
         });
 
-        document.getElementById('openLibraryManager').addEventListener('click', () => {
-            Lumina.DOM.historyPanel.classList.remove('open');
-            if (Lumina.DataManager) Lumina.DataManager.open();
-        });
+        const libraryBtn = document.getElementById('libraryBtn');
+        if (libraryBtn) {
+            libraryBtn.addEventListener('click', () => {
+                if (Lumina.DataManager) Lumina.DataManager.open();
+            });
+        }
 
         document.getElementById('aboutBtn').addEventListener('click', () => Lumina.DOM.aboutPanel.classList.add('active'));
         document.getElementById('closeAbout').addEventListener('click', () => Lumina.DOM.aboutPanel.classList.remove('active'));

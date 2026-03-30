@@ -519,13 +519,19 @@ Lumina.DataManager = class {
                 </div>`
             );
         } else {
-            // 没有缓存，显示骨架屏
+            // 没有缓存，显示骨架屏（与 data-card 结构一致）
             grid.innerHTML = Array(4).fill(`
-                <div class="lib-card-skel" style="background:var(--bg-secondary);border-radius:12px;overflow:hidden;">
-                    <div class="skeleton-bg" style="aspect-ratio:176/250;width:100%;"></div>
-                    <div style="padding:12px;">
-                        <div class="skeleton-bg" style="height:14px;width:80%;margin-bottom:8px;border-radius:3px;"></div>
-                        <div class="skeleton-bg" style="height:12px;width:50%;border-radius:3px;"></div>
+                <div class="data-card" style="background:var(--bg-secondary);">
+                    <div class="swipe-layer">
+                        <div class="swipe-content" style="padding:12px;">
+                            <div class="card-cover" style="background:var(--bg-tertiary);">
+                                <div class="skeleton-bg" style="width:100%;height:100%;"></div>
+                            </div>
+                            <div class="card-info">
+                                <div class="skeleton-bg" style="height:16px;width:80%;margin-bottom:8px;border-radius:4px;"></div>
+                                <div class="skeleton-bg" style="height:12px;width:50%;border-radius:4px;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -569,7 +575,7 @@ Lumina.DataManager = class {
         const statsCount = document.getElementById('libStatsCount');
         const statsSize = document.getElementById('libStatsSize');
         if (statsCount) statsCount.textContent = totalFiles;
-        if (statsSize) statsSize.textContent = `${totalSize} MB`;
+        if (statsSize) statsSize.textContent = Lumina.Utils.formatFileSize(totalSize);
         
         // 保持兼容性：如果有旧版统计栏也更新
         const totalFilesEl = document.getElementById('totalFilesCount');
@@ -577,7 +583,7 @@ Lumina.DataManager = class {
         const totalImagesEl = document.getElementById('totalImagesCount');
         
         if (totalFilesEl) totalFilesEl.textContent = totalFiles;
-        if (totalSizeEl) totalSizeEl.textContent = totalSize + ' MB';
+        if (totalSizeEl) totalSizeEl.textContent = Lumina.Utils.formatFileSize(totalSize);
         if (totalImagesEl) totalImagesEl.textContent = imageCount;
     }
 
@@ -619,7 +625,7 @@ Lumina.DataManager = class {
     renderCard(file) {
         const hasCover = !!file.cover;
         const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
-        const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
+        const sizeStr = file.estimatedSize ? Lumina.Utils.formatFileSize(file.estimatedSize) : '--';
         const fileName = Lumina.Utils.escapeHtml(file.fileName);
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
         const coverHtml = hasCover 
@@ -646,7 +652,7 @@ Lumina.DataManager = class {
                     <span>${Lumina.I18n.t('exportFile')}</span>
                 </div>
                 <div class="swipe-content">
-                    <div class="card-cover">
+                    <div class="card-cover" data-cover="true" data-filekey="${Lumina.Utils.escapeHtml(file.fileKey)}">
                         ${coverHtml}
                         <div class="cover-overlay">
                             <button class="cover-btn export-btn" data-tooltip-text="${Lumina.I18n.t('exportFile')}"><svg class="icon"><use href="#icon-export"/></svg></button>
@@ -736,7 +742,7 @@ Lumina.DataManager = class {
             card.addEventListener('touchmove', cancelLongPress);
             card.addEventListener('touchcancel', cancelLongPress);
             
-            // 点击卡片打开（排除按钮区域和勾选框）
+            // 点击卡片打开详情或书籍（排除按钮区域和勾选框）
             card.addEventListener('click', (e) => {
                 // 如果是长按触发的，忽略此次点击
                 if (card.dataset.longPressTriggered === 'true') {
@@ -750,8 +756,15 @@ Lumina.DataManager = class {
                     return;
                 }
                 
+                // 点击按钮或勾选框时忽略
                 if (e.target.closest('.cover-btn') || e.target.closest('.swipe-action') || e.target.closest('.card-checkbox')) return;
-                this.openFile(fileKey);
+                
+                // 点击封面打开书籍，点击其他区域打开详情页
+                if (e.target.closest('.card-cover')) {
+                    this.openFile(fileKey);
+                } else {
+                    this.openBookDetail(fileKey);
+                }
             });
             
             // 导出按钮
@@ -864,9 +877,9 @@ Lumina.DataManager = class {
                 content.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
                 
                 if (isClick) {
-                    // 确认是点击 - 打开书籍
+                    // 确认是点击 - 打开详情页（移动端滑动后统一打开详情）
                     content.style.transform = '';
-                    this.openFile(fileKey);
+                    this.openBookDetail(fileKey);
                 } else if (currentX > SWIPE_THRESHOLD) {
                     // 右滑 - 导出
                     content.style.transform = `translateX(${SWIPE_THRESHOLD}px)`;
@@ -932,6 +945,15 @@ Lumina.DataManager = class {
                 Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = 
                     Lumina.I18n.t('loading');
             }
+        }
+    }
+
+    // 打开书籍详情面板
+    openBookDetail(fileKey) {
+        if (Lumina.BookDetail) {
+            Lumina.BookDetail.open(fileKey);
+        } else {
+            console.warn('[DataManager] BookDetail module not loaded');
         }
     }
 
@@ -1941,6 +1963,7 @@ Lumina.HistoryActions = {
         
         if (isSQLite) {
             Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = Lumina.I18n.t('loadingFile');
+            Lumina.DOM.loadingScreen.classList.add('active');
         }
         
         try {

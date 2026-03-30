@@ -725,7 +725,7 @@ Lumina.Search = {
     renderLibraryResults(files, query) {
         Lumina.DOM.aggregateSearch.innerHTML = files.map((file, idx) => {
             const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
-            const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
+            const sizeStr = file.estimatedSize ? Lumina.Utils.formatFileSize(file.estimatedSize) : '--';
             const fileName = Lumina.Utils.escapeHtml(file.fileName);
             
             // 高亮匹配的文件名

@@ -111,7 +111,8 @@ Lumina.DB.IndexedDBImpl = class {
                 chapterNumbering: data.chapterNumbering || 'none',
                 annotations: data.annotations || [],
                 cover: data.cover || null,
-                heatMap: data.heatMap || null
+                heatMap: data.heatMap || null,
+                metadata: data.metadata || null  // 书籍元数据（书名、作者、简介、标签等）
             };
             
             return new Promise((resolve) => {
@@ -153,7 +154,15 @@ Lumina.DB.IndexedDBImpl = class {
                 const files = [];
                 request.onsuccess = (event) => {
                     const cursor = event.target.result;
-                    if (cursor) { files.push(cursor.value); cursor.continue(); }
+                    if (cursor) { 
+                        const file = cursor.value;
+                        // 计算 estimatedSize = content长度 + cover长度（与后端一致）
+                        const contentSize = JSON.stringify(file.content || []).length * 2;
+                        const coverSize = file.cover ? file.cover.length * 0.75 : 0;
+                        file.estimatedSize = Math.round(contentSize + coverSize);
+                        files.push(file); 
+                        cursor.continue(); 
+                    }
                     else resolve(files);
                 };
                 request.onerror = () => resolve([]);
@@ -199,6 +208,7 @@ Lumina.DB.IndexedDBImpl = class {
             chapterNumbering: oldData.chapterNumbering || 'none',
             annotations: oldData.annotations || [],
             cover: newData.cover || oldData.cover || null,
+            metadata: newData.metadata || oldData.metadata || null,
             lastReadTime: Lumina.DB.getLocalTimeString()
         };
         return this.saveFile(newKey, mergedData);
@@ -217,13 +227,11 @@ Lumina.DB.IndexedDBImpl = class {
         const files = await this.getAllFiles();
         let totalSize = 0, imageCount = 0;
         files.forEach(file => {
-            const contentSize = JSON.stringify(file.content || []).length * 2;
-            const coverSize = file.cover ? file.cover.length * 0.75 : 0;
-            file.estimatedSize = (contentSize + coverSize) / (1024 * 1024);
-            totalSize += file.estimatedSize;
+            // estimatedSize 已在 getAllFiles 中计算好
+            totalSize += file.estimatedSize || 0;
             if (file.cover) imageCount++;
         });
-        return { files, totalFiles: files.length, totalSize: totalSize.toFixed(2), imageCount, maxFiles: this.MAX_FILES };
+        return { files, totalFiles: files.length, totalSize: totalSize, imageCount, maxFiles: this.MAX_FILES };
     }
 
     async exportBatch() {
@@ -424,14 +432,17 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             this.dbBridge.getStats()
         ]);
         
+        // 重新计算 estimatedSize = content长度 + cover长度
         files.forEach(file => {
-            file.estimatedSize = (file.fileSize / (1024 * 1024)).toFixed(2);
+            const contentSize = JSON.stringify(file.content || []).length * 2;
+            const coverSize = file.cover ? file.cover.length * 0.75 : 0;
+            file.estimatedSize = Math.round(contentSize + coverSize);
         });
         
         return {
             files,
             totalFiles: stats.totalFiles,
-            totalSize: stats.totalSize.toFixed(2),
+            totalSize: stats.totalSize, // 保持为数字
             imageCount: 0,
             maxFiles: '∞'
         };
@@ -503,11 +514,22 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                 mergedHeatMap = data.heatMap;
             }
             
+            // 合并 metadata（如果 data.metadata 未设置但 existing 有，保留 existing）
+            let mergedMetadata;
+            if (data.metadata === undefined && existing.metadata) {
+                mergedMetadata = existing.metadata;
+            } else if (data.metadata === undefined) {
+                mergedMetadata = null;
+            } else {
+                mergedMetadata = data.metadata;
+            }
+            
             const mergedData = {
                 ...existing,
                 ...data,
                 annotations: mergedAnnotations,
                 heatMap: mergedHeatMap,
+                metadata: mergedMetadata,
                 fileKey
             };
             
@@ -921,14 +943,15 @@ Lumina.DB.SQLiteImpl = class {
         const files = results[0];
         const stats = results[1];
         
+        // 直接使用后端计算好的 fileSize（因为 getList 不返回 content 字段，前端无法重新计算）
         files.forEach(file => {
-            file.estimatedSize = (file.fileSize / (1024 * 1024)).toFixed(2);
+            file.estimatedSize = file.fileSize || 0;
         });
         
         return {
             files,
             totalFiles: stats.totalFiles,
-            totalSize: stats.totalSize.toFixed(2),
+            totalSize: stats.totalSize, // 保持为数字
             imageCount: 0,
             maxFiles: '∞'
         };
@@ -980,11 +1003,22 @@ Lumina.DB.SQLiteImpl = class {
                 mergedHeatMap = data.heatMap;
             }
             
+            // 特殊处理 metadata：如果 data.metadata 为 undefined（未设置）但 existing 有数据，保留 existing
+            let mergedMetadata;
+            if (data.metadata === undefined && existing.metadata) {
+                mergedMetadata = existing.metadata;
+            } else if (data.metadata === undefined) {
+                mergedMetadata = null;
+            } else {
+                mergedMetadata = data.metadata;
+            }
+            
             const mergedData = {
                 ...existing,
                 ...data,
                 annotations: mergedAnnotations,
                 heatMap: mergedHeatMap,
+                metadata: mergedMetadata,
                 fileKey
             };
             

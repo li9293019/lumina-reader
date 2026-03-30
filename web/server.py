@@ -83,8 +83,9 @@ class Database:
                     annotations TEXT,
                     cover TEXT,
                     heatMap TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    metadata TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             """)
             # 索引优化查询
@@ -96,6 +97,14 @@ class Database:
                 print("[SQLite] 已添加 heatMap 字段")
             except sqlite3.OperationalError:
                 pass  # 字段已存在
+            
+            # 为已存在的表添加 metadata 字段（兼容旧数据库）
+            try:
+                conn.execute("ALTER TABLE books ADD COLUMN metadata TEXT")
+                print("[SQLite] 已添加 metadata 字段")
+            except sqlite3.OperationalError:
+                pass  # 字段已存在
+            
             print("[SQLite] 数据库初始化完成")
         except sqlite3.Error as e:
             print(f"[SQLite Error] 初始化失败: {e}")
@@ -110,6 +119,7 @@ class Database:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 heat_map_json = JSON_ENCODE(data.get('heatMap')) if data.get('heatMap') is not None else None
+                metadata_json = JSON_ENCODE(data.get('metadata')) if data.get('metadata') is not None else None
                 
                 # 保留原有的 created_at（如果存在）
                 existing_created_at = None
@@ -132,8 +142,8 @@ class Database:
                     INSERT OR REPLACE INTO books (
                         fileKey, fileName, fileType, fileSize, content, wordCount,
                         lastChapter, lastScrollIndex, chapterTitle, lastReadTime,
-                        customRegex, chapterNumbering, annotations, cover, heatMap, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        customRegex, chapterNumbering, annotations, cover, heatMap, metadata, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     fileKey,
                     data.get('fileName', ''),
@@ -150,6 +160,7 @@ class Database:
                     JSON_ENCODE(data.get('annotations', [])),
                     data.get('cover', None),
                     heat_map_json,
+                    metadata_json,
                     created_at,
                     updated_at
                 ))
@@ -184,6 +195,8 @@ class Database:
                 result['annotations'] = JSON_DECODE(result['annotations'])
             if result.get('heatMap'):
                 result['heatMap'] = JSON_DECODE(result['heatMap'])
+            if result.get('metadata'):
+                result['metadata'] = JSON_DECODE(result['metadata'])
             return result
             
         except sqlite3.Error as e:
@@ -195,9 +208,10 @@ class Database:
         try:
             conn = self.get_conn()
             rows = conn.execute("""
-                SELECT fileKey, fileName, fileType, fileSize, wordCount, 
-                    lastChapter, lastScrollIndex, chapterTitle, lastReadTime, 
-                    chapterNumbering, created_at, updated_at, cover
+                SELECT fileKey, fileName, fileType, 
+                    (LENGTH(COALESCE(content, '')) + LENGTH(COALESCE(cover, ''))) as fileSize, 
+                    wordCount, lastChapter, lastScrollIndex, chapterTitle, 
+                    lastReadTime, chapterNumbering, created_at, updated_at, cover
                 FROM books 
                 ORDER BY lastReadTime DESC
             """).fetchall()
@@ -217,10 +231,10 @@ class Database:
                 FROM books
             """).fetchone()
             
-            total_mb = (row['content_size'] + row['cover_size']) / (1024 * 1024)
+            total_bytes = int(row['content_size'] or 0) + int(row['cover_size'] or 0)
             return {
-                'totalFiles': row['count'],
-                'totalSize': round(total_mb, 2),
+                'totalFiles': int(row['count'] or 0),
+                'totalSize': total_bytes,  # 返回字节数
                 'imageCount': 0
             }
         except sqlite3.Error as e:

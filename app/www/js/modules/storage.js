@@ -150,7 +150,15 @@ Lumina.DB.IndexedDBImpl = class {
                 const files = [];
                 request.onsuccess = (event) => {
                     const cursor = event.target.result;
-                    if (cursor) { files.push(cursor.value); cursor.continue(); }
+                    if (cursor) { 
+                        const file = cursor.value;
+                        // 计算 estimatedSize = content长度 + cover长度（与后端一致）
+                        const contentSize = JSON.stringify(file.content || []).length * 2;
+                        const coverSize = file.cover ? file.cover.length * 0.75 : 0;
+                        file.estimatedSize = Math.round(contentSize + coverSize);
+                        files.push(file); 
+                        cursor.continue(); 
+                    }
                     else resolve(files);
                 };
                 request.onerror = () => resolve([]);
@@ -214,13 +222,11 @@ Lumina.DB.IndexedDBImpl = class {
         const files = await this.getAllFiles();
         let totalSize = 0, imageCount = 0;
         files.forEach(file => {
-            const contentSize = JSON.stringify(file.content || []).length * 2;
-            const coverSize = file.cover ? file.cover.length * 0.75 : 0;
-            file.estimatedSize = (contentSize + coverSize) / (1024 * 1024);
-            totalSize += file.estimatedSize;
+            // estimatedSize 已在 getAllFiles 中计算好
+            totalSize += file.estimatedSize || 0;
             if (file.cover) imageCount++;
         });
-        return { files, totalFiles: files.length, totalSize: totalSize.toFixed(2), imageCount, maxFiles: this.MAX_FILES };
+        return { files, totalFiles: files.length, totalSize: totalSize, imageCount, maxFiles: this.MAX_FILES };
     }
 
     async exportBatch() {
@@ -413,14 +419,15 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             this.dbBridge.getStats()
         ]);
         
+        // 直接使用后端计算好的 fileSize（因为 getList 不返回 content 字段，前端无法重新计算）
         files.forEach(file => {
-            file.estimatedSize = (file.fileSize / (1024 * 1024)).toFixed(2);
+            file.estimatedSize = file.fileSize || 0;
         });
         
         return {
             files,
             totalFiles: stats.totalFiles,
-            totalSize: stats.totalSize.toFixed(2),
+            totalSize: stats.totalSize, // 保持为数字
             imageCount: 0,
             maxFiles: '∞'
         };
@@ -888,14 +895,17 @@ Lumina.DB.SQLiteImpl = class {
         const files = results[0];
         const stats = results[1];
         
+        // 重新计算 estimatedSize = content长度 + cover长度
         files.forEach(file => {
-            file.estimatedSize = (file.fileSize / (1024 * 1024)).toFixed(2);
+            const contentSize = JSON.stringify(file.content || []).length * 2;
+            const coverSize = file.cover ? file.cover.length * 0.75 : 0;
+            file.estimatedSize = Math.round(contentSize + coverSize);
         });
         
         return {
             files,
             totalFiles: stats.totalFiles,
-            totalSize: stats.totalSize.toFixed(2),
+            totalSize: stats.totalSize, // 保持为数字
             imageCount: 0,
             maxFiles: '∞'
         };

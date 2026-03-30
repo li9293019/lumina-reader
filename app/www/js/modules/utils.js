@@ -34,6 +34,15 @@ Lumina.Utils.formatReadTime = (minutes) => {
 
 Lumina.Utils.formatWordCount = (count) => count >= 1000 ? `${(count / 1000).toFixed(1)}k` : (count || '0').toString();
 
+// 格式化文件大小：自动选择 B/KB/MB 单位
+Lumina.Utils.formatFileSize = (bytes) => {
+    const num = parseFloat(bytes) || 0;
+    if (num === 0) return '0B';
+    if (num < 1024) return num + 'B';
+    if (num < 1024 * 1024) return (num / 1024).toFixed(1) + 'K';
+    return (num / (1024 * 1024)).toFixed(1) + 'M';
+};
+
 Lumina.Utils.numberToChinese = (num) => {
     const chars = '零一二三四五六七八九十';
     if (num <= 10) return chars[num] || num.toString();

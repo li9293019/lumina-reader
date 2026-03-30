@@ -98,6 +98,13 @@ Lumina.init = async () => {
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用
     Lumina.DataManager.init();
     
+    // 显示书库按钮（DataManager 初始化完成后）
+    const libraryBtn = document.getElementById('libraryBtn');
+    if (libraryBtn) libraryBtn.style.display = '';
+    
+    // 初始化书籍详情面板
+    Lumina.BookDetail.init();
+    
     // TTS 初始化（失败不阻塞）
     try {
         Lumina.TTS.manager = new Lumina.TTS.Manager();
@@ -128,22 +135,13 @@ Lumina.init = async () => {
         Lumina.DOM.readingArea.classList.remove('with-sidebar');
     }
     
-    // 初始化文件打开器（处理从系统文件管理器打开的文件）
-    if (Lumina.FileOpener?.tryInit) {
-        console.log('[Init] 初始化 FileOpener...');
-        Lumina.FileOpener.tryInit();
-        
-        // 检查是否有从 Android 原生层接收的待处理文件
-        if (window.pendingOpenUrl) {
-            console.log('[Init] 发现待处理文件:', window.pendingOpenUrl);
-            const url = window.pendingOpenUrl;
-            window.pendingOpenUrl = null;
-            setTimeout(() => Lumina.FileOpener.handleIncomingUrl(url), 100);
-        }
-    }
-    
-    // 初始化密码预设器设置
-    Lumina.Settings.initPasswordPreset();
+    // 延迟初始化非关键模块，避免阻塞 UI
+    requestIdleCallback?.(() => {
+        // 初始化密码预设器设置（FileOpener 在 file-opener-bridge.js 加载后自动初始化）
+        Lumina.Settings.initPasswordPreset();
+    }) ?? setTimeout(() => {
+        Lumina.Settings.initPasswordPreset();
+    }, 100);
 };
 
 // ==================== 默认说明书导入 ====================

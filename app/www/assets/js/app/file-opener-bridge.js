@@ -194,7 +194,18 @@ Lumina.FileOpener = {
     
     tryInit() {
         console.log('[FileOpener] 高性能版已初始化');
+        
+        // 检查是否有从 Android 原生层接收的待处理文件
+        if (window.pendingOpenUrl) {
+            console.log('[FileOpener] 发现待处理文件:', window.pendingOpenUrl);
+            const url = window.pendingOpenUrl;
+            window.pendingOpenUrl = null;
+            setTimeout(() => this.handleIncomingUrl(url), 100);
+        }
     }
 };
 
-// console.log('[FileOpener] 高性能版已加载');
+// 自动初始化（如果 Lumina 已就绪）
+if (typeof Lumina !== 'undefined' && Lumina.State?.app?.dbReady) {
+    Lumina.FileOpener.tryInit();
+}

@@ -1,0 +1,857 @@
+// ==================== 书籍详情面板 ====================
+
+Lumina.BookDetail = {
+    // 当前书籍数据
+    currentFile: null,
+    
+    // 文件类型颜色映射（与 data-manager.js 的 fileIcons 保持一致）
+    fileTypeColors: {
+        docx: '#4472C4',
+        txt: '#6B7280',
+        md: '#8B5CF6',
+        html: '#E34C26',
+        epub: '#10B981',
+        json: '#F59E0B',
+        pdf: '#DC2626'
+    },
+    
+    // 初始化
+    init() {
+        this.bindEvents();
+        this.createDatalists();
+    },
+    
+    // 创建 datalist（语言选择等）
+    createDatalists() {
+        if (document.getElementById('languageOptions')) return;
+        
+        const datalist = document.createElement('datalist');
+        datalist.id = 'languageOptions';
+        datalist.innerHTML = `
+            <option value="简体中文">
+            <option value="繁體中文">
+            <option value="English">
+            <option value="日本語">
+            <option value="한국어">
+            <option value="Français">
+            <option value="Deutsch">
+            <option value="Español">
+        `;
+        document.body.appendChild(datalist);
+    },
+    
+    // 绑定事件
+    bindEvents() {
+        // 关闭按钮
+        const closeBtn = document.getElementById('bookDetailClose');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.close());
+        }
+        
+        // 点击遮罩关闭（点击背景关闭，但点击容器不关闭）
+        const panel = document.getElementById('bookDetailPanel');
+        const container = document.querySelector('.book-detail-container');
+        if (panel) {
+            panel.addEventListener('click', (e) => {
+                // 如果点击的是面板背景（不是容器内部），则关闭
+                if (e.target === panel || e.target === container) return;
+                // 检查点击目标是否在容器内
+                if (!container?.contains(e.target)) {
+                    this.close();
+                }
+            });
+        }
+        
+        // 封面滑动操作（移动端）
+        this.bindCoverSwipeActions();
+        
+        // PC端悬浮按钮
+        const updateBtn = document.querySelector('.book-detail-cover-hover-actions .update-btn');
+        const deleteBtn = document.querySelector('.book-detail-cover-hover-actions .delete-btn');
+        
+        if (updateBtn) {
+            updateBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.triggerCoverUpload();
+            });
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteCover();
+            });
+        }
+        
+        // 点击封面内容区（PC端）
+        const coverContent = document.querySelector('.book-detail-cover-content');
+        if (coverContent) {
+            coverContent.addEventListener('click', () => this.triggerCoverUpload());
+        }
+        
+        // 书名编辑
+        const nameEl = document.getElementById('bookDetailName');
+        if (nameEl) {
+            nameEl.addEventListener('click', () => this.editName());
+        }
+        
+        // 作者编辑
+        const authorEl = document.getElementById('bookDetailAuthor');
+        if (authorEl) {
+            authorEl.addEventListener('click', () => this.editAuthor());
+        }
+        
+        // 发布时间编辑
+        const publishDateEl = document.getElementById('bookDetailPublishDate');
+        if (publishDateEl) {
+            publishDateEl.addEventListener('click', () => this.editPublishDate());
+        }
+        
+        // 发布平台编辑
+        const publisherEl = document.getElementById('bookDetailPublisher');
+        if (publisherEl) {
+            publisherEl.addEventListener('click', () => this.editPublisher());
+        }
+        
+        // 语言编辑
+        const languageEl = document.getElementById('bookDetailLanguage');
+        if (languageEl) {
+            languageEl.addEventListener('click', () => this.editLanguage());
+        }
+        
+        // 简介编辑
+        const descEl = document.getElementById('bookDetailDescription');
+        if (descEl) {
+            descEl.addEventListener('click', () => this.editDescription());
+        }
+        
+        // 展开/收起简介
+        const descToggle = document.getElementById('bookDetailDescToggle');
+        if (descToggle) {
+            descToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDescription();
+            });
+        }
+        
+        // 标签输入
+        const tagInput = document.getElementById('bookDetailTagInput');
+        if (tagInput) {
+            tagInput.addEventListener('keydown', (e) => this.handleTagInput(e));
+        }
+        
+        // 打开阅读按钮
+        const readBtn = document.getElementById('bookDetailReadBtn');
+        if (readBtn) {
+            readBtn.addEventListener('click', () => this.startReading());
+        }
+    },
+    
+    // 打开面板
+    async open(fileKey) {
+        if (!fileKey) return;
+        
+        // 加载书籍数据
+        const fileData = await Lumina.DB.adapter.getFile(fileKey);
+        if (!fileData) {
+            console.warn('[BookDetail] 文件不存在:', fileKey);
+            return;
+        }
+        
+        this.currentFile = fileData;
+        
+        // 渲染数据
+        this.render();
+        
+        // 绑定tooltip
+        if (Lumina.UI?.setupCustomTooltip) {
+            Lumina.UI.setupCustomTooltip();
+        }
+        
+        // 显示面板
+        const panel = document.getElementById('bookDetailPanel');
+        if (panel) {
+            panel.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    },
+    
+    // 关闭面板
+    close() {
+        const panel = document.getElementById('bookDetailPanel');
+        if (panel) {
+            panel.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        this.currentFile = null;
+    },
+    
+    // 渲染数据
+    render() {
+        if (!this.currentFile) return;
+        
+        const data = this.currentFile;
+        const metadata = data.metadata || {};
+        
+        // 封面
+        const coverEl = document.getElementById('bookDetailCover');
+        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+        if (coverEl) {
+            if (data.cover) {
+                coverEl.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                coverWrapper?.classList.remove('no-cover');
+            } else {
+                coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                coverWrapper?.classList.add('no-cover');
+            }
+        }
+        
+        // 文件类型胶囊
+        const formatBadge = document.getElementById('bookDetailFormatBadge');
+        if (formatBadge) {
+            const fileType = data.fileType || 'default';
+            formatBadge.textContent = fileType.toUpperCase();
+            formatBadge.dataset.type = fileType;
+        }
+        
+        // 书名（默认使用文件名去掉扩展名）
+        const nameEl = document.getElementById('bookDetailName');
+        if (nameEl) {
+            const displayName = metadata.title || this.getFileNameWithoutExt(data.fileName);
+            nameEl.textContent = displayName;
+        }
+        
+        // 作者
+        const authorEl = document.getElementById('bookDetailAuthor');
+        if (authorEl) {
+            authorEl.textContent = metadata.author || 'NA';
+        }
+        
+        // 发布时间
+        const publishDateEl = document.getElementById('bookDetailPublishDate');
+        if (publishDateEl) {
+            publishDateEl.textContent = this.formatPublishDate(metadata.publishDate) || 'NA';
+        }
+        
+        // 发布平台
+        const publisherEl = document.getElementById('bookDetailPublisher');
+        if (publisherEl) {
+            publisherEl.textContent = metadata.publisher || 'NA';
+        }
+        
+        // 语言
+        const languageEl = document.getElementById('bookDetailLanguage');
+        if (languageEl) {
+            languageEl.textContent = metadata.language || 'NA';
+        }
+        
+        // 文件名
+        const fileNameEl = document.getElementById('bookDetailFileName');
+        if (fileNameEl) {
+            fileNameEl.textContent = data.fileName || 'NA';
+        }
+        
+        // 简介
+        const descEl = document.getElementById('bookDetailDescription');
+        if (descEl) {
+            const description = metadata.description || '';
+            descEl.textContent = description || Lumina.I18n.t('noDescription');
+            descEl.classList.toggle('collapsed', description.length > 60);
+        }
+        
+        // 更新简介展开/收起按钮
+        this.updateDescToggle();
+        
+        // 标签
+        this.renderTags(metadata.tags || []);
+        
+        // 系统信息
+        const createdAtEl = document.getElementById('bookDetailCreatedAt');
+        if (createdAtEl) {
+            createdAtEl.textContent = data.created_at || 'NA';
+        }
+        
+        const lastReadTimeEl = document.getElementById('bookDetailLastReadTime');
+        if (lastReadTimeEl) {
+            lastReadTimeEl.textContent = data.lastReadTime || Lumina.I18n.t('neverRead');
+        }
+        
+        const lastChapterEl = document.getElementById('bookDetailLastChapter');
+        if (lastChapterEl) {
+            lastChapterEl.textContent = data.chapterTitle || Lumina.I18n.t('none');
+        }
+    },
+    
+    // 获取文件名（不含扩展名）
+    getFileNameWithoutExt(fileName) {
+        if (!fileName) return '';
+        return fileName.replace(/\.[^/.]+$/, '');
+    },
+    
+    // 格式化发布时间显示
+    formatPublishDate(dateStr) {
+        if (!dateStr) return '';
+        // 如果存储的是完整日期，显示年月即可
+        const match = dateStr.match(/^(\d{4})(?:-(\d{1,2}))?/);
+        if (match) {
+            const [, year, month] = match;
+            return month ? `${year}-${month.padStart(2, '0')}` : year;
+        }
+        return dateStr;
+    },
+    
+    // 智能补全发布时间
+    normalizePublishDate(input) {
+        const value = input.trim();
+        if (!value) return '';
+        
+        const now = new Date();
+        const year = now.getFullYear();
+        
+        // yyyy
+        if (/^\d{4}$/.test(value)) {
+            return `${value}-01-01 00:00:00`;
+        }
+        // yyyy-m 或 yyyy-mm
+        if (/^\d{4}-\d{1,2}$/.test(value)) {
+            const [y, m] = value.split('-');
+            return `${y}-${m.padStart(2, '0')}-01 00:00:00`;
+        }
+        // yyyy-m-d 或 yyyy-mm-dd
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(value)) {
+            const [y, m, d] = value.split('-');
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')} 00:00:00`;
+        }
+        // 已经是完整格式
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
+            return value;
+        }
+        
+        return value;
+    },
+    
+    // 渲染标签
+    renderTags(tags) {
+        const tagList = document.getElementById('bookDetailTagList');
+        if (!tagList) return;
+        
+        tagList.innerHTML = '';
+        tags.forEach(tag => {
+            const tagEl = document.createElement('span');
+            tagEl.className = 'tag-item';
+            tagEl.textContent = tag;
+            tagEl.addEventListener('click', () => this.removeTag(tag));
+            tagList.appendChild(tagEl);
+        });
+    },
+    
+    // 处理标签输入（支持逗号或空白字符分隔）
+    handleTagInput(e) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        
+        e.preventDefault();
+        const input = e.target;
+        const rawValue = input.value;
+        
+        // 支持逗号或空白字符分隔
+        const newTags = rawValue.split(/[,，\s]+/)
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+        
+        if (newTags.length === 0) return;
+        
+        const metadata = this.currentFile.metadata || {};
+        const tags = metadata.tags || [];
+        
+        // 添加不重复的标签
+        let addedCount = 0;
+        for (const tag of newTags) {
+            if (tags.length >= 50) {
+                Lumina.UI?.showToast?.(Lumina.I18n.t('tagsLimitReached'));
+                break;
+            }
+            if (!tags.includes(tag)) {
+                tags.push(tag);
+                addedCount++;
+            }
+        }
+        
+        if (addedCount > 0) {
+            this.saveMetadata({ tags });
+            this.renderTags(tags);
+        }
+        
+        input.value = '';
+    },
+    
+    // 移除标签
+    removeTag(tag) {
+        const metadata = this.currentFile.metadata || {};
+        const tags = (metadata.tags || []).filter(t => t !== tag);
+        this.saveMetadata({ tags });
+        this.renderTags(tags);
+    },
+    
+    // 切换简介展开/收起
+    toggleDescription() {
+        const descEl = document.getElementById('bookDetailDescription');
+        const toggleEl = document.getElementById('bookDetailDescToggle');
+        if (!descEl || !toggleEl) return;
+        
+        const isCollapsed = descEl.classList.contains('collapsed');
+        descEl.classList.toggle('collapsed', !isCollapsed);
+        toggleEl.classList.toggle('expanded', isCollapsed);
+        
+        const toggleText = toggleEl.querySelector('span');
+        if (toggleText) {
+            toggleText.textContent = isCollapsed ? Lumina.I18n.t('collapse') : Lumina.I18n.t('expand');
+        }
+    },
+    
+    // 更新简介展开按钮状态
+    updateDescToggle() {
+        const descEl = document.getElementById('bookDetailDescription');
+        const toggleEl = document.getElementById('bookDetailDescToggle');
+        if (!descEl || !toggleEl) return;
+        
+        // 只有内容超过3行才显示展开按钮
+        const needsToggle = descEl.textContent.length > 60;
+        toggleEl.style.display = needsToggle ? 'inline-flex' : 'none';
+        
+        const toggleText = toggleEl.querySelector('span');
+        if (toggleText) {
+            toggleText.textContent = Lumina.I18n.t('expand');
+        }
+        toggleEl.classList.remove('expanded');
+        descEl.classList.add('collapsed');
+    },
+    
+    // ========== 就地编辑功能 ==========
+    
+    // 编辑书名
+    editName() {
+        const el = document.getElementById('bookDetailName');
+        if (!el) return;
+        
+        const currentValue = el.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'book-detail-name-input';
+        input.value = currentValue;
+        
+        input.addEventListener('blur', () => {
+            const newValue = input.value.trim() || currentValue;
+            el.textContent = newValue;
+            el.style.display = 'block';
+            input.remove();
+            this.saveMetadata({ title: newValue });
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+        
+        el.style.display = 'none';
+        el.parentNode.insertBefore(input, el);
+        input.focus();
+        input.select();
+    },
+    
+    // 编辑作者
+    editAuthor() {
+        const el = document.getElementById('bookDetailAuthor');
+        if (!el) return;
+        
+        const currentValue = el.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'book-detail-author-input';
+        input.value = currentValue === 'NA' ? '' : currentValue;
+        
+        input.addEventListener('blur', () => {
+            const newValue = input.value.trim() || 'NA';
+            el.textContent = newValue;
+            el.style.display = 'inline';
+            input.remove();
+            this.saveMetadata({ author: newValue === 'NA' ? '' : newValue });
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+        
+        el.style.display = 'none';
+        el.parentNode.insertBefore(input, el);
+        input.focus();
+        input.select();
+    },
+    
+    // 编辑发布时间
+    editPublishDate() {
+        const el = document.getElementById('bookDetailPublishDate');
+        if (!el) return;
+        
+        const currentValue = el.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'book-detail-info-input';
+        input.value = currentValue === 'NA' ? '' : currentValue;
+        input.placeholder = 'YYYY 或 YYYY-MM 或 YYYY-MM-DD';
+        
+        input.addEventListener('blur', () => {
+            const normalized = this.normalizePublishDate(input.value);
+            const displayValue = this.formatPublishDate(normalized) || 'NA';
+            el.textContent = displayValue;
+            el.style.display = 'block';
+            input.remove();
+            this.saveMetadata({ publishDate: normalized });
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+        
+        el.style.display = 'none';
+        el.parentNode.appendChild(input);
+        input.focus();
+        input.select();
+    },
+    
+    // 编辑发布平台
+    editPublisher() {
+        const el = document.getElementById('bookDetailPublisher');
+        if (!el) return;
+        
+        const currentValue = el.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'book-detail-info-input';
+        input.value = currentValue === 'NA' ? '' : currentValue;
+        
+        input.addEventListener('blur', () => {
+            const newValue = input.value.trim() || 'NA';
+            el.textContent = newValue;
+            el.style.display = 'block';
+            input.remove();
+            this.saveMetadata({ publisher: newValue === 'NA' ? '' : newValue });
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+        
+        el.style.display = 'none';
+        el.parentNode.appendChild(input);
+        input.focus();
+        input.select();
+    },
+    
+    // 编辑语言
+    editLanguage() {
+        const el = document.getElementById('bookDetailLanguage');
+        if (!el) return;
+        
+        const currentValue = el.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'book-detail-info-input';
+        input.value = currentValue === 'NA' ? '' : currentValue;
+        input.setAttribute('list', 'languageOptions');
+        
+        input.addEventListener('blur', () => {
+            const newValue = input.value.trim() || 'NA';
+            el.textContent = newValue;
+            el.style.display = 'block';
+            input.remove();
+            this.saveMetadata({ language: newValue === 'NA' ? '' : newValue });
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+        
+        el.style.display = 'none';
+        el.parentNode.appendChild(input);
+        input.focus();
+        input.select();
+    },
+    
+    // 编辑简介
+    editDescription() {
+        const textEl = document.getElementById('bookDetailDescription');
+        const container = textEl.parentNode;
+        if (!textEl || !container) return;
+        
+        const currentValue = textEl.textContent.trim();
+        const isPlaceholder = currentValue === Lumina.I18n.t('noDescription');
+        
+        const textarea = document.createElement('textarea');
+        textarea.className = 'book-detail-description-input';
+        textarea.value = isPlaceholder ? '' : currentValue;
+        textarea.maxLength = 1000;
+        
+        const hint = document.createElement('div');
+        hint.className = 'book-detail-description-hint';
+        hint.textContent = `${textarea.value.length}/1000`;
+        
+        textarea.addEventListener('input', () => {
+            hint.textContent = `${textarea.value.length}/1000`;
+        });
+        
+        textarea.addEventListener('blur', () => {
+            const newValue = textarea.value.trim();
+            textEl.textContent = newValue || Lumina.I18n.t('noDescription');
+            textEl.style.display = '-webkit-box';
+            textEl.classList.add('collapsed');
+            textarea.remove();
+            hint.remove();
+            this.saveMetadata({ description: newValue });
+            this.updateDescToggle();
+        });
+        
+        textEl.style.display = 'none';
+        container.insertBefore(textarea, textEl);
+        container.insertBefore(hint, textEl);
+        
+        // 隐藏展开按钮
+        const toggle = document.getElementById('bookDetailDescToggle');
+        if (toggle) toggle.style.display = 'none';
+        
+        textarea.focus();
+    },
+    
+    // 触发封面上传
+    triggerCoverUpload() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 检查文件大小 (5MB)
+            let imageData = await this.readFileAsDataURL(file);
+            
+            if (file.size > 5 * 1024 * 1024) {
+                // 压缩图片
+                imageData = await this.compressImage(imageData, 800, 0.8);
+            }
+            
+            // 更新封面显示
+            const coverImg = document.getElementById('bookDetailCover');
+            if (coverImg) {
+                coverImg.src = imageData;
+            }
+            
+            // 保存到数据库
+            await this.saveCover(imageData);
+        });
+        
+        input.click();
+    },
+    
+    // 读取文件为 DataURL
+    readFileAsDataURL(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    },
+    
+    // 压缩图片
+    compressImage(dataUrl, maxWidth, quality) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxWidth) {
+                    height = Math.round(height * maxWidth / width);
+                    width = maxWidth;
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = dataUrl;
+        });
+    },
+    
+    // 保存封面
+    async saveCover(imageData) {
+        if (!this.currentFile) return;
+        
+        const fileKey = this.currentFile.fileKey;
+        
+        // 更新当前文件数据
+        this.currentFile.cover = imageData;
+        
+        // 保存到数据库
+        await Lumina.DB.adapter.saveFile(fileKey, {
+            ...this.currentFile,
+            cover: imageData
+        });
+        
+        // 立即刷新详情页封面显示
+        const coverEl = document.getElementById('bookDetailCover');
+        if (coverEl) {
+            coverEl.innerHTML = `<img src="${imageData}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+        }
+        
+        // 刷新书库显示
+        if (window.dataManager) {
+            window.dataManager.refreshStats();
+        }
+    },
+    
+    // 绑定封面滑动操作（移动端）
+    bindCoverSwipeActions() {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) return;
+        
+        const swipeLayer = document.getElementById('bookDetailCoverSwipeLayer');
+        const content = document.querySelector('.book-detail-cover-content');
+        if (!swipeLayer || !content) return;
+        
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+        const SWIPE_THRESHOLD = 80; // 与按钮宽度一致，滑动超过按钮宽度即触发
+        
+        const handleTouchStart = (e) => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            content.style.transition = 'none';
+        };
+        
+        const handleTouchMove = (e) => {
+            if (!isDragging) return;
+            
+            currentX = e.touches[0].clientX;
+            const deltaX = currentX - startX;
+            
+            // 跟随手指移动，最大显示操作按钮宽度
+            const maxDrag = 80;
+            if (Math.abs(deltaX) <= maxDrag) {
+                content.style.transform = `translateX(${deltaX}px)`;
+            } else {
+                // 超出范围时限制移动
+                content.style.transform = `translateX(${deltaX > 0 ? maxDrag : -maxDrag}px)`;
+            }
+        };
+        
+        const handleTouchEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const deltaX = currentX - startX;
+            content.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            
+            if (deltaX > SWIPE_THRESHOLD) {
+                // 右滑 - 更新封面
+                content.style.transform = '';
+                this.triggerCoverUpload();
+            } else if (deltaX < -SWIPE_THRESHOLD) {
+                // 左滑 - 删除封面
+                content.style.transform = '';
+                this.deleteCover();
+            } else {
+                // 复位
+                content.style.transform = '';
+            }
+        };
+        
+        swipeLayer.addEventListener('touchstart', handleTouchStart, { passive: true });
+        swipeLayer.addEventListener('touchmove', handleTouchMove, { passive: true });
+        swipeLayer.addEventListener('touchend', handleTouchEnd);
+    },
+    
+    // 删除封面
+    async deleteCover() {
+        if (!this.currentFile) return;
+        
+        const fileKey = this.currentFile.fileKey;
+        
+        // 使用阅读器自己的对话框确认删除
+        Lumina.UI.showDialog(Lumina.I18n.t('confirmClear') || '确定要清除封面吗？', 'confirm', async (confirmed) => {
+            if (!confirmed) return;
+            
+            // 更新当前文件数据
+            this.currentFile.cover = null;
+            
+            // 保存到数据库
+            await Lumina.DB.adapter.saveFile(fileKey, {
+                ...this.currentFile,
+                cover: null
+            });
+            
+            // 立即刷新详情页封面显示为占位符
+            const coverEl = document.getElementById('bookDetailCover');
+            const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+            if (coverEl) {
+                coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+            }
+            if (coverWrapper) {
+                coverWrapper.classList.add('no-cover');
+            }
+            
+            // 刷新书库显示
+            if (window.dataManager) {
+                window.dataManager.refreshStats();
+            }
+        });
+    },
+    
+    // 保存元数据
+    async saveMetadata(updates) {
+        if (!this.currentFile) return;
+        
+        const fileKey = this.currentFile.fileKey;
+        
+        // 合并 metadata
+        const metadata = {
+            ...this.currentFile.metadata,
+            ...updates
+        };
+        
+        // 更新当前文件数据
+        this.currentFile.metadata = metadata;
+        
+        // 保存到数据库
+        await Lumina.DB.adapter.saveFile(fileKey, {
+            ...this.currentFile,
+            metadata
+        });
+        
+        // 刷新书库显示
+        if (window.dataManager) {
+            window.dataManager.refreshStats();
+        }
+    },
+    
+    // 开始阅读
+    async startReading() {
+        if (!this.currentFile) return;
+        
+        const fileKey = this.currentFile.fileKey;
+        
+        // 关闭详情面板
+        this.close();
+        
+        // 打开书籍
+        if (window.dataManager?.openFile) {
+            await window.dataManager.openFile(fileKey);
+        } else {
+            console.error('[BookDetail] DataManager 未初始化');
+        }
+    }
+};

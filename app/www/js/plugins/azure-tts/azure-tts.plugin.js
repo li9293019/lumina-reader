@@ -176,7 +176,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
                     this.saveConfig();
                     this.engine.init(this.config.speechKey, this.config.region);
                     Lumina.TTS?.manager?.clearPluginEngine?.();
-                    Lumina.UI?.showToast?.(Lumina.I18n.t('azureTTSEnabled'));
+                    Lumina.UI?.showToast?.(Lumina.I18n?.t?.('azureTTSEnabled') ?? 'Azure TTS 已启用');
                 } else {
                     await this.openDialog();
                     toggle.checked = !!this.config.speechKey;
@@ -186,7 +186,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
                 this.saveConfig();
                 this.engine.destroy();
                 Lumina.TTS?.manager?.clearPluginEngine?.();
-                Lumina.UI?.showToast?.(Lumina.I18n.t('azureTTSDisabled'));
+                Lumina.UI?.showToast?.(Lumina.I18n?.t?.('azureTTSDisabled') ?? 'Azure TTS 已禁用');
             }
         });
     },
@@ -223,7 +223,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         dialog.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            if (key && Lumina.I18n?.t) {
+            if (key && Lumina.I18n?.t && Lumina.State?.settings?.language) {
                 el.textContent = Lumina.I18n.t(key);
             }
         });
@@ -470,7 +470,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         try {
             await this.engine.speak({
-                text: Lumina.I18n.t('azureTestText'),
+                text: Lumina.I18n?.t?.('azureTestText') ?? '这是 Azure 语音服务的测试文本',
                 voice: voice,
                 style: style,
                 rate: 1.0,
@@ -486,12 +486,12 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         const key = keyInput?.value?.trim();
         
         if (!key) {
-            this.showStatus(Lumina.I18n.t('azureEnterKey'), 'error');
+            this.showStatus(Lumina.I18n?.t?.('azureEnterKey') ?? '请输入 Speech Key', 'error');
             keyInput?.focus();
             return;
         }
         
-        this.showStatus(Lumina.I18n.t('azureTesting'), 'info');
+        this.showStatus(Lumina.I18n?.t?.('azureTesting') ?? '正在测试...', 'info');
         
         const globalRate = Lumina.State?.settings?.ttsRate || 10;
         const globalPitch = Lumina.State?.settings?.ttsPitch || 10;
@@ -502,7 +502,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         const initSuccess = testEngine.init(key, this.config.region);
         
         if (!initSuccess) {
-            this.showStatus(Lumina.I18n.t('azureTestFailed') + ': SDK 未加载', 'error');
+            this.showStatus((Lumina.I18n?.t?.('azureTestFailed') ?? '测试失败') + ': SDK 未加载', 'error');
             return;
         }
         
@@ -510,7 +510,7 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         const style = supportedStyles.includes(this.config.style) ? this.config.style : 'general';
         
         const testPromise = testEngine.speak({
-            text: Lumina.I18n.t('azureTestText'),
+            text: Lumina.I18n?.t?.('azureTestText') ?? '这是 Azure 语音服务的测试文本',
             voice: this.config.voice,
             style: style,
             rate: azureRate,
@@ -523,10 +523,10 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         try {
             await Promise.race([testPromise, timeoutPromise]);
-            this.showStatus(Lumina.I18n.t('azureTestSuccess'), 'success');
+            this.showStatus(Lumina.I18n?.t?.('azureTestSuccess') ?? '测试成功', 'success');
             this.saveCurrentConfig();
         } catch (err) {
-            this.showStatus(Lumina.I18n.t('azureTestFailed') + ': ' + err.message, 'error');
+            this.showStatus((Lumina.I18n?.t?.('azureTestFailed') ?? '测试失败') + ': ' + err.message, 'error');
         }
     },
 

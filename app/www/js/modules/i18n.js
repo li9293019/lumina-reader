@@ -1051,7 +1051,8 @@ Lumina.I18n.data = {
 };
 
 Lumina.I18n.t = (key, ...args) => {
-    const text = Lumina.I18n.data[Lumina.State.settings.language]?.[key] || Lumina.I18n.data.zh[key] || key;
+    const lang = Lumina.State?.settings?.language || 'zh';
+    const text = Lumina.I18n.data[lang]?.[key] || Lumina.I18n.data.zh[key] || key;
     return args.reduce((str, arg, i) => str.replace(`$${i + 1}`, arg), text);
 };
 

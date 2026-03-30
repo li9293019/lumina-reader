@@ -4596,8 +4596,8 @@ transform: translate(-50%, -50%) scale(1);
 /* === 紧凑视图 === */
 .data-grid[data-view="compact"] {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 12px;
-    padding: 16px;
+    /* gap: 12px;
+    padding: 16px; */
 }
 
 .data-grid[data-view="compact"] .data-card {
@@ -4635,8 +4635,8 @@ transform: translate(-50%, -50%) scale(1);
 @media (max-width: 768px) {
     .data-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        padding: 12px;
+        /* gap: 12px;
+        padding: 12px; */
     }
     
     /* 列表视图移动端单列 */
@@ -4678,24 +4678,24 @@ transform: translate(-50%, -50%) scale(1);
     /* 紧凑视图移动端3列 */
     .data-grid[data-view="compact"] {
         grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-        padding: 8px;
+        /* gap: 8px;
+        padding: 8px; */
     }
 }
 
 @media (max-width: 480px) {
     .data-grid[data-view="compact"] {
         grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
-        padding: 6px;
+        gap: 12px;
+        padding: 12px;
     }
 }
 
 @media (max-width: 360px) {
     .data-grid[data-view="compact"] {
         grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-        padding: 4px;
+        gap: 6px;
+        padding: 6px;
     }
 }
 

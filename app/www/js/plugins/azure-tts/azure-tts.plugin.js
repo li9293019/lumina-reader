@@ -57,6 +57,15 @@ Object.assign(Lumina.Plugin.AzureTTS, {
             waitTimeout: this.config.cache?.waitTimeout ?? 2000
         });
         
+        // 设置统计更新回调（用于实时刷新 UI）
+        this.taskManager.onStatsUpdate = (stats) => {
+            // 如果设置面板打开，实时更新统计
+            const dialog = document.getElementById('azureTtsDialog');
+            if (dialog?.classList.contains('active')) {
+                this.updateStatsDisplay();
+            }
+        };
+        
         // 等待引擎类加载
         let engineAttempts = 0;
         const waitForEngine = () => {
@@ -234,6 +243,9 @@ Object.assign(Lumina.Plugin.AzureTTS, {
             this.updateStatsDisplay();
             dialog.classList.add('active');
             
+            // 启动统计定时刷新
+            this._startStatsRefresh();
+            
             setTimeout(() => {
                 document.getElementById('azureDialogKey')?.focus();
             }, 100);
@@ -246,6 +258,9 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         const status = document.getElementById('azureDialogStatus');
         if (status) status.style.display = 'none';
+        
+        // 停止统计定时刷新
+        this._stopStatsRefresh();
         
         if (this._dialogResolve) {
             this._dialogResolve(confirmed);
@@ -576,7 +591,44 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         if (!this.taskManager) return;
         
         const params = this._getParams();
+        // 修正参数传递：将 currentIdx 和 sentences 正确传递给 taskManager
         this.taskManager.fillWindow(null, currentIdx, sentences, params, getNextParagraph);
+        
+        // 启动定时刷新统计（如果面板打开）
+        this._startStatsRefresh();
+    },
+    
+    // 定时刷新统计（当设置面板打开时）
+    _statsRefreshInterval: null,
+    
+    _startStatsRefresh() {
+        // 如果已经存在定时器，先清除
+        if (this._statsRefreshInterval) {
+            clearInterval(this._statsRefreshInterval);
+        }
+        
+        const dialog = document.getElementById('azureTtsDialog');
+        if (!dialog?.classList.contains('active')) return;
+        
+        // 立即更新一次
+        this.updateStatsDisplay();
+        
+        // 每 500ms 更新一次（当面板打开时）
+        this._statsRefreshInterval = setInterval(() => {
+            if (!dialog.classList.contains('active')) {
+                clearInterval(this._statsRefreshInterval);
+                this._statsRefreshInterval = null;
+                return;
+            }
+            this.updateStatsDisplay();
+        }, 500);
+    },
+    
+    _stopStatsRefresh() {
+        if (this._statsRefreshInterval) {
+            clearInterval(this._statsRefreshInterval);
+            this._statsRefreshInterval = null;
+        }
     },
 
     stop() {

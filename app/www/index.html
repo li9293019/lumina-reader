@@ -710,7 +710,7 @@
         <!-- 搜索面板 -->
         <aside class="panel search-panel" id="searchPanel">
             <div class="panel-header">
-                <span class="panel-title" data-i18n="searchResults"></span>
+                <span class="panel-title" data-i18n="aggregateSearch"></span>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <span class="search-stats" id="searchStats"></span>
                     <button class="btn-icon" id="closeSearchPanel" data-i18n-tooltip="close">
@@ -730,7 +730,7 @@
                     <span data-i18n="searchTabLibrary">书库</span>(<span id="libResultCount">0</span>)
                 </button>
             </div>
-            <div class="search-results" id="searchResults"></div>
+            <div class="search-results" id="aggregateSearch"></div>
         </aside>
 
         <!-- 注释面板 -->
@@ -862,10 +862,10 @@
                         <button class="btn-icon view-toggle-btn" id="libViewToggle" data-view="card" data-i18n-tooltip="switchView">
                             <svg class="icon" id="viewToggleIcon"><use href="#icon-grid" /></svg>
                         </button>
-                        <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" title="清空书库">
+                        <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" data-tooltip-text="清空书库">
                             <svg class="icon"><use href="#icon-delete" /></svg>
                         </button>
-                        <button class="btn-icon batch-export-btn" id="batchExportBtn" data-i18n-tooltip="batchExport" title="批量导出书库">
+                        <button class="btn-icon batch-export-btn" id="batchExportBtn" data-i18n-tooltip="batchExport" data-tooltip-text="批量导出书库">
                             <svg class="icon"><use href="#icon-export" /></svg>
                         </button>
                         <button class="btn-icon" id="importDataBtn" data-i18n-tooltip="batchImport">

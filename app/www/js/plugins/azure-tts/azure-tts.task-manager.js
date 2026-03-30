@@ -39,6 +39,9 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             totalSynthesisTime: 0, // 总合成耗时(ms)
             synthesisCount: 0      // 合成次数
         };
+        
+        // 统计更新回调（供 UI 实时刷新使用）
+        this.onStatsUpdate = null;
     }
     
     setEngine(engine) {
@@ -162,6 +165,12 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             // LRU：移到最新位置
             this.cache.delete(key);
             this.cache.set(key, cached);
+            
+            // 触发统计更新回调
+            if (this.onStatsUpdate) {
+                this.onStatsUpdate(this.getStats());
+            }
+            
             return this.engine._play(cached.audioData, params.rate);
         }
         
@@ -252,6 +261,11 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             savedAt: Date.now(),
             textLength
         });
+        
+        // 触发统计更新回调
+        if (this.onStatsUpdate) {
+            this.onStatsUpdate(this.getStats());
+        }
     }
     
     // 获取统计

@@ -283,7 +283,7 @@ Lumina.DataManager = class {
                         </div>
                     </div>
                     <div class="card-info">
-                        <div class="card-title" title="${fileName}">${fileName}</div>
+                        <div class="card-title" data-tooltip-text="${fileName}">${fileName}</div>
                         <div class="card-meta">${sizeStr} · ${timeAgo}</div>
                         ${chapterHtml}
                     </div>

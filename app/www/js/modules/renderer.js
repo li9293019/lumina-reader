@@ -59,7 +59,7 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
             if (targetEl) {
                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (state.search.highlightedIndex === targetIndex || 
-                    Lumina.DOM.searchResults.querySelector('.active')?.dataset.global == targetIndex) {
+                    Lumina.DOM.aggregateSearch.querySelector('.active')?.dataset.global == targetIndex) {
                     targetEl.classList.add('search-highlight');
                 }
             }
@@ -670,7 +670,7 @@ Lumina.Search = {
         const state = Lumina.State.app;
         const lowerQuery = query.toLowerCase();
 
-        Lumina.DOM.searchResults.innerHTML = matches.map((match, idx) => {
+        Lumina.DOM.aggregateSearch.innerHTML = matches.map((match, idx) => {
             const text = match.item.text;
             const matchIndex = text.toLowerCase().indexOf(lowerQuery);
             const start = Math.max(0, matchIndex - 30);
@@ -689,7 +689,7 @@ Lumina.Search = {
     `;
         }).join('');
 
-        Lumina.DOM.searchResults.querySelectorAll('.search-result-item').forEach(item => {
+        Lumina.DOM.aggregateSearch.querySelectorAll('.search-result-item').forEach(item => {
             item.addEventListener('click', () => {
                 const globalIndex = parseInt(item.dataset.global);
                 const chapterIndex = parseInt(item.dataset.chapter);
@@ -723,7 +723,7 @@ Lumina.Search = {
 
     // 渲染书库搜索结果
     renderLibraryResults(files, query) {
-        Lumina.DOM.searchResults.innerHTML = files.map((file, idx) => {
+        Lumina.DOM.aggregateSearch.innerHTML = files.map((file, idx) => {
             const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
             const sizeStr = file.estimatedSize ? parseFloat(file.estimatedSize).toFixed(1) + 'MB' : '--';
             const fileName = Lumina.Utils.escapeHtml(file.fileName);
@@ -750,7 +750,7 @@ Lumina.Search = {
     `;
         }).join('');
 
-        Lumina.DOM.searchResults.querySelectorAll('.library-result-item').forEach(item => {
+        Lumina.DOM.aggregateSearch.querySelectorAll('.library-result-item').forEach(item => {
             item.addEventListener('click', () => {
                 const fileKey = item.dataset.filekey;
                 
@@ -769,12 +769,12 @@ Lumina.Search = {
 
     // 渲染空状态
     renderEmpty() {
-        Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+        Lumina.DOM.aggregateSearch.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
     },
 
     // 渲染无结果状态
     renderNoResults() {
-        Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
+        Lumina.DOM.aggregateSearch.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
     },
 
     getItemTypeLabel(type) {
@@ -812,7 +812,7 @@ Lumina.Search = {
             }
         }
 
-        if (Lumina.DOM.searchResults) this.renderEmpty();
+        if (Lumina.DOM.aggregateSearch) this.renderEmpty();
 
         const searchInput = document.getElementById('searchPanelInput');
         if (searchInput) searchInput.value = '';

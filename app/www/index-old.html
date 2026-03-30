@@ -3976,7 +3976,7 @@ body.immersive-mode .panel {
         <div class="panel-header">
             <span class="panel-title" data-i18n="localLibrary"></span>
             <div class="header-actions">
-                <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" title="清空书库">
+                <button class="btn-icon" id="clearLibraryBtn" data-i18n-tooltip="clearLibrary" data-tooltip-text="清空书库">
                     <svg class="icon">
                         <use href="#icon-delete" />
                     </svg>
@@ -4157,7 +4157,7 @@ body.immersive-mode .panel {
 
         <aside class="panel search-panel" id="searchPanel">
             <div class="panel-header">
-                <span class="panel-title" data-i18n="searchResults"></span>
+                <span class="panel-title" data-i18n="aggregateSearch"></span>
                 <button class="btn-icon" id="closeSearchPanel" data-i18n-tooltip="close">
                     <svg class="icon">
                         <use href="#icon-close" />
@@ -4167,7 +4167,7 @@ body.immersive-mode .panel {
             <div class="search-input-wrapper">
                 <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
             </div>
-            <div class="search-results" id="searchResults">
+            <div class="search-results" id="aggregateSearch">
                 <div class="search-empty" data-i18n="searchEmpty"></div>
             </div>
         </aside>
@@ -5073,7 +5073,7 @@ Lumina.I18n.data = {
         searchPlaceholder: '搜索全文...',
         chapterRegexPlaceholder: '主章节正则 (如: 第.+章)',
         sectionRegexPlaceholder: '次章节正则 (如: \\d+\\.\\d+)',
-        searchResults: '搜索结果',
+        aggregateSearch: '搜索结果',
         searchEmpty: '输入关键词开始搜索', searchNoResults: '未找到匹配结果',
         confirm: '确定', cancel: '取消', save: '保存', loading: '正在解析文件...',
         themeLight: '云白',
@@ -5310,7 +5310,7 @@ Lumina.I18n.data = {
         searchPlaceholder: '搜尋全文...',
         chapterRegexPlaceholder: '主章節正規表示式 (如: 第.+章)',
         sectionRegexPlaceholder: '次章節正規表示式 (如: \\d+\\.\\d+)',
-        searchResults: '搜尋結果',
+        aggregateSearch: '搜尋結果',
         searchEmpty: '輸入關鍵字開始搜尋', searchNoResults: '未找到匹配結果',
         confirm: '確定', cancel: '取消', save: '儲存', loading: '正在解析檔案...',
         themeLight: '雲白',
@@ -5552,7 +5552,7 @@ Lumina.I18n.data = {
         shortcutHistory: 'Open History', shortcutLibrary: 'Open Library', shortcutSettings: 'Open Settings', shortcutAnnotations: 'Open Annotations', shortcutClose: 'Close Panel',
         searchPlaceholder: 'Search...',
         chapterRegexPlaceholder: 'Chapter regex (e.g. ^Chapter)',
-        sectionRegexPlaceholder: 'Section regex', searchResults: 'Search Results',
+        sectionRegexPlaceholder: 'Section regex', aggregateSearch: 'Search Results',
         searchEmpty: 'Enter keywords to search', searchNoResults: 'No matches found',
         confirm: 'OK', cancel: 'Cancel', save: 'Save', loading: 'Parsing file...',
         themeLight: 'Cloud White',
@@ -8203,7 +8203,7 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
             if (targetEl) {
                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (state.search.highlightedIndex === targetIndex || 
-                    Lumina.DOM.searchResults.querySelector('.active')?.dataset.global == targetIndex) {
+                    Lumina.DOM.aggregateSearch.querySelector('.active')?.dataset.global == targetIndex) {
                     targetEl.classList.add('search-highlight');
                 }
             }
@@ -8597,7 +8597,7 @@ Lumina.Search = {
         state.search.currentQuery = query;
 
         if (!query || !state.document.items.length) {
-            Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+            Lumina.DOM.aggregateSearch.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
             return;
         }
 
@@ -8616,11 +8616,11 @@ Lumina.Search = {
         });
 
         if (!state.search.matches.length) {
-            Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
+            Lumina.DOM.aggregateSearch.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchNoResults')}</div>`;
             return;
         }
 
-        Lumina.DOM.searchResults.innerHTML = state.search.matches.map((match, idx) => {
+        Lumina.DOM.aggregateSearch.innerHTML = state.search.matches.map((match, idx) => {
             const text = match.item.text;
             const matchIndex = text.toLowerCase().indexOf(lowerQuery);
             const start = Math.max(0, matchIndex - 30);
@@ -8639,7 +8639,7 @@ Lumina.Search = {
     `;
         }).join('');
 
-        Lumina.DOM.searchResults.querySelectorAll('.search-result-item').forEach(item => {
+        Lumina.DOM.aggregateSearch.querySelectorAll('.search-result-item').forEach(item => {
             item.addEventListener('click', () => {
                 const globalIndex = parseInt(item.dataset.global);
                 const chapterIndex = parseInt(item.dataset.chapter);
@@ -8676,7 +8676,7 @@ Lumina.Search = {
         state.search.currentQuery = '';
         state.search.highlightedIndex = -1;
 
-        if (Lumina.DOM.searchResults) Lumina.DOM.searchResults.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
+        if (Lumina.DOM.aggregateSearch) Lumina.DOM.aggregateSearch.innerHTML = `<div class="search-empty">${Lumina.I18n.t('searchEmpty')}</div>`;
 
         const searchInput = document.getElementById('searchPanelInput');
         if (searchInput) searchInput.value = '';
@@ -12475,7 +12475,7 @@ Lumina.UI = {
         d.fileInfo = document.getElementById('fileInfo');
         d.chapterNavInfo = document.getElementById('chapterNavInfo');
         d.tocList = document.getElementById('tocList');
-        d.searchResults = document.getElementById('searchResults');
+        d.aggregateSearch = document.getElementById('aggregateSearch');
         d.historyList = document.getElementById('historyList');
         d.tooltip = document.getElementById('global-tooltip');
         d.dialogTitle = document.getElementById('dialogTitle');

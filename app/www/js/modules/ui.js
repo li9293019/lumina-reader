@@ -114,7 +114,11 @@ Lumina.UI = {
         const libraryBtn = document.getElementById('libraryBtn');
         if (libraryBtn) {
             libraryBtn.addEventListener('click', () => {
-                if (Lumina.DataManager) Lumina.DataManager.open();
+                if (window.dataManager?._initialized) {
+                    window.dataManager.open();
+                } else {
+                    console.warn('[UI] DataManager 尚未初始化完成');
+                }
             });
         }
 

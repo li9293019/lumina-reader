@@ -4734,6 +4734,7 @@ transform: translate(-50%, -50%) scale(1);
     border-radius: 6px 0 0 6px;
     background: var(--bg-secondary);
     color: var(--text-primary);
+    font-family: var(--font-family-dynamic);
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;

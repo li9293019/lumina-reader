@@ -14,6 +14,8 @@ Lumina.DataManager = class {
     }
 
     init() {
+        this._initialized = true;
+        
         document.getElementById('openDataManager').addEventListener('click', () => this.open());
         document.getElementById('closeDataManager').addEventListener('click', () => this.close());
         document.getElementById('batchExportBtn').addEventListener('click', () => this.batchExport());

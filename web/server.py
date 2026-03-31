@@ -204,18 +204,31 @@ class Database:
             return None
     
     def get_list(self):
-        """获取列表（不含 content，但含 cover）"""
+        """获取列表（不含 content，但含 cover 和 metadata）"""
         try:
             conn = self.get_conn()
             rows = conn.execute("""
                 SELECT fileKey, fileName, fileType, 
                     (LENGTH(COALESCE(content, '')) + LENGTH(COALESCE(cover, ''))) as fileSize, 
                     wordCount, lastChapter, lastScrollIndex, chapterTitle, 
-                    lastReadTime, chapterNumbering, created_at, updated_at, cover
+                    lastReadTime, chapterNumbering, created_at, updated_at, cover, metadata
                 FROM books 
                 ORDER BY lastReadTime DESC
             """).fetchall()
-            return [dict(row) for row in rows]
+            
+            # 解析 metadata JSON 字段
+            result = []
+            for row in rows:
+                row_dict = dict(row)
+                if row_dict.get('metadata'):
+                    try:
+                        row_dict['metadata'] = JSON_DECODE(row_dict['metadata'])
+                    except:
+                        row_dict['metadata'] = {}
+                else:
+                    row_dict['metadata'] = {}
+                result.append(row_dict)
+            return result
         except sqlite3.Error as e:
             print(f"[DB List Error] {e}")
             return []

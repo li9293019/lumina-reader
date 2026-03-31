@@ -43,6 +43,11 @@ Lumina.DB.IndexedDBImpl = class {
         this.DB_VERSION = 2;
         this.MAX_FILES = 50;
         this.isReady = false;
+        
+        // 列表缓存（优化性能）
+        this.listCache = null;
+        this.listTimestamp = 0;
+        this.CACHE_VALID_MS = 30000;  // 缓存30秒
     }
 
     async init() {
@@ -114,6 +119,9 @@ Lumina.DB.IndexedDBImpl = class {
             return new Promise((resolve) => {
                 const request = store.put(record);
                 request.onsuccess = () => {
+                    // 清除列表缓存，确保下次获取最新数据
+                    this.listCache = null;
+                    this.listTimestamp = 0;
                     resolve(true);
                 };
                 request.onerror = (e) => {
@@ -173,7 +181,12 @@ Lumina.DB.IndexedDBImpl = class {
                 const transaction = this.db.transaction(['fileData'], 'readwrite');
                 const store = transaction.objectStore('fileData');
                 const request = store.delete(fileKey);
-                request.onsuccess = () => resolve(true);
+                request.onsuccess = () => {
+                    // 清除列表缓存
+                    this.listCache = null;
+                    this.listTimestamp = 0;
+                    resolve(true);
+                };
                 request.onerror = () => resolve(false);
             } catch (e) { resolve(false); }
         });
@@ -218,15 +231,34 @@ Lumina.DB.IndexedDBImpl = class {
         } catch (e) { }
     }
 
-    async getStorageStats() {
+    async getStorageStats(forceRefresh = false) {
+        const now = Date.now();
+        
+        // 使用缓存（30秒内）
+        if (!forceRefresh && this.listCache && (now - this.listTimestamp < this.CACHE_VALID_MS)) {
+            return this.listCache;
+        }
+        
         const files = await this.getAllFiles();
         let totalSize = 0, imageCount = 0;
         files.forEach(file => {
-            // estimatedSize 已在 getAllFiles 中计算好
             totalSize += file.estimatedSize || 0;
             if (file.cover) imageCount++;
         });
-        return { files, totalFiles: files.length, totalSize: totalSize, imageCount, maxFiles: this.MAX_FILES };
+        
+        const stats = { 
+            files, 
+            totalFiles: files.length, 
+            totalSize: totalSize, 
+            imageCount, 
+            maxFiles: this.MAX_FILES 
+        };
+        
+        // 更新缓存
+        this.listCache = stats;
+        this.listTimestamp = now;
+        
+        return stats;
     }
 
     async exportBatch() {

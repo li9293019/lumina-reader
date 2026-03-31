@@ -178,156 +178,156 @@ Lumina.ConfigManager = {
         console.log(`[ConfigManager] 从版本 ${config.version} 迁移到 ${this.CURRENT_VERSION}`);
         
         // v0 -> v1: 从旧分散配置迁移
-        if (config.version < 1) {
-            this.migrateFromLegacy(config);
-        }
+        // if (config.version < 1) {
+        //     this.migrateFromLegacy(config);
+        // }
         
         config.version = this.CURRENT_VERSION;
         this.save(config);
     },
     
     // ========== 从旧配置迁移 ==========
-    migrateFromLegacy(config) {
-        // 1. luminaSettings -> reading
-        const oldSettings = localStorage.getItem('luminaSettings');
-        if (oldSettings) {
-            try {
-                const settings = JSON.parse(oldSettings);
-                Object.assign(config.reading, {
-                    language: settings.language,
-                    theme: settings.theme,
-                    font: settings.font,
-                    indent: settings.indent,
-                    dropCap: settings.dropCap,
-                    fontSize: settings.fontSize,
-                    lineHeight: settings.lineHeight,
-                    paragraphSpacing: settings.paragraphSpacing,
-                    pageWidth: settings.pageWidth,
-                    margin: settings.margin,
-                    ignoreEmptyLines: settings.ignoreEmptyLines,
-                    textCleaning: settings.textCleaning,
-                    smoothScroll: settings.smoothScroll,
-                    sidebarVisible: settings.sidebarVisible,
-                    chapterNumbering: settings.chapterNumbering,
-                    ttsRate: settings.ttsRate,
-                    ttsPitch: settings.ttsPitch,
-                    paginationEnabled: settings.paginationEnabled,
-                    encryptedExport: settings.encryptedExport,
-                    paginationMaxWords: settings.paginationMaxWords,
-                    paginationImageWords: settings.paginationImageWords,
-                    pdfExtractImages: settings.pdfExtractImages,
-                    pdfPasswordPreset: settings.pdfPasswordPreset,
-                    pdfSmartGuess: settings.pdfSmartGuess,
-                });
-                config.regex.chapter = settings.chapterRegex || '';
-                config.regex.section = settings.sectionRegex || '';
-                config.pagination.enabled = settings.paginationEnabled;
-                config.pagination.maxWords = settings.paginationMaxWords;
-                config.pagination.imageWords = settings.paginationImageWords;
-                config.export.encrypted = settings.encryptedExport;
-                config.pdf.extractImages = settings.pdfExtractImages;
-                config.pdf.passwordPreset.enabled = settings.pdfPasswordPreset;
-                config.pdf.passwordPreset.smartGuess = settings.pdfSmartGuess;
+    // migrateFromLegacy(config) {
+    //     // 1. luminaSettings -> reading
+    //     const oldSettings = localStorage.getItem('luminaSettings');
+    //     if (oldSettings) {
+    //         try {
+    //             const settings = JSON.parse(oldSettings);
+    //             Object.assign(config.reading, {
+    //                 language: settings.language,
+    //                 theme: settings.theme,
+    //                 font: settings.font,
+    //                 indent: settings.indent,
+    //                 dropCap: settings.dropCap,
+    //                 fontSize: settings.fontSize,
+    //                 lineHeight: settings.lineHeight,
+    //                 paragraphSpacing: settings.paragraphSpacing,
+    //                 pageWidth: settings.pageWidth,
+    //                 margin: settings.margin,
+    //                 ignoreEmptyLines: settings.ignoreEmptyLines,
+    //                 textCleaning: settings.textCleaning,
+    //                 smoothScroll: settings.smoothScroll,
+    //                 sidebarVisible: settings.sidebarVisible,
+    //                 chapterNumbering: settings.chapterNumbering,
+    //                 ttsRate: settings.ttsRate,
+    //                 ttsPitch: settings.ttsPitch,
+    //                 paginationEnabled: settings.paginationEnabled,
+    //                 encryptedExport: settings.encryptedExport,
+    //                 paginationMaxWords: settings.paginationMaxWords,
+    //                 paginationImageWords: settings.paginationImageWords,
+    //                 pdfExtractImages: settings.pdfExtractImages,
+    //                 pdfPasswordPreset: settings.pdfPasswordPreset,
+    //                 pdfSmartGuess: settings.pdfSmartGuess,
+    //             });
+    //             config.regex.chapter = settings.chapterRegex || '';
+    //             config.regex.section = settings.sectionRegex || '';
+    //             config.pagination.enabled = settings.paginationEnabled;
+    //             config.pagination.maxWords = settings.paginationMaxWords;
+    //             config.pagination.imageWords = settings.paginationImageWords;
+    //             config.export.encrypted = settings.encryptedExport;
+    //             config.pdf.extractImages = settings.pdfExtractImages;
+    //             config.pdf.passwordPreset.enabled = settings.pdfPasswordPreset;
+    //             config.pdf.passwordPreset.smartGuess = settings.pdfSmartGuess;
                 
-                config.tts.rate = settings.ttsRate;
-                config.tts.pitch = settings.ttsPitch;
+    //             config.tts.rate = settings.ttsRate;
+    //             config.tts.pitch = settings.ttsPitch;
                 
-                // 删除旧配置
-                localStorage.removeItem('luminaSettings');
-                console.log('[ConfigManager] 已迁移 luminaSettings');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移 luminaSettings 失败:', e);
-            }
-        }
+    //             // 删除旧配置
+    //             localStorage.removeItem('luminaSettings');
+    //             console.log('[ConfigManager] 已迁移 luminaSettings');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移 luminaSettings 失败:', e);
+    //         }
+    //     }
         
-        // 2. lumina_heatmap_presets -> heatMap.presets
-        const oldHeatPresets = localStorage.getItem('lumina_heatmap_presets');
-        if (oldHeatPresets) {
-            try {
-                config.heatMap.presets = JSON.parse(oldHeatPresets);
-                localStorage.removeItem('lumina_heatmap_presets');
-                console.log('[ConfigManager] 已迁移 lumina_heatmap_presets');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移热力图预设失败:', e);
-            }
-        }
+    //     // 2. lumina_heatmap_presets -> heatMap.presets
+    //     const oldHeatPresets = localStorage.getItem('lumina_heatmap_presets');
+    //     if (oldHeatPresets) {
+    //         try {
+    //             config.heatMap.presets = JSON.parse(oldHeatPresets);
+    //             localStorage.removeItem('lumina_heatmap_presets');
+    //             console.log('[ConfigManager] 已迁移 lumina_heatmap_presets');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移热力图预设失败:', e);
+    //         }
+    //     }
         
-        // 3. luminaPdfPasswordPreset -> pdf.passwordPreset
-        const oldPdfPreset = localStorage.getItem('luminaPdfPasswordPreset');
-        if (oldPdfPreset) {
-            try {
-                const pdfPreset = JSON.parse(oldPdfPreset);
-                config.pdf.passwordPreset = { ...config.pdf.passwordPreset, ...pdfPreset };
-                localStorage.removeItem('luminaPdfPasswordPreset');
-                console.log('[ConfigManager] 已迁移 luminaPdfPasswordPreset');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移 PDF 预设失败:', e);
-            }
-        }
+    //     // 3. luminaPdfPasswordPreset -> pdf.passwordPreset
+    //     const oldPdfPreset = localStorage.getItem('luminaPdfPasswordPreset');
+    //     if (oldPdfPreset) {
+    //         try {
+    //             const pdfPreset = JSON.parse(oldPdfPreset);
+    //             config.pdf.passwordPreset = { ...config.pdf.passwordPreset, ...pdfPreset };
+    //             localStorage.removeItem('luminaPdfPasswordPreset');
+    //             console.log('[ConfigManager] 已迁移 luminaPdfPasswordPreset');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移 PDF 预设失败:', e);
+    //         }
+    //     }
         
-        // 4. luminaTTS -> tts
-        const oldTTS = localStorage.getItem('luminaTTS');
-        if (oldTTS) {
-            try {
-                const tts = JSON.parse(oldTTS);
-                config.tts = { ...config.tts, ...tts };
-                localStorage.removeItem('luminaTTS');
-                console.log('[ConfigManager] 已迁移 luminaTTS');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移 TTS 设置失败:', e);
-            }
-        }
+    //     // 4. luminaTTS -> tts
+    //     const oldTTS = localStorage.getItem('luminaTTS');
+    //     if (oldTTS) {
+    //         try {
+    //             const tts = JSON.parse(oldTTS);
+    //             config.tts = { ...config.tts, ...tts };
+    //             localStorage.removeItem('luminaTTS');
+    //             console.log('[ConfigManager] 已迁移 luminaTTS');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移 TTS 设置失败:', e);
+    //         }
+    //     }
         
-        // 5. lumina_azure_tts_config -> azureTTS
-        const oldAzure = localStorage.getItem('lumina_azure_tts_config');
-        if (oldAzure) {
-            try {
-                const azure = JSON.parse(oldAzure);
-                // 字段名转换：旧 -> 新
-                if (azure.key !== undefined && azure.speechKey === undefined) {
-                    azure.speechKey = azure.key;
-                    delete azure.key;
-                }
-                if (azure.cacheEnabled !== undefined) {
-                    azure.cache = azure.cache || {};
-                    azure.cache.enabled = azure.cacheEnabled;
-                    delete azure.cacheEnabled;
-                }
-                if (azure.preloadCount !== undefined) {
-                    azure.cache = azure.cache || {};
-                    azure.cache.preloadCount = azure.preloadCount;
-                    delete azure.preloadCount;
-                }
-                if (azure.cacheDepth !== undefined) {
-                    azure.cache = azure.cache || {};
-                    azure.cache.cacheDepth = azure.cacheDepth;
-                    delete azure.cacheDepth;
-                }
-                config.azureTTS = { ...config.azureTTS, ...azure };
-                localStorage.removeItem('lumina_azure_tts_config');
-                console.log('[ConfigManager] 已迁移 lumina_azure_tts_config');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移 Azure TTS 失败:', e);
-            }
-        }
+    //     // 5. lumina_azure_tts_config -> azureTTS
+    //     const oldAzure = localStorage.getItem('lumina_azure_tts_config');
+    //     if (oldAzure) {
+    //         try {
+    //             const azure = JSON.parse(oldAzure);
+    //             // 字段名转换：旧 -> 新
+    //             if (azure.key !== undefined && azure.speechKey === undefined) {
+    //                 azure.speechKey = azure.key;
+    //                 delete azure.key;
+    //             }
+    //             if (azure.cacheEnabled !== undefined) {
+    //                 azure.cache = azure.cache || {};
+    //                 azure.cache.enabled = azure.cacheEnabled;
+    //                 delete azure.cacheEnabled;
+    //             }
+    //             if (azure.preloadCount !== undefined) {
+    //                 azure.cache = azure.cache || {};
+    //                 azure.cache.preloadCount = azure.preloadCount;
+    //                 delete azure.preloadCount;
+    //             }
+    //             if (azure.cacheDepth !== undefined) {
+    //                 azure.cache = azure.cache || {};
+    //                 azure.cache.cacheDepth = azure.cacheDepth;
+    //                 delete azure.cacheDepth;
+    //             }
+    //             config.azureTTS = { ...config.azureTTS, ...azure };
+    //             localStorage.removeItem('lumina_azure_tts_config');
+    //             console.log('[ConfigManager] 已迁移 lumina_azure_tts_config');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移 Azure TTS 失败:', e);
+    //         }
+    //     }
         
-        // 6. lumina_plugin_states -> plugins
-        const oldPlugins = localStorage.getItem('lumina_plugin_states');
-        if (oldPlugins) {
-            try {
-                config.plugins = JSON.parse(oldPlugins);
-                localStorage.removeItem('lumina_plugin_states');
-                console.log('[ConfigManager] 已迁移 lumina_plugin_states');
-            } catch (e) {
-                console.error('[ConfigManager] 迁移插件状态失败:', e);
-            }
-        }
+    //     // 6. lumina_plugin_states -> plugins
+    //     const oldPlugins = localStorage.getItem('lumina_plugin_states');
+    //     if (oldPlugins) {
+    //         try {
+    //             config.plugins = JSON.parse(oldPlugins);
+    //             localStorage.removeItem('lumina_plugin_states');
+    //             console.log('[ConfigManager] 已迁移 lumina_plugin_states');
+    //         } catch (e) {
+    //             console.error('[ConfigManager] 迁移插件状态失败:', e);
+    //         }
+    //     }
         
-        // 清理其他遗留项
-        localStorage.removeItem('luminaGuideImported');
-        localStorage.removeItem('reader-theme');
-        // luminaHistory 保留，因为可能包含未迁移到 IndexedDB 的数据
-    },
+    //     // 清理其他遗留项
+    //     localStorage.removeItem('luminaGuideImported');
+    //     localStorage.removeItem('reader-theme');
+    //     // luminaHistory 保留，因为可能包含未迁移到 IndexedDB 的数据
+    // },
     
     // ========== 导出配置（备份） ==========
     async export(encrypt = false) {

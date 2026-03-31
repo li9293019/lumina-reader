@@ -978,10 +978,19 @@ Lumina.DataManager = class {
 
     // 打开书籍详情面板
     openBookDetail(fileKey) {
-        if (Lumina.BookDetail) {
-            Lumina.BookDetail.open(fileKey);
-        } else {
+        if (!Lumina.BookDetail) {
             console.warn('[DataManager] BookDetail module not loaded');
+            return;
+        }
+        
+        // 优化：如果书库数据已加载，直接使用缓存的数据，避免重复请求
+        const cachedFile = this.currentStats?.files?.find(f => f.fileKey === fileKey);
+        if (cachedFile) {
+            // 使用已缓存的数据直接打开
+            Lumina.BookDetail.openWithData(cachedFile);
+        } else {
+            // 数据不在缓存中，从数据库获取
+            Lumina.BookDetail.open(fileKey);
         }
     }
 

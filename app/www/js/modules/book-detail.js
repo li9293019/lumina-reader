@@ -147,7 +147,7 @@ Lumina.BookDetail = {
         }
     },
     
-    // 打开面板
+    // 打开面板（从数据库加载）
     async open(fileKey) {
         if (!fileKey) return;
         
@@ -158,6 +158,17 @@ Lumina.BookDetail = {
             return;
         }
         
+        this.show(fileData);
+    },
+    
+    // 打开面板（使用已缓存的数据，避免重复请求）
+    openWithData(fileData) {
+        if (!fileData) return;
+        this.show(fileData);
+    },
+    
+    // 内部：显示面板
+    show(fileData) {
         this.currentFile = fileData;
         
         // 渲染数据

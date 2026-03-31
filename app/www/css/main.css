@@ -2803,6 +2803,7 @@ max-height: calc(85vh - 140px);
     align-items: stretch;
     justify-content: stretch;
     background: none;
+    will-change: transform; /* 硬件加速，避免闪烁 */
 }
 
 #dataManagerPanel .data-manager {

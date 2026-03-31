@@ -113,21 +113,39 @@
 
 /* 缓存列表 */
 .cache-manager-list {
-    border-top: 1px solid var(--border-color);
     padding-top: 20px;
 }
 
 .cache-manager-list h4 {
-    margin: 0 0 12px;
+    margin: 0;
     font-size: 14px;
     color: var(--text-secondary);
     font-weight: 500;
 }
 
+/* 可排序表头 */
+.cache-sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.cache-sortable:hover {
+    color: var(--accent-color);
+}
+
+/* 操作列居中对齐 */
+.cache-list-header > span:last-child,
+.cache-list-item > span:last-child,
+.cache-list-item > button:last-child {
+    text-align: center;
+    justify-self: center;
+}
+
 /* 列表头部 - 5列布局 */
 .cache-list-header {
     display: grid;
-    grid-template-columns: 1fr 100px 100px 80px 50px;
+    grid-template-columns: 1fr 100px 100px 80px 80px;
     gap: 12px;
     padding: 8px 12px;
     font-size: 12px;
@@ -143,7 +161,7 @@
 /* 列表项 - 5列布局 */
 .cache-list-item {
     display: grid;
-    grid-template-columns: 1fr 100px 100px 80px 50px;
+    grid-template-columns: 1fr 100px 100px 80px 80px;
     gap: 12px;
     align-items: center;
     padding: 10px 12px;
@@ -221,7 +239,7 @@
     
     /* 移动端简化列表显示 */
     .cache-list-header {
-        grid-template-columns: 1fr 80px 50px;
+        grid-template-columns: 1fr 80px 80px;
     }
     
     .cache-list-header span:nth-child(2),
@@ -230,7 +248,7 @@
     }
     
     .cache-list-item {
-        grid-template-columns: 1fr 80px 50px;
+        grid-template-columns: 1fr 80px 80px;
     }
     
     .cache-list-item span:nth-child(2),

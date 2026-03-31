@@ -809,9 +809,14 @@
             <div class="about-content" style="max-width: 720px;">
                 <div class="about-header">
                     <span class="about-title" data-i18n="cacheManagerTitle"></span>
-                    <button class="btn-icon" id="closeCacheManager" data-i18n-tooltip="close">
-                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn-icon" id="cacheClearAllBtn" data-i18n-tooltip="cacheManagerClearAll">
+                            <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-delete"/></svg>
+                        </button>
+                        <button class="btn-icon" id="closeCacheManager" data-i18n-tooltip="close">
+                            <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="about-body">
                     <!-- 加载状态 -->
@@ -822,33 +827,16 @@
                     
                     <!-- 内容区域 -->
                     <div id="cacheManagerContent" style="display: none;">
-                        <!-- 统计卡片 -->
-                        <div class="cache-manager-summary">
-                            <div class="cache-stat">
-                                <span class="cache-stat-value" id="cacheCount">-</span>
-                                <span class="cache-stat-label" data-i18n="cacheManagerCount"></span>
-                            </div>
-                            <div class="cache-stat">
-                                <span class="cache-stat-value" id="cacheSize">-</span>
-                                <span class="cache-stat-label" data-i18n="cacheManagerSize"></span>
-                            </div>
-                        </div>
-                        
-                        <!-- 操作按钮 -->
-                        <div class="cache-manager-actions">
-                            <button class="cache-btn cache-btn-primary" id="cacheClearAll">
-                                <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-delete"/></svg>
-                                <span data-i18n="cacheManagerClearAll"></span>
-                            </button>
-                            <button class="cache-btn" id="cacheRefresh">
-                                <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-refresh"/></svg>
-                                <span data-i18n="cacheManagerRefresh"></span>
-                            </button>
-                        </div>
-                        
                         <!-- 缓存列表 -->
                         <div class="cache-manager-list">
-                            <h4 data-i18n="cacheManagerDetails"></h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 data-i18n="cacheManagerDetails" style="margin: 0;"></h4>
+                                <div class="lib-brief-stats" id="cacheSummaryStats">
+                                    <span class="stats-item"><span id="cacheStatsCount">-</span><span data-i18n="booksUnit">本</span></span>
+                                    <span class="stats-separator"></span>
+                                    <span class="stats-item" id="cacheStatsSize">-</span>
+                                </div>
+                            </div>
                             <div class="cache-list-header">
                                 <span data-i18n="cacheManagerFileName"></span>
                                 <span data-i18n="cacheManagerCreated"></span>

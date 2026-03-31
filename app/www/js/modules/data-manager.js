@@ -450,6 +450,11 @@ Lumina.DataManager = class {
         this.renderGrid();
         this.isPreloaded = true;
     }
+    
+    // 标记缓存失效（打开新书后调用）
+    invalidateCache() {
+        this.isPreloaded = false;
+    }
 
     async open() {
         const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
@@ -465,28 +470,41 @@ Lumina.DataManager = class {
         // 确保视图图标同步
         this.updateViewToggleIcon();
         
+        // 如果已有数据，直接显示（秒开），不重新获取
+        if (this.currentStats) {
+            this.renderStats();
+            this.renderGrid();
+            return;
+        }
+        
+        // 第一次打开，需要加载数据
         try {
             if (isSQLite) {
-                // SQLite 模式：先显示加载状态，再获取数据
                 this.showLoadingState();
-                
-                // 获取数据（优先缓存，自动处理后台刷新）
                 const stats = await Lumina.DB.adapter.getStorageStats();
-                
                 this.currentStats = stats;
                 this.renderStats();
                 this.renderGrid();
-                
-                // 如果数据来自缓存（可能过期），在顶部显示弱提示
-                if (stats._stale) {
-                    Lumina.UI.showToast('当前为离线数据，后台同步中...', 2000);
-                }
             } else {
-                // IndexedDB 模式：直接加载（很快）
                 await this.refreshStats();
             }
         } catch (error) {
             this.showErrorState(error.message || '加载失败', () => this.open());
+        }
+    }
+    
+    // 后台静默刷新（无提示）
+    async refreshStatsSilently() {
+        try {
+            const stats = await Lumina.DB.adapter.getStorageStats();
+            // 只有数据变化才更新UI（静默）
+            if (JSON.stringify(stats.files) !== JSON.stringify(this.currentStats.files)) {
+                this.currentStats = stats;
+                this.renderStats();
+                this.renderGrid();
+            }
+        } catch (e) {
+            // 静默失败
         }
     }
 
@@ -639,7 +657,7 @@ Lumina.DataManager = class {
         const fileName = Lumina.Utils.escapeHtml(file.fileName);
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
         const coverHtml = hasCover 
-            ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\\'cover-placeholder\\'><svg><use href=\\'#icon-book\\'/></svg></div>';">`
+            ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`
             : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
         
         // 多选勾选框（自定义SVG，非浏览器checkbox）
@@ -1860,6 +1878,14 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                 };
                 await Lumina.DB.adapter.saveFile(fileKey, patchData);
                 await Lumina.DB.loadHistoryFromDB();
+                
+                // 同步刷新书库面板（与历史面板一致）
+                if (Lumina.State.app.dbReady && window.dataManager && window.dataManager.refreshStats) {
+                    await window.dataManager.refreshStats();
+                } else {
+                    console.warn('[Patch Save] 无法刷新书库:', { dbReady: Lumina.State.app.dbReady, hasDataManager: !!window.dataManager, hasRefreshStats: !!(window.dataManager && window.dataManager.refreshStats) });
+                }
+                
                 return { saved: true, mode: 'patch' };
             }
         } catch (e) {
@@ -1989,6 +2015,11 @@ Lumina.HistoryActions = {
             if (fileData) {
                 await Lumina.DB.restoreFileFromDB(fileData);
                 Lumina.DOM.historyPanel.classList.remove('open');
+                
+                // 打开书籍后，标记书库数据需要刷新（下次打开时重新加载）
+                if (Lumina.DataManager) {
+                    Lumina.DataManager.invalidateCache();
+                }
             } else {
                 Lumina.UI.showDialog(Lumina.I18n.t('fileDataLost'));
             }
@@ -2416,6 +2447,11 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
                     ...fileData,
                     lastReadTime: fileData.lastReadTime
                 });
+                
+                // 同步刷新书库和历史面板
+                if (window.dataManager && window.dataManager.refreshStats) {
+                    await window.dataManager.refreshStats();
+                }
             } catch (err) { 
                 console.warn('[restoreFileFromDB] 更新阅读时间失败:', err);
             }

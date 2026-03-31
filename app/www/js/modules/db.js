@@ -1216,22 +1216,33 @@ Lumina.DB.WebCacheIndexedDBImpl = class {
                 const transaction = this.db.transaction(['fileData'], 'readwrite');
                 const store = transaction.objectStore('fileData');
                 
-                const record = {
-                    fileKey,
-                    fileName: data.fileName,
-                    fileType: data.fileType,
-                    content: data.content,  // 只缓存这个大字段
-                    cover: data.cover,
-                    heatMap: data.heatMap,
-                    annotations: data.annotations,
-                    metadata: data.metadata,
-                    lastReadTime: data.lastReadTime || new Date().toISOString(),
-                    cachedAt: new Date().toISOString()  // 记录缓存时间
+                // 先查询是否已存在，以保留 created_at
+                const getRequest = store.get(fileKey);
+                getRequest.onsuccess = () => {
+                    const existing = getRequest.result;
+                    const now = new Date().toISOString();
+                    
+                    const record = {
+                        fileKey,
+                        fileName: data.fileName,
+                        fileType: data.fileType,
+                        content: data.content,
+                        cover: data.cover,
+                        heatMap: data.heatMap,
+                        annotations: data.annotations,
+                        metadata: data.metadata,
+                        lastReadTime: data.lastReadTime || now,
+                        updated_at: now,
+                        // 保留原有的 created_at，或者设置新的
+                        // 保留原有创建时间，或使用数据中的创建时间，或使用最后阅读时间（首次缓存时应该用数据中的时间）
+                        created_at: existing?.created_at || data.created_at || data.lastReadTime || now
+                    };
+                    
+                    const putRequest = store.put(record);
+                    putRequest.onsuccess = () => resolve(true);
+                    putRequest.onerror = () => resolve(false);
                 };
-                
-                const request = store.put(record);
-                request.onsuccess = () => resolve(true);
-                request.onerror = () => resolve(false);
+                getRequest.onerror = () => resolve(false);
             } catch (e) { resolve(false); }
         });
     }

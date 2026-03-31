@@ -4,14 +4,16 @@
 Lumina.CacheManager = {
     isOpen: false,
     currentStats: null,
+    sortBy: 'updatedAt', // 'fileName', 'createdAt', 'updatedAt', 'size'
+    sortOrder: 'desc', // 'asc', 'desc'
     
     // 打开缓存管理面板
     open() {
         if (this.isOpen) return;
         
-        // 检查是否是 HTTP 模式（Python后端）
-        const isHttpMode = location.href.startsWith('http');
-        if (!isHttpMode) {
+        // 检查是否是 Web SQLite 模式（有缓存管理功能）
+        const impl = Lumina.DB.adapter?.impl;
+        if (!impl || typeof impl.getCacheStats !== 'function') {
             Lumina.UI.showToast(Lumina.I18n.t('cacheManagerNoNeed'));
             return;
         }
@@ -52,14 +54,8 @@ Lumina.CacheManager = {
             };
         }
         
-        // 刷新按钮
-        const refreshBtn = document.getElementById('cacheRefresh');
-        if (refreshBtn) {
-            refreshBtn.onclick = () => this.loadCacheStats();
-        }
-        
-        // 清理全部按钮
-        const clearAllBtn = document.getElementById('cacheClearAll');
+        // 清理全部按钮（头部工具栏）
+        const clearAllBtn = document.getElementById('cacheClearAllBtn');
         if (clearAllBtn) {
             clearAllBtn.onclick = () => this.confirmClearAll();
         }
@@ -78,9 +74,9 @@ Lumina.CacheManager = {
             const stats = await impl.getCacheStats();
             this.currentStats = stats;
             
-            // 更新统计
-            const countEl = document.getElementById('cacheCount');
-            const sizeEl = document.getElementById('cacheSize');
+            // 更新统计信息（与书库统一样式）
+            const countEl = document.getElementById('cacheStatsCount');
+            const sizeEl = document.getElementById('cacheStatsSize');
             if (countEl) countEl.textContent = stats.count;
             if (sizeEl) sizeEl.textContent = this.formatSize(stats.size);
             
@@ -101,6 +97,7 @@ Lumina.CacheManager = {
     // 渲染缓存列表
     renderCacheList(files) {
         const listContainer = document.getElementById('cacheListItems');
+        const headerContainer = document.querySelector('.cache-list-header');
         if (!listContainer) return;
         
         if (!files || files.length === 0) {
@@ -108,9 +105,29 @@ Lumina.CacheManager = {
             return;
         }
         
-        listContainer.innerHTML = files.map(file => {
-            const createdTime = this.formatTime(file.createdAt || file.lastAccess);
-            const updatedTime = this.formatTime(file.updatedAt || file.lastAccess);
+        // 排序
+        const sortedFiles = this.sortFiles(files);
+        
+        // 渲染表头（带排序指示）
+        if (headerContainer) {
+            const sortIndicator = (field) => this.sortBy === field ? (this.sortOrder === 'asc' ? ' ↑' : ' ↓') : '';
+            headerContainer.innerHTML = `
+                <span class="cache-sortable" data-sort="fileName">${Lumina.I18n.t('cacheManagerFileName')}${sortIndicator('fileName')}</span>
+                <span class="cache-sortable" data-sort="createdAt">${Lumina.I18n.t('cacheManagerCreated')}${sortIndicator('createdAt')}</span>
+                <span class="cache-sortable" data-sort="updatedAt">${Lumina.I18n.t('cacheManagerUpdated')}${sortIndicator('updatedAt')}</span>
+                <span class="cache-sortable" data-sort="size">${Lumina.I18n.t('cacheManagerFileSize')}${sortIndicator('size')}</span>
+                <span>${Lumina.I18n.t('cacheManagerAction')}</span>
+            `;
+            
+            // 绑定排序点击事件
+            headerContainer.querySelectorAll('.cache-sortable').forEach(header => {
+                header.onclick = () => this.handleSort(header.dataset.sort);
+            });
+        }
+        
+        listContainer.innerHTML = sortedFiles.map(file => {
+            const createdTime = this.formatTime(file.createdAt);
+            const updatedTime = this.formatTime(file.updatedAt);
             
             return `
                 <div class="cache-list-item" data-filekey="${file.fileKey}">
@@ -142,23 +159,61 @@ Lumina.CacheManager = {
         }
     },
     
-    // 清理单个文件缓存
-    async clearFileCache(fileKey) {
-        if (!confirm(Lumina.I18n.t('cacheManagerConfirmDelete'))) return;
-        
-        try {
-            const impl = Lumina.DB.adapter.impl;
-            const success = await impl.clearFileCache(fileKey);
-            
-            if (success) {
-                Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteSuccess'));
-                this.loadCacheStats(); // 刷新
-            } else {
-                Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteFailed'));
-            }
-        } catch (e) {
-            Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteFailed') + ': ' + e.message);
+    // 处理排序
+    handleSort(field) {
+        if (this.sortBy === field) {
+            // 切换方向
+            this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            // 新字段，默认降序
+            this.sortBy = field;
+            this.sortOrder = 'desc';
         }
+        // 重新渲染
+        if (this.currentStats) {
+            this.renderCacheList(this.currentStats.files);
+        }
+    },
+    
+    // 排序文件
+    sortFiles(files) {
+        return [...files].sort((a, b) => {
+            let valA = a[this.sortBy];
+            let valB = b[this.sortBy];
+            
+            // 处理空值
+            if (valA == null) valA = '';
+            if (valB == null) valB = '';
+            
+            // 字符串比较
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            
+            if (valA < valB) return this.sortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return this.sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+    },
+    
+    // 清理单个文件缓存
+    clearFileCache(fileKey) {
+        Lumina.UI.showDialog(Lumina.I18n.t('cacheManagerConfirmDelete'), 'confirm', async (confirmed) => {
+            if (!confirmed) return;
+            
+            try {
+                const impl = Lumina.DB.adapter.impl;
+                const success = await impl.clearFileCache(fileKey);
+                
+                if (success) {
+                    Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteSuccess'));
+                    this.loadCacheStats(); // 刷新
+                } else {
+                    Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteFailed'));
+                }
+            } catch (e) {
+                Lumina.UI.showToast(Lumina.I18n.t('cacheManagerDeleteFailed') + ': ' + e.message);
+            }
+        });
     },
     
     // 确认清理所有缓存
@@ -168,9 +223,9 @@ Lumina.CacheManager = {
             return;
         }
         
-        if (!confirm(Lumina.I18n.t('cacheManagerConfirmClear'))) return;
-        
-        this.clearAllCache();
+        Lumina.UI.showDialog(Lumina.I18n.t('cacheManagerConfirmClear'), 'confirm', (confirmed) => {
+            if (confirmed) this.clearAllCache();
+        });
     },
     
     // 清理所有缓存

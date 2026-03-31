@@ -73,8 +73,9 @@ Lumina.init = async () => {
         storageBtn.addEventListener('click', Lumina.UI.showStorageInfo);
     }
 
-    if (Lumina.State.app.dbReady) await Lumina.DB.loadHistoryFromDB();
-    else {
+    if (Lumina.State.app.dbReady) {
+        await Lumina.DB.loadHistoryFromDB();
+    } else {
         const history = JSON.parse(localStorage.getItem('luminaHistory') || '[]');
         Lumina.Renderer.renderHistoryFromDB(history);
     }
@@ -97,6 +98,11 @@ Lumina.init = async () => {
     Lumina.DataManager = new Lumina.DataManager();
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用
     Lumina.DataManager.init();
+    
+    // 预加载书库面板（静默，不阻塞）
+    if (Lumina.State.app.dbReady) {
+        Lumina.DataManager.preload().catch(() => {});
+    }
     
     // 显示书库按钮（DataManager 初始化完成后）
     const libraryBtn = document.getElementById('libraryBtn');
@@ -125,10 +131,11 @@ Lumina.init = async () => {
         Lumina.DataManager.updateSettingsBar();
     }
     
-    // 显示缓存管理按钮（仅HTTP模式）
+    // 显示缓存管理按钮（仅Web SQLite模式）
     const cacheManagerBtn = document.getElementById('openCacheManager');
-    if (cacheManagerBtn && location.href.startsWith('http')) {
-        cacheManagerBtn.style.display = 'block';
+    if (cacheManagerBtn) {
+        const isWebSQLite = Lumina.DB.adapter?.impl instanceof Lumina.DB.SQLiteImpl;
+        cacheManagerBtn.style.display = isWebSQLite ? 'block' : 'none';
     }
     
     // HTTP 模式下尝试导入默认说明书

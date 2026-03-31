@@ -7,20 +7,24 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--overlay-bg);
-    z-index: 260;
+    background: var(--bg-primary);
+    z-index: 300;
     display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    backdrop-filter: blur(2px); 
-    opacity: 0;
-    transition: opacity 0.3s var(--ease-out-expo);
+    /* 移除透明度动效，避免闪烁 */
 }
 
 .book-detail-panel.active {
     display: flex;
-    opacity: 1; 
+}
+
+/* 移动端全屏 */
+@media (max-width: 768px) {
+    .book-detail-panel {
+        padding: 0;
+    }
 }
 
 /* PC 端面板内容容器 */
@@ -40,12 +44,30 @@
 
 @keyframes bookDetailSlideIn {
     from {
-        transform: scale(0.95);
-        opacity: 0;
+        transform: translateY(20px);
     }
     to {
-        transform: scale(1);
-        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 移动端滑入动画 */
+@media (max-width: 768px) {
+    @keyframes bookDetailSlideIn {
+        from {
+            transform: translateX(100%);
+        }
+        to {
+            transform: translateX(0);
+        }
+    }
+    
+    .book-detail-container {
+        max-width: 100%;
+        max-height: 100vh;
+        height: 100vh;
+        border-radius: 0;
+        animation: bookDetailSlideIn 0.25s ease-out;
     }
 }
 
@@ -66,6 +88,7 @@
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: 0.5px;
+    will-change: transform; /* 硬件加速，防止动画抖动 */
 }
 
 .book-detail-close {

@@ -1223,7 +1223,7 @@ Lumina.UI.showStorageInfo = async () => {
             },
             {
                 icon: `<svg class="icon"><rect x="2" y="3" width="20" height="6" rx="2"/><rect x="2" y="15" width="20" height="6" rx="2"/></svg>`,
-                label: t('storageUsedLabel'), value: t('storageSizeValue', stats.totalSize)
+                label: t('storageUsedLabel'), value: Lumina.Utils.formatFileSize(stats.totalSize)
             }
         ];
         

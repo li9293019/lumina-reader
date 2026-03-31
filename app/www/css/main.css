@@ -957,13 +957,13 @@ left: 0;
 top: calc(var(--header-offset) + var(--safe-area-top, 0px)); 
 bottom: 0;
 z-index: 80;
-box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
 transition: transform 0.3s var(--ease-out-expo),
     top 0.35s var(--ease-out-expo); 
 }
 
 .sidebar-left.visible {
 transform: translateX(0);
+box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 768px) {
@@ -2802,6 +2802,7 @@ max-height: calc(85vh - 140px);
     padding: 0;
     align-items: stretch;
     justify-content: stretch;
+    background: none;
 }
 
 #dataManagerPanel .data-manager {

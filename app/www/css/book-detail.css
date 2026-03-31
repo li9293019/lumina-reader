@@ -13,14 +13,14 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px); 
     opacity: 0;
     transition: opacity 0.3s var(--ease-out-expo);
 }
 
 .book-detail-panel.active {
     display: flex;
-    opacity: 1;
+    opacity: 1; 
 }
 
 /* PC 端面板内容容器 */
@@ -35,7 +35,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: bookDetailSlideIn 0.3s ease;
+    animation: bookDetailSlideIn 0.3s ease; 
 }
 
 @keyframes bookDetailSlideIn {
@@ -115,7 +115,6 @@
     height: 220px;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -495,7 +494,6 @@
 .book-detail-info-list {
     background: var(--bg-secondary);
     border-radius: 12px;
-    /* 移除 overflow: hidden，否则绝对定位的下拉菜单会被裁剪 */
 }
 
 .book-detail-info-item {
@@ -632,7 +630,6 @@
     transition: all 0.2s;
     line-height: 1.4;
     text-align: center;
-    /* 确保文字居中 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -870,6 +867,8 @@
         align-items: stretch;
         justify-content: stretch;
         padding: 0;
+        backdrop-filter: none;
+        transition: none;
     }
     
     .book-detail-container {
@@ -878,7 +877,8 @@
         max-height: 100vh;
         height: 100vh;
         border-radius: 0;
-        animation: bookDetailSlideInMobile 0.3s var(--ease-out-expo);
+        /* box-shadow: none; */
+        /* animation: bookDetailSlideInMobile 0.3s var(--ease-out-expo); */
     }
     
     @keyframes bookDetailSlideInMobile {

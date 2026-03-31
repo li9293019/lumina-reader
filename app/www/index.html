@@ -804,6 +804,67 @@
             </div>
         </div>
 
+        <!-- 缓存管理面板 -->
+        <div class="about-panel" id="cacheManagerPanel">
+            <div class="about-content" style="max-width: 720px;">
+                <div class="about-header">
+                    <span class="about-title" data-i18n="cacheManagerTitle"></span>
+                    <button class="btn-icon" id="closeCacheManager" data-i18n-tooltip="close">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+                    </button>
+                </div>
+                <div class="about-body">
+                    <!-- 加载状态 -->
+                    <div id="cacheManagerLoading" class="cache-manager-loading">
+                        <div class="cache-manager-spinner"></div>
+                        <p data-i18n="cacheManagerLoading"></p>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div id="cacheManagerContent" style="display: none;">
+                        <!-- 统计卡片 -->
+                        <div class="cache-manager-summary">
+                            <div class="cache-stat">
+                                <span class="cache-stat-value" id="cacheCount">-</span>
+                                <span class="cache-stat-label" data-i18n="cacheManagerCount"></span>
+                            </div>
+                            <div class="cache-stat">
+                                <span class="cache-stat-value" id="cacheSize">-</span>
+                                <span class="cache-stat-label" data-i18n="cacheManagerSize"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="cache-manager-actions">
+                            <button class="cache-btn cache-btn-primary" id="cacheClearAll">
+                                <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-delete"/></svg>
+                                <span data-i18n="cacheManagerClearAll"></span>
+                            </button>
+                            <button class="cache-btn" id="cacheRefresh">
+                                <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-refresh"/></svg>
+                                <span data-i18n="cacheManagerRefresh"></span>
+                            </button>
+                        </div>
+                        
+                        <!-- 缓存列表 -->
+                        <div class="cache-manager-list">
+                            <h4 data-i18n="cacheManagerDetails"></h4>
+                            <div class="cache-list-header">
+                                <span data-i18n="cacheManagerFileName"></span>
+                                <span data-i18n="cacheManagerCreated"></span>
+                                <span data-i18n="cacheManagerUpdated"></span>
+                                <span data-i18n="cacheManagerFileSize"></span>
+                                <span data-i18n="cacheManagerAction"></span>
+                            </div>
+                            <div class="cache-list-items" id="cacheListItems">
+                                <!-- 动态填充 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 正则帮助面板 -->
         <div class="about-panel" id="regexHelpPanel">
             <div class="about-content" style="max-width: 500px;">

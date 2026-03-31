@@ -340,8 +340,6 @@ Lumina.DB.CapacitorSQLiteImpl = class {
         this.listTimestamp = 0;
         this.CACHE_VALID_MS = 30000;
         this.isRefreshing = false;
-        this.localCache = null;
-        this.localCacheReady = false;
     }
 
     async init() {
@@ -356,11 +354,6 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             }
             
             this.isReady = true;
-            
-            // 初始化本地 IndexedDB 作为二级缓存
-            this.localCache = new Lumina.DB.IndexedDBImpl();
-            this.localCacheReady = await this.localCache.init();
-            
             this.backgroundRefresh();
             return true;
         } catch (e) {
@@ -466,34 +459,8 @@ Lumina.DB.CapacitorSQLiteImpl = class {
     }
 
     async getFileSmart(fileKey) {
-        // 1. 先查本地缓存
-        if (this.localCacheReady) {
-            try {
-                const local = await this.localCache.getFile(fileKey);
-                if (local?.content?.length > 0 && local.fileName) {
-                    this.syncFromRemote(fileKey);
-                    return local;
-                }
-            } catch (e) {}
-        }
-        
-        // 2. 从原生数据库加载
-        Lumina.UI.showToast('首次加载中...', 0);
-        const remote = await this.getFile(fileKey);
-        
-        // 3. 保存到本地缓存
-        if (remote && this.localCacheReady) {
-            setTimeout(() => {
-                this.localCache.saveFile(fileKey, remote).catch(() => {});
-            }, 500);
-        }
-        
-        return remote;
-    }
-
-    async syncFromRemote(fileKey) {
-        // Capacitor 模式下不需要同步，因为只有一个数据源
-        // 但为了兼容，保留方法
+        // App 端直接从原生 SQLite 读取，无需二级缓存
+        return await this.getFile(fileKey);
     }
 
     async saveFile(fileKey, data) {
@@ -539,10 +506,6 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                 this.cache.set(fileKey, mergedData);
                 this.listTimestamp = 0;
                 setTimeout(() => this.backgroundRefresh(), 500);
-                
-                if (this.localCacheReady) {
-                    this.localCache.saveFile(fileKey, mergedData).catch(() => {});
-                }
             }
             return result.success;
         } catch (error) {
@@ -558,10 +521,6 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                 this.cache.delete(fileKey);
                 this.listCache = null;  // 彻底清除列表缓存
                 this.listTimestamp = 0;
-                
-                if (this.localCacheReady) {
-                    await this.localCache.deleteFile(fileKey);
-                }
             }
             return result;
         } catch (error) {
@@ -767,22 +726,7 @@ Lumina.DB.SQLiteImpl = class {
                     const hasFileName = local.fileName && local.fileName.length > 0;
                     
                     if (hasContent && hasFileName) {
-                        // 检查本地数据是否完整（有热力图数据）
-                        // 如果本地有内容但没有 heatMap，先尝试从远程同步
-                        if (!local.heatMap) {
-                            try {
-                                const remote = await this.getFile(fileKey);
-                                if (remote && remote.heatMap) {
-                                    setTimeout(() => {
-                                        this.localCache.saveFile(fileKey, remote);
-                                    }, 100);
-                                    return remote;
-                                }
-                            } catch (e) {}
-                        }
-                        
-                        // 后台同步阅读进度（异步，不阻塞）
-                        this.syncFromRemote(fileKey);
+                        // 本地缓存有效，直接返回（双写机制已保证一致性）
                         return local;
                     }
                 }
@@ -844,46 +788,6 @@ Lumina.DB.SQLiteImpl = class {
         }
         
         return remote;
-    }
-
-    // 后台同步（更新阅读进度、注释、热力图等信息）
-    async syncFromRemote(fileKey) {
-        try {
-            const remote = await this.getFile(fileKey);
-            if (remote && this.localCacheReady) {
-                const local = await this.localCache.getFile(fileKey);
-                if (local) {
-                    const localTime = new Date(local.lastReadTime || 0);
-                    const remoteTime = new Date(remote.lastReadTime || 0);
-                    
-                    // 检查注释是否需要同步
-                    const localAnnotations = local.annotations || [];
-                    const remoteAnnotations = remote.annotations || [];
-                    const needsSyncAnnotations = localAnnotations.length !== remoteAnnotations.length ||
-                        JSON.stringify(localAnnotations) !== JSON.stringify(remoteAnnotations);
-                    
-                    // 检查热力图是否需要同步
-                    const localHeatMap = local.heatMap;
-                    const remoteHeatMap = remote.heatMap;
-                    let needsSyncHeatMap = false;
-                    if (remoteHeatMap && !localHeatMap) {
-                        needsSyncHeatMap = true;
-                    } else if (remoteHeatMap && localHeatMap) {
-                        // 比较更新时间
-                        const localHeatTime = localHeatMap.updatedAt || 0;
-                        const remoteHeatTime = remoteHeatMap.updatedAt || 0;
-                        needsSyncHeatMap = remoteHeatTime > localHeatTime;
-                    }
-                    
-                    // 如果阅读时间更新，或注释需要同步，或热力图需要同步
-                    if (remoteTime > localTime || needsSyncAnnotations || needsSyncHeatMap) {
-                        await this.localCache.saveFile(fileKey, remote);
-                    }
-                }
-            }
-        } catch (e) {
-            // 静默失败
-        }
     }
 
     // 获取书库列表 - 直接走 HTTP，不缓存（保证数据准确）
@@ -1160,7 +1064,8 @@ Lumina.DB.SQLiteImpl = class {
                         fileKey: file.fileKey,
                         fileName: file.fileName,
                         size: contentSize,
-                        lastAccess: file.lastReadTime || file.updated_at || 'unknown'
+                        createdAt: file.created_at || file.lastReadTime || null,
+                        updatedAt: file.lastReadTime || file.updated_at || null
                     });
                 }
             }

@@ -1,96 +1,5 @@
 /* ==================== 缓存管理面板样式 ==================== */
-
-.cache-manager-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.cache-manager-panel.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.cache-manager-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-}
-
-.cache-manager-container {
-    position: relative;
-    width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
-    background: var(--bg-primary);
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    display: flex;
-    flex-direction: column;
-    transform: translateY(20px) scale(0.95);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.cache-manager-panel.active .cache-manager-container {
-    transform: translateY(0) scale(1);
-}
-
-/* 头部 */
-.cache-manager-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.cache-manager-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.cache-manager-close {
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-}
-
-.cache-manager-close:hover {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-}
-
-.cache-manager-close svg {
-    width: 20px;
-    height: 20px;
-}
-
-/* 内容区 */
-.cache-manager-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-}
+/* 复用 about-panel 结构，只添加缓存管理特定样式 */
 
 /* 加载状态 */
 .cache-manager-loading {
@@ -187,8 +96,8 @@
 }
 
 .cache-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
 }
 
 .cache-btn-primary {
@@ -215,9 +124,10 @@
     font-weight: 500;
 }
 
+/* 列表头部 - 5列布局 */
 .cache-list-header {
     display: grid;
-    grid-template-columns: 1fr 80px 50px;
+    grid-template-columns: 1fr 100px 100px 80px 50px;
     gap: 12px;
     padding: 8px 12px;
     font-size: 12px;
@@ -226,13 +136,14 @@
 }
 
 .cache-list-items {
-    max-height: 240px;
+    max-height: 280px;
     overflow-y: auto;
 }
 
+/* 列表项 - 5列布局 */
 .cache-list-item {
     display: grid;
-    grid-template-columns: 1fr 80px 50px;
+    grid-template-columns: 1fr 100px 100px 80px 50px;
     gap: 12px;
     align-items: center;
     padding: 10px 12px;
@@ -250,6 +161,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.cache-item-time {
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .cache-item-size {
@@ -295,11 +211,6 @@
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-    .cache-manager-container {
-        width: 95%;
-        max-height: 85vh;
-    }
-    
     .cache-manager-summary {
         grid-template-columns: 1fr;
     }
@@ -308,17 +219,22 @@
         flex-direction: column;
     }
     
+    /* 移动端简化列表显示 */
     .cache-list-header {
+        grid-template-columns: 1fr 80px 50px;
+    }
+    
+    .cache-list-header span:nth-child(2),
+    .cache-list-header span:nth-child(3) {
         display: none;
     }
     
     .cache-list-item {
-        grid-template-columns: 1fr auto;
-        gap: 8px;
+        grid-template-columns: 1fr 80px 50px;
     }
     
-    .cache-item-size {
-        text-align: left;
-        font-size: 12px;
+    .cache-list-item span:nth-child(2),
+    .cache-list-item span:nth-child(3) {
+        display: none;
     }
 }

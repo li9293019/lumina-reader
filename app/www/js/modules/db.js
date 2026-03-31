@@ -679,24 +679,30 @@ Lumina.DB.CapacitorSQLiteImpl = class {
     }
 };
 
-// ========== 原 Web SQLite 实现（HTTP 模式）==========
+// ========== Web SQLite 实现（HTTP 模式，含 Content 缓存）==========
+// 优化策略：
+// 1. 书库列表（getStorageStats）不走缓存，每次实时获取（数据量小，保证准确）
+// 2. 文件内容（getFile）优先查本地 IndexedDB 缓存，加速二次打开
+// 3. 提供缓存管理接口，用户可查看和清理
 Lumina.DB.SQLiteImpl = class {
     constructor() {
         this.baseUrl = 'http://localhost:8080/api';
         this.isReady = false;
         
-        // 智能缓存系统
+        // 内存缓存（仅当前会话）
         this.cache = new Map();
-        this.listCache = null;
-        this.listTimestamp = 0;
-        this.CACHE_VALID_MS = 30000;
-        this.isRefreshing = false;
+        
+        // 本地 IndexedDB 缓存（用于 content 持久化）
+        this.localCache = null; 
+        this.localCacheReady = false;
+        
+        // 错误计数
         this.errorCount = 0;
         this.MAX_ERRORS = 3;
         
-        // 本地 IndexedDB 二级缓存（用于加速二次打开）
-        this.localCache = null; 
-        this.localCacheReady = false;
+        // 缓存配置
+        this.MAX_CACHE_SIZE = 50 * 1024 * 1024; // 50MB 上限
+        this.CACHE_KEY_PREFIX = 'lumina_web_cache_'; // 区分于 App 的缓存
     }
 
     async init() {
@@ -707,12 +713,10 @@ Lumina.DB.SQLiteImpl = class {
             });
             this.isReady = response.ok;
             
-            // 初始化本地 IndexedDB 缓存
+            // 初始化本地 IndexedDB 缓存（独立实例，避免污染 App 数据）
             if (this.isReady) {
-                this.localCache = new Lumina.DB.IndexedDBImpl();
+                this.localCache = new Lumina.DB.WebCacheIndexedDBImpl();
                 this.localCacheReady = await this.localCache.init();
-                // 启动时预加载书库列表
-                this.backgroundRefresh();
             }
             return this.isReady;
         } catch (e) { 
@@ -882,53 +886,15 @@ Lumina.DB.SQLiteImpl = class {
         }
     }
 
-    async getStorageStats(forceRefresh = false) {
-        const now = Date.now();
-        
-        if (!forceRefresh && this.listCache && (now - this.listTimestamp < this.CACHE_VALID_MS)) {
-            if (!this.isRefreshing) {
-                this.backgroundRefresh();
-            }
-            return this.listCache;
-        }
-        
+    // 获取书库列表 - 直接走 HTTP，不缓存（保证数据准确）
+    async getStorageStats() {
         try {
             const fresh = await this.fetchFromServer();
-            this.listCache = fresh;
-            this.listTimestamp = now;
             this.errorCount = 0;
             return fresh;
         } catch (error) {
-            if (this.listCache) {
-                return {...this.listCache, _stale: true};
-            }
+            this.errorCount++;
             throw error;
-        }
-    }
-
-    async backgroundRefresh() {
-        if (this.isRefreshing) return;
-        this.isRefreshing = true;
-        
-        try {
-            const fresh = await this.fetchFromServer();
-            const oldCount = this.listCache?.totalFiles || 0;
-            const newCount = fresh.totalFiles;
-            
-            this.listCache = fresh;
-            this.listTimestamp = Date.now();
-            
-            if (document.getElementById('dataManagerPanel')?.classList.contains('active')) {
-                if (newCount !== oldCount || JSON.stringify(fresh.files) !== JSON.stringify(this.listCache?.files)) {
-                    if (Lumina.DataManager) {
-                        Lumina.DataManager.updateGridSilently(fresh);
-                    }
-                }
-            }
-        } catch (e) {
-            // 静默失败
-        } finally {
-            this.isRefreshing = false;
         }
     }
 
@@ -1040,13 +1006,9 @@ Lumina.DB.SQLiteImpl = class {
             if (result && result.success) {
                 // 更新内存缓存（使用合并后的数据）
                 this.cache.set(fileKey, mergedData);
-                this.listTimestamp = 0;
                 this.errorCount = 0;
                 
-                // 延迟刷新列表
-                setTimeout(() => this.backgroundRefresh(), 500);
-                
-                // 同步更新本地缓存
+                // 同步更新本地缓存（content缓存）
                 if (this.localCacheReady) {
                     try {
                         await this.localCache.saveFile(fileKey, mergedData);
@@ -1160,8 +1122,6 @@ Lumina.DB.SQLiteImpl = class {
             }
             if (onProgress) onProgress(i + 1, books.length, results.success);
         }
-        this.listTimestamp = 0;
-        this.backgroundRefresh();
         return results;
     }
 
@@ -1176,6 +1136,252 @@ Lumina.DB.SQLiteImpl = class {
 
     async exportFile(fileKey) {
         return await this.getFile(fileKey);
+    }
+
+    // ========== Content 缓存管理方法（供缓存管理界面调用） ==========
+    
+    // 获取缓存统计信息
+    async getCacheStats() {
+        if (!this.localCacheReady) {
+            return { enabled: false, size: 0, count: 0, files: [] };
+        }
+        
+        try {
+            const allFiles = await this.localCache.getAllFiles();
+            let totalSize = 0;
+            const fileList = [];
+            
+            for (const file of allFiles) {
+                // 只统计有 content 的文件（真正的缓存数据）
+                if (file.content && Array.isArray(file.content) && file.content.length > 0) {
+                    const contentSize = JSON.stringify(file.content).length * 2;
+                    totalSize += contentSize;
+                    fileList.push({
+                        fileKey: file.fileKey,
+                        fileName: file.fileName,
+                        size: contentSize,
+                        lastAccess: file.lastReadTime || file.updated_at || 'unknown'
+                    });
+                }
+            }
+            
+            // 按大小排序
+            fileList.sort((a, b) => b.size - a.size);
+            
+            return {
+                enabled: true,
+                size: totalSize,
+                count: fileList.length,
+                files: fileList
+            };
+        } catch (e) {
+            console.error('[CacheManager] 获取缓存统计失败:', e);
+            return { enabled: true, size: 0, count: 0, files: [], error: e.message };
+        }
+    }
+    
+    // 清理指定文件的缓存
+    async clearFileCache(fileKey) {
+        if (!this.localCacheReady) return false;
+        
+        try {
+            // 删除本地缓存中的 content，保留元数据
+            const local = await this.localCache.getFile(fileKey);
+            if (local && local.content) {
+                // 只删除 content，保留其他元数据
+                const { content, ...metaData } = local;
+                await this.localCache.saveFile(fileKey, metaData);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('[CacheManager] 清理缓存失败:', e);
+            return false;
+        }
+    }
+    
+    // 清理所有缓存（保留元数据列表）
+    async clearAllCache() {
+        if (!this.localCacheReady) return false;
+        
+        try {
+            const allFiles = await this.localCache.getAllFiles();
+            let cleared = 0;
+            
+            for (const file of allFiles) {
+                if (file.content && Array.isArray(file.content) && file.content.length > 0) {
+                    const { content, ...metaData } = file;
+                    await this.localCache.saveFile(file.fileKey, metaData);
+                    cleared++;
+                }
+            }
+            
+            // 同时清理内存缓存
+            this.cache.clear();
+            
+            return { success: true, cleared };
+        } catch (e) {
+            console.error('[CacheManager] 清理所有缓存失败:', e);
+            return { success: false, error: e.message };
+        }
+    }
+    
+    // 预加载指定文件到缓存
+    async preloadToCache(fileKey) {
+        if (!this.localCacheReady) return false;
+        
+        try {
+            // 检查是否已缓存
+            const local = await this.localCache.getFile(fileKey);
+            if (local && local.content && local.content.length > 0) {
+                return { success: true, cached: true, message: '已缓存' };
+            }
+            
+            // 从远程加载
+            const remote = await this.getFile(fileKey);
+            if (remote && remote.content) {
+                await this.localCache.saveFile(fileKey, remote);
+                return { success: true, cached: false, message: '缓存成功' };
+            }
+            
+            return { success: false, message: '文件无内容' };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    }
+};
+
+
+// ========== Web Content 缓存专用 IndexedDB 实现 ==========
+// 独立的数据库，专门用于缓存文件内容，与 App 的 IndexedDB 完全隔离
+Lumina.DB.WebCacheIndexedDBImpl = class {
+    constructor() {
+        this.db = null;
+        this.DB_NAME = 'LuminaWebContentCache';  // 独立数据库名
+        this.DB_VERSION = 1;
+        this.isReady = false;
+    }
+
+    async init() {
+        return new Promise((resolve) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            
+            request.onerror = () => {
+                this.isReady = false;
+                resolve(false);
+            };
+            
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                this.isReady = true;
+                resolve(true);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                // 只创建对象存储，不预先填充数据
+                if (!db.objectStoreNames.contains('fileData')) {
+                    const store = db.createObjectStore('fileData', { keyPath: 'fileKey' });
+                    store.createIndex('lastReadTime', 'lastReadTime', { unique: false });
+                }
+            };
+        });
+    }
+
+    async getFile(fileKey) {
+        if (!this.isReady || !this.db) return null;
+        
+        return new Promise((resolve) => {
+            try {
+                const transaction = this.db.transaction(['fileData'], 'readonly');
+                const store = transaction.objectStore('fileData');
+                const request = store.get(fileKey);
+                
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => resolve(null);
+            } catch (e) { resolve(null); }
+        });
+    }
+
+    async saveFile(fileKey, data) {
+        if (!this.isReady || !this.db) return false;
+        
+        return new Promise((resolve) => {
+            try {
+                const transaction = this.db.transaction(['fileData'], 'readwrite');
+                const store = transaction.objectStore('fileData');
+                
+                const record = {
+                    fileKey,
+                    fileName: data.fileName,
+                    fileType: data.fileType,
+                    content: data.content,  // 只缓存这个大字段
+                    cover: data.cover,
+                    heatMap: data.heatMap,
+                    annotations: data.annotations,
+                    metadata: data.metadata,
+                    lastReadTime: data.lastReadTime || new Date().toISOString(),
+                    cachedAt: new Date().toISOString()  // 记录缓存时间
+                };
+                
+                const request = store.put(record);
+                request.onsuccess = () => resolve(true);
+                request.onerror = () => resolve(false);
+            } catch (e) { resolve(false); }
+        });
+    }
+
+    async getAllFiles() {
+        if (!this.isReady || !this.db) return [];
+        
+        return new Promise((resolve) => {
+            try {
+                const transaction = this.db.transaction(['fileData'], 'readonly');
+                const store = transaction.objectStore('fileData');
+                const index = store.index('lastReadTime');
+                const request = index.openCursor(null, 'prev');
+                const files = [];
+                
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        files.push(cursor.value);
+                        cursor.continue();
+                    } else {
+                        resolve(files);
+                    }
+                };
+                request.onerror = () => resolve([]);
+            } catch (e) { resolve([]); }
+        });
+    }
+
+    async deleteFile(fileKey) {
+        if (!this.isReady || !this.db) return false;
+        
+        return new Promise((resolve) => {
+            try {
+                const transaction = this.db.transaction(['fileData'], 'readwrite');
+                const store = transaction.objectStore('fileData');
+                const request = store.delete(fileKey);
+                request.onsuccess = () => resolve(true);
+                request.onerror = () => resolve(false);
+            } catch (e) { resolve(false); }
+        });
+    }
+
+    // 获取缓存总大小（估算）
+    async getCacheSize() {
+        const files = await this.getAllFiles();
+        let totalSize = 0;
+        
+        for (const file of files) {
+            if (file.content) {
+                totalSize += JSON.stringify(file.content).length * 2;
+            }
+        }
+        
+        return totalSize;
     }
 };
 

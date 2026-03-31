@@ -17,6 +17,16 @@ Lumina.DataManager = class {
         this._initialized = true;
         
         document.getElementById('openDataManager').addEventListener('click', () => this.open());
+        
+        // 缓存管理按钮事件（显示控制在 init.js 中处理）
+        const cacheManagerBtn = document.getElementById('openCacheManager');
+        if (cacheManagerBtn) {
+            cacheManagerBtn.addEventListener('click', () => {
+                if (Lumina.CacheManager) {
+                    Lumina.CacheManager.open();
+                }
+            });
+        }
         document.getElementById('closeDataManager').addEventListener('click', () => this.close());
         document.getElementById('batchExportBtn').addEventListener('click', () => this.batchExport());
         document.getElementById('importDataBtn').addEventListener('click', () => this.batchImport());

@@ -125,6 +125,12 @@ Lumina.init = async () => {
         Lumina.DataManager.updateSettingsBar();
     }
     
+    // 显示缓存管理按钮（仅HTTP模式）
+    const cacheManagerBtn = document.getElementById('openCacheManager');
+    if (cacheManagerBtn && location.href.startsWith('http')) {
+        cacheManagerBtn.style.display = 'block';
+    }
+    
     // HTTP 模式下尝试导入默认说明书
     if (!window.location.protocol.startsWith('file')) {
         await Lumina.importDefaultGuideIfNeeded();

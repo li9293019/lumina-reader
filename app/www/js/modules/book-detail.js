@@ -343,6 +343,11 @@ Lumina.BookDetail = {
                 return;
             }
             
+            // 【关键】排除封面区域的滑动（避免与封面的更新/删除操作冲突）
+            if (e.target.closest('.book-detail-cover-wrapper') || e.target.closest('#bookDetailCoverSwipeLayer')) {
+                return;
+            }
+            
             startX = e.touches[0].clientX;
             isDragging = true;
         }, { passive: true });
@@ -355,6 +360,11 @@ Lumina.BookDetail = {
         panel.addEventListener('touchend', () => {
             if (!isDragging) return;
             isDragging = false;
+            
+            // 【关键】如果封面正在滑动，不触发页面切换
+            if (window._bookDetailCoverSwiping) {
+                return;
+            }
             
             const deltaX = currentX - startX;
             
@@ -982,6 +992,9 @@ Lumina.BookDetail = {
             startX = e.touches[0].clientX;
             isDragging = true;
             content.style.transition = 'none';
+            // 【关键】阻止事件冒泡，避免触发页面级别的书籍切换滑动
+            // 使用标志而非 stopPropagation，以免影响其他交互
+            window._bookDetailCoverSwiping = true;
         };
         
         const handleTouchMove = (e) => {
@@ -998,9 +1011,16 @@ Lumina.BookDetail = {
                 // 超出范围时限制移动
                 content.style.transform = `translateX(${deltaX > 0 ? maxDrag : -maxDrag}px)`;
             }
+            
+            // 【关键】滑动过程中阻止默认行为，避免页面滚动干扰
+            if (Math.abs(deltaX) > 10) {
+                e.preventDefault();
+            }
         };
         
         const handleTouchEnd = () => {
+            // 清除标志
+            window._bookDetailCoverSwiping = false;
             if (!isDragging) return;
             isDragging = false;
             

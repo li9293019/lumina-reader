@@ -11,6 +11,9 @@ Lumina.DataManager = class {
         // 多选状态
         this.isBatchMode = false;
         this.selectedFiles = new Set();
+        
+        // 防止重复请求
+        this._loadingPromise = null;
     }
 
     init() {
@@ -443,12 +446,21 @@ Lumina.DataManager = class {
 
     async preload() {
         if (this.isPreloaded) return;
+        if (this._loadingPromise) return this._loadingPromise;
 
-        this.currentStats = await Lumina.DB.adapter.getStorageStats();
-        this.updateSettingsBar();
-        this.renderStats();
-        this.renderGrid();
-        this.isPreloaded = true;
+        this._loadingPromise = (async () => {
+            try {
+                this.currentStats = await Lumina.DB.adapter.getStorageStats();
+                this.updateSettingsBar();
+                this.renderStats();
+                this.renderGrid();
+                this.isPreloaded = true;
+            } finally {
+                this._loadingPromise = null;
+            }
+        })();
+        
+        return this._loadingPromise;
     }
     
     // 标记缓存失效（打开新书后调用）
@@ -477,17 +489,40 @@ Lumina.DataManager = class {
             return;
         }
         
-        // 第一次打开，需要加载数据
-        try {
-            if (isSQLite) {
-                this.showLoadingState();
-                const stats = await Lumina.DB.adapter.getStorageStats();
-                this.currentStats = stats;
+        // 如果有正在进行的请求，复用它
+        if (this._loadingPromise) {
+            this.showLoadingState();
+            try {
+                await this._loadingPromise;
                 this.renderStats();
                 this.renderGrid();
-            } else {
-                await this.refreshStats();
+            } catch (error) {
+                this.showErrorState(error.message || '加载失败', () => this.open());
             }
+            return;
+        }
+        
+        // 第一次打开，需要加载数据
+        this._loadingPromise = (async () => {
+            try {
+                if (isSQLite) {
+                    this.showLoadingState();
+                    const stats = await Lumina.DB.adapter.getStorageStats();
+                    this.currentStats = stats;
+                    this.renderStats();
+                    this.renderGrid();
+                } else {
+                    await this.refreshStats();
+                }
+            } catch (error) {
+                throw error;
+            } finally {
+                this._loadingPromise = null;
+            }
+        })();
+        
+        try {
+            await this._loadingPromise;
         } catch (error) {
             this.showErrorState(error.message || '加载失败', () => this.open());
         }
@@ -496,9 +531,13 @@ Lumina.DataManager = class {
     // 后台静默刷新（无提示）
     async refreshStatsSilently() {
         try {
-            const stats = await Lumina.DB.adapter.getStorageStats();
+            // 如果有正在进行的请求，复用它
+            const stats = this._loadingPromise 
+                ? await this._loadingPromise.then(() => this.currentStats)
+                : await Lumina.DB.adapter.getStorageStats();
+            
             // 只有数据变化才更新UI（静默）
-            if (JSON.stringify(stats.files) !== JSON.stringify(this.currentStats.files)) {
+            if (!this.currentStats || JSON.stringify(stats.files) !== JSON.stringify(this.currentStats.files)) {
                 this.currentStats = stats;
                 this.renderStats();
                 this.renderGrid();

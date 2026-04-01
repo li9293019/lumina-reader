@@ -95,11 +95,16 @@ Lumina.DB.IndexedDBImpl = class {
             const transaction = this.db.transaction(['fileData'], 'readwrite');
             const store = transaction.objectStore('fileData');
             
+            // 【优化】预计算 contentSize，避免后续实时计算
+            const contentJson = JSON.stringify(data.content || []);
+            const contentSize = new Blob([contentJson]).size;
+            
             const record = {
                 fileKey,
                 fileName: data.fileName,
                 fileType: data.fileType,
                 fileSize: data.fileSize || 0,
+                contentSize: contentSize,
                 content: data.content,
                 wordCount: data.wordCount,
                 lastChapter: data.lastChapter || 0,
@@ -156,8 +161,8 @@ Lumina.DB.IndexedDBImpl = class {
                     const cursor = event.target.result;
                     if (cursor) { 
                         const file = cursor.value;
-                        // 计算 estimatedSize = content长度 + cover长度（与后端一致）
-                        const contentSize = JSON.stringify(file.content || []).length * 2;
+                        // 【优化】使用预存的 contentSize，避免实时计算
+                        const contentSize = file.contentSize || JSON.stringify(file.content || []).length * 2;
                         const coverSize = file.cover ? file.cover.length * 0.75 : 0;
                         file.estimatedSize = Math.round(contentSize + coverSize);
                         files.push(file); 
@@ -683,10 +688,10 @@ Lumina.DB.SQLiteImpl = class {
         }
     }
 
-    async _fetch(endpoint, options = {}, timeoutMs = 5000) {
+    async _fetch(endpoint, options = {}, timeoutMs = 10000) {
         const url = `${this.baseUrl}${endpoint}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const timeout = setTimeout(() => controller.abort(new Error('Request timeout')), timeoutMs);
         
         try {
             const response = await fetch(url, {
@@ -701,6 +706,7 @@ Lumina.DB.SQLiteImpl = class {
             }
             return await response.json();
         } catch (error) {
+            clearTimeout(timeout);
             if (error.name !== 'AbortError') {
                 this.errorCount++;
             }
@@ -813,10 +819,30 @@ Lumina.DB.SQLiteImpl = class {
         const files = results[0];
         const stats = results[1];
         
-        // 直接使用后端计算好的 fileSize（因为 getList 不返回 content 字段，前端无法重新计算）
+        // 直接使用后端计算好的 fileSize（contentSize + cover 长度）
         files.forEach(file => {
             file.estimatedSize = file.fileSize || 0;
+            // 后端返回的 cover 可能是缩略图或空，完整封面从本地缓存获取
         });
+        
+        // 【优化】从本地缓存批量补充 cover 数据
+        if (this.localCacheReady) {
+            try {
+                const localFiles = await this.localCache.getAllFiles();
+                const localCoverMap = new Map();
+                localFiles.forEach(f => {
+                    if (f.cover) localCoverMap.set(f.fileKey, f.cover);
+                });
+                
+                files.forEach(file => {
+                    if (localCoverMap.has(file.fileKey)) {
+                        file.cover = localCoverMap.get(file.fileKey);
+                    }
+                });
+            } catch (e) {
+                // 本地缓存读取失败不影响主流程
+            }
+        }
         
         return {
             files,
@@ -840,6 +866,18 @@ Lumina.DB.SQLiteImpl = class {
             );
             
             if (result) {
+                // 【优化】优先从本地缓存获取 cover，加速加载
+                if (this.localCacheReady) {
+                    try {
+                        const local = await this.localCache.getFile(fileKey);
+                        if (local && local.cover) {
+                            result.cover = local.cover;
+                        }
+                    } catch (e) {
+                        // 本地缓存读取失败不影响主流程
+                    }
+                }
+                
                 this.cache.set(fileKey, result);
                 this.errorCount = 0;
             }

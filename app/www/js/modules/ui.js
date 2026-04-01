@@ -458,7 +458,7 @@ Lumina.UI = {
             
             // 6. 更新存储统计
             if (Lumina.State.app.dbReady && Lumina.DataManager) {
-                Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
+                await Lumina.DataManager.preload();
                 Lumina.DataManager.updateSettingsBar();
             }
             

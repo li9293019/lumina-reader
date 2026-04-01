@@ -72,6 +72,7 @@ class Database:
                     fileName TEXT NOT NULL,
                     fileType TEXT,
                     fileSize INTEGER DEFAULT 0,
+                    contentSize INTEGER DEFAULT 0,
                     content TEXT,
                     wordCount INTEGER DEFAULT 0,
                     lastChapter INTEGER DEFAULT 0,
@@ -102,6 +103,13 @@ class Database:
             try:
                 conn.execute("ALTER TABLE books ADD COLUMN metadata TEXT")
                 print("[SQLite] 已添加 metadata 字段")
+            except sqlite3.OperationalError:
+                pass  # 字段已存在
+            
+            # 为已存在的表添加 contentSize 字段
+            try:
+                conn.execute("ALTER TABLE books ADD COLUMN contentSize INTEGER DEFAULT 0")
+                print("[SQLite] 已添加 contentSize 字段")
             except sqlite3.OperationalError:
                 pass  # 字段已存在
             
@@ -136,20 +144,24 @@ class Database:
                 updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 last_read_time = data.get('lastReadTime', '')
-                print(f"[DEBUG] DB save lastReadTime: {last_read_time}, fileKey: {fileKey}")
+                
+                # 【优化】预计算 contentSize，避免查询时实时计算 LENGTH(content)
+                content_json = JSON_ENCODE(data.get('content', []))
+                content_size = len(content_json.encode('utf-8'))
                 
                 conn.execute("""
                     INSERT OR REPLACE INTO books (
-                        fileKey, fileName, fileType, fileSize, content, wordCount,
+                        fileKey, fileName, fileType, fileSize, contentSize, content, wordCount,
                         lastChapter, lastScrollIndex, chapterTitle, lastReadTime,
                         customRegex, chapterNumbering, annotations, cover, heatMap, metadata, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     fileKey,
                     data.get('fileName', ''),
                     data.get('fileType', 'txt'),
                     data.get('fileSize', 0),
-                    JSON_ENCODE(data.get('content', [])),
+                    content_size,
+                    content_json,
                     data.get('wordCount', 0),
                     data.get('lastChapter', 0),
                     data.get('lastScrollIndex', 0),
@@ -204,14 +216,15 @@ class Database:
             return None
     
     def get_list(self):
-        """获取列表（不含 content，但含 cover 和 metadata）"""
+        """获取列表（不含 content 和 cover，但含 metadata）"""
         try:
             conn = self.get_conn()
+            # 【优化】使用预计算的 contentSize + LENGTH(cover) 作为展示大小，不返回 cover 数据
             rows = conn.execute("""
                 SELECT fileKey, fileName, fileType, 
-                    (LENGTH(COALESCE(content, '')) + LENGTH(COALESCE(cover, ''))) as fileSize, 
+                    (COALESCE(contentSize, 0) + LENGTH(COALESCE(cover, ''))) as fileSize, 
                     wordCount, lastChapter, lastScrollIndex, chapterTitle, 
-                    lastReadTime, chapterNumbering, created_at, updated_at, cover, metadata
+                    lastReadTime, chapterNumbering, created_at, updated_at, metadata
                 FROM books 
                 ORDER BY lastReadTime DESC
             """).fetchall()
@@ -234,20 +247,19 @@ class Database:
             return []
     
     def get_stats(self):
-        """快速统计（预计算）"""
+        """快速统计（使用预计算的 fileSize，兼容旧数据）"""
         try:
             conn = self.get_conn()
+            # 【优化】使用预计算的 contentSize + cover 长度
             row = conn.execute("""
                 SELECT COUNT(*) as count, 
-                       COALESCE(SUM(LENGTH(content)), 0) as content_size,
-                       COALESCE(SUM(LENGTH(cover)), 0) as cover_size
+                       COALESCE(SUM(COALESCE(contentSize, 0) + LENGTH(COALESCE(cover, ''))), 0) as total_size
                 FROM books
             """).fetchone()
             
-            total_bytes = int(row['content_size'] or 0) + int(row['cover_size'] or 0)
             return {
                 'totalFiles': int(row['count'] or 0),
-                'totalSize': total_bytes,  # 返回字节数
+                'totalSize': int(row['total_size'] or 0),  # 返回字节数
                 'imageCount': 0
             }
         except sqlite3.Error as e:
@@ -315,6 +327,16 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         
         if path == '/api/health':
             self._send_json({'status': 'ok', 'mode': 'sqlite_optimized'})
+        
+        elif path == '/api/debug/schema':
+            # 临时调试接口：返回数据库表结构
+            conn = db.get_conn()
+            columns = conn.execute("PRAGMA table_info(books)").fetchall()
+            sample = conn.execute("SELECT fileKey, fileName, fileSize, contentSize, LENGTH(content) as content_len, LENGTH(cover) as cover_len FROM books LIMIT 1").fetchone()
+            self._send_json({
+                'columns': [dict(c) for c in columns],
+                'sample': dict(sample) if sample else None
+            })
         
         elif path == '/api/files':
             files = db.get_list()

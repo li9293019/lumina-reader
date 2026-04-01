@@ -71,6 +71,7 @@ class DatabaseBridge {
                 file_name TEXT NOT NULL,
                 file_type TEXT,
                 file_size INTEGER,
+                content_size INTEGER DEFAULT 0,
                 content TEXT,
                 word_count INTEGER DEFAULT 0,
                 last_chapter INTEGER DEFAULT 0,
@@ -156,19 +157,24 @@ class DatabaseBridge {
             const existing = await this.get(fileKey);
             const createdAt = existing?.created_at || data.created_at || getLocalTimeString();
 
+            // 【优化】预计算 contentSize
+            const contentJson = JSON.stringify(data.content || []);
+            const contentSize = new Blob([contentJson]).size;
+
             const sql = `
                 INSERT OR REPLACE INTO files (
-                    file_key, file_name, file_type, file_size, content, word_count,
+                    file_key, file_name, file_type, file_size, content_size, content, word_count,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
                     custom_regex, chapter_numbering, cover_data_url, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
                 data.fileName || data.file_name || '',
                 data.fileType || data.file_type || 'txt',
                 data.fileSize || data.file_size || 0,
-                JSON.stringify(data.content || []),
+                contentSize,
+                contentJson,
                 data.wordCount || data.word_count || 0,
                 data.lastChapter || data.last_chapter || 0,
                 data.lastScrollIndex || data.last_scroll_index || 0,
@@ -228,10 +234,26 @@ class DatabaseBridge {
         }
 
         try {
+            // 【优化】不返回 content 和 cover 数据，减少传输
             const result = await this.db.query(
-                'SELECT * FROM files ORDER BY last_read_time DESC'
+                `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
+                    word_count, last_chapter, last_scroll_index, chapter_title, 
+                    last_read_time, chapter_numbering, created_at 
+                FROM files ORDER BY last_read_time DESC`
             );
-            return (result.values || []).map(row => this.rowToFile(row));
+            return (result.values || []).map(row => ({
+                fileKey: row.file_key,
+                fileName: row.file_name,
+                fileType: row.file_type,
+                fileSize: row.file_size,
+                wordCount: row.word_count,
+                lastChapter: row.last_chapter,
+                lastScrollIndex: row.last_scroll_index,
+                chapterTitle: row.chapter_title,
+                lastReadTime: row.last_read_time,
+                chapterNumbering: row.chapter_numbering,
+                created_at: row.created_at
+            }));
         } catch (err) {
             console.error('[DB] 获取列表失败:', err);
             return [];
@@ -247,8 +269,9 @@ class DatabaseBridge {
         }
 
         try {
+            // 【优化】使用 content_size + cover 长度作为总大小
             const result = await this.db.query(
-                'SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as size FROM files'
+                'SELECT COUNT(*) as count, COALESCE(SUM(content_size + LENGTH(COALESCE(cover_data_url, ""))), 0) as size FROM files'
             );
             if (result.values && result.values.length > 0) {
                 return {

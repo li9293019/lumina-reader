@@ -659,11 +659,12 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
             const textContent = await page.getTextContent();
 
             // 提取并处理文本（包含跨页合并逻辑）
-            const { paragraphs, newCarryOver, newCarryOverY } = Lumina.Parser.processPDFPageText(
+            const { paragraphs, newCarryOver, newCarryOverY } = await Lumina.Parser.processPDFPageText(
                 textContent, 
                 viewport.height, 
                 carryOverText,
-                carryOverY
+                carryOverY,
+                page
             );
 
             // 更新跨页携带的文本
@@ -771,14 +772,61 @@ Lumina.Parser.isParagraphEnd = (text) => {
 };
 
 /**
+ * 从 PDF 结构树中提取标题信息
+ * @param {Object} structTree - PDF.js getStructTree 的结果
+ * @returns {Array<{role: string, level: number, ids: Array<string>}>} - 标题角色和对应的 mcids
+ */
+Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
+    const headings = [];
+    
+    if (!structTree || !structTree.children) return headings;
+    
+    const traverse = (node, depth = 0) => {
+        if (!node) return;
+        
+        // 检查是否是标题角色 (H, H1-H6)
+        if (node.role) {
+            const roleMatch = node.role.match(/^H([1-6])?$/);
+            if (roleMatch || node.role === 'H') {
+                const level = roleMatch ? parseInt(roleMatch[1]) : 1;
+                // 收集所有子节点中的 content id
+                const ids = [];
+                const collectIds = (n) => {
+                    if (!n) return;
+                    if (n.type === 'content' && n.id) {
+                        ids.push(n.id);
+                    } else if (n.children) {
+                        n.children.forEach(collectIds);
+                    }
+                };
+                collectIds(node);
+                
+                if (ids.length > 0) {
+                    headings.push({ role: node.role, level, ids });
+                }
+            }
+        }
+        
+        // 递归遍历子节点
+        if (node.children) {
+            node.children.forEach(child => traverse(child, depth + 1));
+        }
+    };
+    
+    traverse(structTree);
+    return headings;
+};
+
+/**
  * 处理 PDF 单页文本（包含跨页合并、目录过滤、智能段落合并）
  * @param {Object} textContent - PDF.js getTextContent 的结果
  * @param {number} pageHeight - 页面高度
  * @param {string} carryOverText - 从上一页携带过来的未完结段落
  * @param {number} carryOverY - 携带段落的 Y 坐标
+ * @param {Object} page - PDF.js 页面对象（可选，用于获取结构树）
  * @returns {{paragraphs: Array<{text: string, y: number}>, newCarryOver: string, newCarryOverY: number}}
  */
-Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '', carryOverY = 0) => {
+Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText = '', carryOverY = 0, page = null) => {
     const items = textContent.items;
     if (items.length === 0) {
         return { paragraphs: [], newCarryOver: carryOverText, newCarryOverY: carryOverY };
@@ -852,6 +900,50 @@ Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '',
         return { text: text.trim(), y: line.y };
     }).filter(line => line.text.length > 0);
 
+    // 【新增】从 PDF 结构树中提取标题标记（如果可用）
+    let structHeadings = [];
+    if (page && page.getStructTree) {
+        try {
+            const structTree = await page.getStructTree();
+            structHeadings = Lumina.Parser.extractHeadingFromStructTree(structTree);
+        } catch (e) {
+            // 结构树获取失败，静默处理
+        }
+    }
+    
+    // 【新增】将结构树标题映射到行（通过 marked content id 匹配）
+    const structHeadingMap = new Map(); // Map<mcid, {level, role}>
+    if (structHeadings.length > 0 && textContent.items) {
+        // 先建立所有 items 的 mcid 索引
+        const itemByMCID = new Map();
+        textContent.items.forEach((item, idx) => {
+            if (item.mcid !== undefined) {
+                itemByMCID.set(String(item.mcid), idx);
+            }
+        });
+        // 将结构树标题的 ids 映射到行索引
+        structHeadings.forEach(heading => {
+            heading.ids.forEach(id => {
+                // 查找这个 id 属于哪一行
+                for (let i = 0; i < lines.length; i++) {
+                    const lineHasId = lines[i].items.some(item => {
+                        const itemIdx = textContent.items.indexOf(item);
+                        return itemIdx !== -1 && textContent.items[itemIdx].mcid !== undefined 
+                            && heading.ids.includes(String(textContent.items[itemIdx].mcid));
+                    });
+                    if (lineHasId) {
+                        // 记录这一行是标题
+                        const yKey = Math.round(lines[i].y);
+                        if (!structHeadingMap.has(yKey) || structHeadingMap.get(yKey).level > heading.level) {
+                            structHeadingMap.set(yKey, { level: heading.level, role: heading.role });
+                        }
+                        break;
+                    }
+                }
+            });
+        });
+    }
+
     // 智能段落合并
     const paragraphs = [];
     let currentParagraph = carryOverText || '';
@@ -860,7 +952,24 @@ Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '',
     for (let i = 0; i < lineTexts.length; i++) {
         const line = lineTexts[i];
         
-        // 【关键】检测是否为章节标题
+        // 【关键】检测是否为章节标题（优先使用 PDF 结构树标记）
+        const yKey = Math.round(line.y);
+        const structHeading = structHeadingMap.get(yKey);
+        
+        if (structHeading) {
+            // PDF 结构树标记的标题优先
+            // 先保存当前段落
+            if (currentParagraph.trim()) {
+                paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });
+                currentParagraph = '';
+                currentParagraphY = null;
+            }
+            // 标题独立成段，不参与后续合并
+            paragraphs.push({ text: line.text, y: line.y, isHeading: true, level: structHeading.level });
+            continue;
+        }
+        
+        // 【关键】回退到正则检测章节标题
         const chapterInfo = Lumina.Parser.RegexCache.detectChapter(line.text, true);
         if (chapterInfo) {
             // 先保存当前段落
@@ -886,7 +995,7 @@ Lumina.Parser.processPDFPageText = (textContent, pageHeight, carryOverText = '',
         }
 
         // 如果不含有常规标点且较短，允许独立成段
-        if (/[,.:;'"，。：；“”‘’!！]/.test(line.text) === false && line.text.length < 8) {
+        if (/[,.:;'"，。：；“”‘’!！]/.test(line.text) === false && line.text.length < 20) {
             if (currentParagraph !== line.text) {
                 if (currentParagraph.trim()) {
                     paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });

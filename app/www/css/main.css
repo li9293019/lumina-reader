@@ -2375,7 +2375,7 @@ font-family: var(--font-mono);
 font-size: 0.9em;
 }
 
-/* 对话�?- 深色主题优化 */
+/* 对话框- 深色主题优化 */
 .dialog-overlay {
 position: fixed;
 top: 0;
@@ -2383,7 +2383,7 @@ left: 0;
 width: 100%;
 height: 100%;
 background: var(--overlay-bg);
-z-index: 300;
+z-index: 900;
 display: none;
 align-items: center;
 justify-content: center;
@@ -4546,7 +4546,7 @@ transform: translate(-50%, -50%) scale(1);
     overflow: hidden;
     flex-shrink: 0;
     align-self: stretch;
-    /* 使用伪元素保持3:4比例，同时高度跟随父容器 */
+    /* 使用伪元素保持比例，同时高度跟随父容器 */
     display: flex;
 }
 
@@ -4554,7 +4554,7 @@ transform: translate(-50%, -50%) scale(1);
     content: '';
     display: block;
     height: 100%;
-    aspect-ratio: 3/4;
+    aspect-ratio: 176 / 250;
 }
 
 /* 列表视图封面图片填满容器 */
@@ -4603,7 +4603,7 @@ transform: translate(-50%, -50%) scale(1);
 }
 
 .data-grid[data-view="compact"] .card-cover {
-    aspect-ratio: 3/4;
+    aspect-ratio: 176 / 250;
 }
 
 .data-grid[data-view="compact"] .cover-placeholder svg {

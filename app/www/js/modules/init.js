@@ -127,7 +127,8 @@ Lumina.init = async () => {
     Lumina.HeatMap.init();
 
     if (Lumina.State.app.dbReady) {
-        Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
+        // 使用 DataManager.preload() 以复用请求和防止竞争
+        await Lumina.DataManager.preload();
         Lumina.DataManager.updateSettingsBar();
     }
     
@@ -212,7 +213,7 @@ Lumina.importDefaultGuideIfNeeded = async () => {
             
             // 更新设置面板的 storage-info-bar
             if (Lumina.State.app.dbReady && Lumina.DataManager) {
-                Lumina.DataManager.currentStats = await Lumina.DB.adapter.getStorageStats();
+                await Lumina.DataManager.preload();
                 Lumina.DataManager.updateSettingsBar();
             }
         }
@@ -937,15 +938,12 @@ Lumina.HeatMap = {
 // 页面获得焦点时自动刷新（防止其他窗口操作后数据不同步）
 window.addEventListener('focus', () => {
     if (Lumina.DB.adapter instanceof Lumina.DB.SQLiteImpl && 
-        Lumina.DB.adapter.isReady) {
+        Lumina.DB.adapter.isReady &&
+        Lumina.DataManager) {
         
-        // 如果书库面板正打开，静默刷新
+        // 如果书库面板正打开，静默刷新（复用正在进行的请求）
         if (document.getElementById('dataManagerPanel')?.classList.contains('active')) {
-            Lumina.DB.adapter.getStorageStats(true).then(stats => {
-                if (Lumina.DataManager) {
-                    Lumina.DataManager.updateGridSilently(stats);
-                }
-            }).catch(() => {}); // 静默失败
+            Lumina.DataManager.refreshStatsSilently();
         }
     }
 });

@@ -338,12 +338,14 @@ Lumina.BookDetail = {
         const threshold = 80; // 触发阈值
         
         panel.addEventListener('touchstart', (e) => {
-            // 排除输入框和可编辑区域的滑动
             if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('.book-detail-info-input')) {
                 return;
             }
+
+            if (e.target.closest('.book-detail-info-list') || e.target.closest('.book-detail-description') || e.target.closest('.tag-input-container')) {
+                return;
+            }
             
-            // 【关键】排除封面区域的滑动（避免与封面的更新/删除操作冲突）
             if (e.target.closest('.book-detail-cover-wrapper') || e.target.closest('#bookDetailCoverSwipeLayer')) {
                 return;
             }

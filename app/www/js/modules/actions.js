@@ -2,7 +2,7 @@
 
 Lumina.Actions = {
     // 支持的文件类型
-    supportedFormats: ['docx', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
+    supportedFormats: ['docx', 'epub', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
     
     async processFile(file) {
         if (Lumina.State.app.ui.isProcessing) return;
@@ -11,7 +11,7 @@ Lumina.Actions = {
         // 检查文件类型是否支持
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!this.supportedFormats.includes(fileExt)) {
-            Lumina.UI.showDialog(`不支持的文件格式: .${fileExt}\n\n支持的格式: DOCX, TXT, MD, HTML, PDF, JSON, LMN`);
+            Lumina.UI.showDialog(`不支持的文件格式: .${fileExt}\n\n支持的格式: DOCX, EPUB, TXT, MD, HTML, PDF, JSON, LMN`);
             return;
         }
 
@@ -121,11 +121,16 @@ Lumina.Actions = {
             Lumina.State.app.currentFile.type = fileType;
             let cover = null;
 
-            if (fileType === 'docx' || fileType === 'pdf') {
+            if (fileType === 'docx' || fileType === 'epub' || fileType === 'pdf') {
                 const arrayBuffer = await file.arrayBuffer();
                 if (fileType === 'docx') {
                     // DOCX 解析，支持加密文件
                     result = await this.parseDOCXWithPassword(arrayBuffer, file.name);
+                } else if (fileType === 'epub') {
+                    // EPUB 解析（ZIP 格式，轻量级提取 HTML 内容）
+                    result = await Lumina.Parser.parseEPUB(arrayBuffer);
+                    // EPUB 可能有 metadata 中定义的封面
+                    if (result.coverImage) cover = result.coverImage;
                 } else {
                     // PDF 解析带进度显示，传入文件名用于密码预设器
                     const t = Lumina.I18n.t;

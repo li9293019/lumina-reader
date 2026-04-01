@@ -2,6 +2,7 @@
 
 Lumina.Config.fileTypes = {
     docx: { icon: 'icon-file-word', parser: 'parseDOCX' },
+    epub: { icon: 'icon-file-epub', parser: 'parseEPUB' },
     pdf: { icon: 'icon-file-pdf', parser: 'parsePDF' },
     txt: { icon: 'icon-file-text', parser: 'parseTextFile' },
     md: { icon: 'icon-file-markdown', parser: 'parseTextFile' },

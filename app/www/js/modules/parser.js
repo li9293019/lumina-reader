@@ -520,6 +520,447 @@ Lumina.Parser.getDOCXStyleInfo = (pPr, styleId, styleName) => {
     return info;
 };
 
+// ==================== EPUB 解析器 ====================
+
+/**
+ * 解析 EPUB 文件
+ * EPUB 本质：ZIP 包 + XML 清单 + HTML 内容
+ * 策略：递归遍历所有节点，智能识别标题和段落，正确处理图片
+ * @param {ArrayBuffer} arrayBuffer - EPUB 文件的 ArrayBuffer
+ * @returns {Promise<{items: Array, type: string}>}
+ */
+Lumina.Parser.parseEPUB = async (arrayBuffer) => {
+    const zip = await JSZip.loadAsync(arrayBuffer);
+
+    // 1. 找到 content.opf 路径
+    const containerXml = await zip.file('META-INF/container.xml').async('text');
+    const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
+    const rootfile = containerDoc.querySelector('rootfile');
+    const opfPath = rootfile?.getAttribute('full-path');
+    if (!opfPath) throw new Error('Invalid EPUB: content.opf not found');
+
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+    // 2. 解析 content.opf
+    const opfXml = await zip.file(opfPath).async('text');
+    const opfDoc = new DOMParser().parseFromString(opfXml, 'text/xml');
+
+    // manifest: id -> { href, media-type, fullPath }
+    const manifest = new Map();
+    opfDoc.querySelectorAll('manifest > item').forEach(item => {
+        const id = item.getAttribute('id');
+        const href = item.getAttribute('href');
+        const mediaType = item.getAttribute('media-type');
+        if (id && href) manifest.set(id, { href, mediaType, fullPath: opfDir + href });
+    });
+
+    // spine: 阅读顺序
+    const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref'))
+        .map(ref => ref.getAttribute('idref'))
+        .filter(Boolean);
+
+    // 3. 扫描 ZIP 中所有图片
+    const images = new Map(); // fullPath -> dataURL
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico'];
+    
+    for (const [fileName, fileObj] of Object.entries(zip.files)) {
+        if (fileObj.dir) continue;
+        const lowerName = fileName.toLowerCase();
+        if (imageExtensions.some(ext => lowerName.endsWith(ext))) {
+            try {
+                const imgData = await fileObj.async('base64');
+                const ext = lowerName.split('.').pop();
+                const mimeType = {
+                    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                    gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml', 
+                    webp: 'image/webp', ico: 'image/x-icon'
+                }[ext] || 'image/png';
+                images.set(fileName, `data:${mimeType};base64,${imgData}`);
+            } catch (e) { /* 忽略 */ }
+        }
+    }
+    
+    // 提取封面（EPUB metadata中的 cover 或第一个图片）
+    let coverImage = null;
+    const metaCover = opfDoc.querySelector('meta[name="cover"]');
+    if (metaCover) {
+        const coverId = metaCover.getAttribute('content');
+        const coverItem = manifest.get(coverId);
+        if (coverItem) {
+            coverImage = images.get(coverItem.fullPath);
+        }
+    }
+    // 如果没有metadata cover，尝试找名为 cover/cover-image 的图片
+    if (!coverImage) {
+        for (const [path, data] of images) {
+            if (path.toLowerCase().includes('cover') && !path.toLowerCase().includes('spine')) {
+                coverImage = data;
+                break;
+            }
+        }
+    }
+    
+    // console.log(`[EPUB] 加载了 ${images.size} 张图片${coverImage ? ', 找到封面' : ''}`);
+
+    // 4. 解析工具函数
+    const resolveHref = (href, basePath) => {
+        if (href.startsWith('http')) return href;
+        // 处理相对路径
+        const parts = (basePath + href).split('/');
+        const resolved = [];
+        for (const part of parts) {
+            if (part === '..') resolved.pop();
+            else if (part && part !== '.') resolved.push(part);
+        }
+        return resolved.join('/');
+    };
+    
+    // 智能图片查找（处理各种路径变体）
+    const findImage = (src, basePath) => {
+        // URL 解码（处理 %20 等编码）
+        const decodedSrc = decodeURIComponent(src);
+        
+        // 尝试直接路径
+        let fullPath = resolveHref(src, basePath);
+        let data = images.get(fullPath);
+        if (data) return data;
+        
+        // 尝试解码后的路径
+        if (decodedSrc !== src) {
+            fullPath = resolveHref(decodedSrc, basePath);
+            data = images.get(fullPath);
+            if (data) return data;
+        }
+        
+        // 尝试去掉开头的 /
+        if (src.startsWith('/')) {
+            data = images.get(src.substring(1));
+            if (data) return data;
+        }
+        
+        // 尝试不带 basePath
+        data = images.get(src);
+        if (data) return data;
+        
+        data = images.get(decodedSrc);
+        if (data) return data;
+        
+        // 尝试只匹配文件名
+        const fileName = src.split('/').pop().toLowerCase();
+        const decodedFileName = decodedSrc.split('/').pop().toLowerCase();
+        
+        for (const [path, imgData] of images) {
+            const pathLower = path.toLowerCase();
+            if (pathLower.endsWith('/' + fileName) || pathLower === fileName ||
+                pathLower.endsWith('/' + decodedFileName) || pathLower === decodedFileName) {
+                return imgData;
+            }
+        }
+        
+        // 尝试匹配文件名（不含扩展名）
+        const nameNoExt = fileName.replace(/\.[^.]+$/, '');
+        const decodedNameNoExt = decodedFileName.replace(/\.[^.]+$/, '');
+        
+        for (const [path, imgData] of images) {
+            const pathName = path.split('/').pop().toLowerCase().replace(/\.[^.]+$/, '');
+            if (pathName === nameNoExt || pathName === decodedNameNoExt) {
+                return imgData;
+            }
+        }
+        
+        return null;
+    };
+
+    // 5. 按 spine 顺序解析 HTML
+    Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];
+    const results = [];
+    let skippedTocPages = 0;
+    
+    // 目录检测函数
+    const isTocElement = (el) => {
+        const tag = el.tagName?.toLowerCase();
+        const className = (el.getAttribute('class') || '').toLowerCase();
+        const id = (el.getAttribute('id') || '').toLowerCase();
+        
+        // 1. EPUB 3 的 nav 标签（通常是目录）
+        if (tag === 'nav') return true;
+        
+        // 2. class/id 包含目录关键词
+        const tocKeywords = ['toc', 'table-of-contents', 'tableofcontents', 'index', 'contents', 'list-of-illustrations', 'illustrations'];
+        if (tocKeywords.some(kw => className.includes(kw) || id.includes(kw))) return true;
+        
+        // 3. 检查文本内容是否像目录（大量罗马数字/章节编号 + 点号连接符）
+        const text = el.textContent || '';
+        if (text.length > 100) {
+            // 检查是否包含大量章节编号模式
+            const chapterPatterns = /\b(chapter|chap|第[一二三四五六七八九十百千万零〇\d]+章|chapter\s+[ivx0-9]+)\b/gi;
+            const pagePatterns = /\.{3,}|\u2026|\u00A0|\d+\s*$/gm; // 点号连接符或页码
+            const chapterMatches = text.match(chapterPatterns);
+            const pageMatches = text.match(pagePatterns);
+            
+            // 如果包含多个章节标记和页码标记，可能是目录
+            if (chapterMatches && chapterMatches.length > 3 && pageMatches && pageMatches.length > 3) {
+                return true;
+            }
+            
+            // 检查是否包含大量罗马数字列表（I., II., III., IV., V.）
+            const romanPattern = /\b[IVXivx]+\.\s+/g;
+            const romanMatches = text.match(romanPattern);
+            if (romanMatches && romanMatches.length > 10) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    for (const id of spineIds) {
+        const item = manifest.get(id);
+        if (!item || !(item.mediaType?.includes('html') || item.mediaType?.includes('xhtml'))) continue;
+
+        try {
+            const htmlContent = await zip.file(item.fullPath)?.async('text');
+            if (!htmlContent) continue;
+
+            const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
+            const body = doc.body;
+            const basePath = item.fullPath.includes('/') 
+                ? item.fullPath.substring(0, item.fullPath.lastIndexOf('/') + 1) 
+                : opfDir;
+            
+            // 预检查：如果 body 本身像目录页，跳过整个文件
+            if (isTocElement(body)) {
+                // console.log(`[EPUB] 跳过疑似目录页: ${item.fullPath}`);
+                skippedTocPages++;
+                continue;
+            }
+
+            // 递归遍历函数
+            const walk = (node, inParagraph = false) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    // 文本节点
+                    const text = node.textContent?.trim();
+                    if (!text) return;
+                    
+                    // 如果已经在段落处理中，不重复提取
+                    if (inParagraph) return;
+                    
+                    // 检查父级
+                    const parent = node.parentElement;
+                    if (!parent) return;
+                    
+                    const parentTag = parent.tagName.toLowerCase();
+                    
+                    // 如果父级是已处理的块级标签，跳过
+                    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'script', 'style'].includes(parentTag)) {
+                        return;
+                    }
+                    
+                    // 如果父级是行内元素，继续向上检查
+                    if (['a', 'span', 'em', 'strong', 'i', 'b', 'small', 'mark', 'del', 'ins', 'sub', 'sup'].includes(parentTag)) {
+                        // 检查祖父级
+                        const grandparent = parent.parentElement;
+                        if (grandparent) {
+                            const gpTag = grandparent.tagName.toLowerCase();
+                            if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'].includes(gpTag)) {
+                                return; // 在段落/标题/列表内，不重复提取
+                            }
+                        }
+                    }
+                    
+                    // 其他情况，创建段落
+                    results.push({ type: 'paragraph', text, display: text });
+                    return;
+                }
+
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+                const tag = node.tagName.toLowerCase();
+                
+                // 跳过目录元素
+                if (isTocElement(node)) {
+                    return;
+                }
+                
+                // 跳过脚本和样式
+                if (tag === 'script' || tag === 'style') return;
+
+                // 标题 h1-h6
+                if (/^h[1-6]$/.test(tag)) {
+                    const text = node.textContent?.trim();
+                    if (text) {
+                        const level = parseInt(tag[1]);
+                        results.push(Lumina.Parser.processHeading(level, text));
+                    }
+                    return; // 不递归子元素
+                }
+
+                // 图片 img
+                if (tag === 'img') {
+                    const src = node.getAttribute('src');
+                    if (src) {
+                        const data = findImage(src, basePath);
+                        if (data) {
+                            results.push({ type: 'image', data, alt: node.getAttribute('alt')?.trim() || '' });
+                        } else {
+                            // console.warn(`[EPUB] Image not found: ${src}`);
+                        }
+                    }
+                    return;
+                }
+                
+                // SVG 图片
+                if (tag === 'image') {
+                    const href = node.getAttribute('href') || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                    if (href) {
+                        const data = findImage(href, basePath);
+                        if (data) {
+                            results.push({ type: 'image', data, alt: '' });
+                        } else {
+                            // console.warn(`[EPUB] SVG image not found: ${href}`);
+                        }
+                    }
+                    return;
+                }
+
+                // 段落 p
+                if (tag === 'p') {
+                    // 提取所有文本片段和图片
+                    const parts = [];
+                    
+                    const extractNodes = (n) => {
+                        for (const child of n.childNodes) {
+                            if (child.nodeType === Node.TEXT_NODE) {
+                                const text = child.textContent?.trim();
+                                if (text) parts.push({ type: 'text', text });
+                            } else if (child.nodeType === Node.ELEMENT_NODE) {
+                                const childTag = child.tagName.toLowerCase();
+                                if (childTag === 'img') {
+                                    const src = child.getAttribute('src');
+                                    if (src) {
+                                        const data = findImage(src, basePath);
+                                        if (data) {
+                                            parts.push({ type: 'image', data, alt: child.getAttribute('alt')?.trim() || '' });
+                                        }
+                                    }
+                                } else if (['script', 'style'].includes(childTag)) {
+                                    // 跳过
+                                } else {
+                                    // 递归处理其他内联元素
+                                    extractNodes(child);
+                                }
+                            }
+                        }
+                    };
+                    
+                    extractNodes(node);
+                    
+                    // 合并连续的文本片段
+                    let currentText = '';
+                    for (const part of parts) {
+                        if (part.type === 'text') {
+                            currentText += (currentText ? ' ' : '') + part.text;
+                        } else if (part.type === 'image') {
+                            if (currentText) {
+                                results.push({ type: 'paragraph', text: currentText, display: currentText });
+                                currentText = '';
+                            }
+                            results.push({ type: 'image', data: part.data, alt: part.alt });
+                        }
+                    }
+                    if (currentText) {
+                        results.push({ type: 'paragraph', text: currentText, display: currentText });
+                    }
+                    return; // 不递归子元素
+                }
+
+                // 列表项
+                if (tag === 'li') {
+                    const text = node.textContent?.trim();
+                    if (text) {
+                        results.push({ type: 'list', text, display: '• ' + text });
+                    }
+                    return;
+                }
+
+                // 换行分隔符
+                if (tag === 'hr') {
+                    results.push({ type: 'paragraph', text: '---', display: '---' });
+                    return;
+                }
+                
+                // 链接 a（独立的链接，不在段落内）
+                if (tag === 'a') {
+                    const text = node.textContent?.trim();
+                    if (text) {
+                        results.push({ type: 'paragraph', text, display: text });
+                    }
+                    return;
+                }
+
+                // 块引用
+                if (tag === 'blockquote') {
+                    const text = node.textContent?.trim();
+                    if (text) {
+                        results.push({ type: 'paragraph', text, display: text });
+                    }
+                    return;
+                }
+                
+                // figure 标签（图片容器）
+                if (tag === 'figure') {
+                    // 查找 figure 中的图片
+                    const figImg = node.querySelector('img');
+                    if (figImg) {
+                        const src = figImg.getAttribute('src');
+                        if (src) {
+                            const data = findImage(src, basePath);
+                            if (data) {
+                                results.push({ type: 'image', data, alt: figImg.getAttribute('alt')?.trim() || '' });
+                            }
+                        }
+                    }
+                    // 查找 figcaption 作为段落
+                    const caption = node.querySelector('figcaption');
+                    if (caption) {
+                        const text = caption.textContent?.trim();
+                        if (text) results.push({ type: 'paragraph', text, display: text });
+                    }
+                    return; // 处理完 figure 不递归
+                }
+
+                // 其他元素：递归处理子节点
+                for (const child of node.childNodes) {
+                    walk(child, inParagraph);
+                }
+            };
+
+            // 开始遍历
+            for (const child of body.childNodes) {
+                walk(child, false);
+            }
+
+        } catch (e) {
+            console.warn(`[EPUB] Failed to parse ${item.fullPath}:`, e);
+        }
+    }
+
+    // 统计信息
+    const headingCount = results.filter(r => r.type?.startsWith('heading')).length;
+    const imageCount = results.filter(r => r.type === 'image').length;
+    const textCount = results.filter(r => r.type === 'paragraph').length;
+    const listCount = results.filter(r => r.type === 'list').length;
+    
+    // 调试：列出所有可用的图片路径
+    // if (images.size > 0 && imageCount < images.size) {
+    //     console.log(`[EPUB] 可用图片路径:`, Array.from(images.keys()));
+    // }
+    
+    // console.log(`[EPUB] 解析完成: ${results.length} 个元素, ${headingCount} 个标题, ${textCount} 段文本, ${listCount} 个列表项, ${imageCount}/${images.size} 张图片${skippedTocPages > 0 ? ', 跳过' + skippedTocPages + '个目录页' : ''}`);
+    
+    return { items: results, type: 'epub', coverImage };
+};
+
 // ==================== PDF 解析器 ====================
 
 // 初始化 PDF.js worker

@@ -39,7 +39,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: bookDetailSlideIn 0.3s ease; 
+    animation: bookDetailSlideIn 0.3s ease;
+    position: relative;
 }
 
 @keyframes bookDetailSlideIn {
@@ -881,6 +882,75 @@
     .book-detail-name,
     .book-detail-name-input {
         font-size: 24px;
+    }
+}
+
+/* ========== 切换导航区域（仅PC端显示） ========== */
+.book-nav-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 10;
+    cursor: pointer;
+}
+
+.book-nav-zone-left {
+    left: 0;
+    justify-content: center;
+}
+
+.book-nav-zone-right {
+    right: 0;
+    justify-content: center;
+}
+
+.book-nav-btn {
+    width: 36px;
+    height: 72px;
+    background: rgba(var(--bg-secondary-rgb, 240, 238, 233), 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.25s ease;
+    opacity: 0;
+    visibility: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.book-nav-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.book-nav-btn .icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* 左侧区域hover时显示左按钮 */
+.book-nav-zone-left:hover .book-nav-prev {
+    opacity: 0.85;
+    visibility: visible;
+}
+
+/* 右侧区域hover时显示右按钮 */
+.book-nav-zone-right:hover .book-nav-next {
+    opacity: 0.85;
+    visibility: visible;
+}
+
+/* 移动端隐藏切换按钮 */
+@media (max-width: 768px) {
+    .book-nav-zone {
+        display: none !important;
     }
 }
 

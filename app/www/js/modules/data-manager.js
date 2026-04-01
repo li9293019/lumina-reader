@@ -983,15 +983,17 @@ Lumina.DataManager = class {
             return;
         }
         
-        // 优化：如果书库数据已加载，直接使用缓存的数据，避免重复请求
-        const cachedFile = this.currentStats?.files?.find(f => f.fileKey === fileKey);
-        if (cachedFile) {
-            // 使用已缓存的数据直接打开
-            Lumina.BookDetail.openWithData(cachedFile);
-        } else {
-            // 数据不在缓存中，从数据库获取
-            Lumina.BookDetail.open(fileKey);
+        // 获取当前列表和索引，支持切换功能
+        const fileList = this.currentStats?.files || [];
+        const currentIndex = fileList.findIndex(f => f.fileKey === fileKey);
+        
+        if (currentIndex === -1) {
+            console.warn('[DataManager] 文件不在当前列表中:', fileKey);
+            return;
         }
+        
+        // 传入列表和索引，支持切换
+        Lumina.BookDetail.open(fileList, currentIndex);
     }
 
     async confirmClearLibrary() {

@@ -4,7 +4,12 @@ Lumina.BookDetail = {
     // 当前书籍数据
     currentFile: null,
     
-    // 文件类型颜色映射（与 data-manager.js 的 fileIcons 保持一致）
+    // 切换相关状态
+    fileList: [],        // 当前列表
+    currentIndex: 0,     // 当前索引
+    isSwitching: false,  // 是否正在切换中
+    
+    // 文件类型颜色映射
     fileTypeColors: {
         docx: '#4472C4',
         txt: '#6B7280',
@@ -19,6 +24,7 @@ Lumina.BookDetail = {
     init() {
         this.bindEvents();
         this.createDatalists();
+        this.initSwipeGesture();
     },
     
     // 创建 datalist（语言选择等）
@@ -55,8 +61,9 @@ Lumina.BookDetail = {
             panel.addEventListener('click', (e) => {
                 // 如果点击的是面板背景（不是容器内部），则关闭
                 if (e.target === panel || e.target === container) return;
-                // 检查点击目标是否在容器内
-                if (!container?.contains(e.target)) {
+                // 检查点击目标是否在容器内或是导航区域
+                const isNavZone = e.target.closest('.book-nav-zone');
+                if (!container?.contains(e.target) && !isNavZone) {
                     this.close();
                 }
             });
@@ -147,24 +154,14 @@ Lumina.BookDetail = {
         }
     },
     
-    // 打开面板（从数据库加载）
-    async open(fileKey) {
-        if (!fileKey) return;
+    // 打开面板（支持切换功能）
+    open(fileList, index) {
+        if (!fileList || fileList.length === 0) return;
+        if (index < 0 || index >= fileList.length) return;
         
-        // 加载书籍数据
-        const fileData = await Lumina.DB.adapter.getFile(fileKey);
-        if (!fileData) {
-            console.warn('[BookDetail] 文件不存在:', fileKey);
-            return;
-        }
-        
-        this.show(fileData);
-    },
-    
-    // 打开面板（使用已缓存的数据，避免重复请求）
-    openWithData(fileData) {
-        if (!fileData) return;
-        this.show(fileData);
+        this.fileList = fileList;
+        this.currentIndex = index;
+        this.show(fileList[index]);
     },
     
     // 内部：显示面板
@@ -174,10 +171,16 @@ Lumina.BookDetail = {
         // 渲染数据
         this.render();
         
+        // 渲染切换按钮
+        this.renderNavButtons();
+        
         // 绑定tooltip
         if (Lumina.UI?.setupCustomTooltip) {
             Lumina.UI.setupCustomTooltip();
         }
+        
+        // 绑定键盘事件
+        this.bindKeyboardEvents();
         
         // 显示面板
         const panel = document.getElementById('bookDetailPanel');
@@ -185,6 +188,186 @@ Lumina.BookDetail = {
             panel.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
+    },
+    
+    // 绑定键盘事件
+    bindKeyboardEvents() {
+        // 移除旧的事件监听
+        if (this._keyHandler) {
+            document.removeEventListener('keydown', this._keyHandler);
+        }
+        
+        // 创建新的事件处理函数
+        this._keyHandler = (e) => {
+            // 只在面板打开时响应
+            const panel = document.getElementById('bookDetailPanel');
+            if (!panel?.classList.contains('active')) return;
+            
+            // 如果正在编辑输入框，不响应方向键
+            if (e.target.closest('input') || e.target.closest('textarea')) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.switchBook('prev');
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.switchBook('next');
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.close();
+                    break;
+            }
+        };
+        
+        document.addEventListener('keydown', this._keyHandler);
+    },
+    
+    // 渲染切换按钮（PC端显示，移动端隐藏）
+    renderNavButtons() {
+        const panel = document.getElementById('bookDetailPanel');
+        if (!panel) return;
+        
+        // 移除旧按钮和hover区域
+        panel.querySelectorAll('.book-nav-zone').forEach(zone => zone.remove());
+        
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) return; // 移动端不显示按钮，使用滑动
+        
+        const total = this.fileList.length;
+        if (total <= 1) return; // 只有一本不显示
+        
+        // 创建左侧hover区域和按钮
+        const leftZone = document.createElement('div');
+        leftZone.className = 'book-nav-zone book-nav-zone-left';
+        leftZone.innerHTML = `
+            <button class="book-nav-btn book-nav-prev" data-tooltip="${Lumina.I18n.t('previousBook') || '上一本'}">
+                <svg class="icon"><use href="#icon-chevron-left"/></svg>
+            </button>
+        `;
+        leftZone.querySelector('.book-nav-prev').onclick = (e) => {
+            e.stopPropagation();
+            this.switchBook('prev');
+        };
+        
+        // 创建右侧hover区域和按钮
+        const rightZone = document.createElement('div');
+        rightZone.className = 'book-nav-zone book-nav-zone-right';
+        rightZone.innerHTML = `
+            <button class="book-nav-btn book-nav-next" data-tooltip="${Lumina.I18n.t('nextBook') || '下一本'}">
+                <svg class="icon"><use href="#icon-chevron-right"/></svg>
+            </button>
+        `;
+        rightZone.querySelector('.book-nav-next').onclick = (e) => {
+            e.stopPropagation();
+            this.switchBook('next');
+        };
+        
+        panel.appendChild(leftZone);
+        panel.appendChild(rightZone);
+    },
+    
+    // 切换书籍
+    // direction: 'next' 或 'prev' - 用于确定切换到哪本书
+    // animationDirection: 可选，用于指定动画方向（移动端滑动时使用相反方向）
+    switchBook(direction, animationDirection) {
+        if (this.isSwitching) return;
+        if (this.fileList.length <= 1) return;
+        
+        this.isSwitching = true;
+        
+        const total = this.fileList.length;
+        let newIndex;
+        
+        if (direction === 'next') {
+            newIndex = (this.currentIndex + 1) % total;
+        } else {
+            newIndex = (this.currentIndex - 1 + total) % total;
+        }
+        
+        // 执行切换动画，移动端滑动时使用相反的动画方向
+        const animDirection = animationDirection || direction;
+        this.animateSwitch(animDirection, () => {
+            this.currentIndex = newIndex;
+            this.currentFile = this.fileList[newIndex];
+            this.render();
+            this.isSwitching = false;
+        });
+    },
+    
+    // 切换动画（仅使用位移，避免透明度变化导致背景穿透）
+    animateSwitch(direction, callback) {
+        const container = document.querySelector('.book-detail-container');
+        if (!container) {
+            callback();
+            return;
+        }
+        
+        // next(下一本)：当前内容向右滑出，新内容从左侧滑入（像翻页到下一页）
+        // prev(上一本)：当前内容向左滑出，新内容从右侧滑入（像翻页到上一页）
+        const slideOut = direction === 'next' ? '100%' : '-100%';
+        const slideIn = direction === 'next' ? '-100%' : '100%';
+        
+        // 第一阶段：当前内容滑出（保持透明度不变）
+        container.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+        container.style.transform = `translateX(${slideOut})`;
+        
+        setTimeout(() => {
+            callback();
+            // 第二阶段：瞬间重置位置并滑入
+            container.style.transition = 'none';
+            container.style.transform = `translateX(${slideIn})`;
+            
+            requestAnimationFrame(() => {
+                container.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+                container.style.transform = 'translateX(0)';
+            });
+        }, 250);
+    },
+    
+    // 初始化滑动手势（移动端）
+    initSwipeGesture() {
+        const panel = document.getElementById('bookDetailPanel');
+        if (!panel) return;
+        
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+        const threshold = 80; // 触发阈值
+        
+        panel.addEventListener('touchstart', (e) => {
+            // 排除输入框和可编辑区域的滑动
+            if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('.book-detail-info-input')) {
+                return;
+            }
+            
+            startX = e.touches[0].clientX;
+            isDragging = true;
+        }, { passive: true });
+        
+        panel.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentX = e.touches[0].clientX;
+        }, { passive: true });
+        
+        panel.addEventListener('touchend', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const deltaX = currentX - startX;
+            
+            if (Math.abs(deltaX) > threshold) {
+                if (deltaX > 0) {
+                    // 右滑（手指从左往右）：显示上一本，但动画向右滑出（跟随手指）
+                    this.switchBook('prev', 'next');
+                } else {
+                    // 左滑（手指从右往左）：显示下一本，但动画向左滑出（跟随手指）
+                    this.switchBook('next', 'prev');
+                }
+            }
+        });
     },
     
     // 关闭面板
@@ -197,7 +380,24 @@ Lumina.BookDetail = {
             panel.classList.remove('active');
             document.body.style.overflow = '';
         }
+        
+        // 移除键盘事件监听
+        if (this._keyHandler) {
+            document.removeEventListener('keydown', this._keyHandler);
+            this._keyHandler = null;
+        }
+        
+        // 重置状态
         this.currentFile = null;
+        this.fileList = [];
+        this.currentIndex = 0;
+        this.isSwitching = false;
+        
+        // 移除切换按钮和hover区域
+        const panelEl = document.getElementById('bookDetailPanel');
+        if (panelEl) {
+            panelEl.querySelectorAll('.book-nav-zone').forEach(zone => zone.remove());
+        }
     },
     
     // 渲染数据

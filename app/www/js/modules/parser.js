@@ -636,35 +636,35 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
         
         // 【优化】检测文档级根结构树，避免后续每页重复检测
         let documentHasStructure = false;
+        let structureTreeHasMCID = false; // 关键：是否有mcid/bbox可用于匹配
+        
         try {
-            // 【诊断】详细检查PDF对象结构
-            const pdfProto = Object.getPrototypeOf(currentPdf);
-            const pdfMethods = Object.getOwnPropertyNames(pdfProto).filter(m => typeof currentPdf[m] === 'function');
-            
-            // 【关键】getStructTree 在 Page 级别，不在 Document 级别！
-            // 先获取第一页检查 Page 方法
             const testPage = await currentPdf.getPage(1);
             const pageProto = Object.getPrototypeOf(testPage);
             const pageMethods = Object.getOwnPropertyNames(pageProto).filter(m => typeof testPage[m] === 'function');
             const hasStructTree = pageMethods.includes('getStructTree');
             
-            console.log('[PDF] PDF对象详细检查:', { 
-                version: pdfjsLib?.version,
-                documentMethods: pdfMethods.length,
-                pageMethods: pageMethods.length,
-                hasStructTree,
-                pageMethodsList: pageMethods.slice(0, 15),
-                hasGetTextContent: pageMethods.includes('getTextContent')
-            });
-            
-            // 【兼容】检查方法是否存在
             if (hasStructTree) {
                 const firstPageTree = await testPage.getStructTree();
-                documentHasStructure = !!(firstPageTree && firstPageTree.children && firstPageTree.children.length > 0);
-                console.log(`[PDF] 结构树检测: 第一页${documentHasStructure ? '有' : '无'}结构标记 (children: ${firstPageTree?.children?.length || 0})`);
+                if (firstPageTree && firstPageTree.children && firstPageTree.children.length > 0) {
+                    // 检查是否有mcid或bbox
+                    const checkUsable = (node) => {
+                        if (!node) return false;
+                        if (node.type === 'content' && node.mcid !== undefined) return true;
+                        if (node.box) return true;
+                        if (node.children) return node.children.some(checkUsable);
+                        return false;
+                    };
+                    structureTreeHasMCID = firstPageTree.children.some(checkUsable);
+                    documentHasStructure = true;
+                    
+                    // 关键判断：有mcid才继续每页检测，否则跳过
+                    console.log(`[PDF] 结构树: ${structureTreeHasMCID ? '可用' : '无mcid(后续跳过)'}`);
+                } else {
+                    console.log('[PDF] 结构树: 无');
+                }
             } else {
-                documentHasStructure = false;
-                console.log('[PDF] 结构树检测: 当前PDF.js版本不支持');
+                console.log('[PDF] 结构树: 不支持');
             }
         } catch (e) {
             documentHasStructure = false;
@@ -702,7 +702,8 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
                 carryOverText,
                 carryOverY,
                 page,
-                documentHasStructure  // 【优化】传入文档级结构树检测结果
+                documentHasStructure,   // 是否有结构树
+                structureTreeHasMCID    // 是否有mcid/box可用（关键性能优化）
             );
 
             // 更新跨页携带的文本
@@ -833,7 +834,8 @@ Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
                     if (!n) return;
                     if (n.type === 'content' && n.id) {
                         ids.push(n.id);
-                    } else if (n.children) {
+                    }
+                    if (n.children) {
                         n.children.forEach(collectIds);
                     }
                 };
@@ -852,16 +854,6 @@ Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
     };
     
     traverse(structTree);
-    
-    // 【日志】汇总结构树标题识别结果
-    if (headings.length > 0) {
-        const summary = headings.reduce((acc, h) => {
-            acc[h.role] = (acc[h.role] || 0) + 1;
-            return acc;
-        }, {});
-        console.log('[PDF] 结构树标题统计:', summary);
-    }
-    
     return headings;
 };
 
@@ -874,7 +866,7 @@ Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
  * @param {Object} page - PDF.js 页面对象（可选，用于获取结构树）
  * @returns {{paragraphs: Array<{text: string, y: number}>, newCarryOver: string, newCarryOverY: number}}
  */
-Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText = '', carryOverY = 0, page = null, documentHasStructure = true) => {
+Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText = '', carryOverY = 0, page = null, documentHasStructure = true, structureTreeHasMCID = false) => {
     const items = textContent.items;
     if (items.length === 0) {
         return { paragraphs: [], newCarryOver: carryOverText, newCarryOverY: carryOverY };
@@ -948,28 +940,26 @@ Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText
         return { text: text.trim(), y: line.y };
     }).filter(line => line.text.length > 0);
 
-    // 【优化】从 PDF 结构树中提取标题标记（仅当文档级结构树存在时才检测）
+    // 【优化】从 PDF 结构树中提取标题标记
     let structHeadings = [];
-    const structHeadingMap = new Map(); // Map<mcid, {level, role}>
+    const structHeadingMap = new Map();
     
-    if (documentHasStructure && page && page.getStructTree) {
+    // 关键：只有有mcid/bbox时才调用getStructTree，否则跳过（节省性能）
+    if (documentHasStructure && structureTreeHasMCID && page && page.getStructTree) {
         try {
             const structTree = await page.getStructTree();
             if (structTree && structTree.children && structTree.children.length > 0) {
                 structHeadings = Lumina.Parser.extractHeadingFromStructTree(structTree);
             }
         } catch (e) {
-            // 结构树获取失败，静默处理
+            // 静默处理
         }
     }
     
-    // 【日志】记录本页结构树标题识别情况
-    if (documentHasStructure) {
-        if (page && typeof page.getStructTree === 'function') {
-            console.log(`[PDF] 第${page?._pageIndex + 1 || '?'}页结构树: 发现 ${structHeadings.length} 个标题标记`);
-        } else {
-            console.log(`[PDF] 第${page?._pageIndex + 1 || '?'}页结构树: 方法不支持`);
-        }
+    // 【日志】只有真正有mcid时才记录
+    if (structureTreeHasMCID && structHeadings.length > 0) {
+        const summary = structHeadings.map(h => `${h.role}(L${h.level})`).join(', ');
+        console.log(`[PDF] 第${page?._pageIndex + 1 || '?'}页结构树: ${summary}`);
     }
     
     // 【优化】将结构树标题映射到行（通过 marked content id 匹配）

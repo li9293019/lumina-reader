@@ -634,6 +634,43 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
         currentPdf = await loadingTask.promise;
         const numPages = currentPdf.numPages;
         
+        // 【优化】检测文档级根结构树，避免后续每页重复检测
+        let documentHasStructure = false;
+        try {
+            // 【诊断】详细检查PDF对象结构
+            const pdfProto = Object.getPrototypeOf(currentPdf);
+            const pdfMethods = Object.getOwnPropertyNames(pdfProto).filter(m => typeof currentPdf[m] === 'function');
+            
+            // 【关键】getStructTree 在 Page 级别，不在 Document 级别！
+            // 先获取第一页检查 Page 方法
+            const testPage = await currentPdf.getPage(1);
+            const pageProto = Object.getPrototypeOf(testPage);
+            const pageMethods = Object.getOwnPropertyNames(pageProto).filter(m => typeof testPage[m] === 'function');
+            const hasStructTree = pageMethods.includes('getStructTree');
+            
+            console.log('[PDF] PDF对象详细检查:', { 
+                version: pdfjsLib?.version,
+                documentMethods: pdfMethods.length,
+                pageMethods: pageMethods.length,
+                hasStructTree,
+                pageMethodsList: pageMethods.slice(0, 15),
+                hasGetTextContent: pageMethods.includes('getTextContent')
+            });
+            
+            // 【兼容】检查方法是否存在
+            if (hasStructTree) {
+                const firstPageTree = await testPage.getStructTree();
+                documentHasStructure = !!(firstPageTree && firstPageTree.children && firstPageTree.children.length > 0);
+                console.log(`[PDF] 结构树检测: 第一页${documentHasStructure ? '有' : '无'}结构标记 (children: ${firstPageTree?.children?.length || 0})`);
+            } else {
+                documentHasStructure = false;
+                console.log('[PDF] 结构树检测: 当前PDF.js版本不支持');
+            }
+        } catch (e) {
+            documentHasStructure = false;
+            console.log(`[PDF] 文档结构树检测: 获取失败 (${e.message})`);
+        }
+        
         // 如果有密码保护，此时需要恢复解析进度显示
         if (onProgress && numPages > 0) {
             onProgress(0, numPages);
@@ -664,7 +701,8 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
                 viewport.height, 
                 carryOverText,
                 carryOverY,
-                page
+                page,
+                documentHasStructure  // 【优化】传入文档级结构树检测结果
             );
 
             // 更新跨页携带的文本
@@ -814,6 +852,16 @@ Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
     };
     
     traverse(structTree);
+    
+    // 【日志】汇总结构树标题识别结果
+    if (headings.length > 0) {
+        const summary = headings.reduce((acc, h) => {
+            acc[h.role] = (acc[h.role] || 0) + 1;
+            return acc;
+        }, {});
+        console.log('[PDF] 结构树标题统计:', summary);
+    }
+    
     return headings;
 };
 
@@ -826,7 +874,7 @@ Lumina.Parser.extractHeadingFromStructTree = (structTree) => {
  * @param {Object} page - PDF.js 页面对象（可选，用于获取结构树）
  * @returns {{paragraphs: Array<{text: string, y: number}>, newCarryOver: string, newCarryOverY: number}}
  */
-Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText = '', carryOverY = 0, page = null) => {
+Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText = '', carryOverY = 0, page = null, documentHasStructure = true) => {
     const items = textContent.items;
     if (items.length === 0) {
         return { paragraphs: [], newCarryOver: carryOverText, newCarryOverY: carryOverY };
@@ -900,19 +948,31 @@ Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText
         return { text: text.trim(), y: line.y };
     }).filter(line => line.text.length > 0);
 
-    // 【新增】从 PDF 结构树中提取标题标记（如果可用）
+    // 【优化】从 PDF 结构树中提取标题标记（仅当文档级结构树存在时才检测）
     let structHeadings = [];
-    if (page && page.getStructTree) {
+    const structHeadingMap = new Map(); // Map<mcid, {level, role}>
+    
+    if (documentHasStructure && page && page.getStructTree) {
         try {
             const structTree = await page.getStructTree();
-            structHeadings = Lumina.Parser.extractHeadingFromStructTree(structTree);
+            if (structTree && structTree.children && structTree.children.length > 0) {
+                structHeadings = Lumina.Parser.extractHeadingFromStructTree(structTree);
+            }
         } catch (e) {
             // 结构树获取失败，静默处理
         }
     }
     
-    // 【新增】将结构树标题映射到行（通过 marked content id 匹配）
-    const structHeadingMap = new Map(); // Map<mcid, {level, role}>
+    // 【日志】记录本页结构树标题识别情况
+    if (documentHasStructure) {
+        if (page && typeof page.getStructTree === 'function') {
+            console.log(`[PDF] 第${page?._pageIndex + 1 || '?'}页结构树: 发现 ${structHeadings.length} 个标题标记`);
+        } else {
+            console.log(`[PDF] 第${page?._pageIndex + 1 || '?'}页结构树: 方法不支持`);
+        }
+    }
+    
+    // 【优化】将结构树标题映射到行（通过 marked content id 匹配）
     if (structHeadings.length > 0 && textContent.items) {
         // 先建立所有 items 的 mcid 索引
         const itemByMCID = new Map();
@@ -1056,6 +1116,192 @@ Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText
  * @param {number} pageNum - 页码
  * @returns {Promise<Array<{type: string, data: string, y: number, page: number, alt: string}>>}
  */
+// 【优化】Canvas 复用池
+Lumina.Parser._canvasPool = {
+    colorAnalysis: null,
+    imageConvert: null
+};
+
+/**
+ * 【优化】单图处理逻辑抽取，保持业务逻辑不变
+ */
+Lumina.Parser.processSinglePDFImage = async (meta, objs, commonObjs, pageNum) => {
+    const { fn, args, y, objId } = meta;
+    
+    try {
+        let imgData = null;
+
+        // 内联图像
+        if (fn === pdfjsLib.OPS.paintInlineImageXObject) {
+            const inline = args[0];
+            if (inline?.data) {
+                // 【关键】内联图像检测透明度（原始像素数据）
+                const hasTransparent = Lumina.Parser.checkRawDataTransparency(inline.data, inline.width, inline.height);
+                if (hasTransparent) return null;
+                
+                imgData = Lumina.Parser.imageDataToBase64(inline.data);
+            }
+        } else {
+            // 外部图像
+            let obj = null;
+            if (objs.has(objId)) obj = objs.get(objId);
+            else if (commonObjs.has(objId)) obj = commonObjs.get(objId);
+
+            if (!obj) return null;
+
+            // 【关键】所有图片类型都检测透明度
+            let hasTransparent = false;
+            
+            if (obj.bitmap) {
+                // Bitmap类型：用Canvas检测
+                hasTransparent = await Lumina.Parser.checkBitmapTransparency(obj.bitmap);
+            } else if (obj.data || obj.imgData?.data) {
+                // 原始数据类型：检测数据本身
+                const rawData = obj.data || obj.imgData?.data;
+                // PNG格式检测：检查IHDR和是否有tRNS或alpha通道
+                hasTransparent = Lumina.Parser.checkImageFormatTransparency(rawData);
+            }
+            
+            // 【关键】发现任何透明像素，直接过滤
+            if (hasTransparent) {
+                return null;
+            }
+
+            if (obj.bitmap) {
+                imgData = await Lumina.Parser.bitmapToBase64(obj.bitmap);
+            } else if (obj.data) {
+                imgData = Lumina.Parser.imageDataToBase64(obj.data);
+            } else if (obj.imgData?.data) {
+                imgData = Lumina.Parser.imageDataToBase64(obj.imgData.data);
+            }
+        }
+
+        // 返回格式与原有代码完全一致
+        return imgData ? {
+            type: 'image',
+            data: imgData,
+            y,                      // 保留原始Y坐标
+            page: pageNum,
+            alt: `Page ${pageNum} image`
+        } : null;
+
+    } catch (e) {
+        console.warn(`提取第${pageNum}页图片失败:`, e);
+        return null;
+    }
+};
+
+/**
+ * 检测内联图像原始数据的透明度
+ * 内联图像通常是RGBA格式的原始像素数据
+ */
+Lumina.Parser.checkRawDataTransparency = (data, width, height) => {
+    try {
+        if (!data || data.length === 0) return false;
+        
+        // 内联图像数据通常是RGBA格式，每像素4字节
+        // 检查alpha通道是否有<255的值
+        const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+        
+        // 如果数据长度符合RGBA格式
+        if (u8.length === width * height * 4) {
+            for (let i = 3; i < u8.length; i += 4) {
+                if (u8[i] < 255) {
+                    return true; // 发现透明像素
+                }
+            }
+            return false;
+        }
+        
+        // 如果数据格式不确定，保守处理（不过滤）
+        return false;
+    } catch (e) {
+        return false;
+    }
+};
+
+/**
+ * 检测Bitmap的透明度（用Canvas）
+ */
+Lumina.Parser.checkBitmapTransparency = async (bitmap) => {
+    try {
+        const canvas = new OffscreenCanvas(Math.min(bitmap.width, 100), Math.min(bitmap.height, 100));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        
+        for (let i = 3; i < imageData.length; i += 4) {
+            if (imageData[i] < 255) {
+                return true; // 发现透明像素
+            }
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
+};
+
+/**
+ * 检测图像数据格式的透明度（通过文件头）
+ * PNG: 检查是否有alpha通道
+ * JPEG: 一定没有透明度
+ */
+Lumina.Parser.checkImageFormatTransparency = (data) => {
+    try {
+        if (!data || data.length < 10) return false;
+        
+        const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+        
+        // PNG文件头: 89 50 4E 47
+        if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47) {
+            // PNG可能有透明度，需要检查IHDR的color type
+            // PNG格式: 前8字节是签名，然后是一个个chunk
+            // 第一个chunk是IHDR，包含color type
+            
+            // 跳过签名(8) + IHDR长度(4) + IHDR类型(4) = 16
+            // 或者直接查找IHDR
+            let pos = 8; // 跳过PNG签名
+            
+            while (pos < u8.length - 12) {
+                const length = (u8[pos] << 24) | (u8[pos+1] << 16) | (u8[pos+2] << 8) | u8[pos+3];
+                const type = String.fromCharCode(u8[pos+4], u8[pos+5], u8[pos+6], u8[pos+7]);
+                
+                if (type === 'IHDR' && pos + 17 < u8.length) {
+                    // IHDR结构: width(4) + height(4) + bitDepth(1) + colorType(1) + ...
+                    // colorType在width和height之后，即pos+8+8+1 = pos+17
+                    const colorType = u8[pos + 17];
+                    // colorType: 0=Gray, 2=RGB, 3=Indexed, 4=Gray+Alpha, 6=RGB+Alpha
+                    // 4或6表示有alpha通道
+                    return colorType === 4 || colorType === 6;
+                }
+                
+                if (type === 'IDAT' || type === 'IEND') {
+                    break; // 过了IHDR还没找到，不再继续
+                }
+                
+                // 跳到下一个chunk: 当前pos + 4(长度) + 4(类型) + length(数据) + 4(CRC)
+                pos += 12 + length;
+            }
+            
+            // 如果解析失败，保守假设PNG可能有透明
+            return true;
+        }
+        
+        // JPEG文件头: FF D8 FF
+        if (u8[0] === 0xFF && u8[1] === 0xD8 && u8[2] === 0xFF) {
+            // JPEG一定没有透明度
+            return false;
+        }
+        
+        // 未知格式，保守处理（可能有透明）
+        return true;
+    } catch (e) {
+        // 解析失败，保守假设可能有透明
+        return true;
+    }
+};
+
 Lumina.Parser.extractPDFImages = async (page, pageNum) => {
     const images = [];
     
@@ -1063,11 +1309,14 @@ Lumina.Parser.extractPDFImages = async (page, pageNum) => {
         const ops = await page.getOperatorList();
         const { objs, commonObjs } = page;
 
+        // ========== 【优化】阶段1：快速收集所有图片的元数据（不处理数据）==========
+        const imageMetas = [];
+        
         for (let i = 0; i < ops.fnArray.length; i++) {
             const fn = ops.fnArray[i];
             const args = ops.argsArray[i];
 
-            // 图片操作类型
+            // 图片操作类型 - 原有逻辑不变
             const imageOps = [
                 pdfjsLib.OPS.paintImageXObject,
                 pdfjsLib.OPS.paintJpegXObject,
@@ -1078,62 +1327,54 @@ Lumina.Parser.extractPDFImages = async (page, pageNum) => {
 
             if (!imageOps.includes(fn)) continue;
 
-            try {
-                let imgData = null;
-                let width = 0, height = 0, y = 0;
+            // 只提取坐标和引用，不转换数据
+            const matrix = Array.isArray(args[1]) ? args[1] : [1, 0, 0, 1, 0, 0];
+            
+            imageMetas.push({
+                index: i,           // 保持原始顺序用于最终排序
+                fn: fn,
+                args: args,
+                y: matrix[5] || 0,  // Y坐标原样保存
+                objId: args[0]
+            });
+        }
 
-                // 内联图像
-                if (fn === pdfjsLib.OPS.paintInlineImageXObject) {
-                    const inline = args[0];
-                    if (inline?.data) {
-                        imgData = Lumina.Parser.imageDataToBase64(inline.data);
-                        width = inline.width || 0;
-                        height = inline.height || 0;
-                        // 从变换矩阵获取 Y 坐标
-                        const matrix = args[1] || [1, 0, 0, 1, 0, 0];
-                        y = matrix[5] || 0;
-                    }
-                } else {
-                    // 外部图像
-                    const objId = args[0];
-                    const matrix = Array.isArray(args[1]) ? args[1] : [1, 0, 0, 1, 0, 0];
-                    y = matrix[5] || 0;
+        // 如果没有图片，直接返回
+        if (imageMetas.length === 0) {
+            return images;
+        }
 
-                    let obj = null;
-                    if (objs.has(objId)) obj = objs.get(objId);
-                    else if (commonObjs.has(objId)) obj = commonObjs.get(objId);
-
-                    if (!obj) continue;
-
-                    width = obj.width || 0;
-                    height = obj.height || 0;
-
-                    if (obj.bitmap) {
-                        // 颜色过滤：跳过可能是文字的图片（颜色数≤3）
-                        const colorCount = await Lumina.Parser.analyzeImageColorCount(obj.bitmap);
-                        if (colorCount <= 3) continue;
-
-                        imgData = await Lumina.Parser.bitmapToBase64(obj.bitmap);
-                    } else if (obj.data) {
-                        imgData = Lumina.Parser.imageDataToBase64(obj.data);
-                    } else if (obj.imgData?.data) {
-                        imgData = Lumina.Parser.imageDataToBase64(obj.imgData.data);
-                    }
+        // ========== 【优化】阶段2：分批并行处理图片数据 ==========
+        const BATCH_SIZE = 3; // 每批3张并行处理，平衡速度和UI响应
+        
+        for (let i = 0; i < imageMetas.length; i += BATCH_SIZE) {
+            const batch = imageMetas.slice(i, Math.min(i + BATCH_SIZE, imageMetas.length));
+            
+            // 并行处理一批图片
+            const batchResults = await Promise.all(
+                batch.map(meta => Lumina.Parser.processSinglePDFImage(meta, objs, commonObjs, pageNum))
+            );
+            
+            // 收集非空结果，保留排序信息
+            batchResults.forEach((result, idx) => {
+                if (result) {
+                    result._sortIndex = batch[idx].index;  // 用于最终排序
+                    images.push(result);
                 }
-
-                if (imgData) {
-                    images.push({
-                        type: 'image',
-                        data: imgData,
-                        y,
-                        page: pageNum,
-                        alt: `Page ${pageNum} image`
-                    });
-                }
-            } catch (e) {
-                console.warn(`提取第${pageNum}页图片失败:`, e);
+            });
+            
+            // 【优化】让出主线程，确保UI响应
+            if (i + BATCH_SIZE < imageMetas.length) {
+                await new Promise(r => setTimeout(r, 0));
             }
         }
+
+        // ========== 【优化】阶段3：按原始操作顺序排序（确保与文本合并时位置正确）==========
+        images.sort((a, b) => a._sortIndex - b._sortIndex);
+        
+        // 清理临时字段，返回格式与原有代码完全一致
+        images.forEach(img => delete img._sortIndex);
+
     } catch (e) {
         console.error('extractPDFImages 失败:', e);
     }
@@ -1157,20 +1398,37 @@ Lumina.Utils.createImagePlaceholder = () => {
  */
 Lumina.Parser.analyzeImageColorCount = async (bitmap) => {
     try {
-        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0);
+        // 【优化】复用 Canvas，避免重复创建
+        if (!Lumina.Parser._canvasPool.colorAnalysis) {
+            Lumina.Parser._canvasPool.colorAnalysis = new OffscreenCanvas(100, 100);
+        }
+        const canvas = Lumina.Parser._canvasPool.colorAnalysis;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // 限制采样尺寸，避免超大图片分析耗时过长
+        const MAX_SAMPLE_SIZE = 100;
+        const w = Math.min(bitmap.width, MAX_SAMPLE_SIZE);
+        const h = Math.min(bitmap.height, MAX_SAMPLE_SIZE);
+        
+        // 调整canvas尺寸（如有必要）
+        if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+        }
+        
+        ctx.drawImage(bitmap, 0, 0, w, h);
 
-        // 采样中心区域
+        // 采样中心区域 - 原有逻辑不变
         const sampleSize = 50;
-        const w = Math.min(bitmap.width, sampleSize);
-        const h = Math.min(bitmap.height, sampleSize);
-        const x = Math.floor((bitmap.width - w) / 2);
-        const y = Math.floor((bitmap.height - h) / 2);
+        const sw = Math.min(w, sampleSize);
+        const sh = Math.min(h, sampleSize);
+        const x = Math.floor((w - sw) / 2);
+        const y = Math.floor((h - sh) / 2);
 
-        const imageData = ctx.getImageData(x, y, w, h).data;
+        const imageData = ctx.getImageData(x, y, sw, sh).data;
         const colors = new Set();
 
+        // 原有像素分析逻辑完全不变
         for (let i = 0; i < imageData.length; i += 4) {
             const alpha = imageData[i + 3];
             if (alpha < 128) continue;
@@ -1199,11 +1457,30 @@ Lumina.Parser.analyzeImageColorCount = async (bitmap) => {
  */
 Lumina.Parser.bitmapToBase64 = async (bitmap) => {
     try {
-        const canvas = document.createElement('canvas');
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
+        // 【优化】复用 Canvas，避免重复创建
+        if (!Lumina.Parser._canvasPool.imageConvert) {
+            Lumina.Parser._canvasPool.imageConvert = document.createElement('canvas');
+        }
+        const canvas = Lumina.Parser._canvasPool.imageConvert;
+        
+        // 【优化】限制最大尺寸，避免超大图片转换耗时过长
+        const MAX_DIMENSION = 2000;
+        let width = bitmap.width;
+        let height = bitmap.height;
+        
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+            const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0);
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        
+        // 返回格式与原有代码一致
         return canvas.toDataURL('image/png');
     } catch (e) {
         console.error('Bitmap 转换失败:', e);

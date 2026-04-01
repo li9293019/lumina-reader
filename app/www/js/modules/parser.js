@@ -983,8 +983,10 @@ Lumina.Parser.processPDFPageText = async (textContent, pageHeight, carryOverText
             continue;
         }
         
-        // 【关键】过滤目录行：包含 '........' 或目录标题
-        if (/^\s*(目\s*录|Content|Contents|Catalog|Catalogs)\s*$/i.test(line.text) || line.text.includes('........')) {
+        // 【关键】过滤目录行：包含 '.........' 或目录标题
+        if (/^\s*(目\s*录|Content|Contents|Catalog|Catalogs)\s*$/i.test(line.text) || 
+            /^\s*(page|第)\s*\d+\s*页?\s*$/i.test(line.text) ||
+            line.text.includes('.........')) {
             // 如果当前有未完成的段落，先保存
             if (currentParagraph.trim()) {
                 paragraphs.push({ text: currentParagraph.trim(), y: currentParagraphY || line.y });

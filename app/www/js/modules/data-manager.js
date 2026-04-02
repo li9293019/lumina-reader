@@ -37,6 +37,25 @@ Lumina.DataManager = class {
         document.getElementById('dataManagerPanel').addEventListener('click', (e) => {
             if (e.target.id === 'dataManagerPanel') this.close();
         });
+        
+        // 文件浏览器面板事件
+        const closeFileBrowser = document.getElementById('closeFileBrowser');
+        const fileBrowserSystemBtn = document.getElementById('fileBrowserSystemBtn');
+        const fileBrowserPanel = document.getElementById('fileBrowserPanel');
+        
+        if (closeFileBrowser) {
+            closeFileBrowser.addEventListener('click', () => {
+                if (fileBrowserPanel) fileBrowserPanel.classList.remove('active');
+            });
+        }
+        
+        if (fileBrowserSystemBtn) {
+            fileBrowserSystemBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (fileBrowserPanel) fileBrowserPanel.classList.remove('active');
+                this.showSystemFilePicker();
+            });
+        }
 
         // 初始化视图切换
         this.initViewToggle();
@@ -1584,16 +1603,18 @@ Lumina.DataManager = class {
     }
     
     // 分块写入大文件（避免 Capacitor Bridge OOM）
-    async writeLargeFileInChunks(filePath, arrayBuffer, chunkSize = 512 * 1024) {
+    // 关键：每个分块的字节数必须是 3 的倍数，否则 base64 拼接后会损坏
+    async writeLargeFileInChunks(filePath, arrayBuffer, chunkSize = 510 * 1024) {
         const { Filesystem } = Capacitor.Plugins;
         const bytes = new Uint8Array(arrayBuffer);
         const totalSize = bytes.length;
         
-        // 计算 base64 总长度（每 3 字节 → 4 字符）
-        const base64Length = Math.ceil(totalSize / 3) * 4;
+        // 调整 chunkSize 为 3 的倍数（base64 每 3 字节编码为 4 字符）
+        // 510KB = 522240 字节，是 3 的倍数
+        const adjustedChunkSize = Math.floor(chunkSize / 3) * 3;
         
-        // 第一块：创建文件（包含前 chunkSize 字节）
-        const firstChunkEnd = Math.min(chunkSize, totalSize);
+        // 第一块：创建文件
+        const firstChunkEnd = Math.min(adjustedChunkSize, totalSize);
         const firstChunk = bytes.slice(0, firstChunkEnd);
         const firstBase64 = this.arrayBufferToBase64(firstChunk.buffer);
         
@@ -1605,8 +1626,8 @@ Lumina.DataManager = class {
         });
         
         // 后续块：追加写入
-        for (let offset = firstChunkEnd; offset < totalSize; offset += chunkSize) {
-            const end = Math.min(offset + chunkSize, totalSize);
+        for (let offset = firstChunkEnd; offset < totalSize; offset += adjustedChunkSize) {
+            const end = Math.min(offset + adjustedChunkSize, totalSize);
             const chunk = bytes.slice(offset, end);
             const base64Chunk = this.arrayBufferToBase64(chunk.buffer);
             
@@ -1636,19 +1657,260 @@ Lumina.DataManager = class {
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
         
         if (isApp) {
-            // App 环境：直接使用系统文件选择器
-            // 提示用户去默认目录找文件（Android 文件选择器无法控制默认目录）
-            this.showSystemFilePickerWithHint();
+            // App 环境：使用自定义文件浏览器，默认打开 LuminaReader 目录
+            this.showAppFileBrowser();
         } else {
             // 浏览器环境：使用系统文件选择
             this.showSystemFilePicker();
         }
     }
     
-    // 显示带提示的文件选择器
-    showSystemFilePickerWithHint() {
-        // 直接打开系统文件选择器，不显示额外提示
-        this.showSystemFilePicker();
+    // APP 环境：显示自定义文件浏览器（默认打开 Documents/LuminaReader）
+    async showAppFileBrowser() {
+        const { Filesystem } = Capacitor.Plugins;
+        const t = Lumina.I18n?.t || ((k) => k);
+        const panel = document.getElementById('fileBrowserPanel');
+        const listContainer = document.getElementById('fileBrowserList');
+        
+        if (!panel || !listContainer) return;
+        
+        // 显示面板
+        panel.classList.add('active');
+        
+        // 清空并显示加载中
+        listContainer.innerHTML = '<div class="file-browser-empty"><div class="empty-title">' + (t('loading') || '加载中...') + '</div></div>';
+        
+        try {
+            const result = await Filesystem.readdir({
+                path: 'LuminaReader',
+                directory: 'DOCUMENTS'
+            });
+            
+            const files = result.files.filter(f => {
+                const name = f.name.toLowerCase();
+                return name.endsWith('.json') || name.endsWith('.lmn');
+            });
+            
+            if (files.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="file-browser-empty">
+                        <svg class="icon"><use href="#icon-folder"/></svg>
+                        <div class="empty-title">${t('noBackupFiles') || '未找到备份文件'}</div>
+                        <div class="empty-desc">${t('noBackupFilesDetail') || 'Documents/LuminaReader 目录中没有找到备份文件'}</div>
+                    </div>
+                `;
+            } else {
+                files.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+                listContainer.innerHTML = '';
+                
+                files.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'file-browser-item';
+                    const isLmn = file.name.toLowerCase().endsWith('.lmn');
+                    
+                    const sizeStr = Lumina.Utils.formatFileSize(file.size || 0);
+                    const timeStr = file.mtime ? Lumina.Utils.formatTimeAgo(file.mtime) : '';
+                    const lockIcon = isLmn ? '<svg class="icon lock-icon"><use href="#icon-lock"/></svg>' : '';
+                    const metaStr = timeStr ? `${sizeStr} · ${timeStr}${isLmn ? ' · ' + lockIcon : ''}` : sizeStr + (isLmn ? ' · ' + lockIcon : '');
+                    
+                    item.innerHTML = `
+                        <div class="item-info">
+                            <div class="item-name">${Lumina.Utils.escapeHtml(file.name)}</div>
+                            <div class="item-meta">${metaStr}</div>
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', async () => {
+                        panel.classList.remove('active');
+                        await this.importFileFromPath(`LuminaReader/${file.name}`);
+                    });
+                    
+                    listContainer.appendChild(item);
+                });
+            }
+        } catch (err) {
+            console.error('[FileBrowser] 读取目录失败:', err);
+            listContainer.innerHTML = `
+                <div class="file-browser-empty">
+                    <svg class="icon"><use href="#icon-info"/></svg>
+                    <div class="empty-title">${t('readDirFailed') || '无法读取目录'}</div>
+                    <div class="empty-desc">${err.message || ''}</div>
+                </div>
+            `;
+        }
+    }
+    
+    // 从指定路径导入文件（APP 环境）
+    async importFileFromPath(filePath) {
+        const { Filesystem } = Capacitor.Plugins;
+        const t = Lumina.I18n?.t || ((k) => k);
+        
+        try {
+            Lumina.UI.showToast(t('readingFile') || '正在读取文件...', 0);
+            
+            // 读取文件内容
+            const result = await Filesystem.readFile({
+                path: filePath,
+                directory: 'DOCUMENTS',
+                encoding: 'utf8'
+            });
+            
+            const fileName = filePath.split('/').pop();
+            const isLmn = fileName.toLowerCase().endsWith('.lmn');
+            const isConfigFile = fileName.toLowerCase().includes('config');
+            
+            if (isLmn) {
+                // LMN 文件：base64 解码后导入
+                const base64Data = result.data;
+                const binary = this.base64ToUint8Array(base64Data);
+                
+                // 检测是否为配置文件（通过文件名或尝试解析）
+                if (isConfigFile) {
+                    // 尝试作为配置文件导入
+                    try {
+                        await this.importLmnConfig(binary.buffer || binary, fileName);
+                    } catch (configErr) {
+                        // 配置文件导入失败，尝试作为书籍导入
+                        console.log('[Import] 配置文件导入失败，尝试书籍导入:', configErr.message);
+                        await this.importLmnBinary(binary.buffer || binary, fileName);
+                    }
+                } else {
+                    await this.importLmnBinary(binary.buffer || binary, fileName);
+                }
+            } else {
+                // JSON 文件：直接解析
+                const data = JSON.parse(result.data);
+                if (data.exportType === 'batch' && Array.isArray(data.books)) {
+                    await this.handleBatchImport(data.books);
+                } else if (data.fileName && Array.isArray(data.content)) {
+                    await this.importDataToDB(data);
+                    Lumina.UI.showToast(t('importSuccess') || '导入成功');
+                    await this.refreshStats();
+                    await Lumina.DB.loadHistoryFromDB();
+                    this.updateSettingsBar();
+                } else if (data.version && data.reading) {
+                    // 配置文件
+                    await Lumina.Settings.handleConfigImport(new File([result.data], fileName, { type: 'application/json' }));
+                } else {
+                    throw new Error('Invalid format');
+                }
+            }
+        } catch (err) {
+            console.error('[Import] 失败:', err);
+            Lumina.UI.showDialog((t('importFailed') || '导入失败') + ': ' + (err.message || 'Unknown error'));
+        }
+    }
+    
+    // 导入 LMN 配置文件数据
+    async importLmnConfigData(data) {
+        const t = Lumina.I18n?.t || ((k) => k);
+        
+        if (!data.version) {
+            throw new Error(t('invalidFileFormat') || '无效的配置文件');
+        }
+        
+        const current = Lumina.ConfigManager.load();
+        const merged = Lumina.ConfigManager.mergeDeep(
+            Lumina.ConfigManager.getDefaultConfig(), 
+            data
+        );
+        
+        // 保留的元数据
+        merged.meta.firstInstall = current.meta.firstInstall;
+        merged.meta.importCount = (current.meta.importCount || 0) + 1;
+        merged.meta.lastImport = Date.now();
+        
+        Lumina.ConfigManager.save(merged);
+        
+        // 刷新相关UI
+        Lumina.Settings.load();
+        await Lumina.Settings.apply();
+        if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
+        if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
+        Lumina.I18n.updateUI();
+        Lumina.UI.showToast(t('configImportSuccess') || '配置导入成功');
+    }
+    
+    // 导入加密的 LMN 配置文件
+    async importLmnConfig(arrayBuffer, fileName) {
+        const t = Lumina.I18n?.t || ((k) => k);
+        
+        // 检测是否为 .lmn 格式
+        if (!Lumina.Crypto.isLmnFile(arrayBuffer)) {
+            throw new Error(t('invalidLmnFile') || '无效的 .lmn 文件格式');
+        }
+        
+        // 检测是否需要密码
+        const view = new Uint8Array(arrayBuffer);
+        const hasPassword = (view[5] & 0x01) !== 0;
+        
+        let password = null;
+        if (hasPassword) {
+            password = await this.showDecryptPasswordDialog();
+            if (password === null) return; // 用户取消
+        }
+        
+        // 解密数据
+        const data = await Lumina.Crypto.decrypt(arrayBuffer, password);
+        
+        // 验证是配置文件
+        if (!data.version || !data.reading) {
+            throw new Error(t('invalidFileFormat') || '不是有效的配置文件');
+        }
+        
+        await this.importLmnConfigData(data);
+    }
+    
+    // 从二进制数据导入 LMN 文件
+    async importLmnBinary(arrayBuffer, fileName) {
+        const t = Lumina.I18n?.t || ((k) => k);
+        
+        // 检测是否为 .lmn 格式
+        if (!Lumina.Crypto.isLmnFile(arrayBuffer)) {
+            throw new Error(t('invalidLmnFile') || '无效的 .lmn 文件格式');
+        }
+        
+        // 检测是否需要密码
+        const view = new Uint8Array(arrayBuffer);
+        const hasPassword = (view[5] & 0x01) !== 0;
+        
+        let password = null;
+        if (hasPassword) {
+            password = await this.showDecryptPasswordDialog();
+            if (password === null) return; // 用户取消
+        }
+        
+        // 显示进度
+        const progressDialog = this.showProgressDialog(t('decrypting') || '正在解密...');
+        
+        try {
+            // 解密数据
+            const data = await Lumina.Crypto.decrypt(arrayBuffer, password, (progress) => {
+                progressDialog.update(progress);
+            });
+            
+            progressDialog.close();
+            
+            // 验证并导入数据
+            if (data.exportType === 'batch' && Array.isArray(data.books)) {
+                await this.handleBatchImport(data.books);
+            } else if (data.fileName && Array.isArray(data.content)) {
+                await this.importDataToDB(data);
+                Lumina.UI.showToast(t('importSuccess') || '导入成功');
+                await this.refreshStats();
+                await Lumina.DB.loadHistoryFromDB();
+                this.updateSettingsBar();
+            } else {
+                throw new Error(t('invalidFileFormat') || '无效的文件格式');
+            }
+        } catch (err) {
+            progressDialog.close();
+            if (err.message.includes('密码') || err.message.includes('password')) {
+                Lumina.UI.showDialog(t('decryptFailed') || '解密失败：密码错误', 'alert');
+            } else {
+                throw err;
+            }
+        }
     }
     
     // 辅助方法：系统文件选择

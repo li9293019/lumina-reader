@@ -55,6 +55,10 @@
 --header-height: 60px;
 --header-offset: 60px;  
 
+/* 滑动操作背景色（导出/删除） */
+--swipe-export-bg: #10B981;
+--swipe-delete-bg: #DC2626;
+
 /* 安全区域（适配刘海屏、状态栏、底部虚拟按键） */
 --safe-area-top: env(safe-area-inset-top, 24px);
 --safe-area-bottom: env(safe-area-inset-bottom, 24px);
@@ -70,6 +74,12 @@
 /* 禁用点击高亮（避免蓝色背景暴露 H5 本质） */
 * {
     -webkit-tap-highlight-color: transparent;
+}
+
+/* 减少系统手势冲突（华为/荣耀 IJankManager 优化） */
+html, body {
+    overscroll-behavior: none;
+    touch-action: pan-y;
 }
 
 /* 恢复输入框的焦点样式（不要误伤） */
@@ -2249,12 +2259,12 @@ height: 20px;
 
 .history-actions-left {
 left: 0;
-background: #10B981;
+background: var(--swipe-export-bg);
 }
 
 .history-actions-right {
 right: 0;
-background: #DC2626;
+background: var(--swipe-delete-bg);
 }
 
 /* 滑动状态显�?*/
@@ -2375,6 +2385,153 @@ padding: 2px 8px;
 border-radius: 4px;
 font-family: var(--font-mono);
 font-size: 0.9em;
+}
+
+/* ==================== 文件浏览器面板 ==================== */
+#fileBrowserPanel {
+z-index: 260;
+}
+
+.file-browser-path {
+padding: 12px 24px;
+background: var(--bg-tertiary);
+border-bottom: 1px solid var(--border-color);
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 13px;
+color: var(--text-secondary);
+}
+
+.file-browser-path .icon {
+opacity: 0.6;
+}
+
+.file-browser-list {
+max-height: 50vh;
+overflow-y: auto;
+scrollbar-gutter: stable;
+}
+
+.file-browser-item {
+display: flex;
+align-items: center;
+padding: 14px 24px;
+cursor: pointer;
+transition: background 0.15s ease;
+border-bottom: 1px solid var(--border-color);
+}
+
+.file-browser-item:last-child {
+border-bottom: none;
+}
+
+.file-browser-item:hover {
+background: var(--bg-tertiary);
+}
+
+.file-browser-item:active {
+opacity: 0.8;
+}
+
+.file-browser-item .item-info {
+flex: 1;
+min-width: 0;
+}
+
+.file-browser-item .item-name {
+font-size: 14px;
+font-weight: 500;
+color: var(--text-primary);
+margin-bottom: 4px;
+line-height: 1.4;
+word-wrap: break-word;
+word-break: break-all;
+}
+
+.file-browser-item .item-meta {
+font-size: 12px;
+color: var(--text-secondary);
+display: flex;
+align-items: center;
+gap: 4px;
+}
+
+.file-browser-item .item-meta .lock-icon {
+width: 12px;
+height: 12px;
+display: inline-block;
+vertical-align: middle;
+}
+
+.file-browser-empty {
+padding: 48px 32px;
+text-align: center;
+color: var(--text-secondary);
+}
+
+.file-browser-empty .icon {
+width: 48px;
+height: 48px;
+margin-bottom: 16px;
+opacity: 0.3;
+}
+
+.file-browser-empty .empty-title {
+font-size: 15px;
+font-weight: 500;
+color: var(--text-primary);
+margin-bottom: 6px;
+}
+
+.file-browser-empty .empty-desc {
+font-size: 13px;
+opacity: 0.7;
+}
+
+.file-browser-footer {
+padding: 16px 24px;
+border-top: 1px solid var(--border-color);
+background: var(--bg-secondary);
+}
+
+.file-browser-footer .btn-primary {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+width: 100%;
+padding: 14px 24px;
+border-radius: 10px;
+font-size: 16px;
+font-weight: 500;
+background: var(--accent-color);
+color: white;
+border: none;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.file-browser-footer .btn-primary:hover {
+background: var(--accent-hover);
+transform: translateY(-1px);
+}
+
+.file-browser-footer .btn-primary:active {
+transform: scale(0.98);
+}
+
+/* 文件浏览器面板 - 需要显示在 dataManagerPanel (z-index 250) 之上 */
+#fileBrowserPanel {
+z-index: 260;
+}
+
+#fileBrowserPanel .about-content {
+padding-bottom: 0;
+}
+
+#fileBrowserPanel .file-browser-footer {
+border-radius: 0 0 16px 16px;
 }
 
 /* 对话框- 深色主题优化 */
@@ -4350,13 +4507,13 @@ transform: translate(-50%, -50%) scale(1);
 
 .swipe-action.export-action {
     left: 0;
-    background: var(--accent-color);
+    background: var(--swipe-export-bg);
     align-items: center;
 }
 
 .swipe-action.delete-action {
     right: 0;
-    background: var(--warnning);
+    background: var(--swipe-delete-bg);
     align-items: center;
 }
 

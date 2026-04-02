@@ -478,6 +478,7 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().evaluateJavascript(
                 "javascript:(function() { " +
                 "  if (document.getElementById('bookDetailPanel')?.classList.contains('active')) return 'bookDetail'; " +
+                "  if (document.getElementById('fileBrowserPanel')?.classList.contains('active')) return 'fileBrowser'; " +
                 "  if (document.getElementById('dataManagerPanel')?.classList.contains('active')) return 'dataManager'; " +
                 "  if (document.getElementById('aboutPanel')?.classList.contains('active')) return 'about'; " +
                 "  if (document.getElementById('cacheManagerPanel')?.classList.contains('active')) return 'cacheManager'; " +
@@ -515,6 +516,7 @@ public class MainActivity extends BridgeActivity {
             case "regexHelp":
             case "azureTts":
             case "heatMap":
+            case "fileBrowser":
             case "historyPanel":
             case "searchPanel":
             case "annotationPanel":
@@ -540,7 +542,13 @@ public class MainActivity extends BridgeActivity {
                 if (now - lastBackTime < DOUBLE_PRESS_INTERVAL) {
                     // 双击确认，退出应用
                     Log.d(TAG, "Double press confirmed, exiting app");
+                    // 先清理 WebView 避免 renderer 崩溃
+                    if (bridge != null && bridge.getWebView() != null) {
+                        bridge.getWebView().removeAllViews();
+                        bridge.getWebView().destroy();
+                    }
                     finishAndRemoveTask();
+                    System.exit(0);
                 } else {
                     // 首次按下，提示再按一次
                     lastBackTime = now;

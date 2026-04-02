@@ -159,7 +159,7 @@ Lumina.Exporter = {
         (function() {
         const fonts = [
             {family: 'Noto Serif SC', url: null},  // CDN已移除
-            {family: 'Noto Sans SC', url: null}  // CDN已移除
+            {family: 'LXGW Neo XiHei', url: 'assets/fonts/LXGWNeoXiHei.css'}  // 本地字体
         ];
         // ... 其余保持原样
         })();
@@ -185,7 +185,7 @@ Lumina.Exporter = {
             --scroll-track: #f1f1f1;
             --scroll-thumb: #c1c1c1;
             --font-serif: "Noto Serif SC", "Source Han Serif SC", "SimSun", "STSong", serif;
-            --font-sans: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+            --font-sans: "LXGW Neo XiHei", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
             --reader-font-size: 18px;
         }
 
@@ -268,7 +268,10 @@ Lumina.Exporter = {
             font-display: swap;
         }
         @font-face {
-            font-family: 'Noto Sans SC';
+            font-family: 'LXGW Neo XiHei';
+            src: url('assets/fonts/LXGWNeoXiHeiPlus.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
             font-display: swap;
         }
         @font-face {
@@ -1000,7 +1003,7 @@ Lumina.Exporter = {
 
             const fontMap = {
                 serif: { cn: 'Noto Serif SC', fallback: 'SimSun' },
-                sans: { cn: 'Noto Sans SC', fallback: 'Microsoft YaHei' },
+                sans: { cn: 'LXGW Neo XiHei', fallback: 'Microsoft YaHei' },
                 kai: { cn: 'KaiTi', fallback: 'KaiTi' },
                 mono: { cn: 'FangSong', fallback: 'FangSong' }
             };

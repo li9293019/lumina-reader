@@ -27,11 +27,11 @@ Lumina.Config.fontConfig = (() => {
                 metrics: { sizeAdjust: '100%', ascentOverride: '90%', descentOverride: '25%', lineGapOverride: '0%' }
             },
             sans: {
-                family: '"Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
-                url: null,
+                family: '"LXGW Neo XiHei", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
+                url: isFileProtocol ? null : './assets/fonts/LXGWNeoXiHei.css', // file协议下禁用避免CORS
                 preload: false,
-                fallback: 'sans-serif',
-                metrics: { sizeAdjust: '100%', ascentOverride: '88%', descentOverride: '22%', lineGapOverride: '0%' }
+                fallback: 'Microsoft YaHei, PingFang SC, sans-serif',
+                metrics: { sizeAdjust: '98%', ascentOverride: '88%', descentOverride: '22%', lineGapOverride: '0%' }
             },
             kai: {
                 family: '"LXGW WenKai", "KaiTi", "STKaiti", serif',
@@ -60,11 +60,11 @@ Lumina.Config.fontConfig = (() => {
             metrics: { sizeAdjust: '100%', ascentOverride: '90%', descentOverride: '25%', lineGapOverride: '0%' }
         },
         sans: {
-            family: '"Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif',
-            url: null,  // CDN已移除，使用系统字体
+            family: '"LXGW Neo XiHei", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif',
+            url: isFileProtocol ? null : './assets/fonts/LXGWNeoXiHei.css',
             preload: true,
-            fallback: 'sans-serif',
-            metrics: { sizeAdjust: '100%', ascentOverride: '88%', descentOverride: '22%', lineGapOverride: '0%' }
+            fallback: 'Microsoft YaHei, PingFang SC, sans-serif',
+            metrics: { sizeAdjust: '98%', ascentOverride: '88%', descentOverride: '22%', lineGapOverride: '0%' }
         },
         kai: {
             family: '"LXGW WenKai", "KaiTi", "STKaiti", serif',

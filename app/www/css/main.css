@@ -6,7 +6,7 @@
 --font-kai: var(--font-family-dynamic);
 --font-mono: "JetBrains Mono", "Fira Code", "Consolas", "Monaco", monospace;
 --font-serif-fallback: "LXGW Neo Zhi Song", "SimSun", "STSong", serif;
---font-sans-fallback: "Microsoft YaHei", "PingFang SC", sans-serif;
+--font-sans-fallback: "LXGW Neo XiHei", "Microsoft YaHei", "PingFang SC", sans-serif;
 
 /* 响应式布局变量（桌面端默认值） */
 --content-max-width: 80%;

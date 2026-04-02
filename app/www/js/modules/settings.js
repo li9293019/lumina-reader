@@ -254,11 +254,14 @@ Lumina.Settings = {
         };
         
         const updatePanelVisibility = () => {
-            configPanel.style.display = config.enabled ? 'block' : 'none';
+            // 从 State 读取最新状态，而不是使用初始的 config 变量
+            const isEnabled = Lumina.State.settings.pdfPasswordPreset;
+            configPanel.style.display = isEnabled ? 'block' : 'none';
         };
         updatePanelVisibility();
         
-        presetToggle.addEventListener('click', () => setTimeout(updatePanelVisibility, 0));
+        // 监听 toggle 点击，使用较短的延迟确保 State 已更新
+        presetToggle.addEventListener('click', () => setTimeout(updatePanelVisibility, 10));
         
         if (lengthSlider) {
             lengthSlider.value = config.length;

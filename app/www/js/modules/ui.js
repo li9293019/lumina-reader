@@ -212,7 +212,7 @@ Lumina.UI = {
             else scrollTimeout = setTimeout(Lumina.DB.updateHistoryProgress, 1500);
         }, { passive: true });
 
-        window.addEventListener('resize', () => setTimeout(Lumina.Settings.apply, 250));
+        window.addEventListener('resize', () => setTimeout(() => Lumina.Settings.apply(), 250));
 
         // 键盘显示/隐藏检测（APP 环境）
         this.setupKeyboardDetection();
@@ -1092,6 +1092,14 @@ Lumina.UI = {
                 btn.classList.toggle('active', btn.dataset.value === Lumina.State.settings[group]);
             });
         });
+        
+        // 更新自定义字体按钮状态
+        document.querySelectorAll('.option-btn-custom').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.value === Lumina.State.settings.font);
+        });
+        
+        // 渲染自定义字体按钮（如果有变化）
+        Lumina.Settings?.renderFontButtons?.();
     },
 
     setupPaginationTooltip(container) {

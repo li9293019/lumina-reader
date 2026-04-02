@@ -78,6 +78,9 @@ Lumina.ConfigManager = {
                 presets: [], // {id, name, tags: []}
             },
             
+            // ========== 8. 自定义字体 ==========
+            customFonts: [], // {id, name, family, fileName, storedName, size, addedAt}
+            
             // ========== 8. Azure TTS 配置 ==========
             azureTTS: {
                 enabled: false,
@@ -395,6 +398,19 @@ Lumina.ConfigManager = {
             merged.meta.lastImport = Date.now();
             
             this.save(merged);
+            
+            // 导入成功后重新初始化字体管理器
+            if (merged.customFonts?.length > 0) {
+                console.log('[ConfigManager] 导入配置包含', merged.customFonts.length, '个自定义字体');
+                // 延迟执行，确保配置已保存
+                setTimeout(() => {
+                    Lumina.FontManager?.init?.().then(() => {
+                        // 更新设置面板的字体按钮
+                        Lumina.Settings?.renderFontButtons?.();
+                        console.log('[ConfigManager] 字体面板已更新');
+                    });
+                }, 100);
+            }
             
             return { success: true, config: merged };
         } catch (e) {

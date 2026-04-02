@@ -107,10 +107,11 @@ Lumina.Settings = {
             Lumina.DOM.contentWrapper.querySelector('.doc-line[data-index]');
         if (wasReading) savedScrollIndex = Lumina.Renderer.getCurrentVisibleIndex();
 
-        const fontFamily = await Lumina.Font.load(settings.font);
-        const config = Lumina.Config.fontConfig[settings.font];
-        document.documentElement.style.setProperty('--font-family-dynamic', fontFamily || config.family);
-        document.body.style.fontFamily = config.family;
+        // 使用 FontManager 加载字体
+        await Lumina.FontManager.loadFont(settings.font);
+        const fontFamily = Lumina.FontManager.getFontFamily(settings.font);
+        document.documentElement.style.setProperty('--font-family-dynamic', fontFamily);
+        document.body.style.fontFamily = fontFamily;
 
         Lumina.DOM.contentWrapper.className = `content-wrapper font-${settings.font}`;
         document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`);
@@ -172,6 +173,9 @@ Lumina.Settings = {
             const currentIdx = Lumina.Renderer.getCurrentVisibleIndex();
             Lumina.Renderer.renderCurrentChapter(currentIdx);
         }
+        
+        // 渲染自定义字体按钮
+        this.renderFontButtons();
     },
 
     reset() {
@@ -219,6 +223,46 @@ Lumina.Settings = {
             Lumina.State.app.currentFile.type = oldFileType;
             Lumina.DOM.fileInfo.textContent = oldFileName;
         }
+    },
+
+    // 渲染自定义字体按钮
+    renderFontButtons() {
+        const container = document.getElementById('customFontsRow');
+        if (!container) return;
+        
+        const customFonts = Lumina.FontManager?.customFonts || [];
+        const currentFont = Lumina.State.settings?.font;
+        
+        if (customFonts.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        container.innerHTML = customFonts.map(font => `
+            <button class="option-btn option-btn-custom ${currentFont === font.id ? 'active' : ''}" 
+                    data-value="${font.id}" 
+                    data-custom="true">
+                ${Lumina.Utils.escapeHtml(font.name)}
+            </button>
+        `).join('');
+        
+        // 绑定点击事件
+        container.querySelectorAll('.option-btn-custom').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // 阻止事件冒泡，防止关闭设置面板
+                const fontId = btn.dataset.value;
+                Lumina.State.settings.font = fontId;
+                Lumina.Settings.save();
+                
+                // 加载字体
+                await Lumina.FontManager.loadFont(fontId);
+                
+                // 应用并更新UI
+                await Lumina.Settings.apply();
+                Lumina.UI.updateActiveButtons();
+                this.renderFontButtons(); // 重新渲染以更新active状态
+            });
+        });
     },
 
     // 初始化 PDF 解析设置（密码预设器）

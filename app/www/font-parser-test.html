@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字体名称解析测试</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .upload-area {
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            border-color: #409eff;
+            background: #f0f7ff;
+        }
+        
+        .upload-area.active {
+            border-color: #409eff;
+            background: #f0f7ff;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .upload-hint {
+            color: #999;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .result-card.error {
+            border-left: 4px solid #f56c6c;
+        }
+        
+        .result-card.success {
+            border-left: 4px solid #67c23a;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+        
+        .file-info {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+            align-items: flex-start;
+        }
+        
+        .info-label {
+            width: 100px;
+            color: #999;
+            flex-shrink: 0;
+        }
+        
+        .info-value {
+            color: #333;
+            font-weight: 500;
+            flex: 1;
+            word-break: break-all;
+        }
+        
+        .font-preview {
+            margin-top: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .preview-text {
+            font-size: 24px;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        
+        .preview-sample {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .error-message {
+            color: #f56c6c;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .raw-data {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-left: 10px;
+            border: 2px solid #ccc;
+            border-top-color: #409eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .clear-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .clear-btn:hover {
+            background: #e8e8e8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 字体名称解析测试</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击选择或拖拽字体文件</div>
+            <div class="upload-hint">支持 .ttf, .otf, .ttc 格式</div>
+        </div>
+        
+        <input type="file" id="fileInput" accept=".ttf,.otf,.ttc,.woff,.woff2">
+        
+        <div id="results"></div>
+        
+        <button class="clear-btn" id="clearBtn" style="display: none;">清空结果</button>
+    </div>
+
+    <script>
+        // ========== 字体解析器（与 font-manager.js 中的相同） ==========
+        const FontParser = {
+            async extractFontName(arrayBuffer) {
+                try {
+                    const view = new DataView(arrayBuffer);
+                    
+                    // 检查文件头
+                    const sfntVersion = view.getUint32(0);
+                    
+                    // TTC 集合字体处理
+                    let tableOffset = 0;
+                    if (sfntVersion === 0x74727565) {
+                        const numFonts = view.getUint32(8);
+                        if (numFonts > 0) {
+                            tableOffset = view.getUint32(12);
+                        }
+                    }
+                    
+                    const numTables = view.getUint16(tableOffset + 4);
+                    const tableDirOffset = tableOffset + 12;
+                    
+                    // 查找 name table
+                    for (let i = 0; i < numTables; i++) {
+                        const entryOffset = tableDirOffset + i * 16;
+                        const tag = this._readTag(view, entryOffset);
+                        
+                        if (tag === 'name') {
+                            const nameTableOffset = view.getUint32(entryOffset + 8);
+                            return this._parseNameTable(view, tableOffset + nameTableOffset);
+                        }
+                    }
+                    
+                    return null;
+                } catch (err) {
+                    console.error('[FontParser] 解析失败:', err);
+                    return null;
+                }
+            },
+            
+            _readTag(view, offset) {
+                const bytes = [];
+                for (let i = 0; i < 4; i++) {
+                    bytes.push(String.fromCharCode(view.getUint8(offset + i)));
+                }
+                return bytes.join('');
+            },
+            
+            _parseNameTable(view, offset) {
+                const format = view.getUint16(offset);
+                const count = view.getUint16(offset + 2);
+                const stringOffset = view.getUint16(offset + 4);
+                
+                const records = [];
+                let bestMatch = null;
+                let fallback = null;
+                
+                for (let i = 0; i < count; i++) {
+                    const recordOffset = offset + 6 + i * 12;
+                    const platformID = view.getUint16(recordOffset);
+                    const encodingID = view.getUint16(recordOffset + 2);
+                    const languageID = view.getUint16(recordOffset + 4);
+                    const nameID = view.getUint16(recordOffset + 6);
+                    
+                    const stringLength = view.getUint16(recordOffset + 8);
+                    const stringRelOffset = view.getUint16(recordOffset + 10);
+                    const stringAbsOffset = offset + stringOffset + stringRelOffset;
+                    
+                    // 读取字符串
+                    let name = '';
+                    let encoding = 'unknown';
+                    
+                    if (platformID === 3) {
+                        // Microsoft: UTF-16BE
+                        const bytes = new Uint8Array(view.buffer, stringAbsOffset, stringLength);
+                        name = new TextDecoder('utf-16be').decode(bytes);
+                        encoding = 'utf-16be';
+                    } else if (platformID === 1 || platformID === 0) {
+                        const bytes = new Uint8Array(view.buffer, stringAbsOffset, stringLength);
+                        if (encodingID === 0 && platformID === 1) {
+                            name = new TextDecoder('latin1').decode(bytes);
+                            encoding = 'mac-roman';
+                        } else {
+                            name = new TextDecoder('utf-16be').decode(bytes);
+                            encoding = 'utf-16be';
+                        }
+                    }
+                    
+                    const record = {
+                        nameID,
+                        platformID,
+                        encodingID,
+                        languageID: languageID.toString(16),
+                        name,
+                        encoding
+                    };
+                    
+                    // 只记录 nameID = 1 (字体族名) 和 nameID = 2 (子家族名)
+                    if (nameID === 1 || nameID === 2) {
+                        records.push(record);
+                    }
+                    
+                    // 优先级判断：nameID = 1 字体族名
+                    if (nameID === 1) {
+                        if (platformID === 3) {
+                            if (languageID === 0x0804) {
+                                return { name, records, priority: 'zh-cn' }; // Microsoft 简体中文，最高优先级
+                            } else if (languageID === 0x0409 && !bestMatch) {
+                                bestMatch = { name, records, priority: 'en-us' }; // Microsoft 英文
+                            }
+                        } else if (platformID === 1 && languageID === 0 && !fallback) {
+                            fallback = { name, records, priority: 'mac-en' }; // Mac 英文
+                        }
+                    }
+                }
+                
+                const result = bestMatch || fallback;
+                if (result) {
+                    result.records = records;
+                }
+                return result;
+            },
+            
+            // 获取文件格式的友好名称
+            getFormatName(extension) {
+                const map = {
+                    'ttf': 'TrueType',
+                    'otf': 'OpenType',
+                    'ttc': 'TrueType Collection',
+                    'woff': 'Web Open Font',
+                    'woff2': 'Web Open Font 2'
+                };
+                return map[extension.toLowerCase()] || 'Unknown';
+            },
+            
+            // 格式化文件大小
+            formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+        };
+
+        // ========== UI 交互 ==========
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const results = document.getElementById('results');
+        const clearBtn = document.getElementById('clearBtn');
+
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('active');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('active');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('active');
+            const files = Array.from(e.dataTransfer.files);
+            files.forEach(processFile);
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(processFile);
+            fileInput.value = ''; // 重置，允许重复选择同一文件
+        });
+
+        // 清空结果
+        clearBtn.addEventListener('click', () => {
+            results.innerHTML = '';
+            clearBtn.style.display = 'none';
+        });
+
+        // 处理文件
+        async function processFile(file) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.innerHTML = '<div class="loading">正在解析...</div>';
+            results.insertBefore(card, results.firstChild);
+            clearBtn.style.display = 'block';
+
+            try {
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                // 不支持的格式
+                if (!['ttf', 'otf', 'ttc', 'woff', 'woff2'].includes(extension)) {
+                    throw new Error('不支持的文件格式');
+                }
+
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await FontParser.extractFontName(arrayBuffer);
+                
+                if (!result || !result.name) {
+                    throw new Error('无法解析字体名称');
+                }
+
+                const { name, records, priority } = result;
+                
+                // 创建预览用的 @font-face
+                const fontUrl = URL.createObjectURL(file);
+                const fontFamily = `test-font-${Date.now()}`;
+                const style = document.createElement('style');
+                style.textContent = `
+                    @font-face {
+                        font-family: '${fontFamily}';
+                        src: url('${fontUrl}') format('${extension === 'otf' ? 'opentype' : 'truetype'}');
+                    }
+                `;
+                document.head.appendChild(style);
+
+                // 构建详细信息
+                const nameRecords = records.filter(r => r.nameID === 1).map(r => 
+                    `Platform ${r.platformID}, Lang 0x${r.languageID}: "${r.name}" (${r.encoding})`
+                ).join('\n');
+
+                const subfamilyRecords = records.filter(r => r.nameID === 2).map(r => 
+                    `Platform ${r.platformID}, Lang 0x${r.languageID}: "${r.name}"`
+                ).join('\n');
+
+                card.className = 'result-card success';
+                card.innerHTML = `
+                    <div class="file-name">${escapeHtml(file.name)}</div>
+                    <div class="file-info">
+                        ${FontParser.getFormatName(extension)} · ${FontParser.formatSize(file.size)}
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">字体名称</div>
+                        <div class="info-value">${escapeHtml(name)}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">匹配优先级</div>
+                        <div class="info-value">${priority || 'fallback'}</div>
+                    </div>
+                    <div class="font-preview">
+                        <div class="preview-text" style="font-family: '${fontFamily}', sans-serif;">
+                            ${escapeHtml(name)}
+                        </div>
+                        <div class="preview-sample" style="font-family: '${fontFamily}', sans-serif;">
+                            简体中文测试：路漫漫其修远兮，吾将上下而求索。<br>
+                            English Test: The quick brown fox jumps over the lazy dog.<br>
+                            1234567890 ABCDEFGHIJKLMNOPQRSTUVWXYZ
+                        </div>
+                    </div>
+                    <details class="raw-data">
+                        <summary>原始 name 表记录（点击展开）</summary>
+                        <pre><b>字体族名 (nameID=1):</b>
+${escapeHtml(nameRecords || '无')}
+
+<b>子家族名 (nameID=2):</b>
+${escapeHtml(subfamilyRecords || '无')}</pre>
+                    </details>
+                `;
+
+            } catch (err) {
+                card.className = 'result-card error';
+                card.innerHTML = `
+                    <div class="file-name">${escapeHtml(file.name)}</div>
+                    <div class="file-info">${FontParser.formatSize(file.size)}</div>
+                    <div class="error-message">❌ ${err.message}</div>
+                `;
+            }
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

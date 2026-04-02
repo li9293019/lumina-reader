@@ -81,6 +81,7 @@
 <script src="./js/modules/data-manager.js"></script>
 <script src="./js/modules/book-detail.js"></script>
 <script src="./js/modules/settings.js"></script>
+<script src="./js/modules/font-manager.js"></script>
 <script src="./js/modules/ui.js"></script>
 <!-- 操作事务 -->
 <script src="./js/modules/actions.js"></script>
@@ -172,6 +173,8 @@
 <symbol id="icon-caret-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="icon-caret-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="icon-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="1 20 1 14 7 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-font" viewBox="0 0 24 24"><path d="M4 7V4h16v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20h6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-add" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 </defs>
 </svg>
 
@@ -363,7 +366,12 @@
                 </div>
 
                 <div class="setting-group">
-                    <div class="setting-label" data-i18n="font"></div>
+                    <div class="setting-label" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span data-i18n="font"></span>
+                        <button class="btn-icon font-manager-trigger" id="openFontManager" data-i18n-tooltip="fontManager" style="width: 28px; height: 28px; margin: -4px -8px -4px 0;">
+                            <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-settings"/></svg>
+                        </button>
+                    </div>
                     <div class="setting-options" data-setting-group="font">
                         <button class="option-btn active" data-value="serif" data-i18n="fontSerif">
                             <span class="font-recommended-badge" style="display:none">★</span>
@@ -373,6 +381,10 @@
                             <span class="font-recommended-badge" style="display:none">★</span>
                         </button>
                         <button class="option-btn" data-value="mono" data-i18n="fontMono"></button>
+                    </div>
+                    <!-- 自定义字体按钮区域 -->
+                    <div class="custom-fonts-row" id="customFontsRow">
+                        <!-- JS 动态渲染 -->
                     </div>
                 </div>
 
@@ -1356,6 +1368,31 @@
                 <button class="btn-primary" id="fileBrowserSystemBtn">
                     <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-import"/></svg>
                     <span data-i18n="importFromSystem">从其他位置选择</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 字体管理对话框 -->
+<div class="about-panel" id="fontManagerDialog">
+    <div class="about-content" style="max-width: 480px;">
+        <div class="about-header">
+            <span class="about-title" data-i18n="fontManagerTitle">字体管理</span>
+            <button class="btn-icon" id="fontManagerClose" data-i18n-tooltip="close">
+                <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
+            </button>
+        </div>
+        <div class="about-body" style="padding: 0;">
+            <!-- 字体列表 -->
+            <div class="font-manager-list" id="fontManagerList">
+                <!-- 动态生成 -->
+            </div>
+            <!-- 添加按钮区域 -->
+            <div class="font-manager-footer">
+                <button class="btn-primary" id="fontManagerAddBtn">
+                    <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-add"/></svg>
+                    <span data-i18n="fontManagerAdd">添加新字体</span>
                 </button>
             </div>
         </div>

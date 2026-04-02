@@ -198,18 +198,23 @@
             // 两者都是0或无值，使用 localStorage 缓存
             safeAreaData = storageCache;
             console.log('[SafeArea] 使用 localStorage 缓存数据:', safeAreaData);
-        } else if (pluginData) {
-            // 优先使用插件（可能是正确的0）
-            safeAreaData = pluginData;
-            console.log('[SafeArea] 使用插件数据(0值):', safeAreaData);
-        } else if (cssData) {
-            // 只有 CSS 数据（可能是0）
-            safeAreaData = cssData;
-            console.log('[SafeArea] 使用 CSS env() 数据(0值):', safeAreaData);
         } else {
-            // 最后通过屏幕计算
-            safeAreaData = calculateSafeAreaFromScreen();
-            console.log('[SafeArea] 使用屏幕计算数据:', safeAreaData);
+            // 首次安装/无缓存/都是0值时，使用屏幕计算作为备选
+            const calculatedData = calculateSafeAreaFromScreen();
+            if (calculatedData.top > 0 || calculatedData.bottom > 0) {
+                safeAreaData = calculatedData;
+                console.log('[SafeArea] 使用屏幕计算数据:', safeAreaData);
+            } else if (pluginData) {
+                safeAreaData = pluginData;
+                console.log('[SafeArea] 使用插件数据(0值):', safeAreaData);
+            } else if (cssData) {
+                safeAreaData = cssData;
+                console.log('[SafeArea] 使用 CSS env() 数据(0值):', safeAreaData);
+            } else {
+                // 最后 fallback 到默认值
+                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
+                console.log('[SafeArea] 使用默认零值:', safeAreaData);
+            }
         }
         
         // 缓存到内存

@@ -485,6 +485,7 @@ public class MainActivity extends BridgeActivity {
                 "  if (document.getElementById('regexHelpPanel')?.classList.contains('active')) return 'regexHelp'; " +
                 "  if (document.getElementById('azureTtsDialog')?.classList.contains('active')) return 'azureTts'; " +
                 "  if (document.getElementById('heatMapPresetsDialog')?.classList.contains('active')) return 'heatMap'; " +
+                "  if (document.getElementById('fontManagerDialog')?.classList.contains('active')) return 'fontManager'; " +
                 "  if (document.getElementById('historyPanel')?.classList.contains('open')) return 'historyPanel'; " +
                 "  if (document.getElementById('searchPanel')?.classList.contains('open')) return 'searchPanel'; " +
                 "  if (document.getElementById('annotationPanel')?.classList.contains('open')) return 'annotationPanel'; " +
@@ -516,6 +517,7 @@ public class MainActivity extends BridgeActivity {
             case "regexHelp":
             case "azureTts":
             case "heatMap":
+            case "fontManager":
             case "fileBrowser":
             case "historyPanel":
             case "searchPanel":

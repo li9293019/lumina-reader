@@ -82,6 +82,9 @@ Lumina.init = async () => {
 
     Lumina.Font.preloadCritical();
     
+    // 初始化字体管理器
+    await Lumina.FontManager.init();
+    
     // 初始化配置管理器（首次使用会自动迁移旧配置）
     Lumina.Settings.load();
     
@@ -239,6 +242,7 @@ Lumina.HeatMap = {
         this.loadPresets();
         this.bindEvents();
         this.bindPresetsEvents();
+        this.bindFontManagerEvents();
         this.updateAnalyzeButton();
     },
     
@@ -336,6 +340,16 @@ Lumina.HeatMap = {
                     this.parsePresetTags(value);
                     presetTagInput.value = '';
                 }
+            });
+        }
+    },
+    
+    // 字体管理对话框事件绑定
+    bindFontManagerEvents() {
+        const triggerBtn = document.getElementById('openFontManager');
+        if (triggerBtn) {
+            triggerBtn.addEventListener('click', () => {
+                Lumina.FontManagerDialog.open();
             });
         }
     },
@@ -992,7 +1006,8 @@ Lumina.BackButtonHandler = {
             document.getElementById('cacheManagerPanel'),
             document.getElementById('regexHelpPanel'),
             document.getElementById('azureTtsDialog'),
-            document.getElementById('heatMapPresetsDialog')
+            document.getElementById('heatMapPresetsDialog'),
+            document.getElementById('fontManagerDialog')
         ];
         
         for (const panel of aboutPanels) {

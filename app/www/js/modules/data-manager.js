@@ -1692,52 +1692,101 @@ Lumina.DataManager = class {
             });
             
             if (files.length === 0) {
-                listContainer.innerHTML = `
-                    <div class="file-browser-empty">
-                        <svg class="icon"><use href="#icon-folder"/></svg>
-                        <div class="empty-title">${t('noBackupFiles') || '未找到备份文件'}</div>
-                        <div class="empty-desc">${t('noBackupFilesDetail') || 'Documents/LuminaReader 目录中没有找到备份文件'}</div>
-                    </div>
-                `;
+                this.renderEmptyFileBrowser(t, 'noBackupFiles');
             } else {
-                files.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-                listContainer.innerHTML = '';
-                
-                files.forEach(file => {
-                    const item = document.createElement('div');
-                    item.className = 'file-browser-item';
-                    const isLmn = file.name.toLowerCase().endsWith('.lmn');
-                    
-                    const sizeStr = Lumina.Utils.formatFileSize(file.size || 0);
-                    const timeStr = file.mtime ? Lumina.Utils.formatTimeAgo(file.mtime) : '';
-                    const lockIcon = isLmn ? '<svg class="icon lock-icon"><use href="#icon-lock"/></svg>' : '';
-                    const metaStr = timeStr ? `${sizeStr} · ${timeStr}${isLmn ? ' · ' + lockIcon : ''}` : sizeStr + (isLmn ? ' · ' + lockIcon : '');
-                    
-                    item.innerHTML = `
-                        <div class="item-info">
-                            <div class="item-name">${Lumina.Utils.escapeHtml(file.name)}</div>
-                            <div class="item-meta">${metaStr}</div>
-                        </div>
-                    `;
-                    
-                    item.addEventListener('click', async () => {
-                        panel.classList.remove('active');
-                        await this.importFileFromPath(`LuminaReader/${file.name}`);
-                    });
-                    
-                    listContainer.appendChild(item);
-                });
+                this.renderFileList(files, t, panel, listContainer);
             }
         } catch (err) {
             console.error('[FileBrowser] 读取目录失败:', err);
-            listContainer.innerHTML = `
-                <div class="file-browser-empty">
-                    <svg class="icon"><use href="#icon-info"/></svg>
-                    <div class="empty-title">${t('readDirFailed') || '无法读取目录'}</div>
-                    <div class="empty-desc">${err.message || ''}</div>
+            // 权限不足时提供替代方案
+            if (err.message?.includes('permission') || err.message?.includes('Permission')) {
+                this.renderPermissionError(t, listContainer);
+            } else {
+                listContainer.innerHTML = `
+                    <div class="file-browser-empty">
+                        <svg class="icon"><use href="#icon-info"/></svg>
+                        <div class="empty-title">${t('readDirFailed') || '无法读取目录'}</div>
+                        <div class="empty-desc">${err.message || ''}</div>
+                        <button class="btn-secondary" style="margin-top: 16px;" id="fallbackFilePicker">
+                            ${t('useSystemFilePicker') || '使用系统文件选择器'}
+                        </button>
+                    </div>
+                `;
+                document.getElementById('fallbackFilePicker')?.addEventListener('click', () => {
+                    panel.classList.remove('active');
+                    this.showSystemFilePicker();
+                });
+            }
+        }
+    }
+    
+    // 渲染空文件浏览器
+    renderEmptyFileBrowser(t, key) {
+        const listContainer = document.getElementById('fileBrowserList');
+        const messages = {
+            noBackupFiles: { title: '未找到备份文件', desc: 'Documents/LuminaReader 目录中没有找到备份文件' },
+            permissionDenied: { title: '需要存储权限', desc: '请授权访问存储空间以读取备份文件' }
+        };
+        const msg = messages[key] || messages.noBackupFiles;
+        
+        listContainer.innerHTML = `
+            <div class="file-browser-empty">
+                <svg class="icon"><use href="#icon-folder"/></svg>
+                <div class="empty-title">${t(key) || msg.title}</div>
+                <div class="empty-desc">${t(key + 'Detail') || msg.desc}</div>
+            </div>
+        `;
+    }
+    
+    // 渲染文件列表
+    renderFileList(files, t, panel, listContainer) {
+        files.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+        listContainer.innerHTML = '';
+        
+        files.forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'file-browser-item';
+            const isLmn = file.name.toLowerCase().endsWith('.lmn');
+            
+            const sizeStr = Lumina.Utils.formatFileSize(file.size || 0);
+            const timeStr = file.mtime ? Lumina.Utils.formatTimeAgo(file.mtime) : '';
+            const lockIcon = isLmn ? '<svg class="icon lock-icon"><use href="#icon-lock"/></svg>' : '';
+            const metaStr = timeStr ? `${sizeStr} · ${timeStr}${isLmn ? ' · ' + lockIcon : ''}` : sizeStr + (isLmn ? ' · ' + lockIcon : '');
+            
+            item.innerHTML = `
+                <div class="item-info">
+                    <div class="item-name">${Lumina.Utils.escapeHtml(file.name)}</div>
+                    <div class="item-meta">${metaStr}</div>
                 </div>
             `;
-        }
+            
+            item.addEventListener('click', async () => {
+                panel.classList.remove('active');
+                await this.importFileFromPath(`LuminaReader/${file.name}`);
+            });
+            
+            listContainer.appendChild(item);
+        });
+    }
+    
+    // 渲染权限错误提示
+    renderPermissionError(t, listContainer) {
+        const panel = document.getElementById('fileBrowserPanel');
+        listContainer.innerHTML = `
+            <div class="file-browser-empty">
+                <svg class="icon"><use href="#icon-lock"/></svg>
+                <div class="empty-title">需要存储权限</div>
+                <div class="empty-desc">Android 13+ 需要手动授权才能访问 Documents 目录<br>请点击下方按钮使用系统文件选择器</div>
+                <button class="btn-primary" style="margin-top: 16px;" id="useSystemPicker">
+                    选择备份文件
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('useSystemPicker')?.addEventListener('click', () => {
+            panel.classList.remove('active');
+            this.showSystemFilePicker();
+        });
     }
     
     // 从指定路径导入文件（APP 环境）

@@ -58,12 +58,8 @@ Lumina.UI = {
             e.preventDefault(); document.body.style.background = '';
             if (e.dataTransfer.files[0]) {
                 const file = e.dataTransfer.files[0];
-                // 支持 JSON 和 LMN 格式导入，其他格式作为普通文件打开
-                if (file.name.endsWith('.json') || file.name.endsWith('.lmn')) {
-                    await Lumina.Actions.handleImportFile(file);
-                } else {
-                    await Lumina.Actions.processFile(file);
-                }
+                // 统一使用 processFile 处理，内部会检测配置文件并路由
+                await Lumina.Actions.processFile(file);
             }
         });
 

@@ -15,10 +15,10 @@ Lumina.Actions = {
             return;
         }
 
-        // 处理导入文件（JSON 或 LMN 格式）
-        if (fileExt === 'json' || fileExt === 'lmn') { 
-            await this.handleImportFile(file); 
-            return; 
+        // 处理导入文件（JSON 或 LMN 格式）- 支持配置、单本、批量
+        if (fileExt === 'json' || fileExt === 'lmn') {
+            await this.handleImportFile(file);
+            return;
         }
 
         const fileKey = Lumina.DB.adapter.generateFileKey(file);
@@ -357,7 +357,7 @@ Lumina.Actions = {
         }
     },
 
-    // 处理导入文件（JSON 或 LMN 格式，支持单本和批量）
+    // 处理导入文件（JSON 或 LMN 格式，支持单本、批量和配置）
     async handleImportFile(file) {
         if (!Lumina.DataManager) {
             Lumina.UI.showDialog('导入系统未初始化');
@@ -365,27 +365,126 @@ Lumina.Actions = {
         }
         
         try {
-            if (file.name.endsWith('.lmn')) {
-                // LMN 加密格式
-                await Lumina.DataManager.importLmnFile(file);
-            } else {
-                // JSON 明文格式 - 需要检测是否为批量格式
+            let data;
+            const isLmnFile = file.name.toLowerCase().endsWith('.lmn');
+            
+            if (isLmnFile) {
+                // LMN 文件可能是 base64 文本格式（ConfigManager/APP）或二进制格式（DataManager Web）
+                // 先尝试作为文本读取检测是否为 base64
                 const text = await file.text();
-                const data = JSON.parse(text);
+                const trimmedText = text.trim();
                 
-                if (data.exportType === 'batch' && Array.isArray(data.books)) {
-                    // 批量导入模式
-                    await Lumina.DataManager.handleBatchImport(data.books);
-                } else if (data.fileName && Array.isArray(data.content)) {
-                    // 单本导入模式
-                    await Lumina.DataManager.importDataToDB(data);
+                // 检测是否为 base64 编码（只包含 base64 字符且长度是4的倍数）
+                const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(trimmedText.replace(/\s/g, '')) 
+                    && trimmedText.replace(/\s/g, '').length % 4 === 0;
+                
+                let binary;
+                if (isBase64 && trimmedText.length > 0) {
+                    // base64 文本格式
+                    binary = this._base64ToUint8Array(trimmedText);
                 } else {
-                    throw new Error('无效的文件格式');
+                    // 二进制格式，重新读取为 ArrayBuffer
+                    binary = new Uint8Array(await file.arrayBuffer());
                 }
+                
+                // 检查是否需要密码
+                const hasPassword = (binary[5] & 0x01) !== 0;
+                
+                let password = null;
+                if (hasPassword) {
+                    password = await this._requestDecryptPassword();
+                    if (password === null) return; // 用户取消
+                }
+                
+                // 解密数据
+                data = await Lumina.Crypto.decrypt(binary.buffer || binary, password);
+            } else {
+                // JSON 明文格式
+                const text = await file.text();
+                data = JSON.parse(text);
+            }
+            
+            // 统一判断数据类型：配置文件 vs 书籍数据
+            // 配置文件特征：有 version 字段，有 reading 配置节，没有书籍数据特征
+            const hasVersion = data && typeof data.version === 'number';
+            const hasReadingSection = data && data.reading && typeof data.reading === 'object';
+            const hasBooksData = data && (data.exportType === 'batch' || (data.fileName && Array.isArray(data.content)));
+            const isConfigData = hasVersion && hasReadingSection && !hasBooksData;
+            
+            if (isConfigData) {
+                // 配置文件导入
+                if (!data.version) {
+                    throw new Error('无效的配置文件');
+                }
+                
+                const current = Lumina.ConfigManager.load();
+                const merged = Lumina.ConfigManager.mergeDeep(
+                    Lumina.ConfigManager.getDefaultConfig(), 
+                    data
+                );
+                
+                // 保留的元数据
+                merged.meta.firstInstall = current.meta.firstInstall;
+                merged.meta.importCount = (current.meta.importCount || 0) + 1;
+                merged.meta.lastImport = Date.now();
+                
+                Lumina.ConfigManager.save(merged);
+                
+                // 刷新相关UI
+                Lumina.Settings.load();
+                await Lumina.Settings.apply();
+                if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
+                if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
+                Lumina.I18n.updateUI();
+                Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess'));
+                
+            } else if (data.exportType === 'batch' && Array.isArray(data.books)) {
+                // 批量书籍导入
+                await Lumina.DataManager.handleBatchImport(data.books);
+            } else if (data.fileName && Array.isArray(data.content)) {
+                // 单本书籍导入
+                await Lumina.DataManager.importDataToDB(data);
+            } else {
+                throw new Error('无效的文件格式');
             }
         } catch (err) {
             Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': ' + err.message);
         }
+    },
+
+    // base64 解码为 Uint8Array
+    _base64ToUint8Array(base64) {
+        // 清理 base64 字符串（去除所有空白字符）
+        const cleanBase64 = base64.replace(/[\s\r\n]+/g, '');
+        
+        try {
+            const binaryString = atob(cleanBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        } catch (e) {
+            throw new Error('文件格式错误：无效的 base64 编码');
+        }
+    },
+
+    // 请求解密密码（内部方法）
+    async _requestDecryptPassword() {
+        return new Promise((resolve) => {
+            const t = Lumina.I18n?.t || ((k) => k);
+            Lumina.UI.showDialog(t('enterPasswordDesc') || '此文件已加密，请输入密码', 'prompt', (result) => {
+                if (result === null || result === false) {
+                    resolve(null); // 用户取消
+                } else {
+                    resolve(result);
+                }
+            }, {
+                title: t('enterPassword') || '输入密码',
+                inputType: 'password',
+                placeholder: t('passwordPlaceholder') || '请输入密码'
+            });
+        });
     },
 
     prevChapter() {

@@ -948,5 +948,102 @@ window.addEventListener('focus', () => {
     }
 });
 
+// ==================== APP 返回按钮控制 ====================
+
+Lumina.BackButtonHandler = {
+    
+    init() {
+        // 返回按钮处理由原生层 (MainActivity.java) 驱动
+        // 原生层调用 Lumina.BackButtonHandler.handleBackButton()
+        // 这里只需要确保方法已挂载到全局
+        if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.()) {
+            console.log('[BackButton] Handler ready (native-driven)');
+        }
+    },
+    
+    handleBackButton(event) {
+        // 注意：此方法由原生层通过 onBackPressed 调用
+        // 原生层已经检查了状态，这里直接执行关闭逻辑
+        
+        // 优先级1: 关闭书籍详情页 (z-index 300)
+        const bookDetailPanel = document.getElementById('bookDetailPanel');
+        if (bookDetailPanel?.classList.contains('active')) {
+            Lumina.BookDetail.close();
+            return true;
+        }
+        
+        // 优先级2: 关闭书库面板 (z-index 250)
+        const dataManagerPanel = document.getElementById('dataManagerPanel');
+        if (dataManagerPanel?.classList.contains('active')) {
+            Lumina.DataManager.close();
+            return true;
+        }
+        
+        // 优先级3: 关闭关于面板类 (z-index 200)
+        const aboutPanels = [
+            document.getElementById('aboutPanel'),
+            document.getElementById('cacheManagerPanel'),
+            document.getElementById('regexHelpPanel'),
+            document.getElementById('azureTtsDialog'),
+            document.getElementById('heatMapPresetsDialog')
+        ];
+        
+        for (const panel of aboutPanels) {
+            if (panel?.classList.contains('active')) {
+                panel.classList.remove('active');
+                return true;
+            }
+        }
+        
+        // 优先级4: 关闭右侧面板（设置/搜索/注释/历史）(z-index 95)
+        // 注意：这些面板是独立的，不是互斥的，需要逐个检查
+        const rightPanels = [
+            { id: 'sidebarRight', close: (el) => el.classList.remove('open') },
+            { id: 'historyPanel', close: (el) => el.classList.remove('open') },
+            { id: 'searchPanel', close: (el) => el.classList.remove('open') },
+            { id: 'annotationPanel', close: (el) => el.classList.remove('open') }
+        ];
+        
+        for (const panel of rightPanels) {
+            const el = document.getElementById(panel.id);
+            if (el?.classList.contains('open')) {
+                panel.close(el);
+                return true;
+            }
+        }
+        
+        // 优先级5: 关闭左侧面板（目录）(z-index 95)
+        const leftPanel = document.getElementById('sidebarLeft');
+        if (leftPanel?.classList.contains('visible')) {
+            leftPanel.classList.remove('visible');
+            Lumina.DOM.readingArea.classList.remove('with-sidebar');
+            Lumina.State.settings.sidebarVisible = false;
+            Lumina.Settings.save();
+            return true;
+        }
+        
+        // 优先级6: 关闭当前书籍，回到欢迎界面
+        if (Lumina.State.app.currentFile.name) {
+            Lumina.Actions.returnToWelcome();
+            return true;
+        }
+        
+        // 返回 false 表示没有处理，原生层将执行退出逻辑
+        return false;
+    },
+    
+    // 显示退出提示（由原生层调用）
+    showExitToast() {
+        Lumina.UI.showToast(Lumina.I18n.t('pressBackAgainToExit'));
+    }
+};
+
+// 在 Lumina.init 完成后初始化返回按钮处理器
+const originalInit = Lumina.init;
+Lumina.init = async function() {
+    await originalInit.call(this);
+    Lumina.BackButtonHandler.init();
+};
+
 // 启动
 document.addEventListener('DOMContentLoaded', Lumina.init);

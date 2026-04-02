@@ -13,6 +13,8 @@ import android.util.Log;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.PluginCall;
 import com.lumina.reader.BuildConfig;
 import com.lumina.reader.plugins.TTSBackgroundPlugin;
 import com.lumina.reader.plugins.TTSEnhancedPlugin;
@@ -460,6 +462,99 @@ public class MainActivity extends BridgeActivity {
         ExecutorService exec = executor;
         if (exec != null) {
             exec.shutdown();
+        }
+    }
+    
+    // ==================== 返回按钮处理 ====================
+    // 记录上次返回键时间（用于双击退出）
+    private long lastBackTime = 0;
+    private static final long DOUBLE_PRESS_INTERVAL = 2000;
+    
+    @Override
+    public void onBackPressed() {
+        // 将返回键事件转发给 WebView，让 JS 处理
+        if (bridge != null && bridge.getWebView() != null) {
+            // 执行 JS 检查是否有面板打开
+            bridge.getWebView().evaluateJavascript(
+                "javascript:(function() { " +
+                "  if (document.getElementById('bookDetailPanel')?.classList.contains('active')) return 'bookDetail'; " +
+                "  if (document.getElementById('dataManagerPanel')?.classList.contains('active')) return 'dataManager'; " +
+                "  if (document.getElementById('aboutPanel')?.classList.contains('active')) return 'about'; " +
+                "  if (document.getElementById('cacheManagerPanel')?.classList.contains('active')) return 'cacheManager'; " +
+                "  if (document.getElementById('regexHelpPanel')?.classList.contains('active')) return 'regexHelp'; " +
+                "  if (document.getElementById('azureTtsDialog')?.classList.contains('active')) return 'azureTts'; " +
+                "  if (document.getElementById('heatMapPresetsDialog')?.classList.contains('active')) return 'heatMap'; " +
+                "  if (document.getElementById('historyPanel')?.classList.contains('open')) return 'historyPanel'; " +
+                "  if (document.getElementById('searchPanel')?.classList.contains('open')) return 'searchPanel'; " +
+                "  if (document.getElementById('annotationPanel')?.classList.contains('open')) return 'annotationPanel'; " +
+                "  if (document.getElementById('sidebarRight')?.classList.contains('open')) return 'sidebarRight'; " +
+                "  if (document.getElementById('sidebarLeft')?.classList.contains('visible')) return 'sidebarLeft'; " +
+                "  if (Lumina?.State?.app?.currentFile?.name) return 'hasFile'; " +
+                "  return 'welcome'; " +
+                "})()", 
+                result -> {
+                    // 解析结果
+                    String state = result != null ? result.replace("\"", "") : "welcome";
+                    handleBackButtonState(state);
+                }
+            );
+        } else {
+            // 如果 bridge 不可用，执行默认行为
+            super.onBackPressed();
+        }
+    }
+    
+    private void handleBackButtonState(String state) {
+        Log.d(TAG, "Back button state: " + state);
+        
+        switch (state) {
+            case "bookDetail":
+            case "dataManager":
+            case "about":
+            case "cacheManager":
+            case "regexHelp":
+            case "azureTts":
+            case "heatMap":
+            case "historyPanel":
+            case "searchPanel":
+            case "annotationPanel":
+            case "sidebarRight":
+            case "sidebarLeft":
+            case "hasFile":
+                // 有面板或文件打开，让 JS 处理关闭
+                // 触发 JS 的返回按钮处理逻辑
+                runOnUiThread(() -> {
+                    if (bridge != null && bridge.getWebView() != null) {
+                        bridge.getWebView().evaluateJavascript(
+                            "javascript:if (Lumina.BackButtonHandler) Lumina.BackButtonHandler.handleBackButton()",
+                            null
+                        );
+                    }
+                });
+                break;
+                
+            case "welcome":
+            default:
+                // 在欢迎界面，处理双击退出
+                long now = System.currentTimeMillis();
+                if (now - lastBackTime < DOUBLE_PRESS_INTERVAL) {
+                    // 双击确认，退出应用
+                    Log.d(TAG, "Double press confirmed, exiting app");
+                    finishAndRemoveTask();
+                } else {
+                    // 首次按下，提示再按一次
+                    lastBackTime = now;
+                    // 发送 Toast 提示给 JS 显示
+                    runOnUiThread(() -> {
+                        if (bridge != null && bridge.getWebView() != null) {
+                            bridge.getWebView().evaluateJavascript(
+                                "javascript:Lumina.UI.showToast(Lumina.I18n.t('pressBackAgainToExit'))",
+                                null
+                            );
+                        }
+                    });
+                }
+                break;
         }
     }
 }

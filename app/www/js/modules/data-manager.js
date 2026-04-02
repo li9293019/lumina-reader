@@ -944,9 +944,21 @@ Lumina.DataManager = class {
                 content.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
                 
                 if (isClick) {
-                    // 确认是点击 - 打开详情页（移动端滑动后统一打开详情）
+                    // 确认是点击
                     content.style.transform = '';
-                    this.openBookDetail(fileKey);
+                    
+                    // 检查点击的是否是封面区域
+                    const touch = e.changedTouches[0];
+                    const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const isCoverClick = elementAtTouch?.closest('.card-cover');
+                    
+                    if (isCoverClick) {
+                        // 点击封面 - 打开书籍
+                        this.openFile(fileKey);
+                    } else {
+                        // 点击其他区域 - 打开详情页
+                        this.openBookDetail(fileKey);
+                    }
                 } else if (currentX > SWIPE_THRESHOLD) {
                     // 右滑 - 导出
                     content.style.transform = `translateX(${SWIPE_THRESHOLD}px)`;

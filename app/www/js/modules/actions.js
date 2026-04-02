@@ -11,7 +11,7 @@ Lumina.Actions = {
         // 检查文件类型是否支持
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!this.supportedFormats.includes(fileExt)) {
-            Lumina.UI.showDialog(`不支持的文件格式: .${fileExt}\n\n支持的格式: DOCX, EPUB, TXT, MD, HTML, PDF, JSON, LMN`);
+            Lumina.UI.showDialog(Lumina.I18n.t('supportedFileFormatTip', fileExt.toUpperCase(), this.supportedFormats.join(', ').toUpperCase()));
             return;
         }
 

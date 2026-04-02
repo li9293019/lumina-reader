@@ -483,11 +483,6 @@
     min-width: 120px;
 }
 
-.book-detail-author-suffix {
-    color: var(--text-muted);
-    font-size: 13px;
-}
-
 /* ========== 分组区域 ========== */
 .book-detail-section {
     margin-bottom: 24px;

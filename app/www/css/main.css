@@ -1141,6 +1141,8 @@ scroll-margin-top: 100px;
 position: relative;
 font-size: var(--font-size);
 line-height: var(--line-height);
+word-wrap: break-word;
+word-break: break-all;
 }
 
 .doc-line.search-highlight {

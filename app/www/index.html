@@ -222,6 +222,9 @@
         </div>
         <div class="toolbar-right">
             <div class="header-btn-container">
+                <button class="btn-icon" id="libraryBtn" data-i18n-tooltip="localLibrary" style="display: none;">
+                    <svg class="icon"><use href="#icon-library" /></svg>
+                </button>
                 <button class="btn-icon" id="searchToggle" data-i18n-tooltip="search">
                     <svg class="icon"><use href="#icon-search" /></svg>
                 </button>
@@ -239,9 +242,6 @@
             </div>
             <button class="btn-icon" id="annotationBtn" data-i18n-tooltip="annotations">
                 <svg class="icon"><use href="#icon-bookmark" /></svg>
-            </button>
-            <button class="btn-icon" id="libraryBtn" data-i18n-tooltip="localLibrary" style="display: none;">
-                <svg class="icon"><use href="#icon-library" /></svg>
             </button>
             <button class="btn-icon" id="historyBtn" data-i18n-tooltip="history">
                 <svg class="icon"><use href="#icon-history" /></svg>
@@ -1058,7 +1058,6 @@
                         <!-- 作者 -->
                         <div class="book-detail-author">
                             <span class="book-detail-author-name" id="bookDetailAuthor"></span>
-                            <span class="book-detail-author-suffix">[著]</span>
                         </div>
                     </div>
 

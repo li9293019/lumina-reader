@@ -134,7 +134,7 @@ Lumina.Annotations = {
         if (contentArea) {
             // 阻止默认的上下文菜单
             contentArea.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
+                //e.preventDefault();
                 return false;
             });
             

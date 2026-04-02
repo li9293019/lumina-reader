@@ -60,7 +60,7 @@ Lumina.I18n.data = {
         chapterNav: '章节', scrollNav: '翻页', search: '搜索', openFile: '开始阅读',
         close: '关闭', about: '关于', aboutTitle: '关于流萤',
         aboutDesc: '流萤阅读器是一款专注于沉浸式阅读体验的高级文档阅读器，支持多种格式的智能解析与优雅的排版展示。',
-        features: '核心功能', feature1: '支持 DOCX、TXT、Markdown、HTML、PDF 格式',
+        features: '核心功能', feature1: '支持 DOCX、TXT、Markdown、HTML、PDF、EPUB 格式',
         feature2: '智能章节检测与层级识别', feature3: '多种主题配色与字体选择',
         feature4: '灵活的排版自定义选项', feature5: '全文搜索与快速定位',
         feature6: '全文智能语音朗读', feature7: '历史记录与书库管理', feature8: '书签与注释管理', feature9: 'G点热力图智能目录', feature10: '多格式文件数据导出',
@@ -400,6 +400,7 @@ Lumina.I18n.data = {
         azureStatCacheSize: '已缓存',
         azureStatSynthesized: '已合成',
         azureStatAvgTime: '平均耗时',
+        supportedFileFormatTip: '不支持的文件格式: $1\n支持的文件格式: $2',
     },
     zh1: {
         zh: '简体中文',
@@ -424,7 +425,6 @@ Lumina.I18n.data = {
         heatMapKeywords: 'G點熱力關鍵詞', analyzeHeat: '分析本書熱力', heatMapHint: '以逗號或空格分割關鍵字',
         heatMapPresetsTooltip: '標籤預設', heatMapPresetsTitle: '標籤預設管理', heatMapAddPreset: '添加新預設',
         heatMapPresetNamePlaceholder: '預設名稱（如：言情、仙俠）', add: '添加', apply: '應用', copy: '複製', delete: '刪除', noPresets: '暫無預設', presetApplied: '已應用預設: {name}', presetCopied: '已複製預設 "{name}" 的標籤', copyFailed: '複製失敗',
-        
         // 書籍詳情面板
         bookDetailTitle: '書籍詳情',
         basicInfo: '基本資訊',
@@ -451,7 +451,6 @@ Lumina.I18n.data = {
         clear: '清除',
         confirmClear: '確定要清除封面嗎？',
         openBook: '打開閱讀',
-        
         configBackup: '配置備份與恢復', configExport: '導出配置', configImport: '導入配置',
         configEncrypt: '加密備份', configBackupHint: '導出配置文件，可在重裝後恢復', configImportSuccess: '配置導入成功', configImportFailed: '配置導入失敗', configInvalidFileType: '請選擇 .json 或 .lmn 檔案',
         configExportPasswordTitle: '設置匯出密碼', configExportPasswordDesc: '請為此配置備份設置密碼',
@@ -460,7 +459,7 @@ Lumina.I18n.data = {
         chapterNav: '章節', scrollNav: '翻頁', search: '搜尋', openFile: '開始閱讀',
         close: '關閉', about: '關於', aboutTitle: '關於流螢',
         aboutDesc: '流螢閱讀器是一款專注於沉浸式閱讀體驗的高級文件閱讀器，支援多種格式的智慧解析與優雅的排版展示。',
-        features: '核心功能', feature1: '支援 DOCX、TXT、Markdown、HTML、PDF 格式',
+        features: '核心功能', feature1: '支援 DOCX、TXT、Markdown、HTML、PDF、EPUB 格式',
         feature2: '智慧章節偵測與層級識別', feature3: '多種主題配色與字型選擇',
         feature4: '靈活的排版自訂選項', feature5: '全文搜尋與快速定位',
         feature6: '全文智慧語音朗讀', feature7: '歷史記錄與書庫管理', feature8: '書簽與注釋管理', feature9: 'G點熱力圖智慧目錄', feature10: '多格式檔案資料匯出',
@@ -794,7 +793,8 @@ Lumina.I18n.data = {
         azureStatHitRate: '命中率',
         azureStatCacheSize: '已緩存',
         azureStatSynthesized: '已合成',
-        azureStatAvgTime: '平均耗时',
+        azureStatAvgTime: '平均耗時',
+        supportedFileFormatTip: '不支援的檔案格式: $1\n支援的檔案格式: $2',
     },
     en: {
         zh: '简体中文',
@@ -821,8 +821,7 @@ Lumina.I18n.data = {
         heatMapPresetsTitle: 'Tag Preset Manager',
         heatMapAddPreset: 'Add New Preset',
         heatMapPresetNamePlaceholder: 'Preset name (e.g. Romance, Fantasy)',
-        add: 'Add', apply: 'Apply', copy: 'Copy', delete: 'Delete', noPresets: 'No presets', presetApplied: 'Applied preset: {name}', presetCopied: 'Copied tags from "{name}"', copyFailed: 'Copy failed',
-        
+        add: 'Add', apply: 'Apply', copy: 'Copy', delete: 'Delete', noPresets: 'No presets', presetApplied: 'Applied preset: {name}', presetCopied: 'Copied tags from "{name}"', copyFailed: 'Copy failed',  
         // 书籍详情面板
         bookDetailTitle: 'Book Detail',
         basicInfo: 'Basic Info',
@@ -857,7 +856,7 @@ Lumina.I18n.data = {
         chapterNav: 'Chapter', scrollNav: 'Scroll', search: 'Search', openFile: 'Start Now',
         close: 'Close', about: 'About', aboutTitle: 'About Lumina',
         aboutDesc: 'Lumina Reader is an advanced document reader focused on immersive reading experience, supporting intelligent parsing and elegant typography for multiple formats.',
-        features: 'Key Features', feature1: 'Support DOCX, TXT, Markdown, HTML, PDF formats',
+        features: 'Key Features', feature1: 'Support DOCX, TXT, Markdown, HTML, PDF, EPUB formats',
         feature2: 'Smart chapter detection and hierarchy recognition',
         feature3: 'Multiple theme colors and font choices',
         feature4: 'Flexible typography customization',
@@ -1201,7 +1200,8 @@ Lumina.I18n.data = {
         azureStatHitRate: 'Hit Rate',
         azureStatCacheSize: 'Cached',
         azureStatSynthesized: 'Synthesized',
-        azureStatAvgTime: 'Avg Time'
+        azureStatAvgTime: 'Avg Time',
+        supportedFileFormatTip: 'Unsupported file format: $1\nSupported for: $2',
     }
 };
 

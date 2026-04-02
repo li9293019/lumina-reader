@@ -1283,8 +1283,17 @@ Lumina.DataManager = class {
                 progressDialog.close();
                 Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
             } else {
-                // 浏览器环境：直接下载二进制文件
-                this.downloadBinary(encryptedBuffer, fileName);
+                // 浏览器环境：转为 base64 文本下载（与 APP 统一格式）
+                const base64Data = this.arrayBufferToBase64(encryptedBuffer);
+                const blob = new Blob([base64Data], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
                 progressDialog.close();
                 Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
             }
@@ -1386,18 +1395,6 @@ Lumina.DataManager = class {
     }
     
     // 下载二进制文件
-    downloadBinary(buffer, fileName) {
-        const blob = new Blob([buffer], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
     async batchExport() {
         const btn = document.getElementById('batchExportBtn');
         btn.classList.add('loading');
@@ -1565,7 +1562,17 @@ Lumina.DataManager = class {
                 progressDialog.close();
                 Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
             } else {
-                this.downloadBinary(encryptedBuffer, fileName);
+                // 浏览器环境：转为 base64 文本下载（与 APP 统一格式）
+                const base64Data = this.arrayBufferToBase64(encryptedBuffer);
+                const blob = new Blob([base64Data], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
                 progressDialog.close();
                 Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
             }
@@ -1693,38 +1700,44 @@ Lumina.DataManager = class {
         input.click();
     }
     
-    // 导入 .lmn 加密文件
+    // 导入 .lmn 加密文件（支持 base64 文本格式和二进制格式兼容）
     async importLmnFile(file) {
         console.log('[Import LMN] 开始导入:', file.name, 'size:', file.size);
         
-        let arrayBuffer;
+        let binary;
         try {
-            // 尝试使用 file.arrayBuffer()
-            if (file.arrayBuffer) {
-                arrayBuffer = await file.arrayBuffer();
+            // 先尝试作为文本读取，检测是否为 base64 格式（新格式）
+            const text = await file.text();
+            const trimmedText = text.trim();
+            
+            // 检测是否为 base64 编码（只包含 base64 字符且长度是4的倍数）
+            const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(trimmedText.replace(/\s/g, '')) 
+                && trimmedText.replace(/\s/g, '').length % 4 === 0
+                && trimmedText.length > 0;
+            
+            if (isBase64) {
+                // base64 文本格式（新格式，与 APP 统一）
+                console.log('[Import LMN] 检测到 base64 文本格式');
+                binary = this.base64ToUint8Array(trimmedText);
             } else {
-                // APP 环境回退使用 FileReader
-                arrayBuffer = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(reader.error);
-                    reader.readAsArrayBuffer(file);
-                });
+                // 可能是旧二进制格式，重新读取为 ArrayBuffer（兼容历史文件）
+                console.log('[Import LMN] 尝试作为二进制格式读取');
+                const arrayBuffer = await file.arrayBuffer();
+                binary = new Uint8Array(arrayBuffer);
             }
-            console.log('[Import LMN] 读取文件成功:', arrayBuffer.byteLength, 'bytes');
+            console.log('[Import LMN] 读取文件成功:', binary.length, 'bytes');
         } catch (e) {
             console.error('[Import LMN] 读取文件失败:', e);
             throw new Error('读取文件失败: ' + e.message);
         }
         
         // 检测是否为 .lmn 格式
-        if (!Lumina.Crypto.isLmnFile(arrayBuffer)) {
+        if (!Lumina.Crypto.isLmnFile(binary.buffer || binary)) {
             throw new Error('无效的 .lmn 文件格式');
         }
         
         // 检测是否需要密码
-        const view = new Uint8Array(arrayBuffer);
-        const hasPassword = (view[5] & 0x01) !== 0;
+        const hasPassword = (binary[5] & 0x01) !== 0;
         
         let password = null;
         if (hasPassword) {
@@ -1740,7 +1753,7 @@ Lumina.DataManager = class {
         
         try {
             // 解密数据
-            const data = await Lumina.Crypto.decrypt(arrayBuffer, password, (progress) => {
+            const data = await Lumina.Crypto.decrypt(binary.buffer || binary, password, (progress) => {
                 progressDialog.update(progress);
             });
             
@@ -1882,6 +1895,23 @@ Lumina.DataManager = class {
 
     validateHistoryData(data) {
         return data && typeof data === 'object' && data.fileName && Array.isArray(data.content) && data.version && data.exportDate;
+    }
+    
+    // base64 解码为 Uint8Array（用于 LMN 文件导入）
+    base64ToUint8Array(base64) {
+        // 清理 base64 字符串（去除所有空白字符，包括换行符）
+        const cleanBase64 = base64.replace(/[\s\r\n]+/g, '');
+        
+        try {
+            const binaryString = atob(cleanBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        } catch (e) {
+            throw new Error('文件格式错误：无效的 base64 编码');
+        }
     }
 };
 

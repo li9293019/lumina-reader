@@ -144,11 +144,8 @@ Lumina.PasswordPreset = {
     generateSmartPasswords(fileName, length = 6) {
         const config = this.getConfig();
         
-        console.log('[PasswordPreset] 生成小雨林密码 - 文件名:', fileName);
-        
         // 判断是合集还是单篇
         const isCollection = /作品合集|合集/.test(fileName);
-        console.log('[PasswordPreset] 类型:', isCollection ? '合集' : '单篇');
         
         // 清理文件名
         let cleanName = fileName
@@ -169,7 +166,6 @@ Lumina.PasswordPreset = {
         
         // 小雨林固定前缀 + 处理后缀
         const password = 'xyl' + suffix;
-        console.log('[PasswordPreset] 生成的密码:', password);
         
         return [password];
     },
@@ -183,17 +179,12 @@ Lumina.PasswordPreset = {
         const config = this.getConfig();
         const passwords = [];
         
-        console.log('[PasswordPreset] ====== 生成密码列表 ======');
-        console.log('[PasswordPreset] 配置:', JSON.stringify(config));
-        
         // 优先级1：小雨林规则（固定前缀为 xyl）
         if (config.prefix === 'xyl') {
-            console.log('[PasswordPreset] 使用小雨林规则 (xyl)');
             passwords.push(...this.generateSmartPasswords(fileName, config.length));
         }
         // 优先级2：其他固定前缀 + 数字组合
         else if (config.prefix) {
-            console.log('[PasswordPreset] 使用固定前缀:', config.prefix);
             const numLength = Math.max(0, config.length - config.prefix.length);
             for (let i = 0; i < Math.pow(10, numLength); i++) {
                 const num = i.toString().padStart(numLength, '0');
@@ -202,7 +193,6 @@ Lumina.PasswordPreset = {
         }
         // 优先级3：普通智能猜测（文件名前三位 + 数字）
         else if (config.smartGuess) {
-            console.log('[PasswordPreset] 启用智能猜测（文件名前三位+数字）');
             // 旧逻辑：生成大量组合
             const smartPasswords = this.generateLegacySmartPasswords(fileName, config.length);
             passwords.push(...smartPasswords);
@@ -211,18 +201,11 @@ Lumina.PasswordPreset = {
         // 3. 常用密码（始终添加）
         if (config.commonPasswords) {
             const commonList = config.commonPasswords.split('|');
-            console.log('[PasswordPreset] 常用密码:', commonList.length, '个');
             passwords.push(...commonList);
         }
         
         // 去重
         const uniquePasswords = [...new Set(passwords)];
-        console.log('[PasswordPreset] 密码列表生成完成，共', uniquePasswords.length, '个唯一密码');
-        if (uniquePasswords.length <= 10) {
-            console.log('[PasswordPreset] 所有密码:', uniquePasswords);
-        } else {
-            console.log('[PasswordPreset] 前10个密码:', uniquePasswords.slice(0, 10));
-        }
         return uniquePasswords;
     },
 
@@ -235,26 +218,17 @@ Lumina.PasswordPreset = {
      */
     async tryDecrypt(arrayBuffer, fileName, maxAttempts = 50) {
         const config = this.getConfig();
-        console.log('[PasswordPreset] ====== 开始尝试解密 ======');
-        console.log('[PasswordPreset] 文件名:', fileName);
-        console.log('[PasswordPreset] 预设是否启用:', config.enabled);
-        
+
         if (!config.enabled) {
-            console.log('[PasswordPreset] 密码预设未启用，跳过');
             return { success: false, error: '密码预设未启用' };
         }
 
         const passwords = this.generatePasswords(fileName);
         const attempts = passwords.slice(0, maxAttempts);
-        console.log('[PasswordPreset] 实际尝试数量:', attempts.length, '(最多', maxAttempts, ')');
         
         let triedCount = 0;
         for (const password of attempts) {
             triedCount++;
-            // 密码数量少时全部显示，多时只显示前5个和每10个
-            if (attempts.length <= 5 || triedCount <= 3 || triedCount % 10 === 0) {
-                console.log(`[PasswordPreset] 尝试第 ${triedCount}/${attempts.length} 个密码: "${password}"`);
-            }
             try {
                 const result = await Lumina.Crypto.tryDecryptPDF(arrayBuffer, password);
                 if (result.success) {
@@ -266,7 +240,6 @@ Lumina.PasswordPreset = {
             }
         }
         
-        console.log('[PasswordPreset] ✗ 所有密码尝试失败');
         return { success: false, error: `尝试了 ${attempts.length} 个密码均未成功` };
     }
 };

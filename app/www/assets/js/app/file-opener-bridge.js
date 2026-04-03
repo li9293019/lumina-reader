@@ -16,11 +16,35 @@ Lumina.FileOpener = {
         startTime: null
     },
     
+    // 防重复加载：记录最后处理的文件
+    _lastProcessedFile: {
+        name: null,
+        time: 0,
+        size: 0
+    },
+    // 重复加载检测间隔（毫秒）
+    _duplicateThreshold: 5000,
+    
     /**
      * 快速传输开始
      */
     fastStart(fileName, mimeType, totalChunks, totalBytes) {
         console.log('[FileOpener] 快速传输开始:', fileName, totalChunks, '块', totalBytes, '字节');
+        
+        // 检查是否重复加载（多实例防护）
+        const now = performance.now();
+        if (this._lastProcessedFile.name === fileName && 
+            this._lastProcessedFile.size === totalBytes &&
+            (now - this._lastProcessedFile.time) < this._duplicateThreshold) {
+            console.warn('[FileOpener] 检测到重复文件请求，忽略:', fileName);
+            return;
+        }
+        
+        // 如果已有传输在进行，先清理
+        if (this._state.isReceiving) {
+            console.warn('[FileOpener] 有新的传输，取消之前的');
+            this._cleanup();
+        }
         
         this._state = {
             isReceiving: true,
@@ -30,10 +54,10 @@ Lumina.FileOpener = {
             receivedCount: 0,
             totalChunks: totalChunks,
             totalBytes: totalBytes,
-            startTime: performance.now()
+            startTime: now
         };
         
-        Lumina.UI?.showToast?.(Lumina.I18n?.t?.('fileReceiving', fileName) || ('Receiving: ' + fileName));
+        Lumina.UI?.showToast?.(Lumina.I18n?.t?.('fileReceiving', fileName) || ('Receiving: ' + file.name));
         Lumina.UI?.showLoading?.((Lumina.I18n?.t?.('fileReceiveProgress', 0) || 'Receiving... 0%'));
     },
     
@@ -176,11 +200,20 @@ Lumina.FileOpener = {
             await this._waitForLumina();
             await Lumina.Actions.processFile(file);
             
+            // 记录成功处理的文件（用于重复检测）
+            this._lastProcessedFile = {
+                name: file.name,
+                size: file.size,
+                time: performance.now()
+            };
+            
             Lumina.UI?.hideLoading?.();
             Lumina.UI?.showToast?.(Lumina.I18n?.t?.('fileOpened', file.name) || ('Opened: ' + file.name));
             console.log('[FileOpener] 完成:', file.name);
         } catch (err) {
             Lumina.UI?.hideLoading?.();
+            // 即使失败也重置记录，允许重试
+            this._lastProcessedFile = { name: null, time: 0, size: 0 };
             throw err;
         }
     },

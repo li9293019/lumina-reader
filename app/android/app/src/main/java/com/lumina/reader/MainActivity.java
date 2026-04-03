@@ -12,6 +12,8 @@ import android.provider.OpenableColumns;
 import android.util.Log;
 import android.webkit.WebView;
 
+import androidx.activity.OnBackPressedCallback;
+
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PluginCall;
@@ -42,15 +44,31 @@ public class MainActivity extends BridgeActivity {
     // 每 5 块确认一次（5MB 批次）
     private static final int BATCH_SIZE = 5;
     
-    private volatile boolean isTransferring = false;
+    // 跨实例传输状态（防止多实例同时处理文件）
+    private static volatile boolean isTransferring = false;
+    private static volatile long lastTransferTime = 0;
+    private static final long TRANSFER_LOCK_TIMEOUT = 30000; // 30秒超时
+    
     private Handler mainHandler;
     private ExecutorService executor;
+    
+    // 静态标记：是否有主实例正在运行
+    private static MainActivity sActiveInstance = null;
+    private static Intent sPendingIntent = null;
+    
+    /**
+     * 检查主实例是否还活着
+     */
+    private static boolean isActiveInstanceAlive() {
+        if (sActiveInstance == null) return false;
+        // 检查 Activity 是否已销毁
+        return !sActiveInstance.isDestroyed();
+    }
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mainHandler = new Handler(Looper.getMainLooper());
-        // executor 延迟初始化，避免冷启动时 null
         
         if (BuildConfig.DEBUG) {
             WebView.setWebContentsDebuggingEnabled(true);
@@ -59,84 +77,68 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TTSBackgroundPlugin.class);
         registerPlugin(TTSEnhancedPlugin.class);
         
-        // 检查是否是多实例启动，如果是则结束当前实例并将任务带到前台
-        if (handleMultiInstanceLaunch()) {
+        // 检查是否已有主实例在运行（且还活着）
+        if (isActiveInstanceAlive() && sActiveInstance != this) {
+            Log.d(TAG, "已有主实例运行，将文件传递给主实例");
+            // 保存 Intent 给主实例处理
+            sPendingIntent = getIntent();
+            // 唤醒主实例
+            try {
+                sActiveInstance.runOnUiThread(() -> {
+                    if (isActiveInstanceAlive()) {
+                        sActiveInstance.handlePendingIntent();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "传递 Intent 给主实例失败", e);
+                // 主实例可能已死，清理并自己成为主实例
+                sActiveInstance = null;
+            }
+            finish();
             return;
         }
         
+        // 成为主实例
+        sActiveInstance = this;
         handleIntent(getIntent());
-    }
-    
-    /**
-     * 处理多实例启动情况
-     * 当从外部应用打开文件时，防止创建新的 Activity 实例
-     * @return true 如果当前实例被结束，需要停止后续初始化
-     */
-    private boolean handleMultiInstanceLaunch() {
-        // 检查是否有真正的 Lumina 实例已经在运行（不是在当前任务栈中）
-        if (hasExistingLuminaInstance()) {
-            Intent intent = getIntent();
-            Uri data = intent.getData();
-            String action = intent.getAction();
-            
-            Log.d(TAG, "检测到已有 Lumina 实例在运行，将现有实例带到前台");
-            
-            // 创建 Intent 带到已存在的实例
-            Intent bringToFront = new Intent(this, MainActivity.class);
-            if (action != null) bringToFront.setAction(action);
-            if (data != null) bringToFront.setData(data);
-            bringToFront.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            
-            // 如果是 SEND，需要额外传递 EXTRA_STREAM
-            if (Intent.ACTION_SEND.equals(action)) {
-                Uri sendData = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (sendData != null) {
-                    bringToFront.putExtra(Intent.EXTRA_STREAM, sendData);
-                }
-            }
-            
-            startActivity(bringToFront);
-            
-            // 结束当前实例
-            finish();
-            return true;
-        }
         
-        // 没有已有实例，让当前 Activity 正常启动
-        Log.d(TAG, "没有检测到已有实例，正常启动");
-        return false;
+        // 注册返回按钮处理器（AndroidX 推荐方式）
+        registerBackPressedHandler();
     }
     
     /**
-     * 检查是否有真正的 Lumina 实例已经在运行
-     * 通过检查最近任务列表中是否有 Lumina 的 Activity
+     * 注册返回按钮处理器（兼容 Android 13+ 返回手势）
      */
-    private boolean hasExistingLuminaInstance() {
-        try {
-            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            if (am != null) {
-                List<ActivityManager.AppTask> tasks = am.getAppTasks();
-                if (tasks != null) {
-                    for (ActivityManager.AppTask task : tasks) {
-                        ActivityManager.RecentTaskInfo taskInfo = task.getTaskInfo();
-                        if (taskInfo != null && taskInfo.baseActivity != null) {
-                            String packageName = taskInfo.baseActivity.getPackageName();
-                            // 找到 Lumina 的任务（不是当前任务）
-                            if ("com.lumina.reader".equals(packageName)) {
-                                // 检查这个任务是否是当前正在启动的任务
-                                if (taskInfo.id != getTaskId()) {
-                                    Log.d(TAG, "找到已有 Lumina 实例，任务 ID: " + taskInfo.id);
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
+    private void registerBackPressedHandler() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                MainActivity.this.handleBackPressed();
             }
-        } catch (Exception e) {
-            Log.w(TAG, "检查已有实例时出错: " + e.getMessage());
+        });
+    }
+    
+    /**
+     * 处理待处理的 Intent（由其他实例传递过来的）
+     */
+    private void handlePendingIntent() {
+        if (sPendingIntent != null) {
+            Intent intent = sPendingIntent;
+            sPendingIntent = null;
+            Log.d(TAG, "处理待处理 Intent: " + intent);
+            
+            // 强制重置传输状态，确保新文件能被处理
+            if (isTransferring) {
+                Log.d(TAG, "强制重置传输状态以处理新文件");
+                isTransferring = false;
+                lastTransferTime = 0;
+            }
+            
+            // 确保在前台
+            bringToFront();
+            // 处理文件
+            handleIntent(intent);
         }
-        return false;
     }
     
     private synchronized ExecutorService getExecutor() {
@@ -154,11 +156,24 @@ public class MainActivity extends BridgeActivity {
         
         // 确保 Activity 在前台
         if (intent.getData() != null || Intent.ACTION_SEND.equals(intent.getAction())) {
-            // 将 Activity 带到前台
             bringToFront();
         }
         
         handleIntent(intent);
+    }
+    
+    @Override
+    public void onDestroy() {
+        // 清理主实例标记（必须在 super.onDestroy 之前）
+        if (sActiveInstance == this) {
+            Log.d(TAG, "主实例销毁，清理标记");
+            sActiveInstance = null;
+        }
+        ExecutorService exec = executor;
+        if (exec != null) {
+            exec.shutdown();
+        }
+        super.onDestroy();
     }
     
     /**
@@ -198,15 +213,29 @@ public class MainActivity extends BridgeActivity {
      * 处理文件 URI - 使用高性能批量传输
      */
     private void processFileUri(Uri uri) {
-        if (isTransferring) {
-            Log.w(TAG, "已有传输在进行，忽略新请求");
+        // 只有主实例才能处理文件
+        if (sActiveInstance != this) {
+            Log.w(TAG, "非主实例尝试处理文件，忽略");
             return;
+        }
+        
+        // 检查是否正在传输（防止重复加载）
+        if (isTransferring) {
+            // 检查是否超时（防止死锁）
+            if (System.currentTimeMillis() - lastTransferTime < TRANSFER_LOCK_TIMEOUT) {
+                Log.w(TAG, "正在传输中，忽略新请求");
+                return;
+            } else {
+                Log.w(TAG, "检测到超时传输，强制重置状态");
+                isTransferring = false;
+            }
         }
         
         FileInfo info = getFileInfo(uri);
         Log.d(TAG, "处理文件: " + info.fileName + ", MIME: " + info.mimeType);
         
         isTransferring = true;
+        lastTransferTime = System.currentTimeMillis();
         
         // 小文件 (< 5MB)：一次性传输
         // 大文件：批量传输
@@ -237,6 +266,7 @@ public class MainActivity extends BridgeActivity {
             if (!jsReady) {
                 Log.e(TAG, "JS 未就绪，放弃传输");
                 isTransferring = false;
+                lastTransferTime = 0;
                 return;
             }
             
@@ -251,6 +281,7 @@ public class MainActivity extends BridgeActivity {
                     escapeJsString(finalFileName) + "','" + escapeJsString(finalMimeType) + "'," + finalTotalChunks + "," + finalFileData.length + ");";
                 bridge.getWebView().evaluateJavascript(js, result -> {
                     // JS 确认后，后台线程继续发送数据
+                    // 注意：isTransferring 状态由 sendFileData 在完成后重置
                     new Thread(() -> sendFileData(finalFileData, finalFileName, finalMimeType)).start();
                 });
             });
@@ -262,9 +293,10 @@ public class MainActivity extends BridgeActivity {
                 String js = "javascript:Lumina.FileOpener.fastError('" + escapeJsString(error) + "');";
                 bridge.getWebView().evaluateJavascript(js, null);
             });
-        } finally {
             isTransferring = false;
+            lastTransferTime = 0;
         }
+        // 注意：不要在 finally 中重置 isTransferring，因为 sendFileData 在新线程中运行
     }
     
     /**
@@ -373,8 +405,16 @@ public class MainActivity extends BridgeActivity {
             
         } catch (Exception e) {
             Log.e(TAG, "发送数据失败: " + e.getMessage(), e);
+            // 通知 JS 传输错误
+            final String errorMsg = e.getMessage();
+            runOnUiThread(() -> {
+                String js = "javascript:Lumina.FileOpener.fastError('" + escapeJsString(errorMsg) + "');";
+                bridge.getWebView().evaluateJavascript(js, null);
+            });
         } finally {
             isTransferring = false;
+            lastTransferTime = 0;
+            Log.d(TAG, "传输状态已重置");
         }
     }
     
@@ -456,22 +496,15 @@ public class MainActivity extends BridgeActivity {
         String mimeType;
     }
     
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        ExecutorService exec = executor;
-        if (exec != null) {
-            exec.shutdown();
-        }
-    }
-    
     // ==================== 返回按钮处理 ====================
     // 记录上次返回键时间（用于双击退出）
     private long lastBackTime = 0;
     private static final long DOUBLE_PRESS_INTERVAL = 2000;
     
-    @Override
-    public void onBackPressed() {
+    /**
+     * 处理返回按钮（供 OnBackPressedDispatcher 调用）
+     */
+    private void handleBackPressed() {
         // 将返回键事件转发给 WebView，让 JS 处理
         if (bridge != null && bridge.getWebView() != null) {
             // 执行 JS 检查是否有面板打开
@@ -502,7 +535,7 @@ public class MainActivity extends BridgeActivity {
             );
         } else {
             // 如果 bridge 不可用，执行默认行为
-            super.onBackPressed();
+            finish();
         }
     }
     
@@ -564,7 +597,8 @@ public class MainActivity extends BridgeActivity {
                         }
                     });
                 }
-                break;
+                // 阻止默认返回行为（由我们控制）
+                return;
         }
     }
 }

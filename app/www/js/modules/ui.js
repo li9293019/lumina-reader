@@ -194,7 +194,8 @@ Lumina.UI = {
         Lumina.DOM.searchPanelInput.addEventListener('input', (e) => Lumina.Search.perform(e.target.value));
 
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.panel, .btn-icon')) {
+            // 点击面板、按钮或子面板(about-panel)时不关闭
+            if (!e.target.closest('.panel, .btn-icon, .about-panel')) {
                 Object.values(panels).forEach(({ panel }) => panel?.classList.remove('open'));
                 document.getElementById('annotationPanel')?.classList.remove('open');
                 Lumina.Search.clearHighlight();

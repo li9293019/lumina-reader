@@ -631,11 +631,13 @@ Lumina.Actions = {
             'b': () => { if (Lumina.DataManager) Lumina.DataManager.toggle(); },
             'r': () => Lumina.TTS.manager.toggle(),
             'escape': () => {
-                [Lumina.DOM.sidebarRight, Lumina.DOM.historyPanel, Lumina.DOM.searchPanel].forEach(p => p.classList.remove('open'));
-                Lumina.DOM.aboutPanel.classList.remove('active');
-                Lumina.DOM.customDialog.classList.remove('active');
-                if (Lumina.DataManager) Lumina.DataManager.close();
-                Lumina.Search.clearHighlight();
+                // 使用与 APP 返回按钮相同的优先级逻辑
+                const handled = Lumina.BackButtonHandler?.handleBackButton?.();
+                if (!handled) {
+                    // 如果没有面板可关闭，且当前没有打开文件，则不做任何事
+                    // 有文件打开时 handleBackButton 会返回到欢迎界面
+                    Lumina.Search.clearHighlight();
+                }
             },
             'arrowup': () => { e.preventDefault(); Lumina.Actions.prevChapter(); },
             'arrowdown': () => { e.preventDefault(); Lumina.Actions.nextChapter(); },

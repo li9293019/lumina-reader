@@ -119,7 +119,7 @@ Lumina.FontManager = {
     
     async init() {
         await this._loadCustomFonts();
-        console.log('[FontManager] 初始化完成，自定义字体:', this.customFonts.length);
+        // console.log('[FontManager] 初始化完成，自定义字体:', this.customFonts.length);
     },
     
     // 获取所有可用字体
@@ -561,14 +561,15 @@ Lumina.FontManagerDialog = {
     render() {
         if (!this.listContainer) return;
         
+        const t = Lumina.I18n?.t || ((k) => k);
         const fonts = Lumina.FontManager.customFonts;
         
         if (fonts.length === 0) {
             this.listContainer.innerHTML = `
                 <div class="font-manager-empty">
                     <svg class="icon" style="width:48px;height:48px;opacity:0.3"><use href="#icon-font"/></svg>
-                    <div class="empty-title" data-i18n="fontManagerEmpty">暂无自定义字体</div>
-                    <div class="empty-desc" data-i18n="fontManagerEmptyHint">点击下方按钮添加字体文件</div>
+                    <div class="empty-title">${t('fontManagerEmpty') || '暂无自定义字体'}</div>
+                    <div class="empty-desc">${t('fontManagerEmptyHint') || '点击下方按钮添加字体文件'}</div>
                 </div>`;
             return;
         }
@@ -579,7 +580,7 @@ Lumina.FontManagerDialog = {
                     <div class="font-name">${Lumina.Utils.escapeHtml(font.name)}</div>
                     <div class="font-meta">${this._formatSize(font.size)}</div>
                 </div>
-                <button class="btn-icon font-delete-btn" data-font-id="${font.id}" title="删除">
+                <button class="btn-icon font-delete-btn" data-font-id="${font.id}" data-i18n-tooltip="delete" data-tooltip-text="删除">
                     <svg class="icon" style="width:18px;height:18px"><use href="#icon-delete"/></svg>
                 </button>
             </div>
@@ -614,6 +615,15 @@ Lumina.FontManagerDialog = {
             async (confirmed) => {
                 if (confirmed) {
                     await Lumina.FontManager.removeFont(fontId);
+                    
+                    // 如果删除的是当前正在使用的字体，重置为默认字体
+                    const currentFont = Lumina.State.settings.font;
+                    if (currentFont === fontId) {
+                        Lumina.State.settings.font = 'serif';
+                        await Lumina.Settings.save();
+                        await Lumina.Settings.apply();
+                    }
+                    
                     this.render();
                     Lumina.Settings?.renderFontButtons?.();
                 }

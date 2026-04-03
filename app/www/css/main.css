@@ -2490,7 +2490,7 @@ opacity: 0.7;
 }
 
 .file-browser-footer {
-padding: 16px 24px;
+padding: 16px 24px 32px 16px;
 border-top: 1px solid var(--border-color);
 background: var(--bg-secondary);
 }
@@ -5300,7 +5300,6 @@ transform: translate(-50%, -50%) scale(1);
 
 /* 底部添加按钮区域 */
 .font-manager-footer {
-    padding: 16px 20px;
+    padding: 16px 20px 0 16px;
     border-top: 1px solid var(--border-color);
-    background: var(--bg-secondary);
 }

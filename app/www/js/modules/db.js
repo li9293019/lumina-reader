@@ -88,7 +88,7 @@ Lumina.DB.IndexedDBImpl = class {
     async saveFile(fileKey, data) {
         if (!this.isReady || !this.db) return false;
         try {
-            // 获取现有记录，以保留 created_at（首次创建时间）
+            // 获取现有记录，用于字段合并
             const existingRecord = await this.getFile(fileKey);
             const createdAt = existingRecord?.created_at || data.created_at || Lumina.DB.getLocalTimeString();
             
@@ -99,25 +99,37 @@ Lumina.DB.IndexedDBImpl = class {
             const contentJson = JSON.stringify(data.content || []);
             const contentSize = new Blob([contentJson]).size;
             
+            // 【关键】合并策略：data 中的字段优先，但保留 existing 中有而 data 中没有的字段
+            // 这是为了支持"增量保存"，避免重新打开文件时丢失阅读进度等数据
+            const mergedData = existingRecord ? {
+                ...existingRecord,  // 保留所有现有字段
+                ...data,            // 用新数据覆盖
+                // 特殊处理：如果 data 中某项为 undefined 但 existing 有值，保留 existing
+                annotations: data.annotations !== undefined ? data.annotations : existingRecord.annotations,
+                heatMap: data.heatMap !== undefined ? data.heatMap : existingRecord.heatMap,
+                metadata: data.metadata !== undefined ? data.metadata : existingRecord.metadata,
+                cover: data.cover !== undefined ? data.cover : existingRecord.cover,
+            } : data;
+            
             const record = {
                 fileKey,
-                fileName: data.fileName,
-                fileType: data.fileType,
-                fileSize: data.fileSize || 0,
+                fileName: mergedData.fileName,
+                fileType: mergedData.fileType,
+                fileSize: mergedData.fileSize || 0,
                 contentSize: contentSize,
-                content: data.content,
-                wordCount: data.wordCount,
-                lastChapter: data.lastChapter || 0,
-                lastScrollIndex: data.lastScrollIndex || 0,
-                chapterTitle: data.chapterTitle || '',
-                lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
+                content: mergedData.content,
+                wordCount: mergedData.wordCount,
+                lastChapter: mergedData.lastChapter || 0,
+                lastScrollIndex: mergedData.lastScrollIndex || 0,
+                chapterTitle: mergedData.chapterTitle || '',
+                lastReadTime: mergedData.lastReadTime || Lumina.DB.getLocalTimeString(),
                 created_at: createdAt,  // 文件首次添加到库的时间（不变）
-                customRegex: data.customRegex || { chapter: '', section: '' },
-                chapterNumbering: data.chapterNumbering || 'none',
-                annotations: data.annotations || [],
-                cover: data.cover || null,
-                heatMap: data.heatMap || null,
-                metadata: data.metadata || null  // 书籍元数据（书名、作者、简介、标签等）
+                customRegex: mergedData.customRegex || { chapter: '', section: '' },
+                chapterNumbering: mergedData.chapterNumbering || 'none',
+                annotations: mergedData.annotations || [],
+                cover: mergedData.cover || null,
+                heatMap: mergedData.heatMap || null,
+                metadata: mergedData.metadata || null  // 书籍元数据（书名、作者、简介、标签等）
             };
             
             return new Promise((resolve) => {
@@ -890,8 +902,29 @@ Lumina.DB.SQLiteImpl = class {
 
     async saveFile(fileKey, data) {            
         try {
-            // 关键修复：合并数据而不是完全替换，避免丢失 annotations 和 heatMap
-            const existing = this.cache.get(fileKey) || {};
+            // 【关键】获取现有数据用于合并
+            // 优先级：内存缓存 > 本地 IndexedDB > 服务器
+            let existing = this.cache.get(fileKey);
+            
+            // 内存缓存未命中，查本地 IndexedDB（避免频繁 HTTP 请求）
+            if (!existing && this.localCacheReady) {
+                try {
+                    existing = await this.localCache.getFile(fileKey);
+                } catch (e) {
+                    // 忽略错误，继续尝试服务器
+                }
+            }
+            
+            // 本地也没有，才从服务器获取（首次保存或本地缓存被清理）
+            if (!existing) {
+                try {
+                    existing = await this.getFile(fileKey);
+                } catch (e) {
+                    existing = null;
+                }
+            }
+            
+            existing = existing || {};
             
             // 特殊处理 annotations：如果 data.annotations 是空数组但 existing 有数据，保留 existing
             const mergedAnnotations = (data.annotations === undefined || 
@@ -1254,25 +1287,39 @@ Lumina.DB.WebCacheIndexedDBImpl = class {
                 const transaction = this.db.transaction(['fileData'], 'readwrite');
                 const store = transaction.objectStore('fileData');
                 
-                // 先查询是否已存在，以保留 created_at
+                // 先查询是否已存在，以保留 created_at 和阅读进度
                 const getRequest = store.get(fileKey);
                 getRequest.onsuccess = () => {
                     const existing = getRequest.result;
                     const now = new Date().toISOString();
                     
+                    // 【关键】合并数据：保留 existing 中有的但 data 中没有的字段
+                    // 这是为了确保重新打开文件时不丢失阅读进度等信息
                     const record = {
                         fileKey,
                         fileName: data.fileName,
                         fileType: data.fileType,
-                        content: data.content,
-                        cover: data.cover,
-                        heatMap: data.heatMap,
-                        annotations: data.annotations,
-                        metadata: data.metadata,
+                        // content：优先用 data 的，否则保留 existing（增量保存时不传 content）
+                        content: data.content !== undefined ? data.content : (existing?.content || null),
+                        // 封面：优先用 data 的，否则保留 existing
+                        cover: data.cover !== undefined ? data.cover : (existing?.cover || null),
+                        // 热力图：优先用 data 的，否则保留 existing
+                        heatMap: data.heatMap !== undefined ? data.heatMap : (existing?.heatMap || null),
+                        // 批注：优先用 data 的，否则保留 existing
+                        annotations: data.annotations !== undefined ? data.annotations : (existing?.annotations || []),
+                        // 元数据：优先用 data 的，否则保留 existing
+                        metadata: data.metadata !== undefined ? data.metadata : (existing?.metadata || null),
+                        // 阅读进度字段：优先保留 existing（除非 data 中有更新的值）
+                        lastChapter: data.lastChapter || existing?.lastChapter || 0,
+                        lastScrollIndex: data.lastScrollIndex || existing?.lastScrollIndex || 0,
+                        chapterTitle: data.chapterTitle || existing?.chapterTitle || '',
+                        customRegex: data.customRegex || existing?.customRegex || { chapter: '', section: '' },
+                        chapterNumbering: data.chapterNumbering || existing?.chapterNumbering || 'none',
+                        wordCount: data.wordCount || existing?.wordCount || 0,
+                        fileSize: data.fileSize || existing?.fileSize || 0,
                         lastReadTime: data.lastReadTime || now,
                         updated_at: now,
-                        // 保留原有的 created_at，或者设置新的
-                        // 保留原有创建时间，或使用数据中的创建时间，或使用最后阅读时间（首次缓存时应该用数据中的时间）
+                        // 保留原有的 created_at
                         created_at: existing?.created_at || data.created_at || data.lastReadTime || now
                     };
                     

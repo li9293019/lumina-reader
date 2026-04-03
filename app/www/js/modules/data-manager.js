@@ -1724,7 +1724,7 @@ Lumina.DataManager = class {
     renderEmptyFileBrowser(t, key) {
         const listContainer = document.getElementById('fileBrowserList');
         const messages = {
-            noBackupFiles: { title: '未找到备份文件', desc: 'Documents/LuminaReader 目录中没有找到备份文件' },
+            noBackupFiles: { title: '未找到备份文件', desc: '应用目录中没有找到备份文件' },
             permissionDenied: { title: '需要存储权限', desc: '请授权访问存储空间以读取备份文件' }
         };
         const msg = messages[key] || messages.noBackupFiles;
@@ -2428,24 +2428,42 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
 
     // 全量保存（首次打开、重新解析）
     let finalCover = cover;
-    let existingHeatMap = null;
+    let existingData = null;
     if (Lumina.State.app.dbReady) {
-        const existingData = await Lumina.DB.adapter.getFile(fileKey);
+        existingData = await Lumina.DB.adapter.getFile(fileKey);
         if (existingData) {
             if (finalCover === null && existingData.cover) finalCover = existingData.cover;
             // 保留现有的 heatMap，如果当前没有的话
             if (!Lumina.State.app.currentFile.heatMap && existingData.heatMap) {
-                existingHeatMap = existingData.heatMap;
+                Lumina.State.app.currentFile.heatMap = existingData.heatMap;
             }
         }
     }
-    
-    // 如果有现有的 heatMap 且当前没有，恢复它
-    if (existingHeatMap) {
-        Lumina.State.app.currentFile.heatMap = existingHeatMap;
-    }
 
     const data = await Lumina.DB.HistoryDataBuilder.build(fileKey, { cover: finalCover }, true, saveMode);
+    
+    // 【关键】如果是重新打开已有文件，保留原有的阅读进度字段
+    // 避免重新解析后重置阅读进度
+    if (existingData) {
+        // 只有当当前状态是初始状态（刚打开文件）时才保留原有进度
+        // 如果用户已经开始阅读（currentChapterIndex > 0），则使用当前状态
+        if (Lumina.State.app.currentChapterIndex === 0 && existingData.lastChapter > 0) {
+            data.lastChapter = existingData.lastChapter;
+            data.lastScrollIndex = existingData.lastScrollIndex || 0;
+            data.chapterTitle = existingData.chapterTitle || '';
+        }
+        // 保留其他重要字段
+        if (!data.customRegex?.chapter && existingData.customRegex) {
+            data.customRegex = existingData.customRegex;
+        }
+        if (existingData.chapterNumbering && data.chapterNumbering === 'none') {
+            data.chapterNumbering = existingData.chapterNumbering;
+        }
+        // 保留 annotations（批注）
+        if (existingData.annotations && existingData.annotations.length > 0) {
+            data.annotations = existingData.annotations;
+        }
+    }
     
     // 如果用户选择不保存，跳过数据库保存
     if (saveMode === 'no-save') {

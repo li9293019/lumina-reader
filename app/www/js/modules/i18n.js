@@ -415,6 +415,7 @@ Lumina.I18n.data = {
         azureStatCacheSize: '已缓存',
         azureStatSynthesized: '已合成',
         azureStatAvgTime: '平均耗时',
+        azureNetworkTimeout: 'Azure 语音网络超时，已切换到系统语音继续朗读',
         supportedFileFormatTip: '不支持的文件格式: $1\n支持的文件格式: $2',
     },
     zh1: {
@@ -824,6 +825,7 @@ Lumina.I18n.data = {
         azureStatCacheSize: '已緩存',
         azureStatSynthesized: '已合成',
         azureStatAvgTime: '平均耗時',
+        azureNetworkTimeout: 'Azure 語音網路超時，已切換到系統語音繼續朗讀',
         supportedFileFormatTip: '不支援的檔案格式: $1\n支援的檔案格式: $2',
     },
     en: {
@@ -1246,6 +1248,7 @@ Lumina.I18n.data = {
         azureStatCacheSize: 'Cached',
         azureStatSynthesized: 'Synthesized',
         azureStatAvgTime: 'Avg Time',
+        azureNetworkTimeout: 'Azure voice network timeout, switched to system voice',
         supportedFileFormatTip: 'Unsupported file format: $1\nSupported for: $2',
     }
 };

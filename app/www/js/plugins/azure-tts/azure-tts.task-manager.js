@@ -135,7 +135,7 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
         // console.log(`[AzureTTS] 预加载: "${text.substring(0, 20)}..."`);
         
         // 开始后台合成
-        const synthesisPromise = this._doSynthesize(text, params);
+        const synthesisPromise = this._doSynthesize(text, params).catch(() => null);
         this.pendingSynthesis.set(key, synthesisPromise);
         
         synthesisPromise.then(audioData => {
@@ -143,8 +143,6 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             if (audioData) {
                 this._addToCache(key, audioData, params, text.length);
             }
-        }).catch(() => {
-            this.pendingSynthesis.delete(key);
         });
     }
     
@@ -212,10 +210,6 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
         this.stats.misses++;
         const audioData = await this._doSynthesize(text, params);
         
-        if (!audioData) {
-            throw new Error('合成失败');
-        }
-        
         // 播放前检查是否已被取消
         if (speakId !== this.currentSpeakId) {
             // console.log('[AzureTTS] 朗读已被取消，丢弃实时合成播放');
@@ -226,13 +220,13 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
     
     // 执行合成
     async _doSynthesize(text, params) {
-        if (!this.engine) return null;
+        if (!this.engine) throw new Error('引擎未设置');
         
         // 过滤纯标点或太短的文本（Azure可能处理不好）
         const meaningfulText = text.replace(/[\s\n\r""''（）()【】\[\]《》<>]/g, '');
         if (meaningfulText.length < 2) {
             console.warn('[AzureTTS] 文本太短或纯标点，跳过合成:', text);
-            return null;
+            throw new Error('文本太短');
         }
         
         const startTime = performance.now();
@@ -254,7 +248,8 @@ Lumina.Plugin.AzureTTS.TaskManager = class {
             return audioData;
         } catch (error) {
             console.error('[AzureTTS] 合成失败:', error);
-            return null;
+            // 保留原始错误，特别是超时错误
+            throw error;
         }
     }
     

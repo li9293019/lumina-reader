@@ -27,6 +27,9 @@ Lumina.TTS.Manager = class {
         
         // 插件引擎
         this.pluginEngine = null;
+        
+        // 当前会话是否禁用 Azure（超时后设置，直到用户停止朗读才重置）
+        this._azureDisabledForSession = false;
     }
 
     async init() {
@@ -792,6 +795,11 @@ Lumina.TTS.Manager = class {
         // 停止后重置为一般模式（段落模式）
         this.isPageMode = false;
         
+        // 用户手动停止，重置 Azure 禁用标志（下次朗读可重新尝试）
+        if (this._azureDisabledForSession) {
+            this._azureDisabledForSession = false;
+        }
+        
         if (this.synth) this.synth.cancel();
         // APP 环境停止原生 TTS
         if (this.isApp && this.nativeTTS) {
@@ -1106,9 +1114,21 @@ Lumina.TTS.Manager = class {
                         return;
                     }
                     console.error('[TTS] 插件引擎页面朗读失败:', err);
-                    // 失败时回退到系统 TTS
-                    this.clearPluginEngine();
-                    setTimeout(() => this.speakCurrentPage(), 100);
+                    
+                    // 网络超时 - 立即禁用 Azure，播报提示并回退到系统 TTS 接管
+                    if (err.message?.includes('超时') || err.message?.includes('timeout')) {
+                        console.warn('[TTS] Azure 页面模式超时，已禁用');
+                        // 立即禁用 Azure（当前会话内不再尝试）
+                        this._azureDisabledForSession = true;
+                        this.clearPluginEngine();
+                        // 播报提示后继续使用系统 TTS 朗读
+                        await this._speakWithSystemTTS(Lumina.I18n.t('azureNetworkTimeout'));
+                    }
+                    
+                    // 回退到系统 TTS 继续朗读当前页
+                    if (this.isPlaying) {
+                        setTimeout(() => this.speakCurrentPage(), 100);
+                    }
                 }
             } else if (this.isApp && this.nativeTTS) {
                 // APP 环境原生 TTS：按500字分段朗读（避免崩溃）
@@ -1258,6 +1278,11 @@ Lumina.TTS.Manager = class {
      * 优先使用 Azure TTS 插件（如果启用）
      */
     getPluginEngine() {
+        // 当前会话已禁用 Azure（因超时），直接返回 null
+        if (this._azureDisabledForSession) {
+            return null;
+        }
+        
         // 如果已经缓存了引擎实例，直接返回
         if (this.pluginEngine) {
             // console.log('[TTS] 使用缓存的插件引擎');
@@ -1750,6 +1775,19 @@ Lumina.TTS.Manager = class {
                     return;
                 }
                 console.error('[TTS] 插件引擎朗读失败:', e.message, e.stack);
+                
+                // 网络超时 - 切换到系统 TTS 并接管当前任务
+                if (e.message?.includes('超时') || e.message?.includes('timeout')) {
+                    console.warn('[TTS] Azure 超时，已禁用，切换到系统 TTS');
+                    // 立即禁用 Azure（当前会话内不再尝试）
+                    this._azureDisabledForSession = true;
+                    this.clearPluginEngine();
+                    
+                    // 使用系统 TTS 接管：先播报提示，再朗读剩余句子
+                    await this._fallbackToSystemTTSForSentences(i, true);
+                    return;
+                }
+                
                 if (e.message?.includes('未初始化') || e.message?.includes('失败')) {
                     // console.log('[TTS] 插件引擎不可用，切换到系统 TTS');
                     this.clearPluginEngine();
@@ -1769,6 +1807,133 @@ Lumina.TTS.Manager = class {
             this.clearAllHighlights();
             setTimeout(() => this.speakCurrent(), 100);
         }
+    }
+    
+    /**
+     * 当 Azure TTS 超时时，回退到系统 TTS 接管剩余句子
+     * @param {number} startSentenceIdx - 从第几句开始接管
+     * @param {boolean} speakHint - 是否先播报回退提示
+     */
+    async _fallbackToSystemTTSForSentences(startSentenceIdx, speakHint = false) {
+        if (!this.isPlaying) return;
+        
+        // 先播报回退提示（使用系统 TTS）
+        if (speakHint) {
+            const hintText = Lumina.I18n.t('azureNetworkTimeout');
+            Lumina.UI.showToast(hintText);
+            await this._speakWithSystemTTS(hintText);
+        }
+        
+        // 如果播报提示后朗读已停止，不再继续
+        if (!this.isPlaying) return;
+        
+        // 获取剩余句子
+        const remainingSentences = this.currentSentences.slice(startSentenceIdx);
+        if (remainingSentences.length === 0) {
+            // 没有剩余句子，继续下一段
+            this.currentItemIndex++;
+            this.currentSentenceIndex = 0;
+            this.currentHighlightIndex = -1;
+            this.clearAllHighlights();
+            setTimeout(() => this.speakCurrent(), 100);
+            return;
+        }
+        
+        // 使用系统 TTS 朗读剩余句子
+        for (let i = 0; i < remainingSentences.length; i++) {
+            if (!this.isPlaying) return;
+            
+            const actualIdx = startSentenceIdx + i;
+            this.currentSentenceIndex = actualIdx;
+            const sentence = remainingSentences[i];
+            
+            // 跳过纯标点符号的句子
+            const meaningfulChars = sentence.replace(/[\s\n\r""''（）()【】\[\]《》<>、，。！？；：,.!?;:\-\—]/g, '');
+            if (meaningfulChars.length < 2) continue;
+            
+            // 更新高亮
+            this.clearAllHighlights();
+            if (this.currentParagraphEl) {
+                const highlightedSpan = this.highlightSentenceInParagraph(actualIdx);
+                if (highlightedSpan) {
+                    highlightedSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            // 使用系统 TTS 朗读当前句子
+            const success = await this._speakWithSystemTTS(sentence, { useCategory: true });
+            if (!success) {
+                // TTS 失败，停止朗读
+                this.stop();
+                return;
+            }
+        }
+        
+        // 本段落朗读完成，继续下一段
+        if (this.isPlaying) {
+            this.currentItemIndex++;
+            this.currentSentenceIndex = 0;
+            this.currentHighlightIndex = -1;
+            this.clearAllHighlights();
+            setTimeout(() => this.speakCurrent(), 100);
+        }
+    }
+    
+    /**
+     * 使用系统 TTS 播报一段文本
+     * @param {string} text - 要播报的文本
+     * @param {Object} options - 可选配置
+     * @param {boolean} options.useCategory - 是否使用 playback 分类（APP 原生 TTS）
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async _speakWithSystemTTS(text, { useCategory = false } = {}) {
+        if (!text) return false;
+        
+        if (this.isApp && this.nativeTTS) {
+            // APP 环境 - 使用原生 TTS
+            try {
+                const options = {
+                    text: text,
+                    lang: 'zh-CN',
+                    rate: this.settings.rate,
+                    pitch: this.settings.pitch,
+                    volume: this.settings.volume
+                };
+                if (useCategory) options.category = 'playback';
+                await this.nativeTTS.speak(options);
+                return true;
+            } catch (e) {
+                console.error('[TTS] 原生 TTS 失败:', e);
+                return false;
+            }
+        } else if (this.synth) {
+            // Web 环境 - 使用 Web Speech API
+            try {
+                await new Promise((resolve, reject) => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'zh-CN';
+                    utterance.rate = this.settings.rate;
+                    utterance.pitch = this.settings.pitch;
+                    utterance.volume = this.settings.volume;
+                    
+                    if (this.settings.voiceURI) {
+                        const voice = this.voices.find(v => v.voiceURI === this.settings.voiceURI);
+                        if (voice) utterance.voice = voice;
+                    }
+                    
+                    utterance.onend = () => resolve(true);
+                    utterance.onerror = (e) => reject(e);
+                    this.synth.speak(utterance);
+                });
+                return true;
+            } catch (e) {
+                console.error('[TTS] Web TTS 失败:', e);
+                return false;
+            }
+        }
+        return false;
     }
     
     // 为插件填充向前看窗口

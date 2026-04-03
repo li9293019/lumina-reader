@@ -65,6 +65,18 @@ Lumina.Plugin.AzureTTS.Engine = class {
         }
         
         return new Promise((resolve, reject) => {
+            let isCompleted = false;
+            let synthesizer = null;
+            
+            // 10秒超时控制
+            const timeoutId = setTimeout(() => {
+                if (!isCompleted) {
+                    isCompleted = true;
+                    if (synthesizer) synthesizer.close();
+                    reject(new Error('合成超时'));
+                }
+            }, 10000);
+            
             const stream = this.SpeechSDK.AudioOutputStream.createPullStream();
             const audioConfig = this.SpeechSDK.AudioConfig.fromStreamOutput(stream);
             
@@ -74,12 +86,15 @@ Lumina.Plugin.AzureTTS.Engine = class {
             speechConfig.speechSynthesisOutputFormat = 
                 this.SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
             
-            const synthesizer = new this.SpeechSDK.SpeechSynthesizer(speechConfig, audioConfig);
+            synthesizer = new this.SpeechSDK.SpeechSynthesizer(speechConfig, audioConfig);
             const ssml = this._buildSSML(text, voice, style, rate, pitch, volume);
             
             synthesizer.speakSsmlAsync(
                 ssml,
                 (result) => {
+                    if (isCompleted) return;
+                    isCompleted = true;
+                    clearTimeout(timeoutId);
                     synthesizer.close();
                     if (result.reason === this.SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
                         resolve(result.audioData);
@@ -88,6 +103,9 @@ Lumina.Plugin.AzureTTS.Engine = class {
                     }
                 },
                 (err) => {
+                    if (isCompleted) return;
+                    isCompleted = true;
+                    clearTimeout(timeoutId);
                     synthesizer.close();
                     reject(err);
                 }

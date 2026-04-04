@@ -126,11 +126,19 @@ Lumina.Actions = {
                 if (fileType === 'docx') {
                     // DOCX 解析，支持加密文件
                     result = await this.parseDOCXWithPassword(arrayBuffer, file.name);
+                    // DOCX 可能包含标题和作者元数据
+                    if (result.docxMetadata?.title) {
+                        Lumina.State.app.currentFile.docxMetadata = result.docxMetadata;
+                    }
                 } else if (fileType === 'epub') {
                     // EPUB 解析（ZIP 格式，轻量级提取 HTML 内容）
                     result = await Lumina.Parser.parseEPUB(arrayBuffer);
                     // EPUB 可能有 metadata 中定义的封面
                     if (result.coverImage) cover = result.coverImage;
+                    // EPUB 可能包含书名和作者元数据
+                    if (result.epubMetadata?.title) {
+                        Lumina.State.app.currentFile.epubMetadata = result.epubMetadata;
+                    }
                 } else {
                     // PDF 解析带进度显示，传入文件名用于密码预设器
                     const t = Lumina.I18n.t;
@@ -175,6 +183,17 @@ Lumina.Actions = {
             Lumina.State.app.currentFile.wordCount = wordCount;
             Lumina.State.app.currentFile.name = file.name;
             Lumina.State.app.currentFile.file = file;
+
+            // 提取元数据（书名、作者）
+            const rawText = Lumina.State.app.currentFile.rawContent || 
+                (result.items?.slice(0, 50).map(i => i.text).join('\n'));
+            const extractedMeta = Lumina.Parser.extractMetadata(file, result, rawText);
+            
+            // 保存提取的元数据
+            Lumina.State.app.currentFile.extractedMetadata = extractedMeta;
+            
+            console.log('[Metadata] Extracted:', extractedMeta.title, '|', extractedMeta.author, 
+                '| Confidence:', extractedMeta.confidence, '| Source:', extractedMeta.source);
 
             Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];
             Lumina.State.app.chapters = Lumina.Parser.buildChapters(result.items);

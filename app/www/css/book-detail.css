@@ -995,3 +995,46 @@
         padding-bottom: max(16px, calc(12px + var(--safe-area-bottom)));
     }
 }
+
+/* ========== 自动提取标记样式 ========== */
+
+/* 自动提取的书名/作者显示为斜体，给用户视觉提示 */
+#bookDetailName[data-auto-extracted="true"],
+#bookDetailAuthor[data-auto-extracted="true"] {
+    font-style: italic;
+    position: relative;
+}
+
+/* 添加一个小圆点提示（可选） */
+#bookDetailName[data-auto-extracted="true"]::after,
+#bookDetailAuthor[data-auto-extracted="true"]::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+    opacity: 0.6;
+}
+
+/* 悬停时显示提示 */
+#bookDetailName[data-auto-extracted="true"]:hover::before,
+#bookDetailAuthor[data-auto-extracted="true"]:hover::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: normal;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}

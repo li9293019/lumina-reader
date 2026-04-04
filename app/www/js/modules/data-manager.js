@@ -2336,6 +2336,24 @@ Lumina.DB.HistoryDataBuilder = {
             }
         }
         
+        // 构建元数据（优先使用自动提取的）
+        const extractedMeta = state.currentFile.extractedMetadata;
+        const existingMeta = state.currentFile.metadata || {};
+        const metadata = {
+            title: extractedMeta?.title || existingMeta.title || '',
+            author: extractedMeta?.author || existingMeta.author || '',
+            publishDate: existingMeta.publishDate || '',
+            publisher: existingMeta.publisher || '',
+            language: existingMeta.language || '',
+            description: existingMeta.description || '',
+            tags: existingMeta.tags || [],
+            // 保存提取置信度信息（调试用）
+            _extracted: extractedMeta ? {
+                confidence: extractedMeta.confidence,
+                source: extractedMeta.source
+            } : null
+        };
+        
         const baseData = {
             fileName: state.currentFile.name, 
             fileType: state.currentFile.type,
@@ -2350,7 +2368,8 @@ Lumina.DB.HistoryDataBuilder = {
             chapterNumbering: Lumina.State.settings.chapterNumbering,
             annotations: [],
             cover: overrides.cover || null,
-            heatMap: state.currentFile.heatMap // 保存热力图数据（未设置时为 undefined，便于合并逻辑判断）
+            heatMap: state.currentFile.heatMap, // 保存热力图数据（未设置时为 undefined，便于合并逻辑判断）
+            metadata: metadata // 新增：书籍元数据
         };
         return { ...baseData, ...overrides };
     }

@@ -415,6 +415,13 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
         });
     } catch (e) { }
 
+    // 尝试读取 core.xml 获取元数据（标题、作者等）
+    let docxMetadata = null;
+    try {
+        const coreXml = await zip.file('docProps/core.xml').async('text');
+        docxMetadata = Lumina.Parser.MetadataExtractor?.extractFromDOCXCore(coreXml);
+    } catch (e) { /* 忽略元数据读取失败 */ }
+
     const xmlContent = await zip.file('word/document.xml').async('text');
     const xmlDoc = new DOMParser().parseFromString(xmlContent, 'text/xml');
     const body = xmlDoc.getElementsByTagName('w:body')[0];
@@ -475,7 +482,7 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
         }
     });
 
-    return { items: results, type: 'docx' };
+    return { items: results, type: 'docx', docxMetadata };
 };
 
 Lumina.Parser.processDOCXStyleInfo = (styleInfo, text) => {
@@ -958,7 +965,10 @@ Lumina.Parser.parseEPUB = async (arrayBuffer) => {
     
     // console.log(`[EPUB] 解析完成: ${results.length} 个元素, ${headingCount} 个标题, ${textCount} 段文本, ${listCount} 个列表项, ${imageCount}/${images.size} 张图片${skippedTocPages > 0 ? ', 跳过' + skippedTocPages + '个目录页' : ''}`);
     
-    return { items: results, type: 'epub', coverImage };
+    // 提取 EPUB 元数据（用于自动识别书名、作者）
+    const epubMetadata = Lumina.Parser.MetadataExtractor?.extractFromEPUBOPF(opfDoc) || {};
+    
+    return { items: results, type: 'epub', coverImage, epubMetadata };
 };
 
 // ==================== PDF 解析器 ====================

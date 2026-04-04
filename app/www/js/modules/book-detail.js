@@ -440,17 +440,35 @@ Lumina.BookDetail = {
             formatBadge.dataset.type = fileType;
         }
         
-        // 书名（默认使用文件名去掉扩展名）
+        // 书名（优先使用提取/编辑的元数据，其次是文件名）
         const nameEl = document.getElementById('bookDetailName');
         if (nameEl) {
             const displayName = metadata.title || this.getFileNameWithoutExt(data.fileName);
             nameEl.textContent = displayName;
+            // 如果书名是自动提取的，添加提示样式
+            if (metadata.title && metadata._extracted?.confidence?.title >= 70) {
+                nameEl.dataset.autoExtracted = 'true';
+                nameEl.dataset.tooltip = Lumina.I18n.t('autoExtracted') || '自动识别';
+            } else {
+                delete nameEl.dataset.autoExtracted;
+                delete nameEl.dataset.tooltip;
+            }
         }
         
-        // 作者
+        // 作者（优先使用提取的元数据）
         const authorEl = document.getElementById('bookDetailAuthor');
         if (authorEl) {
-            authorEl.textContent = metadata.author || 'NA';
+            const authorText = metadata.author;
+            // 如果没有作者，根据语言显示对应默认值：佚名 / Anonymous
+            authorEl.textContent = authorText || Lumina.I18n.t('anonymousAuthor') || '佚名';
+            // 如果作者是自动提取的，添加提示样式
+            if (authorText && metadata._extracted?.confidence?.author >= 70) {
+                authorEl.dataset.autoExtracted = 'true';
+                authorEl.dataset.tooltip = Lumina.I18n.t('autoExtracted') || '自动识别';
+            } else {
+                delete authorEl.dataset.autoExtracted;
+                delete authorEl.dataset.tooltip;
+            }
         }
         
         // 发布时间
@@ -689,17 +707,20 @@ Lumina.BookDetail = {
         if (!el) return;
         
         const currentValue = el.textContent;
+        const defaultAuthor = Lumina.I18n.t('anonymousAuthor') || '佚名';
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'book-detail-author-input';
-        input.value = currentValue === 'NA' ? '' : currentValue;
+        // 如果当前是默认值，则输入框显示为空，方便用户输入
+        input.value = currentValue === defaultAuthor ? '' : currentValue;
         
         input.addEventListener('blur', () => {
-            const newValue = input.value.trim() || 'NA';
+            const newValue = input.value.trim() || defaultAuthor;
             el.textContent = newValue;
             el.style.display = 'inline';
             input.remove();
-            this.saveMetadata({ author: newValue === 'NA' ? '' : newValue });
+            // 如果用户输入的是默认值，则保存为空字符串（表示未指定）
+            this.saveMetadata({ author: newValue === defaultAuthor ? '' : newValue });
         });
         
         input.addEventListener('keydown', (e) => {
@@ -1089,12 +1110,27 @@ Lumina.BookDetail = {
         if (!this.currentFile) return;
         
         const fileKey = this.currentFile.fileKey;
+        const existingMeta = this.currentFile.metadata || {};
         
-        // 合并 metadata
+        // 合并 metadata，保留 _extracted 信息
         const metadata = {
-            ...this.currentFile.metadata,
-            ...updates
+            ...existingMeta,
+            ...updates,
+            // 保留提取信息（如果有）
+            _extracted: existingMeta._extracted
         };
+        
+        // 如果用户手动编辑了之前自动提取的字段，清除自动提取标记
+        if (updates.title && existingMeta._extracted?.confidence?.title >= 70) {
+            if (metadata._extracted) {
+                metadata._extracted.confidence.title = 100; // 用户确认，设为最高置信度
+            }
+        }
+        if (updates.author && existingMeta._extracted?.confidence?.author >= 70) {
+            if (metadata._extracted) {
+                metadata._extracted.confidence.author = 100;
+            }
+        }
         
         // 更新当前文件数据
         this.currentFile.metadata = metadata;

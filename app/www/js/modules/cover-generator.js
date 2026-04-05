@@ -228,6 +228,8 @@
         set lineWidth(val) { this.state.lineWidth = val; }
         set lineCap(val) { this.state.lineCap = val; }
         set lineJoin(val) { this.state.lineJoin = val; }
+        setLineDash(val) { this.state.lineDash = val && val.length > 0 ? val : null; }
+        getLineDash() { return this.state.lineDash ? [...this.state.lineDash] : []; }
         set globalAlpha(val) { this.state.globalAlpha = val; }
         set font(val) { this.state.font = val; if (this._measureCtx) this._measureCtx.font = val; }
         get font() { return this.state.font; }

@@ -305,6 +305,20 @@ html, body {
     -webkit-backface-visibility: hidden;
 }
 
+/* 动画封面内容区域 */
+.cover-anim-content {
+    width: 100%;
+    height: 100%;
+}
+
+/* 动画层内的文件类型胶囊 - 重新定位 */
+.cover-anim-layer .book-detail-format-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+}
+
 /* 封面图片 */
 .book-detail-cover-img {
     width: 100%;

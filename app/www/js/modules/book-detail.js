@@ -401,11 +401,11 @@ Lumina.BookDetail = {
         // 添加切换中状态（禁用交互）
         panel?.classList.add('book-switching');
         
-        // 获取当前封面 HTML
-        const currentCoverHTML = document.getElementById('bookDetailCover')?.innerHTML || '';
+        // 获取当前完整封面区域 HTML（包含胶囊）
+        const currentCoverHTML = this.getCoverAreaHTML();
         
-        // 预生成新书封面 HTML
-        const newCoverHTML = this.generateCoverHTML(newBookData);
+        // 预生成新书完整封面 HTML（包含胶囊）
+        const newCoverHTML = this.generateCoverAreaHTML(newBookData);
         
         // 确定动画方向
         const isNext = direction === 'next';
@@ -416,22 +416,32 @@ Lumina.BookDetail = {
         const animContainer = document.createElement('div');
         animContainer.className = 'cover-anim-container';
         
-        // 旧封面层（退出动画）
+        // 旧封面层（退出动画）- 包含封面和胶囊
         const oldCover = document.createElement('div');
         oldCover.className = `cover-anim-layer ${exitClass}`;
-        oldCover.innerHTML = currentCoverHTML;
+        oldCover.innerHTML = `
+            <div class="cover-anim-content">${currentCoverHTML.coverHTML}</div>
+            ${currentCoverHTML.badgeHTML}
+        `;
         
-        // 新封面层（进入动画）
+        // 新封面层（进入动画）- 包含封面和胶囊
         const newCover = document.createElement('div');
         newCover.className = `cover-anim-layer ${enterClass}`;
-        newCover.innerHTML = newCoverHTML;
+        newCover.innerHTML = `
+            <div class="cover-anim-content">${newCoverHTML.coverHTML}</div>
+            ${newCoverHTML.badgeHTML}
+        `;
         
-        // 保存原始封面引用
+        // 保存原始封面和胶囊引用
         const originalCover = document.getElementById('bookDetailCover');
+        const originalBadge = document.getElementById('bookDetailFormatBadge');
         
-        // 隐藏原始封面，显示动画层
+        // 隐藏原始封面和胶囊，显示动画层
         if (originalCover) {
             originalCover.style.opacity = '0';
+        }
+        if (originalBadge) {
+            originalBadge.style.opacity = '0';
         }
         
         animContainer.appendChild(oldCover);
@@ -446,10 +456,13 @@ Lumina.BookDetail = {
         
         // 动画结束后清理
         setTimeout(() => {
-            // 恢复原始封面显示
+            // 恢复原始封面和胶囊显示
             if (originalCover) {
                 originalCover.style.opacity = '1';
                 originalCover.style.animation = 'none';
+            }
+            if (originalBadge) {
+                originalBadge.style.opacity = '1';
             }
             
             // 移除动画层
@@ -462,20 +475,41 @@ Lumina.BookDetail = {
         }, 500);
     },
     
-    // 生成封面 HTML（用于动画预渲染）
-    generateCoverHTML(bookData) {
-        const metadata = bookData.metadata || {};
+    // 获取当前封面区域完整 HTML（包含胶囊）
+    getCoverAreaHTML() {
+        const coverEl = document.getElementById('bookDetailCover');
+        const badgeEl = document.getElementById('bookDetailFormatBadge');
         
+        const coverHTML = coverEl?.innerHTML || '';
+        const badgeHTML = badgeEl?.outerHTML || '';
+        
+        return { coverHTML, badgeHTML };
+    },
+    
+    // 生成新书封面区域完整 HTML（包含胶囊）
+    generateCoverAreaHTML(bookData) {
+        const fileType = bookData.fileType || 'default';
+        const badgeText = fileType.toUpperCase();
+        
+        // 生成胶囊 HTML
+        const badgeHTML = `<span class="book-detail-format-badge" data-type="${fileType}">${badgeText}</span>`;
+        
+        // 生成封面内容 HTML
+        let coverContentHTML = '';
         if (bookData.cover) {
-            return `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+            coverContentHTML = `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
         } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
             const svg = Lumina.CoverGenerator.getCoverSVG(bookData);
             if (svg) {
-                return svg.replace('<svg', '<svg class="book-detail-cover-img"');
+                coverContentHTML = svg.replace('<svg', '<svg class="book-detail-cover-img"');
+            } else {
+                coverContentHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
             }
+        } else {
+            coverContentHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
         }
         
-        return '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+        return { coverHTML: coverContentHTML, badgeHTML };
     },
     
     // 初始化滑动手势（移动端）

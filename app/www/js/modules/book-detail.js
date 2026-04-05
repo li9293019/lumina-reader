@@ -141,10 +141,10 @@ Lumina.BookDetail = {
             });
         }
         
-        // 标签输入
+        // 标签输入（使用 keyup 确保输入值已包含刚按下的键）
         const tagInput = document.getElementById('bookDetailTagInput');
         if (tagInput) {
-            tagInput.addEventListener('keydown', (e) => this.handleTagInput(e));
+            tagInput.addEventListener('keyup', (e) => this.handleTagInput(e));
         }
         
         // 打开阅读按钮
@@ -492,10 +492,27 @@ Lumina.BookDetail = {
             publishDateEl.textContent = this.formatPublishDate(metadata.publishDate) || 'NA';
         }
         
-        // 发布平台
+        // 发布平台（如果有sourceUrl，显示为可点击链接）
         const publisherEl = document.getElementById('bookDetailPublisher');
         if (publisherEl) {
+            const hasSourceUrl = metadata.sourceUrl && metadata.sourceUrl.startsWith('http');
             publisherEl.textContent = metadata.publisher || 'NA';
+            publisherEl.style.cursor = hasSourceUrl ? 'pointer' : 'default';
+            publisherEl.style.textDecoration = hasSourceUrl ? 'underline' : 'none';
+            publisherEl.style.color = hasSourceUrl ? 'var(--accent)' : '';
+            
+            // 点击跳转外部链接
+            publisherEl.onclick = hasSourceUrl ? () => {
+                Lumina.UI.showDialog(
+                    Lumina.I18n.t('externalLinkConfirm', metadata.sourceUrl), 
+                    'confirm', 
+                    (confirmed) => {
+                        if (confirmed) {
+                            window.open(metadata.sourceUrl, '_blank', 'noopener,noreferrer');
+                        }
+                    }
+                );
+            } : null;
         }
         
         // 语言
@@ -617,21 +634,36 @@ Lumina.BookDetail = {
             const tagEl = document.createElement('span');
             tagEl.className = 'tag-item';
             tagEl.textContent = tag;
-            tagEl.addEventListener('click', () => this.removeTag(tag));
+            tagEl.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止冒泡，避免触发面板关闭
+                this.removeTag(tag);
+            });
             tagList.appendChild(tagEl);
         });
     },
     
     // 处理标签输入（支持逗号或空白字符分隔）
+    // 【关键规则】如果输入包含逗号（中英文），则只用逗号分隔（支持带空格的标签如 "boy's love"）
     handleTagInput(e) {
-        if (e.key !== 'Enter' && e.key !== ',') return;
+        // 支持中英文逗号和回车
+        const isEnter = e.key === 'Enter';
+        const isComma = e.key === ',' || e.key === '，' || e.code === 'Comma';
+        if (!isEnter && !isComma) return;
+        
+        // 防止输入法组合过程中触发（如中文输入时）
+        if (e.isComposing) return;
         
         e.preventDefault();
         const input = e.target;
         const rawValue = input.value;
         
-        // 支持逗号或空白字符分隔
-        const newTags = rawValue.split(/[,，\s]+/)
+        // 判断是否包含逗号
+        const hasComma = /[,，]/.test(rawValue);
+        
+        // 如果包含逗号，只用逗号分隔；否则可以用空格或逗号分隔
+        const separator = hasComma ? /[,，]+/ : /[,，\s]+/;
+        
+        const newTags = rawValue.split(separator)
             .map(t => t.trim())
             .filter(t => t.length > 0);
         

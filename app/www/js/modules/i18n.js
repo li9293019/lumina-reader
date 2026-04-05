@@ -52,6 +52,7 @@ Lumina.I18n.data = {
         update: '更新',
         clear: '清除',
         confirmClear: '确定要清除封面吗？',
+        externalLinkConfirm: '将访问阅读器外地址，是否跳转？\n\n$1',
         openBook: '打开阅读',
         
         configBackup: '配置备份与恢复', configExport: '导出配置', configImport: '导入配置',
@@ -470,6 +471,7 @@ Lumina.I18n.data = {
         update: '更新',
         clear: '清除',
         confirmClear: '確定要清除封面嗎？',
+        externalLinkConfirm: '將訪問閱讀器外地址，是否跳轉？\n\n$1',
         openBook: '打開閱讀',
         configBackup: '配置備份與恢復', configExport: '導出配置', configImport: '導入配置',
         configEncrypt: '加密備份', configBackupHint: '導出配置文件，可在重裝後恢復', configImportSuccess: '配置導入成功', configImportFailed: '配置導入失敗', configInvalidFileType: '請選擇 .json 或 .lmn 檔案',
@@ -885,6 +887,7 @@ Lumina.I18n.data = {
         update: 'Update',
         clear: 'Clear',
         confirmClear: 'Are you sure you want to clear the cover?',
+        externalLinkConfirm: 'Will open external link, continue?\n\n$1',
         openBook: 'Open Book',
         configBackup: 'Config Backup', configExport: 'Export', configImport: 'Import',
         configEncrypt: 'Encrypt', configBackupHint: 'Export config for backup', configImportSuccess: 'Import successful', configImportFailed: 'Import failed', configInvalidFileType: 'Please select .json or .lmn file',

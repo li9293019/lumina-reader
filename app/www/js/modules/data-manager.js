@@ -2350,11 +2350,12 @@ Lumina.DB.HistoryDataBuilder = {
         const metadata = {
             title: extractedMeta?.title || existingMeta.title || '',
             author: extractedMeta?.author || existingMeta.author || '',
-            publishDate: existingMeta.publishDate || '',
-            publisher: existingMeta.publisher || '',
+            publishDate: extractedMeta?.publishDate || existingMeta.publishDate || '',
+            sourceUrl: extractedMeta?.sourceUrl || existingMeta.sourceUrl || '',
+            publisher: extractedMeta?.publisher || existingMeta.publisher || '',
             language: existingMeta.language || '',
-            description: existingMeta.description || '',
-            tags: existingMeta.tags || [],
+            description: extractedMeta?.description || existingMeta.description || '',
+            tags: extractedMeta?.tags?.length > 0 ? extractedMeta.tags : (existingMeta.tags || []),
             // 保存提取置信度信息（调试用）
             _extracted: extractedMeta ? {
                 confidence: extractedMeta.confidence,

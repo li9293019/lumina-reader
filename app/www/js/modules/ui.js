@@ -890,10 +890,31 @@ Lumina.UI = {
         Lumina.DOM.tooltip.classList.add('visible');
         const rect = target.getBoundingClientRect();
         const tooltipRect = Lumina.DOM.tooltip.getBoundingClientRect();
-        let left = rect.left + rect.width / 2;
+        
+        const margin = 10;
+        const tooltipWidth = tooltipRect.width;
+        const tooltipHeight = tooltipRect.height;
+        
+        // 垂直位置：默认在目标元素下方
         let top = rect.bottom + 10;
-        if (top + tooltipRect.height > window.innerHeight - 20) top = rect.top - tooltipRect.height - 10;
-        left = Math.max(tooltipRect.width / 2 + 10, Math.min(left, window.innerWidth - tooltipRect.width / 2 - 10));
+        if (top + tooltipHeight > window.innerHeight - margin) {
+            // 下方空间不足，显示在上方
+            top = rect.top - tooltipHeight - 10;
+        }
+        
+        // 水平位置：优先尝试居中
+        let left = rect.left + rect.width / 2;
+        const halfWidth = tooltipWidth / 2;
+        
+        // 检查是否会溢出右边缘
+        if (left + halfWidth > window.innerWidth - margin) {
+            // 靠近右边缘：右对齐，距离右边缘 margin
+            left = window.innerWidth - margin - halfWidth;
+        } else if (left - halfWidth < margin) {
+            // 靠近左边缘：左对齐
+            left = margin + halfWidth;
+        }
+        
         Lumina.DOM.tooltip.style.left = `${left}px`;
         Lumina.DOM.tooltip.style.top = `${top}px`;
     },

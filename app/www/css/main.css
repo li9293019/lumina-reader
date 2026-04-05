@@ -651,7 +651,12 @@ transform: translate(-50%, 10px);
 transition: opacity 0.25s ease, transform 0.25s ease, background-color 0.3s, color 0.3s;
 backdrop-filter: blur(4px);
 max-width: 300px;
-text-align: center;
+white-space: normal;
+word-wrap: break-word;
+text-align: left; /* 换行后左对齐 */
+/* 关键：防止被挤压成竖排 - 根据内容自适应最小宽度 */
+width: max-content;
+max-width: 300px;
 line-height: 1.4;
 border: 1px solid rgba(255, 255, 255, 0.08);
 }

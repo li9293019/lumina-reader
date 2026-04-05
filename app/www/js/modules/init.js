@@ -247,17 +247,22 @@ Lumina.HeatMap = {
     },
     
     bindEvents() {
-        // 回车添加
-        this.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const value = this.input.value.trim();
-                if (value) {
-                    this.parseAndAddTags(value);
-                    this.input.value = '';
+        // 回车/逗号添加（使用 keyup 确保输入值已更新）
+        this.input.addEventListener('keyup', (e) => {
+            const isEnter = e.key === 'Enter';
+            const isComma = e.key === ',' || e.key === '，' || e.code === 'Comma';
+            if (!isEnter && !isComma) {
+                if (e.key === 'Backspace' && !this.input.value && this.tags.length > 0) {
+                    this.removeTag(this.tags.length - 1);
                 }
-            } else if (e.key === 'Backspace' && !this.input.value && this.tags.length > 0) {
-                this.removeTag(this.tags.length - 1);
+                return;
+            }
+            if (e.isComposing) return; // 防止输入法组合时触发
+            e.preventDefault();
+            const value = this.input.value.trim();
+            if (value) {
+                this.parseAndAddTags(value);
+                this.input.value = '';
             }
         });
         
@@ -315,16 +320,21 @@ Lumina.HeatMap = {
         const presetTagList = document.getElementById('heatPresetTagList');
         
         if (presetTagInput) {
-            presetTagInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const value = presetTagInput.value.trim();
-                    if (value) {
-                        this.parsePresetTags(value);
-                        presetTagInput.value = '';
+            presetTagInput.addEventListener('keyup', (e) => {
+                const isEnter = e.key === 'Enter';
+                const isComma = e.key === ',' || e.key === '，' || e.code === 'Comma';
+                if (!isEnter && !isComma) {
+                    if (e.key === 'Backspace' && !presetTagInput.value) {
+                        this.removePresetTag(-1);
                     }
-                } else if (e.key === 'Backspace' && !presetTagInput.value) {
-                    this.removePresetTag(-1);
+                    return;
+                }
+                if (e.isComposing) return; // 防止输入法组合时触发
+                e.preventDefault();
+                const value = presetTagInput.value.trim();
+                if (value) {
+                    this.parsePresetTags(value);
+                    presetTagInput.value = '';
                 }
             });
             
@@ -497,7 +507,9 @@ Lumina.HeatMap = {
     
     parsePresetTags(text) {
         if (!text) return;
-        const separators = /[,，\s\n\r\t]+/;
+        // 【关键规则】如果输入包含逗号（中英文），则只用逗号分隔（支持带空格的标签）
+        const hasComma = /[,，]/.test(text);
+        const separators = hasComma ? /[,，]+/ : /[,，\s\n\r\t]+/;
         const newTags = text.split(separators)
             .map(t => t.trim())
             .filter(t => t.length > 0);
@@ -531,10 +543,12 @@ Lumina.HeatMap = {
     },
     
     // 解析并添加 tags（支持中英文逗号、空格、换行）
+    // 【关键规则】如果输入包含逗号（中英文），则只用逗号分隔（支持带空格的标签如 "boy's love"）
     parseAndAddTags(text) {
         if (!text) return;
         
-        const separators = /[,，\s\n\r\t]+/;
+        const hasComma = /[,，]/.test(text);
+        const separators = hasComma ? /[,，]+/ : /[,，\s\n\r\t]+/;
         const newTags = text.split(separators)
             .map(t => t.trim())
             .filter(t => t.length > 0);

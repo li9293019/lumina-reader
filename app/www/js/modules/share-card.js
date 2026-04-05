@@ -72,8 +72,8 @@ Lumina.ShareCard = {
         const isCJK = /[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(text);
         const visualLength = isCJK ? text.length : text.length * 0.6;
         
-        if (visualLength <= 35) return 'short';
-        if (visualLength <= 140) return 'medium';
+        if (visualLength <= 45) return 'short';   // 放宽到45
+        if (visualLength <= 180) return 'medium'; // 放宽到180
         return 'long';
     },
     
@@ -214,39 +214,40 @@ Lumina.ShareCard = {
         
         const padding = Math.floor(w * 0.08);
         const fontSize = Math.max(16, Math.floor(w * 0.036));
-        // 调整后的内容宽度 - 减少过度留白
-        const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
+        // 调整后的内容宽度 - 减少右边留白（约半个字符）
+        const contentW = w - padding * 2 + Math.floor(fontSize * 0.4);
         const lineHeight = Math.floor(fontSize * 1.7);
         const textStartY = lineY + lineGap + fontSize;
         
         const lines = this.measureText(this.selectedText, contentW, fontSize);
         
+        // 计算实际文本宽度，实现整体居中
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${fontSize}px ${this.currentFont}`;
+        const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+        const textBlockX = Math.floor((w - maxLineWidth) / 2);
+        
         // 中文两端对齐
         const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
         if (isCJK && lines.length > 1) {
-            // 计算最大宽度用于对齐
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.font = `${fontSize}px ${this.currentFont}`;
-            const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
-            
-            svg += `<text x="${padding}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
+            svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
             lines.forEach((line, i) => {
                 const isLast = i === lines.length - 1;
                 const justify = !isLast && line.length > 4; // 最后一行不对齐
                 
                 if (justify) {
                     // 使用 textLength 实现两端对齐
-                    svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}" textLength="${contentW}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
                 } else {
-                    svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
                 }
             });
             svg += '</text>';
         } else {
-            svg += `<text x="${padding}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
+            svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
             lines.forEach((line, i) => {
-                svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
             });
             svg += '</text>';
         }
@@ -272,8 +273,8 @@ Lumina.ShareCard = {
         
         const padding = Math.floor(w * 0.08);
         const fontSize = Math.max(15, Math.floor(w * 0.033));
-        // 调整后的内容宽度 - 微调避免过度留白
-        const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
+        // 调整后的内容宽度 - 减少右边留白（约半个字符）
+        const contentW = w - padding * 2 + Math.floor(fontSize * 0.3);
         
         let currentY = visualH + Math.floor(h * 0.05);
         
@@ -290,25 +291,32 @@ Lumina.ShareCard = {
         
         const lines = this.measureTextWithLimit(this.selectedText, contentW, fontSize, maxLines);
         
+        // 计算实际文本宽度，实现整体居中
+        const canvas2 = document.createElement('canvas');
+        const ctx2 = canvas2.getContext('2d');
+        ctx2.font = `${fontSize}px ${this.currentFont}`;
+        const maxLineWidth = Math.max(...lines.map(l => ctx2.measureText(l).width));
+        const textBlockX = Math.floor((w - maxLineWidth) / 2);
+        
         // 中文两端对齐
         const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
         if (isCJK && lines.length > 1) {
-            svg += `<text x="${padding}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
+            svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
             lines.forEach((line, i) => {
                 const isLast = i === lines.length - 1;
                 const justify = !isLast && line.length > 4;
                 
                 if (justify) {
-                    svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}" textLength="${contentW}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
                 } else {
-                    svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
                 }
             });
             svg += '</text>';
         } else {
-            svg += `<text x="${padding}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
+            svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
             lines.forEach((line, i) => {
-                svg += `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
             });
             svg += '</text>';
         }
@@ -367,13 +375,29 @@ Lumina.ShareCard = {
         const lines = [];
         
         if (isCJK) {
+            // 避头尾：不能出现在行首的标点
+            const noStartPuncts = "，。、；：！？）】》」』\"\"''.,;:!?)\]}>";
             let line = '';
-            for (let char of text) {
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                
+                // 预判：如果加入这个字符会超宽
                 const testLine = line + char;
                 const metrics = ctx.measureText(testLine);
+                
                 if (metrics.width > safeWidth && line.length > 0) {
-                    lines.push(line);
-                    line = char;
+                    // 如果当前字符是避头标点，且前面还有字符
+                    if (noStartPuncts.includes(char) && line.length >= 1) {
+                        // 把上一行最后一个字符移到下一行，和这个标点一起
+                        const lastChar = line.slice(-1);
+                        line = line.slice(0, -1);
+                        lines.push(line);
+                        line = lastChar + char;
+                    } else {
+                        lines.push(line);
+                        line = char;
+                    }
                 } else {
                     line = testLine;
                 }

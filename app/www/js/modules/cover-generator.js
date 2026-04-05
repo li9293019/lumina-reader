@@ -768,7 +768,7 @@
                 const cx = p[1] * w, cy = p[2] * h;
                 for (let i = 0; i < rays; i++) {
                     const angle = (Math.PI * 2 * i) / rays + p[3];
-                    const len = Math.max(w, h) * 1.2; ctx.globalAlpha = 0.18; ctx.lineWidth = 2;
+                    const len = Math.max(w, h) * 1.2; ctx.globalAlpha = 0.3; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.moveTo(cx, cy);
                     let curX = cx, curY = cy;
                     for (let j = 1; j <= 4; j++) {

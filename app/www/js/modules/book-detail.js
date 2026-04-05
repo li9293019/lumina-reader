@@ -541,6 +541,24 @@ Lumina.BookDetail = {
         }
     },
     
+    // 刷新生成的封面（书名/作者编辑后调用）
+    refreshGeneratedCover() {
+        if (!this.currentFile) return;
+        
+        const coverEl = document.getElementById('bookDetailCover');
+        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+        
+        if (coverEl && Lumina.CoverGenerator) {
+            // 清除缓存，强制重新生成
+            Lumina.CoverGenerator.clearCache();
+            const generatedCover = Lumina.CoverGenerator.getCoverUrl(this.currentFile);
+            if (generatedCover) {
+                coverEl.innerHTML = `<img src="${generatedCover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                coverWrapper?.classList.remove('no-cover');
+            }
+        }
+    },
+    
     // 获取文件名（不含扩展名）
     getFileNameWithoutExt(fileName) {
         if (!fileName) return '';
@@ -701,10 +719,15 @@ Lumina.BookDetail = {
         
         input.addEventListener('blur', () => {
             const newValue = input.value.trim() || currentValue;
+            const isChanged = newValue !== currentValue;
             el.textContent = newValue;
             el.style.display = 'block';
             input.remove();
             this.saveMetadata({ title: newValue });
+            // 如果书名改变且使用生成封面，刷新封面
+            if (isChanged && !this.currentFile.cover && Lumina.State.settings.hashCover) {
+                this.refreshGeneratedCover();
+            }
         });
         
         input.addEventListener('keydown', (e) => {
@@ -733,11 +756,16 @@ Lumina.BookDetail = {
         
         input.addEventListener('blur', () => {
             const newValue = input.value.trim() || defaultAuthor;
+            const isChanged = newValue !== currentValue;
             el.textContent = newValue;
             el.style.display = 'inline';
             input.remove();
             // 如果用户输入的是默认值，则保存为空字符串（表示未指定）
             this.saveMetadata({ author: newValue === defaultAuthor ? '' : newValue });
+            // 如果作者改变且使用生成封面，刷新封面
+            if (isChanged && !this.currentFile.cover && Lumina.State.settings.hashCover) {
+                this.refreshGeneratedCover();
+            }
         });
         
         input.addEventListener('keydown', (e) => {

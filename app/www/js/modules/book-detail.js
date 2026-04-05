@@ -338,14 +338,21 @@ Lumina.BookDetail = {
         const threshold = 80; // 触发阈值
         
         panel.addEventListener('touchstart', (e) => {
-            if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('.book-detail-info-input')) {
+            // 在编辑区域禁止滑动切换书籍
+            if (e.target.closest('input') || e.target.closest('textarea')) {
                 return;
             }
 
-            if (e.target.closest('.book-detail-info-list') || e.target.closest('.book-detail-description') || e.target.closest('.tag-input-container')) {
+            // 元数据编辑区域禁止滑动
+            if (e.target.closest('.book-detail-name') || 
+                e.target.closest('.book-detail-author') ||
+                e.target.closest('.book-detail-info-list') || 
+                e.target.closest('.book-detail-description') || 
+                e.target.closest('.tag-input-container')) {
                 return;
             }
             
+            // 封面区域禁止滑动（有单独的滑动处理）
             if (e.target.closest('.book-detail-cover-wrapper') || e.target.closest('#bookDetailCoverSwipeLayer')) {
                 return;
             }

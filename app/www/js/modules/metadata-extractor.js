@@ -84,6 +84,46 @@ Lumina.Parser.MetadataExtractor = {
         /^#{3,}/
     ],
     
+    // 语言检测映射（从 Config 获取）
+    get LANGUAGE_NAMES() {
+        return Lumina.Config?.languageNames || {
+            'zh': '简体中文',
+            'zh-TW': '繁體中文', 
+            'ja': '日本語',
+            'ko': '한국어',
+            'en': 'English'
+        };
+    },
+    
+    /**
+     * 检测文本语言
+     * 基于字符 Unicode 范围统计判断
+     */
+    detectLanguage(text) {
+        if (!text || text.length < 50) return null;
+        
+        // 取样正文部分（避开开头可能的元数据）
+        const startPos = Math.min(200, Math.floor(text.length * 0.1));
+        const sample = text.slice(startPos, startPos + 3000);
+        const totalChars = sample.replace(/\s/g, '').length;
+        if (totalChars === 0) return null;
+        
+        // 统计各语言字符数
+        const zhCount = (sample.match(/[\u4e00-\u9fff]/g) || []).length;
+        const jaCount = (sample.match(/[\u3040-\u309f\u30a0-\u30ff]/g) || []).length;
+        const koCount = (sample.match(/[\uac00-\ud7af]/g) || []).length;
+        const enCount = (sample.match(/[a-zA-Z]/g) || []).length;
+        
+        // 只要有任何语言特征字符，就判断语言
+        if (jaCount > 0) return { code: 'ja', name: this.LANGUAGE_NAMES['ja'] };
+        if (koCount > 0) return { code: 'ko', name: this.LANGUAGE_NAMES['ko'] };
+        if (zhCount > 0) return { code: 'zh', name: this.LANGUAGE_NAMES['zh'] };
+        if (enCount > 0) return { code: 'en', name: this.LANGUAGE_NAMES['en'] };
+        
+        // 默认简体中文（只要有文本内容）
+        return { code: 'zh', name: this.LANGUAGE_NAMES['zh'] };
+    },
+    
     /**
      * 主入口：从文件和解析结果中提取元数据
      */
@@ -95,9 +135,10 @@ Lumina.Parser.MetadataExtractor = {
             sourceUrl: null,
             publisher: null,
             description: null,
+            language: null,
             tags: [],
-            confidence: { title: 0, author: 0, publishDate: 0, sourceUrl: 0 },
-            source: { title: null, author: null, publishDate: null, sourceUrl: null }
+            confidence: { title: 0, author: 0, publishDate: 0, sourceUrl: 0, description: 0, publisher: 0, language: 0 },
+            source: { title: null, author: null, publishDate: null, sourceUrl: null, description: null, publisher: null, language: null }
         };
         
         const fileName = this.getFileNameWithoutExt(file.name);
@@ -117,6 +158,14 @@ Lumina.Parser.MetadataExtractor = {
             results.publishDate = contentMeta.publishDate || null;
             results.sourceUrl = contentMeta.sourceUrl || null;
             results.publisher = contentMeta.publisher || null;
+            
+            // 检测语言
+            const langResult = this.detectLanguage(rawText);
+            if (langResult) {
+                results.language = langResult.name;
+                results.confidence.language = 60; // 语言检测置信度固定 60
+                results.source.language = 'content';
+            }
         }
         
         // 2. EPUB/DOCX metadata
@@ -179,6 +228,8 @@ Lumina.Parser.MetadataExtractor = {
         results.confidence.author = results.author ? this.calculateConfidence(results.author, 'author', candidates) : 0;
         results.confidence.publishDate = results.publishDate ? 35 : 0;
         results.confidence.sourceUrl = results.sourceUrl ? 35 : 0;
+        results.confidence.description = results.description ? 35 : 0;
+        results.confidence.publisher = results.publisher ? 35 : 0;
         
         return results;
     },

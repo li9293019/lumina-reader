@@ -1,5 +1,32 @@
 // ==================== 1. 配置与常量 ====================
 
+// 支持的语言列表（界面显示用）
+Lumina.Config.languages = [
+    { code: 'zh', name: '简体中文' },
+    { code: 'zh-TW', name: '繁體中文' },
+    { code: 'ja', name: '日本語' },
+    { code: 'ko', name: '한국어' },
+    { code: 'en', name: 'English' },
+    { code: 'fr', name: 'Français' },
+    { code: 'de', name: 'Deutsch' },
+    { code: 'es', name: 'Español' },
+    { code: 'ru', name: 'Русский' }
+];
+
+// 语言代码到名称的映射（元数据提取用）
+Lumina.Config.languageNames = {
+    'zh': '简体中文',
+    'zh-TW': '繁體中文', 
+    'ja': '日本語',
+    'ko': '한국어',
+    'en': 'English',
+    'fr': 'Français',
+    'de': 'Deutsch',
+    'es': 'Español',
+    'ru': 'Русский'
+};
+
+// 文件类型配置
 Lumina.Config.fileTypes = {
     docx: { icon: 'icon-file-word', parser: 'parseDOCX' },
     epub: { icon: 'icon-file-epub', parser: 'parseEPUB' },

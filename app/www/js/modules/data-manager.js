@@ -2357,7 +2357,7 @@ Lumina.DB.HistoryDataBuilder = {
             publishDate: extractedMeta?.publishDate || existingMeta.publishDate || '',
             sourceUrl: extractedMeta?.sourceUrl || existingMeta.sourceUrl || '',
             publisher: extractedMeta?.publisher || existingMeta.publisher || '',
-            language: existingMeta.language || '',
+            language: extractedMeta?.language || existingMeta.language || '',
             description: extractedMeta?.description || existingMeta.description || '',
             tags: extractedMeta?.tags?.length > 0 ? extractedMeta.tags : (existingMeta.tags || []),
             // 保存提取置信度信息（调试用）

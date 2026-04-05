@@ -417,12 +417,14 @@
     color: var(--text-primary);
     text-align: center;
     margin-top: 16px;
-    line-height: 1.4;
-    word-break: break-word;
+    line-height: 30px;
+    height: 30px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 0 8px;
     border-radius: 6px;
     transition: background 0.2s;
+    box-sizing: border-box;
+    display: block;
 }
 
 .book-detail-name:hover {
@@ -436,15 +438,16 @@
     color: var(--text-primary);
     text-align: center;
     margin-top: 16px;
-    line-height: 1.4;
+    line-height: 30px;
+    height: 30px;
     width: 100%;
     border: none;
     border-bottom: 2px solid var(--accent-color);
     background: transparent;
-    padding: 4px 8px;
+    padding: 0 8px;
+    box-sizing: border-box;
     outline: none;
     font-family: inherit;
-    box-sizing: border-box;
 }
 
 /* 作者 */
@@ -461,9 +464,12 @@
 
 .book-detail-author-name {
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 0 6px;
     border-radius: 4px;
     transition: background 0.2s;
+    height: 22px;
+    line-height: 22px;
+    box-sizing: border-box;
 }
 
 .book-detail-author-name:hover {
@@ -477,10 +483,13 @@
     border: none;
     border-bottom: 1px solid var(--accent-color);
     background: transparent;
-    padding: 2px 4px;
+    padding: 0 6px;
     outline: none;
     font-family: inherit;
     min-width: 120px;
+    height: 22px;
+    line-height: 22px;
+    box-sizing: border-box;
 }
 
 /* ========== 分组区域 ========== */
@@ -525,7 +534,7 @@
     justify-content: space-between;
     padding: 14px 16px;
     border-bottom: 1px solid var(--border-color);
-    min-height: 48px;
+    height: 48px;
     box-sizing: border-box;
 }
 
@@ -677,13 +686,16 @@
     border: none;
     border-bottom: 1px solid var(--accent-color);
     background: transparent;
-    padding: 4px 8px;
+    padding: 0 8px;
     outline: none;
     font-family: inherit;
     flex: 1;
     margin-left: 12px;
     box-sizing: border-box;
     min-width: 0;
+    /* 固定高度，确保不撑高父容器 */
+    height: 20px;
+    line-height: 20px;
 }
 
 /* ========== 简介区域 ========== */
@@ -1005,7 +1017,7 @@
     position: relative;
 }
 
-/* 添加一个小圆点提示（可选） */
+/* 添加一个小圆点提示 - 书名和作者（行内显示） */
 #bookDetailName[data-auto-extracted="true"]::after,
 #bookDetailAuthor[data-auto-extracted="true"]::after {
     content: '';
@@ -1015,6 +1027,34 @@
     background: var(--accent-color);
     border-radius: 50%;
     margin-left: 6px;
+    vertical-align: middle;
+    opacity: 0.6;
+}
+
+/* 基本信息项的圆点提示（label 右侧） */
+.book-detail-info-item:has(#bookDetailPublishDate[data-auto-extracted="true"]) .book-detail-info-label::after,
+.book-detail-info-item:has(#bookDetailPublisher[data-auto-extracted="true"]) .book-detail-info-label::after,
+.book-detail-info-item:has(#bookDetailLanguage[data-auto-extracted="true"]) .book-detail-info-label::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+    opacity: 0.6;
+}
+
+/* 简介区域的圆点提示（标题右侧） */
+.book-detail-section:has(#bookDetailDescription[data-auto-extracted="true"]) .book-detail-section-title::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    margin-left: 8px;
     vertical-align: middle;
     opacity: 0.6;
 }

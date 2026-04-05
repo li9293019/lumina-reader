@@ -27,23 +27,31 @@ Lumina.BookDetail = {
         this.initSwipeGesture();
     },
     
-    // 创建 datalist（语言选择等）
+    // 创建 datalist 和语言菜单
     createDatalists() {
-        if (document.getElementById('languageOptions')) return;
+        // 创建 datalist
+        if (!document.getElementById('languageOptions')) {
+            const datalist = document.createElement('datalist');
+            datalist.id = 'languageOptions';
+            const languages = Lumina.Config?.languages || [
+                { name: '简体中文' }, { name: '繁體中文' }, { name: 'English' },
+                { name: '日本語' }, { name: '한국어' }
+            ];
+            datalist.innerHTML = languages.map(lang => `<option value="${lang.name}">`).join('');
+            document.body.appendChild(datalist);
+        }
         
-        const datalist = document.createElement('datalist');
-        datalist.id = 'languageOptions';
-        datalist.innerHTML = `
-            <option value="简体中文">
-            <option value="繁體中文">
-            <option value="English">
-            <option value="日本語">
-            <option value="한국어">
-            <option value="Français">
-            <option value="Deutsch">
-            <option value="Español">
-        `;
-        document.body.appendChild(datalist);
+        // 动态生成语言下拉菜单
+        const menu = document.getElementById('bookDetailLanguageMenu');
+        if (menu && !menu.hasChildNodes()) {
+            const languages = Lumina.Config?.languages || [
+                { code: 'zh', name: '简体中文' }, { code: 'zh-TW', name: '繁體中文' },
+                { code: 'en', name: 'English' }, { code: 'ja', name: '日本語' }, { code: 'ko', name: '한국어' }
+            ];
+            menu.innerHTML = languages.map(lang => 
+                `<div class="language-option" data-value="${lang.name}">${lang.name}</div>`
+            ).join('');
+        }
     },
     
     // 绑定事件
@@ -114,10 +122,61 @@ Lumina.BookDetail = {
             publishDateEl.addEventListener('click', () => this.editPublishDate());
         }
         
-        // 发布平台编辑
+        // 发布平台编辑（点击）/ 跳转链接（长按）
         const publisherEl = document.getElementById('bookDetailPublisher');
         if (publisherEl) {
-            publisherEl.addEventListener('click', () => this.editPublisher());
+            let longPressTimer = null;
+            let isLongPress = false;
+            const LONG_PRESS_DURATION = 500; // 500ms 视为长按
+            
+            const startLongPress = (e) => {
+                const sourceUrl = publisherEl.dataset.sourceUrl;
+                if (!sourceUrl) return; // 无链接时不处理长按
+                
+                isLongPress = false;
+                longPressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    // 长按触发跳转
+                    Lumina.UI.showDialog(
+                        Lumina.I18n.t('externalLinkConfirm', sourceUrl), 
+                        'confirm', 
+                        (confirmed) => {
+                            if (confirmed) {
+                                window.open(sourceUrl, '_blank', 'noopener,noreferrer');
+                            }
+                        }
+                    );
+                }, LONG_PRESS_DURATION);
+            };
+            
+            const cancelLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
+            
+            // 鼠标事件（PC）
+            publisherEl.addEventListener('mousedown', startLongPress);
+            publisherEl.addEventListener('mouseup', cancelLongPress);
+            publisherEl.addEventListener('mouseleave', cancelLongPress);
+            
+            // 触摸事件（移动端）
+            publisherEl.addEventListener('touchstart', (e) => {
+                startLongPress(e);
+            }, { passive: true });
+            publisherEl.addEventListener('touchend', cancelLongPress);
+            publisherEl.addEventListener('touchcancel', cancelLongPress);
+            
+            // 点击事件：如果不是长按，则进入编辑
+            publisherEl.addEventListener('click', (e) => {
+                if (isLongPress) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                this.editPublisher();
+            });
         }
         
         // 语言编辑
@@ -470,8 +529,9 @@ Lumina.BookDetail = {
         if (nameEl) {
             const displayName = metadata.title || this.getFileNameWithoutExt(data.fileName);
             nameEl.textContent = displayName;
-            // 如果书名是自动提取的，添加提示样式
-            if (metadata.title && metadata._extracted?.confidence?.title >= 70) {
+            // 如果书名是自动提取的（置信度 1-99），添加提示样式；100 表示用户已确认
+            const titleConfidence = metadata._extracted?.confidence?.title;
+            if (metadata.title && titleConfidence > 0 && titleConfidence < 100) {
                 nameEl.dataset.autoExtracted = 'true';
             } else {
                 delete nameEl.dataset.autoExtracted;
@@ -485,8 +545,9 @@ Lumina.BookDetail = {
             const authorText = metadata.author;
             // 如果没有作者，根据语言显示对应默认值：佚名 / Anonymous
             authorEl.textContent = authorText || Lumina.I18n.t('anonymousAuthor') || '佚名';
-            // 如果作者是自动提取的，添加提示样式
-            if (authorText && metadata._extracted?.confidence?.author >= 70) {
+            // 如果作者是自动提取的（置信度 1-99），添加提示样式；100 表示用户已确认
+            const authorConfidence = metadata._extracted?.confidence?.author;
+            if (authorText && authorConfidence > 0 && authorConfidence < 100) {
                 authorEl.dataset.autoExtracted = 'true';
             } else {
                 delete authorEl.dataset.autoExtracted;
@@ -498,6 +559,13 @@ Lumina.BookDetail = {
         const publishDateEl = document.getElementById('bookDetailPublishDate');
         if (publishDateEl) {
             publishDateEl.textContent = this.formatPublishDate(metadata.publishDate) || 'NA';
+            // 如果是自动提取的（置信度 1-99），添加提示样式
+            const dateConfidence = metadata._extracted?.confidence?.publishDate;
+            if (metadata.publishDate && dateConfidence > 0 && dateConfidence < 100) {
+                publishDateEl.dataset.autoExtracted = 'true';
+            } else {
+                delete publishDateEl.dataset.autoExtracted;
+            }
         }
         
         // 发布平台（如果有sourceUrl，显示为可点击链接）
@@ -509,24 +577,33 @@ Lumina.BookDetail = {
             publisherEl.style.textDecoration = hasSourceUrl ? 'underline' : 'none';
             publisherEl.style.color = hasSourceUrl ? 'var(--accent)' : '';
             
-            // 点击跳转外部链接
-            publisherEl.onclick = hasSourceUrl ? () => {
-                Lumina.UI.showDialog(
-                    Lumina.I18n.t('externalLinkConfirm', metadata.sourceUrl), 
-                    'confirm', 
-                    (confirmed) => {
-                        if (confirmed) {
-                            window.open(metadata.sourceUrl, '_blank', 'noopener,noreferrer');
-                        }
-                    }
-                );
-            } : null;
+            // 如果是自动提取的（置信度 1-99），添加提示样式
+            const pubConfidence = metadata._extracted?.confidence?.publisher;
+            if (metadata.publisher && pubConfidence > 0 && pubConfidence < 100) {
+                publisherEl.dataset.autoExtracted = 'true';
+            } else {
+                delete publisherEl.dataset.autoExtracted;
+            }
+            
+            // 记录 sourceUrl 到 dataset，点击时通过事件委托处理
+            if (hasSourceUrl) {
+                publisherEl.dataset.sourceUrl = metadata.sourceUrl;
+            } else {
+                delete publisherEl.dataset.sourceUrl;
+            }
         }
         
         // 语言
         const languageEl = document.getElementById('bookDetailLanguage');
         if (languageEl) {
             languageEl.textContent = metadata.language || 'NA';
+            // 如果是自动提取的（置信度 1-99），添加提示样式
+            const langConfidence = metadata._extracted?.confidence?.language;
+            if (metadata.language && langConfidence > 0 && langConfidence < 100) {
+                languageEl.dataset.autoExtracted = 'true';
+            } else {
+                delete languageEl.dataset.autoExtracted;
+            }
         }
         
         // 文件名
@@ -541,6 +618,13 @@ Lumina.BookDetail = {
             const description = metadata.description || '';
             descEl.textContent = description || Lumina.I18n.t('noDescription');
             descEl.classList.toggle('collapsed', description.length > 60);
+            // 如果是自动提取的（置信度 1-99），添加提示样式
+            const descConfidence = metadata._extracted?.confidence?.description;
+            if (description && descConfidence > 0 && descConfidence < 100) {
+                descEl.dataset.autoExtracted = 'true';
+            } else {
+                delete descEl.dataset.autoExtracted;
+            }
         }
         
         // 更新简介展开/收起按钮
@@ -746,34 +830,58 @@ Lumina.BookDetail = {
     
     // ========== 就地编辑功能 ==========
     
-    // 编辑书名
-    editName() {
-        const el = document.getElementById('bookDetailName');
+    // 通用文本编辑
+    // options: { el, field, inputClass?, defaultValue?, transform?(value), onSave?(value), refreshCover?, clearExtracted? }
+    _editText({ el, field, inputClass, defaultValue = '', transform, onSave, refreshCover, clearExtracted }) {
         if (!el) return;
+        const currentValue = el.textContent.trim();
+        const isDefault = defaultValue && currentValue === defaultValue;
         
-        const currentValue = el.textContent;
         const input = document.createElement('input');
         input.type = 'text';
-        input.name = 'book-detail-name-input';
-        input.className = 'book-detail-name-input';
-        input.value = currentValue;
+        input.className = inputClass || (el.id.replace('bookDetail', 'book-detail-').toLowerCase() + '-input');
+        input.value = isDefault ? '' : currentValue;
+        if (field === 'publishDate') input.placeholder = 'YYYY / YYYY-MM / YYYY-MM-DD';
         
-        input.addEventListener('blur', () => {
-            const newValue = input.value.trim() || currentValue;
+        const handleSave = () => {
+            let newValue = input.value.trim();
+            if (!newValue && defaultValue) newValue = defaultValue;
+            
+            if (transform) newValue = transform(newValue);
             const isChanged = newValue !== currentValue;
-            el.textContent = newValue;
-            el.style.display = 'block';
+            
+            el.textContent = newValue || defaultValue || 'NA';
+            el.style.display = '';
+            
+            // 清除自动提取标记（确保圆点立即消失）
+            if (clearExtracted && isChanged) {
+                el.removeAttribute('data-auto-extracted');
+            }
+            
             input.remove();
-            this.saveMetadata({ title: newValue });
-            // 如果书名改变且使用生成封面，刷新封面
-            if (isChanged && !this.currentFile.cover && Lumina.State.settings.hashCover) {
+            
+            // 保存到 metadata（如果是默认值则存空字符串）
+            const saveValue = (defaultValue && newValue === defaultValue) ? '' : newValue;
+            const updates = { [field]: saveValue };
+            
+            // 如果需要清除自动提取标记
+            if (clearExtracted && isChanged) {
+                updates._clearExtracted = { [field]: true };
+            }
+            
+            this.saveMetadata(updates);
+            
+            // 回调
+            if (onSave) onSave(newValue);
+            
+            // 刷新封面（如果需要且确实改变了）
+            if (refreshCover && isChanged && !this.currentFile.cover && Lumina.State.settings.hashCover) {
                 this.refreshGeneratedCover();
             }
-        });
+        };
         
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-        });
+        input.addEventListener('blur', handleSave);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
         
         el.style.display = 'none';
         el.parentNode.insertBefore(input, el);
@@ -781,42 +889,26 @@ Lumina.BookDetail = {
         input.select();
     },
     
+    // 编辑书名
+    editName() {
+        this._editText({
+            el: document.getElementById('bookDetailName'),
+            field: 'title',
+            refreshCover: true,
+            clearExtracted: true
+        });
+    },
+    
     // 编辑作者
     editAuthor() {
-        const el = document.getElementById('bookDetailAuthor');
-        if (!el) return;
-        
-        const currentValue = el.textContent;
-        const defaultAuthor = Lumina.I18n.t('anonymousAuthor') || '佚名';
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = 'book-detail-author-input';
-        input.className = 'book-detail-author-input';
-        // 如果当前是默认值，则输入框显示为空，方便用户输入
-        input.value = currentValue === defaultAuthor ? '' : currentValue;
-        
-        input.addEventListener('blur', () => {
-            const newValue = input.value.trim() || defaultAuthor;
-            const isChanged = newValue !== currentValue;
-            el.textContent = newValue;
-            el.style.display = 'inline';
-            input.remove();
-            // 如果用户输入的是默认值，则保存为空字符串（表示未指定）
-            this.saveMetadata({ author: newValue === defaultAuthor ? '' : newValue });
-            // 如果作者改变且使用生成封面，刷新封面
-            if (isChanged && !this.currentFile.cover && Lumina.State.settings.hashCover) {
-                this.refreshGeneratedCover();
-            }
+        this._editText({
+            el: document.getElementById('bookDetailAuthor'),
+            field: 'author',
+            inputClass: 'book-detail-author-input',
+            defaultValue: Lumina.I18n.t('anonymousAuthor') || '佚名',
+            refreshCover: true,
+            clearExtracted: true
         });
-        
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-        });
-        
-        el.style.display = 'none';
-        el.parentNode.insertBefore(input, el);
-        input.focus();
-        input.select();
     },
     
     // 编辑发布时间
@@ -827,7 +919,6 @@ Lumina.BookDetail = {
         const currentValue = el.textContent;
         const input = document.createElement('input');
         input.type = 'text';
-        input.name = 'book-detail-info-input';
         input.className = 'book-detail-info-input';
         input.value = currentValue === 'NA' ? '' : currentValue;
         input.placeholder = 'YYYY / YYYY-MM / YYYY-MM-DD';
@@ -835,15 +926,21 @@ Lumina.BookDetail = {
         input.addEventListener('blur', () => {
             const normalized = this.normalizePublishDate(input.value);
             const displayValue = this.formatPublishDate(normalized) || 'NA';
+            const isChanged = displayValue !== currentValue;
             el.textContent = displayValue;
             el.style.display = 'block';
             input.remove();
-            this.saveMetadata({ publishDate: normalized });
+            // 清除自动提取标记
+            if (isChanged) {
+                el.removeAttribute('data-auto-extracted');
+            }
+            this.saveMetadata({ 
+                publishDate: normalized,
+                _clearExtracted: { publishDate: true }
+            });
         });
         
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-        });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
         
         el.style.display = 'none';
         el.parentNode.appendChild(input);
@@ -853,32 +950,13 @@ Lumina.BookDetail = {
     
     // 编辑发布平台
     editPublisher() {
-        const el = document.getElementById('bookDetailPublisher');
-        if (!el) return;
-        
-        const currentValue = el.textContent;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = 'book-detail-info-input';
-        input.className = 'book-detail-info-input';
-        input.value = currentValue === 'NA' ? '' : currentValue;
-        
-        input.addEventListener('blur', () => {
-            const newValue = input.value.trim() || 'NA';
-            el.textContent = newValue;
-            el.style.display = 'block';
-            input.remove();
-            this.saveMetadata({ publisher: newValue === 'NA' ? '' : newValue });
+        this._editText({
+            el: document.getElementById('bookDetailPublisher'),
+            field: 'publisher',
+            inputClass: 'book-detail-info-input',
+            defaultValue: 'NA',
+            clearExtracted: true
         });
-        
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-        });
-        
-        el.style.display = 'none';
-        el.parentNode.appendChild(input);
-        input.focus();
-        input.select();
     },
     
     // 编辑语言 - 手风琴下拉菜单
@@ -910,7 +988,12 @@ Lumina.BookDetail = {
             
             const newValue = option.dataset.value;
             el.textContent = newValue;
-            this.saveMetadata({ language: newValue });
+            // 清除自动提取标记
+            el.removeAttribute('data-auto-extracted');
+            this.saveMetadata({ 
+                language: newValue,
+                _clearExtracted: { language: true }
+            });
             this.closeLanguageMenu();
         };
         
@@ -973,12 +1056,20 @@ Lumina.BookDetail = {
         
         textarea.addEventListener('blur', () => {
             const newValue = textarea.value.trim();
+            const isChanged = newValue !== currentValue;
             textEl.textContent = newValue || Lumina.I18n.t('noDescription');
             textEl.style.display = '-webkit-box';
             textEl.classList.add('collapsed');
             textarea.remove();
             hint.remove();
-            this.saveMetadata({ description: newValue });
+            // 清除自动提取标记
+            if (isChanged) {
+                textEl.removeAttribute('data-auto-extracted');
+            }
+            this.saveMetadata({ 
+                description: newValue,
+                _clearExtracted: { description: true }
+            });
             this.updateDescToggle();
         });
         
@@ -1214,15 +1305,32 @@ Lumina.BookDetail = {
         };
         
         // 如果用户手动编辑了之前自动提取的字段，清除自动提取标记
-        if (updates.title && existingMeta._extracted?.confidence?.title >= 70) {
-            if (metadata._extracted) {
-                metadata._extracted.confidence.title = 100; // 用户确认，设为最高置信度
+        if (updates._clearExtracted) {
+            if (!metadata._extracted) metadata._extracted = {};
+            if (!metadata._extracted.confidence) metadata._extracted.confidence = {};
+            
+            // 清除指定字段的自动提取标记（设为100表示用户已确认）
+            if (updates._clearExtracted.title) {
+                metadata._extracted.confidence.title = 100;
             }
-        }
-        if (updates.author && existingMeta._extracted?.confidence?.author >= 70) {
-            if (metadata._extracted) {
+            if (updates._clearExtracted.author) {
                 metadata._extracted.confidence.author = 100;
             }
+            if (updates._clearExtracted.publishDate) {
+                metadata._extracted.confidence.publishDate = 100;
+            }
+            if (updates._clearExtracted.publisher) {
+                metadata._extracted.confidence.publisher = 100;
+            }
+            if (updates._clearExtracted.description) {
+                metadata._extracted.confidence.description = 100;
+            }
+            if (updates._clearExtracted.language) {
+                metadata._extracted.confidence.language = 100;
+            }
+            
+            // 删除临时标记
+            delete updates._clearExtracted;
         }
         
         // 更新当前文件数据

@@ -143,6 +143,67 @@ Lumina.FontManager = {
         return `"${font.family}", ${this.builtInFonts.serif.family}`;
     },
     
+    // 获取用于 SVG 的字体 CSS（将字体嵌入为 base64）
+    async getFontCSSForSVG(fontId) {
+        // 检查缓存
+        if (this._fontCSSCache && this._fontCSSCache.has(fontId)) {
+            return this._fontCSSCache.get(fontId);
+        }
+        
+        // 初始化缓存
+        if (!this._fontCSSCache) {
+            this._fontCSSCache = new Map();
+        }
+        
+        const font = this.getFont(fontId);
+        if (!font || font.isBuiltIn) return null;
+        
+        try {
+            let fontData;
+            
+            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+                // APP 环境：读取字体文件
+                const { Filesystem } = Capacitor.Plugins;
+                const result = await Filesystem.readFile({
+                    path: `${this.FONT_DIR}/${font.storedName}`,
+                    directory: 'DOCUMENTS'
+                });
+                fontData = result.data;
+            } else {
+                // Web 环境：从 IndexedDB 读取
+                const db = await this._getDB();
+                const tx = db.transaction('fonts', 'readonly');
+                const store = tx.objectStore('fonts');
+                const result = await new Promise((resolve, reject) => {
+                    const request = store.get(font.storedName);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                if (result?.data) {
+                    // 转换为 base64
+                    const bytes = new Uint8Array(result.data);
+                    let binary = '';
+                    for (let i = 0; i < bytes.byteLength; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    fontData = btoa(binary);
+                }
+            }
+            
+            if (!fontData) return null;
+            
+            const safeFontName = font.family.replace(/['"\\]/g, '\\$&');
+            const css = `@font-face{font-family:'${safeFontName}';src:url('data:font/ttf;base64,${fontData}') format('truetype');font-display:swap}`;
+            
+            // 存入缓存
+            this._fontCSSCache.set(fontId, css);
+            return css;
+        } catch (e) {
+            console.error('[FontManager] 获取 SVG 字体 CSS 失败:', e);
+            return null;
+        }
+    },
+    
     // 加载字体CSS
     async loadFont(fontId) {
         if (this.loadedFonts.has(fontId)) return;

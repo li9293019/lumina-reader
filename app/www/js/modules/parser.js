@@ -1829,7 +1829,7 @@ Lumina.Parser.extractPDFImages = async (page, pageNum) => {
  */
 Lumina.Utils.createImagePlaceholder = () => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><rect width="300" height="200" fill="#f5f5f5"/><text x="150" y="100" font-size="14" fill="#999" text-anchor="middle" dy=".3em">图片（未保存到书库）</text></svg>`;
-    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
 };
 
 /**

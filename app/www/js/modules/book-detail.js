@@ -424,12 +424,29 @@ Lumina.BookDetail = {
         const coverWrapper = document.getElementById('bookDetailCoverWrapper');
         if (coverEl) {
             if (data.cover) {
+                // 有真实封面
                 coverEl.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 coverWrapper?.classList.remove('no-cover');
+            } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
+                // 无真实封面但开启哈希封面，使用生成封面
+                const generatedCover = Lumina.CoverGenerator.getCoverUrl(data);
+                if (generatedCover) {
+                    coverEl.innerHTML = `<img src="${generatedCover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                    coverWrapper?.classList.remove('no-cover');
+                } else {
+                    coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                    coverWrapper?.classList.add('no-cover');
+                }
             } else {
                 coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
                 coverWrapper?.classList.add('no-cover');
             }
+        }
+        
+        // 删除按钮显示控制（无真实封面时隐藏）
+        const deleteBtn = document.querySelector('.book-detail-cover-hover-actions .delete-btn');
+        if (deleteBtn) {
+            deleteBtn.style.display = data.cover ? '' : 'none';
         }
         
         // 文件类型胶囊
@@ -448,7 +465,6 @@ Lumina.BookDetail = {
             // 如果书名是自动提取的，添加提示样式
             if (metadata.title && metadata._extracted?.confidence?.title >= 70) {
                 nameEl.dataset.autoExtracted = 'true';
-                nameEl.dataset.tooltip = Lumina.I18n.t('autoExtracted') || '自动识别';
             } else {
                 delete nameEl.dataset.autoExtracted;
                 delete nameEl.dataset.tooltip;
@@ -464,7 +480,6 @@ Lumina.BookDetail = {
             // 如果作者是自动提取的，添加提示样式
             if (authorText && metadata._extracted?.confidence?.author >= 70) {
                 authorEl.dataset.autoExtracted = 'true';
-                authorEl.dataset.tooltip = Lumina.I18n.t('autoExtracted') || '自动识别';
             } else {
                 delete authorEl.dataset.autoExtracted;
                 delete authorEl.dataset.tooltip;
@@ -680,6 +695,7 @@ Lumina.BookDetail = {
         const currentValue = el.textContent;
         const input = document.createElement('input');
         input.type = 'text';
+        input.name = 'book-detail-name-input';
         input.className = 'book-detail-name-input';
         input.value = currentValue;
         
@@ -710,6 +726,7 @@ Lumina.BookDetail = {
         const defaultAuthor = Lumina.I18n.t('anonymousAuthor') || '佚名';
         const input = document.createElement('input');
         input.type = 'text';
+        input.name = 'book-detail-author-input';
         input.className = 'book-detail-author-input';
         // 如果当前是默认值，则输入框显示为空，方便用户输入
         input.value = currentValue === defaultAuthor ? '' : currentValue;
@@ -741,6 +758,7 @@ Lumina.BookDetail = {
         const currentValue = el.textContent;
         const input = document.createElement('input');
         input.type = 'text';
+        input.name = 'book-detail-info-input';
         input.className = 'book-detail-info-input';
         input.value = currentValue === 'NA' ? '' : currentValue;
         input.placeholder = 'YYYY / YYYY-MM / YYYY-MM-DD';
@@ -772,6 +790,7 @@ Lumina.BookDetail = {
         const currentValue = el.textContent;
         const input = document.createElement('input');
         input.type = 'text';
+        input.name = 'book-detail-info-input';
         input.className = 'book-detail-info-input';
         input.value = currentValue === 'NA' ? '' : currentValue;
         
@@ -870,6 +889,7 @@ Lumina.BookDetail = {
         const isPlaceholder = currentValue === Lumina.I18n.t('noDescription');
         
         const textarea = document.createElement('textarea');
+        textarea.name = 'book-detail-description-input';
         textarea.className = 'book-detail-description-input';
         textarea.value = isPlaceholder ? '' : currentValue;
         textarea.maxLength = 1000;
@@ -1055,9 +1075,13 @@ Lumina.BookDetail = {
                 content.style.transform = '';
                 this.triggerCoverUpload();
             } else if (deltaX < -SWIPE_THRESHOLD) {
-                // 左滑 - 删除封面
-                content.style.transform = '';
-                this.deleteCover();
+                // 左滑 - 删除封面（仅当有真实封面时）
+                if (this.currentFile?.cover) {
+                    content.style.transform = '';
+                    this.deleteCover();
+                } else {
+                    content.style.transform = '';
+                }
             } else {
                 // 复位
                 content.style.transform = '';

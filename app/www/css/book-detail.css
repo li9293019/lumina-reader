@@ -1018,23 +1018,3 @@
     vertical-align: middle;
     opacity: 0.6;
 }
-
-/* 悬停时显示提示 */
-#bookDetailName[data-auto-extracted="true"]:hover::before,
-#bookDetailAuthor[data-auto-extracted="true"]:hover::before {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 4px 8px;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-style: normal;
-    border-radius: 4px;
-    white-space: nowrap;
-    z-index: 10;
-    margin-bottom: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}

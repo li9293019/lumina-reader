@@ -73,7 +73,12 @@ Lumina.ConfigManager = {
                 encrypted: false,
             },
             
-            // ========== 7. 热力图预设 ==========
+            // ========== 7. 书库设置 ==========
+            library: {
+                hashCover: true,  // 启用哈希封面（默认开启）
+            },
+            
+            // ========== 8. 热力图预设 ==========
             heatMap: {
                 presets: [], // {id, name, tags: []}
             },

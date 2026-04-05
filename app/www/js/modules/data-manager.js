@@ -714,9 +714,17 @@ Lumina.DataManager = class {
         const sizeStr = file.estimatedSize ? Lumina.Utils.formatFileSize(file.estimatedSize) : '--';
         const fileName = Lumina.Utils.escapeHtml(file.fileName);
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
-        const coverHtml = hasCover 
-            ? `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`
-            : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+        let coverHtml;
+        if (hasCover) {
+            coverHtml = `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+        } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
+            const generatedCover = Lumina.CoverGenerator.getCoverUrl(file);
+            coverHtml = generatedCover 
+                ? `<img src="${generatedCover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`
+                : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+        } else {
+            coverHtml = `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+        }
         
         // 多选勾选框（自定义SVG，非浏览器checkbox）
         const checkboxHtml = `

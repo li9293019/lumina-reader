@@ -18,6 +18,7 @@ Lumina.Settings = {
             paginationMaxWords: config.pagination.maxWords,
             paginationImageWords: config.pagination.imageWords,
             encryptedExport: config.export.encrypted,
+            hashCover: config.library?.hashCover ?? true,
             pdfExtractImages: config.pdf.extractImages,
             pdfPasswordPreset: config.pdf.passwordPreset.enabled,
             pdfSmartGuess: config.pdf.passwordPreset.smartGuess,
@@ -69,6 +70,7 @@ Lumina.Settings = {
         });
         
         Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
+        Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
         Lumina.ConfigManager.set('pdf.extractImages', settings.pdfExtractImages);
         Lumina.ConfigManager.set('pdf.passwordPreset', {
             enabled: settings.pdfPasswordPreset,

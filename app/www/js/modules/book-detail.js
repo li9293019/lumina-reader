@@ -8,6 +8,10 @@ Lumina.BookDetail = {
     fileList: [],        // 当前列表
     currentIndex: 0,     // 当前索引
     isSwitching: false,  // 是否正在切换中
+    frameworkReady: false, // 框架是否已初始化
+    
+    // 缓存的 DOM 引用（避免重复查询）
+    _elements: {},
     
     // 文件类型颜色映射
     fileTypeColors: {
@@ -20,11 +24,37 @@ Lumina.BookDetail = {
         pdf: '#DC2626'
     },
     
-    // 初始化
+    // 初始化（只执行一次，创建框架和绑定事件）
     init() {
+        this.initFramework();
         this.bindEvents();
         this.createDatalists();
         this.initSwipeGesture();
+    },
+    
+    // 初始化面板框架（只执行一次）
+    initFramework() {
+        if (this.frameworkReady) return;
+        
+        // 缓存 DOM 引用
+        this._elements = {
+            panel: document.getElementById('bookDetailPanel'),
+            container: document.querySelector('.book-detail-container'),
+            cover: document.getElementById('bookDetailCover'),
+            coverWrapper: document.getElementById('bookDetailCoverWrapper'),
+            formatBadge: document.getElementById('bookDetailFormatBadge'),
+            name: document.getElementById('bookDetailName'),
+            author: document.getElementById('bookDetailAuthor'),
+            publishDate: document.getElementById('bookDetailPublishDate'),
+            publisher: document.getElementById('bookDetailPublisher'),
+            language: document.getElementById('bookDetailLanguage'),
+            fileName: document.getElementById('bookDetailFileName'),
+            description: document.getElementById('bookDetailDescription'),
+            tagList: document.getElementById('bookDetailTagList'),
+            tagInput: document.getElementById('bookDetailTagInput')
+        };
+        
+        this.frameworkReady = true;
     },
     
     // 创建 datalist 和语言菜单
@@ -227,10 +257,13 @@ Lumina.BookDetail = {
     show(fileData) {
         this.currentFile = fileData;
         
-        // 渲染数据
-        this.render();
+        // 确保框架已初始化
+        this.initFramework();
         
-        // 渲染切换按钮
+        // 更新书籍数据（不重建 DOM）
+        this.updateBookData(fileData);
+        
+        // 渲染切换按钮（PC端）
         this.renderNavButtons();
         
         // 绑定tooltip
@@ -242,7 +275,7 @@ Lumina.BookDetail = {
         this.bindKeyboardEvents();
         
         // 显示面板
-        const panel = document.getElementById('bookDetailPanel');
+        const panel = this._elements.panel;
         if (panel) {
             panel.classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -330,8 +363,7 @@ Lumina.BookDetail = {
     
     // 切换书籍
     // direction: 'next' 或 'prev' - 用于确定切换到哪本书
-    // animationDirection: 可选，用于指定动画方向（移动端滑动时使用相反方向）
-    switchBook(direction, animationDirection) {
+    switchBook(direction) {
         if (this.isSwitching) return;
         if (this.fileList.length <= 1) return;
         
@@ -346,44 +378,104 @@ Lumina.BookDetail = {
             newIndex = (this.currentIndex - 1 + total) % total;
         }
         
-        // 执行切换动画，移动端滑动时使用相反的动画方向
-        const animDirection = animationDirection || direction;
-        this.animateSwitch(animDirection, () => {
+        // 使用封面位移动画切换
+        this.animateCoverSwitch(direction, this.fileList[newIndex], () => {
             this.currentIndex = newIndex;
             this.currentFile = this.fileList[newIndex];
-            this.render();
             this.isSwitching = false;
         });
     },
     
-    // 切换动画（仅使用位移，避免透明度变化导致背景穿透）
-    animateSwitch(direction, callback) {
-        const container = document.querySelector('.book-detail-container');
-        if (!container) {
+    // 封面位移动画（物理弹性效果）
+    animateCoverSwitch(direction, newBookData, callback) {
+        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+        const panel = document.getElementById('bookDetailPanel');
+        
+        if (!coverWrapper) {
+            // 降级：直接更新
+            this.updateBookData(newBookData);
             callback();
             return;
         }
         
-        // next(下一本)：当前内容向右滑出，新内容从左侧滑入（像翻页到下一页）
-        // prev(上一本)：当前内容向左滑出，新内容从右侧滑入（像翻页到上一页）
-        const slideOut = direction === 'next' ? '100%' : '-100%';
-        const slideIn = direction === 'next' ? '-100%' : '100%';
+        // 添加切换中状态（禁用交互）
+        panel?.classList.add('book-switching');
         
-        // 第一阶段：当前内容滑出（保持透明度不变）
-        container.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
-        container.style.transform = `translateX(${slideOut})`;
+        // 获取当前封面 HTML
+        const currentCoverHTML = document.getElementById('bookDetailCover')?.innerHTML || '';
         
+        // 预生成新书封面 HTML
+        const newCoverHTML = this.generateCoverHTML(newBookData);
+        
+        // 确定动画方向
+        const isNext = direction === 'next';
+        const exitClass = isNext ? 'cover-anim-out-left' : 'cover-anim-out-right';
+        const enterClass = isNext ? 'cover-anim-in-right' : 'cover-anim-in-left';
+        
+        // 创建双层封面结构用于动画
+        const animContainer = document.createElement('div');
+        animContainer.className = 'cover-anim-container';
+        
+        // 旧封面层（退出动画）
+        const oldCover = document.createElement('div');
+        oldCover.className = `cover-anim-layer ${exitClass}`;
+        oldCover.innerHTML = currentCoverHTML;
+        
+        // 新封面层（进入动画）
+        const newCover = document.createElement('div');
+        newCover.className = `cover-anim-layer ${enterClass}`;
+        newCover.innerHTML = newCoverHTML;
+        
+        // 保存原始封面引用
+        const originalCover = document.getElementById('bookDetailCover');
+        
+        // 隐藏原始封面，显示动画层
+        if (originalCover) {
+            originalCover.style.opacity = '0';
+        }
+        
+        animContainer.appendChild(oldCover);
+        animContainer.appendChild(newCover);
+        coverWrapper.appendChild(animContainer);
+        
+        // 动画中段更新数据（旧封面已退出，新封面即将进入）
+        // 内容区域保持不变，只更新文本数据
         setTimeout(() => {
-            callback();
-            // 第二阶段：瞬间重置位置并滑入
-            container.style.transition = 'none';
-            container.style.transform = `translateX(${slideIn})`;
+            this.updateBookData(newBookData);
+        }, 180);
+        
+        // 动画结束后清理
+        setTimeout(() => {
+            // 恢复原始封面显示
+            if (originalCover) {
+                originalCover.style.opacity = '1';
+                originalCover.style.animation = 'none';
+            }
             
-            requestAnimationFrame(() => {
-                container.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
-                container.style.transform = 'translateX(0)';
-            });
-        }, 250);
+            // 移除动画层
+            animContainer.remove();
+            
+            // 移除切换状态
+            panel?.classList.remove('book-switching');
+            
+            callback();
+        }, 500);
+    },
+    
+    // 生成封面 HTML（用于动画预渲染）
+    generateCoverHTML(bookData) {
+        const metadata = bookData.metadata || {};
+        
+        if (bookData.cover) {
+            return `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+        } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
+            const svg = Lumina.CoverGenerator.getCoverSVG(bookData);
+            if (svg) {
+                return svg.replace('<svg', '<svg class="book-detail-cover-img"');
+            }
+        }
+        
+        return '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
     },
     
     // 初始化滑动手势（移动端）
@@ -438,11 +530,11 @@ Lumina.BookDetail = {
             
             if (Math.abs(deltaX) > threshold) {
                 if (deltaX > 0) {
-                    // 右滑（手指从左往右）：显示上一本，但动画向右滑出（跟随手指）
-                    this.switchBook('prev', 'next');
+                    // 右滑：显示上一本
+                    this.switchBook('prev');
                 } else {
-                    // 左滑（手指从右往左）：显示下一本，但动画向左滑出（跟随手指）
-                    this.switchBook('next', 'prev');
+                    // 左滑：显示下一本
+                    this.switchBook('next');
                 }
             }
         });
@@ -478,152 +570,132 @@ Lumina.BookDetail = {
         }
     },
     
-    // 渲染数据
-    render() {
-        if (!this.currentFile) return;
+    // 更新书籍数据（增量更新，不重建 DOM）
+    updateBookData(data) {
+        if (!data) return;
         
-        const data = this.currentFile;
         const metadata = data.metadata || {};
+        const el = this._elements;
         
         // 封面
-        const coverEl = document.getElementById('bookDetailCover');
-        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
-        if (coverEl) {
+        if (el.cover) {
             if (data.cover) {
-                // 有真实封面
-                coverEl.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
-                coverWrapper?.classList.remove('no-cover');
+                el.cover.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                el.coverWrapper?.classList.remove('no-cover');
             } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-                // 无真实封面但开启哈希封面，使用生成封面（直接插入 SVG 以继承页面字体）
                 const generatedCover = Lumina.CoverGenerator.getCoverSVG(data);
                 if (generatedCover) {
-                    coverEl.innerHTML = generatedCover;
-                    coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
-                    coverWrapper?.classList.remove('no-cover');
+                    el.cover.innerHTML = generatedCover;
+                    el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
+                    el.coverWrapper?.classList.remove('no-cover');
                 } else {
-                    coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
-                    coverWrapper?.classList.add('no-cover');
+                    el.cover.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                    el.coverWrapper?.classList.add('no-cover');
                 }
             } else {
-                coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
-                coverWrapper?.classList.add('no-cover');
+                el.cover.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                el.coverWrapper?.classList.add('no-cover');
             }
         }
         
-        // 删除按钮显示控制（无真实封面时隐藏）
+        // 删除按钮显示控制
         const deleteBtn = document.querySelector('.book-detail-cover-hover-actions .delete-btn');
         if (deleteBtn) {
             deleteBtn.style.display = data.cover ? '' : 'none';
         }
         
         // 文件类型胶囊
-        const formatBadge = document.getElementById('bookDetailFormatBadge');
-        if (formatBadge) {
+        if (el.formatBadge) {
             const fileType = data.fileType || 'default';
-            formatBadge.textContent = fileType.toUpperCase();
-            formatBadge.dataset.type = fileType;
+            el.formatBadge.textContent = fileType.toUpperCase();
+            el.formatBadge.dataset.type = fileType;
         }
         
-        // 书名（优先使用提取/编辑的元数据，其次是文件名）
-        const nameEl = document.getElementById('bookDetailName');
-        if (nameEl) {
+        // 书名
+        if (el.name) {
             const displayName = metadata.title || this.getFileNameWithoutExt(data.fileName);
-            nameEl.textContent = displayName;
-            // 如果书名是自动提取的（置信度 1-99），添加提示样式；100 表示用户已确认
+            el.name.textContent = displayName;
             const titleConfidence = metadata._extracted?.confidence?.title;
             if (metadata.title && titleConfidence > 0 && titleConfidence < 100) {
-                nameEl.dataset.autoExtracted = 'true';
+                el.name.dataset.autoExtracted = 'true';
             } else {
-                delete nameEl.dataset.autoExtracted;
-                delete nameEl.dataset.tooltip;
+                delete el.name.dataset.autoExtracted;
+                delete el.name.dataset.tooltip;
             }
         }
         
-        // 作者（优先使用提取的元数据）
-        const authorEl = document.getElementById('bookDetailAuthor');
-        if (authorEl) {
+        // 作者
+        if (el.author) {
             const authorText = metadata.author;
-            // 如果没有作者，根据语言显示对应默认值：佚名 / Anonymous
-            authorEl.textContent = authorText || Lumina.I18n.t('anonymousAuthor') || '佚名';
-            // 如果作者是自动提取的（置信度 1-99），添加提示样式；100 表示用户已确认
+            el.author.textContent = authorText || Lumina.I18n.t('anonymousAuthor') || '佚名';
             const authorConfidence = metadata._extracted?.confidence?.author;
             if (authorText && authorConfidence > 0 && authorConfidence < 100) {
-                authorEl.dataset.autoExtracted = 'true';
+                el.author.dataset.autoExtracted = 'true';
             } else {
-                delete authorEl.dataset.autoExtracted;
-                delete authorEl.dataset.tooltip;
+                delete el.author.dataset.autoExtracted;
+                delete el.author.dataset.tooltip;
             }
         }
         
         // 发布时间
-        const publishDateEl = document.getElementById('bookDetailPublishDate');
-        if (publishDateEl) {
-            publishDateEl.textContent = this.formatPublishDate(metadata.publishDate) || 'NA';
-            // 如果是自动提取的（置信度 1-99），添加提示样式
+        if (el.publishDate) {
+            el.publishDate.textContent = this.formatPublishDate(metadata.publishDate) || 'NA';
             const dateConfidence = metadata._extracted?.confidence?.publishDate;
             if (metadata.publishDate && dateConfidence > 0 && dateConfidence < 100) {
-                publishDateEl.dataset.autoExtracted = 'true';
+                el.publishDate.dataset.autoExtracted = 'true';
             } else {
-                delete publishDateEl.dataset.autoExtracted;
+                delete el.publishDate.dataset.autoExtracted;
             }
         }
         
-        // 发布平台（如果有sourceUrl，显示为可点击链接）
-        const publisherEl = document.getElementById('bookDetailPublisher');
-        if (publisherEl) {
+        // 发布平台
+        if (el.publisher) {
             const hasSourceUrl = metadata.sourceUrl && metadata.sourceUrl.startsWith('http');
-            publisherEl.textContent = metadata.publisher || 'NA';
-            publisherEl.style.cursor = hasSourceUrl ? 'pointer' : 'default';
-            publisherEl.style.textDecoration = hasSourceUrl ? 'underline' : 'none';
-            publisherEl.style.color = hasSourceUrl ? 'var(--accent)' : '';
+            el.publisher.textContent = metadata.publisher || 'NA';
+            el.publisher.style.cursor = hasSourceUrl ? 'pointer' : 'default';
+            el.publisher.style.textDecoration = hasSourceUrl ? 'underline' : 'none';
+            el.publisher.style.color = hasSourceUrl ? 'var(--accent)' : '';
             
-            // 如果是自动提取的（置信度 1-99），添加提示样式
             const pubConfidence = metadata._extracted?.confidence?.publisher;
             if (metadata.publisher && pubConfidence > 0 && pubConfidence < 100) {
-                publisherEl.dataset.autoExtracted = 'true';
+                el.publisher.dataset.autoExtracted = 'true';
             } else {
-                delete publisherEl.dataset.autoExtracted;
+                delete el.publisher.dataset.autoExtracted;
             }
             
-            // 记录 sourceUrl 到 dataset，点击时通过事件委托处理
             if (hasSourceUrl) {
-                publisherEl.dataset.sourceUrl = metadata.sourceUrl;
+                el.publisher.dataset.sourceUrl = metadata.sourceUrl;
             } else {
-                delete publisherEl.dataset.sourceUrl;
+                delete el.publisher.dataset.sourceUrl;
             }
         }
         
         // 语言
-        const languageEl = document.getElementById('bookDetailLanguage');
-        if (languageEl) {
-            languageEl.textContent = metadata.language || 'NA';
-            // 如果是自动提取的（置信度 1-99），添加提示样式
+        if (el.language) {
+            el.language.textContent = metadata.language || 'NA';
             const langConfidence = metadata._extracted?.confidence?.language;
             if (metadata.language && langConfidence > 0 && langConfidence < 100) {
-                languageEl.dataset.autoExtracted = 'true';
+                el.language.dataset.autoExtracted = 'true';
             } else {
-                delete languageEl.dataset.autoExtracted;
+                delete el.language.dataset.autoExtracted;
             }
         }
         
         // 文件名
-        const fileNameEl = document.getElementById('bookDetailFileName');
-        if (fileNameEl) {
-            fileNameEl.textContent = data.fileName || 'NA';
+        if (el.fileName) {
+            el.fileName.textContent = data.fileName || 'NA';
         }
         
         // 简介
-        const descEl = document.getElementById('bookDetailDescription');
-        if (descEl) {
+        if (el.description) {
             const description = metadata.description || '';
-            descEl.textContent = description || Lumina.I18n.t('noDescription');
-            descEl.classList.toggle('collapsed', description.length > 60);
-            // 如果是自动提取的（置信度 1-99），添加提示样式
+            el.description.textContent = description || Lumina.I18n.t('noDescription');
+            el.description.classList.toggle('collapsed', description.length > 60);
             const descConfidence = metadata._extracted?.confidence?.description;
             if (description && descConfidence > 0 && descConfidence < 100) {
-                descEl.dataset.autoExtracted = 'true';
+                el.description.dataset.autoExtracted = 'true';
             } else {
-                delete descEl.dataset.autoExtracted;
+                delete el.description.dataset.autoExtracted;
             }
         }
         
@@ -650,21 +722,25 @@ Lumina.BookDetail = {
         }
     },
     
+    // 兼容旧代码：render 作为 updateBookData 的别名
+    render() {
+        this.updateBookData(this.currentFile);
+    },
+    
     // 刷新生成的封面（书名/作者编辑后调用）
     refreshGeneratedCover() {
         if (!this.currentFile) return;
         
-        const coverEl = document.getElementById('bookDetailCover');
-        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+        const el = this._elements;
         
-        if (coverEl && Lumina.CoverGenerator) {
+        if (el.cover && Lumina.CoverGenerator) {
             // 清除缓存，强制重新生成
             Lumina.CoverGenerator.clearCache();
             const generatedCover = Lumina.CoverGenerator.getCoverSVG(this.currentFile);
             if (generatedCover) {
-                coverEl.innerHTML = generatedCover;
-                coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
-                coverWrapper?.classList.remove('no-cover');
+                el.cover.innerHTML = generatedCover;
+                el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
+                el.coverWrapper?.classList.remove('no-cover');
             }
         }
     },

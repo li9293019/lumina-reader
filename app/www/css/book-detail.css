@@ -13,11 +13,12 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
-    /* 移除透明度动效，避免闪烁 */
+    overflow: hidden; /* 防止封面动画导致滚动条 */
 }
 
 .book-detail-panel.active {
     display: flex;
+    overflow: hidden;
 }
 
 /* 移动端全屏 */
@@ -39,6 +40,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overflow-x: hidden;
     animation: bookDetailSlideIn 0.3s ease;
     position: relative;
 }
@@ -69,6 +71,7 @@
         height: 100vh;
         border-radius: 0;
         animation: bookDetailSlideIn 0.25s ease-out;
+        overflow-x: hidden;
     }
 }
 
@@ -142,6 +145,8 @@
     background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    perspective: 1000px;
+    transform-style: preserve-3d;
 }
 
 .book-detail-cover-wrapper:hover {
@@ -156,6 +161,148 @@
 .book-detail-cover {
     width: 100%;
     height: 100%;
+    will-change: transform, opacity;
+}
+
+/* ==================== 封面切换动画（物理弹性）==================== */
+
+/* 旧封面向左滑出（下一本）- 带轻微内旋 */
+@keyframes coverSlideOutLeft {
+    0% { 
+        transform: translateX(0) rotateY(0deg) scale(1); 
+        opacity: 1; 
+    }
+    60% { 
+        transform: translateX(-80%) rotateY(-5deg) scale(0.95); 
+        opacity: 0.6; 
+    }
+    100% { 
+        transform: translateX(-130%) rotateY(-8deg) scale(0.9); 
+        opacity: 0; 
+    }
+}
+
+/* 旧封面向右滑出（上一本） */
+@keyframes coverSlideOutRight {
+    0% { 
+        transform: translateX(0) rotateY(0deg) scale(1); 
+        opacity: 1; 
+    }
+    60% { 
+        transform: translateX(80%) rotateY(5deg) scale(0.95); 
+        opacity: 0.6; 
+    }
+    100% { 
+        transform: translateX(130%) rotateY(8deg) scale(0.9); 
+        opacity: 0; 
+    }
+}
+
+/* 新封面从右侧滑入（下一本）- 弹性回弹 */
+@keyframes coverSlideInRight {
+    0% { 
+        transform: translateX(120%) rotateY(10deg) scale(0.9); 
+        opacity: 0; 
+    }
+    60% { 
+        transform: translateX(-8%) rotateY(-3deg) scale(1.02); 
+        opacity: 1; 
+    }
+    80% { 
+        transform: translateX(3%) rotateY(1deg) scale(0.99); 
+        opacity: 1; 
+    }
+    100% { 
+        transform: translateX(0) rotateY(0deg) scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* 新封面从左侧滑入（上一本） */
+@keyframes coverSlideInLeft {
+    0% { 
+        transform: translateX(-120%) rotateY(-10deg) scale(0.9); 
+        opacity: 0; 
+    }
+    60% { 
+        transform: translateX(8%) rotateY(3deg) scale(1.02); 
+        opacity: 1; 
+    }
+    80% { 
+        transform: translateX(-3%) rotateY(-1deg) scale(0.99); 
+        opacity: 1; 
+    }
+    100% { 
+        transform: translateX(0) rotateY(0deg) scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* 动画应用类 */
+.cover-anim-out-left {
+    animation: coverSlideOutLeft 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.cover-anim-out-right {
+    animation: coverSlideOutRight 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.cover-anim-in-right {
+    animation: coverSlideInRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.cover-anim-in-left {
+    animation: coverSlideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 始终防止横向滚动条（尤其在动画期间） */
+html, body {
+    overflow-x: hidden;
+}
+
+/* 内容滚动区域只允许垂直滚动 */
+.book-detail-content {
+    overflow-x: hidden !important;
+}
+
+/* 切换期间禁用交互，并允许封面动画溢出 */
+.book-detail-panel.book-switching .book-detail-cover-wrapper {
+    pointer-events: none;
+    overflow: visible;
+}
+
+/* 封面动画期间隐藏横向滚动条 */
+.book-detail-panel.book-switching {
+    overflow-x: hidden !important;
+}
+
+/* 动画层基础样式 */
+.cover-anim-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    perspective: 1000px;
+    overflow: visible;
+    z-index: 10;
+    pointer-events: none;
+    /* 防止动画溢出影响父容器 */
+    contain: layout style;
+}
+
+.cover-anim-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 /* 封面图片 */

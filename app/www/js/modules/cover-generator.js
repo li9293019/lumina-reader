@@ -234,10 +234,15 @@
         set textAlign(val) { this.state.textAlign = val; }
         set textBaseline(val) { this.state.textBaseline = val; }
 
-        getSVG(bgColor) {
+        getSVG(bgColor, asHTML = false) {
             const defs = this.defs.length > 0 ? `<defs>${this.defs.join('')}</defs>` : '';
             const background = bgColor || '#2a2a2a';
-            return `<?xml version="1.0" encoding="UTF-8"?>\n<svg width="${this.width}" height="${this.height}" viewBox="0 0 ${this.width} ${this.height}" xmlns="${this.svgNS}" style="background-color:${background}">\n    ${defs}\n    ${this.elements.join('')}\n</svg>`;
+            // asHTML 模式：使用 100% 宽高 + preserveAspectRatio 模拟 object-fit: cover
+            // Data URL 模式：使用固定宽高
+            const width = asHTML ? '100%' : this.width;
+            const height = asHTML ? '100%' : this.height;
+            const preserveAspectRatio = asHTML ? ' preserveAspectRatio="xMidYMid slice"' : '';
+            return `<?xml version="1.0" encoding="UTF-8"?>\n<svg width="${width}" height="${height}" viewBox="0 0 ${this.width} ${this.height}"${preserveAspectRatio} xmlns="${this.svgNS}" style="background-color:${background}">\n    ${defs}\n    ${this.elements.join('')}\n</svg>`;
         }
 
         getDataURL(bgColor) {
@@ -1330,7 +1335,8 @@
                 seed: options.seed !== undefined ? options.seed : null,
                 density: options.density || 1.0,
                 fontStack: options.fontStack || 'sans-serif',
-                hashMode: options.hashMode || false
+                hashMode: options.hashMode || false,
+                asHTML: options.asHTML || false
             };
 
             const baseW = CONFIG.baseWidth;
@@ -1352,6 +1358,10 @@
             renderer.fillStyle = palette.pattern; // 设置背景色
             typographic(renderer, width, height, config.title, config.author, config.scaleFactor, baseSeed, palette, patternId, config.density, config.fontStack);
             
+            // 支持返回 SVG HTML 字符串（直接插入 DOM）或 Data URL（作为图片）
+            if (config.asHTML) {
+                return renderer.getSVG(palette.pattern, true);
+            }
             return renderer.getDataURL(palette.pattern);
         }
 
@@ -1363,46 +1373,57 @@
         _cache: new Map(),
         _maxCacheSize: 50,
         
-        generateSVG(title, author) {
-            const cacheKey = `${title}|${author}`;
+        // 生成 SVG HTML（直接插入 DOM，继承页面字体）
+        generateSVGHTML(title, author, fontId) {
+            // 缓存 key 包含字体信息，切换字体后自动失效
+            const cacheKey = `${title}|${author}|${fontId || 'default'}`;
             if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
             
             try {
                 let fontStack = 'system-ui, -apple-system, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif';
-                if (typeof Lumina !== 'undefined' && Lumina.FontManager && Lumina.State?.settings?.font) {
-                    fontStack = Lumina.FontManager.getFontFamily(Lumina.State.settings.font);
+                if (typeof Lumina !== 'undefined' && Lumina.FontManager) {
+                    if (fontId) {
+                        fontStack = Lumina.FontManager.getFontFamily(fontId);
+                    } else if (Lumina.State?.settings?.font) {
+                        fontStack = Lumina.FontManager.getFontFamily(Lumina.State.settings.font);
+                    }
                 }
                 
-                const svgUrl = CoverCore.generate({
+                const svgHTML = CoverCore.generate({
                     title: title || 'Untitled',
                     author: author || '',
                     scaleFactor: 1.0,
                     hashMode: true,
-                    fontStack: fontStack
+                    fontStack: fontStack,
+                    asHTML: true
                 });
                 
-                this._cache.set(cacheKey, svgUrl);
+                this._cache.set(cacheKey, svgHTML);
                 if (this._cache.size > this._maxCacheSize) {
                     const firstKey = this._cache.keys().next().value;
                     this._cache.delete(firstKey);
                 }
                 
-                return svgUrl;
+                return svgHTML;
             } catch (e) {
                 console.error('[CoverGenerator] 生成封面失败:', e);
                 return null;
             }
         },
         
-        getCoverUrl(book) {
+        // 获取封面 SVG HTML（直接插入 DOM）
+        getCoverSVG(book) {
             if (!book || book.cover) return null;
             const metadata = book.metadata || {};
             const title = metadata.title || book.title || book.fileName || 'Untitled';
             const author = metadata.author || book.author || '';
-            return this.generateSVG(title, author);
+            const fontId = Lumina.State?.settings?.font;
+            return this.generateSVGHTML(title, author, fontId);
         },
         
-        clearCache() { this._cache.clear(); }
+        clearCache() { 
+            this._cache.clear();
+        }
     };
 
 })();

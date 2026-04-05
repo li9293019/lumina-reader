@@ -428,10 +428,11 @@ Lumina.BookDetail = {
                 coverEl.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 coverWrapper?.classList.remove('no-cover');
             } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-                // 无真实封面但开启哈希封面，使用生成封面
-                const generatedCover = Lumina.CoverGenerator.getCoverUrl(data);
+                // 无真实封面但开启哈希封面，使用生成封面（直接插入 SVG 以继承页面字体）
+                const generatedCover = Lumina.CoverGenerator.getCoverSVG(data);
                 if (generatedCover) {
-                    coverEl.innerHTML = `<img src="${generatedCover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                    coverEl.innerHTML = generatedCover;
+                    coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
                     coverWrapper?.classList.remove('no-cover');
                 } else {
                     coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
@@ -568,9 +569,10 @@ Lumina.BookDetail = {
         if (coverEl && Lumina.CoverGenerator) {
             // 清除缓存，强制重新生成
             Lumina.CoverGenerator.clearCache();
-            const generatedCover = Lumina.CoverGenerator.getCoverUrl(this.currentFile);
+            const generatedCover = Lumina.CoverGenerator.getCoverSVG(this.currentFile);
             if (generatedCover) {
-                coverEl.innerHTML = `<img src="${generatedCover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                coverEl.innerHTML = generatedCover;
+                coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
                 coverWrapper?.classList.remove('no-cover');
             }
         }

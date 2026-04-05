@@ -718,10 +718,14 @@ Lumina.DataManager = class {
         if (hasCover) {
             coverHtml = `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
         } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-            const generatedCover = Lumina.CoverGenerator.getCoverUrl(file);
-            coverHtml = generatedCover 
-                ? `<img src="${generatedCover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`
-                : `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+            // 直接插入 SVG 以继承页面字体（APP 环境下可用自定义字体）
+            const generatedCover = Lumina.CoverGenerator.getCoverSVG(file);
+            if (generatedCover) {
+                // 添加 cover-img 类以应用样式
+                coverHtml = generatedCover.replace('<svg', '<svg class="cover-img"');
+            } else {
+                coverHtml = `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
+            }
         } else {
             coverHtml = `<div class="cover-placeholder"><svg><use href="#icon-book"/></svg></div>`;
         }

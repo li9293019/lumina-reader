@@ -3043,6 +3043,11 @@ object-position: center center;
 display: block;
 }
 
+/* SVG 封面（直接插入 DOM 时） */
+svg.cover-img {
+object-fit: unset; /* SVG 不支持 object-fit */
+}
+
 .cover-placeholder {
 aspect-ratio: 176 / 250;
 width: 100%;

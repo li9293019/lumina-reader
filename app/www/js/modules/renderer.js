@@ -195,6 +195,7 @@ Lumina.Renderer.getCleanText = (txt) => {
     // 防御：确保 txt 是字符串
     if (typeof txt !== 'string') return txt || '';
     if (['chap', 'part', 'sect'].some(prefix => txt.toLowerCase().startsWith(prefix))) return txt;
+    if (txt.length > 20) return txt;
     
     const specialChars = new Set(`!@#$%^&*()_+-=[]{}|;':"\\,./?`);
     

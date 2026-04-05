@@ -231,6 +231,14 @@ Lumina.Annotations = {
                     <span>${t('copyText') || '复制文本'}</span>
                 </div>
             `;
+            
+            // 【新增】分享书签
+            menuItems += `
+                <div class="annotation-menu-item" data-action="share-card">
+                    <svg class="icon"><use href="#icon-share"/></svg>
+                    <span>${t('shareCard')}</span>
+                </div>
+            `;
         }
         
         // 书签操作
@@ -462,6 +470,12 @@ Lumina.Annotations = {
                         Lumina.UI.showToast(t('bookmarkDeleted') || '书签已删除');
                     }
                 });
+            }
+        } else if (action === 'share-card') {
+            // 分享书签
+            const selectedText = this.pendingSelection?.selectedText || '';
+            if (selectedText && Lumina.ShareCard) {
+                Lumina.ShareCard.show(selectedText);
             }
         }
         

@@ -1367,11 +1367,22 @@
             return renderer.getDataURL(palette.pattern);
         }
 
-        return { generate };
+        // 返回 generate 函数和需要暴露的内部函数
+        return { 
+            generate,
+            PATTERNS,
+            PatternDrawers,
+            generatePalette,
+            extractParams,
+            djb2
+        };
     })();
 
     // ========== 对外接口 ==========
     Lumina.CoverGenerator = {
+        // 暴露类和内部模块供其他模块使用
+        SVGRenderer: SVGRenderer,
+        CoverCore: CoverCore,
         _cache: new Map(),
         _maxCacheSize: 50,
         
@@ -1425,6 +1436,164 @@
         
         clearCache() { 
             this._cache.clear();
+        },
+        
+        // 生成分享卡片（带正文内容）
+        generateShareCard(options) {
+            const { text, source, theme = 'elegant' } = options;
+            
+            // 分析文本长度选择版式
+            const charCount = text.length;
+            let layout = 'short';
+            if (charCount > 60) layout = 'paragraph';
+            else if (charCount > 20) layout = 'quote';
+            
+            // 随机配色
+            const seed = Date.now();
+            const hue = seed % 360;
+            const palettes = [
+                { bg: `hsl(${hue}, 30%, 12%)`, pattern: `hsl(${(hue+30)%360}, 25%, 20%)`, accent: `hsl(${(hue+180)%360}, 70%, 55%)`, textBg: '#f5f5f0', text: '#1a1a2e' },
+                { bg: `hsl(${hue}, 25%, 15%)`, pattern: `hsl(${(hue-30+360)%360}, 30%, 22%)`, accent: `hsl(${(hue+150)%360}, 65%, 60%)`, textBg: '#fafafa', text: '#2a2a3e' },
+                { bg: '#2d3436', pattern: '#636e72', accent: '#dfe6e9', textBg: '#f5f5f0', text: '#2d3436' },
+                { bg: '#1e272e', pattern: '#485460', accent: '#ffa502', textBg: '#f5f5f0', text: '#1e272e' }
+            ];
+            const palette = palettes[seed % palettes.length];
+            
+            // 创建 SVG 渲染器
+            const renderer = new SVGRenderer(600, 600);
+            
+            // 绘制背景
+            renderer.fillStyle = palette.bg;
+            renderer.fillRect(0, 0, 600, 600);
+            
+            // 绘制简单图案（圆点网格）
+            renderer.fillStyle = palette.pattern;
+            const p = [];
+            for (let i = 0; i < 40; i++) p.push(Math.random());
+            const density = 0.5;
+            const count = Math.floor((50 + p[0] * 50) * density);
+            for (let i = 0; i < count; i++) {
+                const x = p[i % 40] * 600, y = p[(i + 10) % 40] * 600, r = 2 + p[(i + 20) % 40] * 20;
+                renderer.globalAlpha = 0.08;
+                renderer.beginPath();
+                renderer.arc(x, y, r, 0, Math.PI * 2);
+                renderer.fill();
+            }
+            renderer.globalAlpha = 1;
+            
+            // 根据版式绘制文本
+            if (layout === 'short') {
+                this._renderShortQuote(renderer, text, source, palette);
+            } else if (layout === 'quote') {
+                this._renderQuote(renderer, text, source, palette);
+            } else {
+                this._renderParagraph(renderer, text, source, palette);
+            }
+            
+            return renderer.getSVG(palette.bg, true);
+        },
+        
+        _renderShortQuote(ctx, text, source, palette) {
+            // 大引号
+            ctx.fillStyle = palette.accent;
+            ctx.globalAlpha = 0.3;
+            ctx.font = 'bold 120px Georgia, serif';
+            ctx.fillText('"', 50, 120);
+            ctx.globalAlpha = 1;
+            
+            // 正文
+            ctx.fillStyle = palette.textBg;
+            ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+            this._wrapText(ctx, text, 300, 280, 500, 50, 'center');
+            
+            // 来源
+            ctx.fillStyle = palette.accent;
+            ctx.font = 'italic 18px Georgia, serif';
+            ctx.fillText(`— ${source}`, 300, 500, 500);
+        },
+        
+        _renderQuote(ctx, text, source, palette) {
+            // 顶部装饰条
+            ctx.fillStyle = palette.accent;
+            ctx.globalAlpha = 0.15;
+            ctx.fillRect(50, 40, 500, 80);
+            ctx.globalAlpha = 1;
+            
+            // 大引号
+            ctx.fillStyle = palette.accent;
+            ctx.globalAlpha = 0.4;
+            ctx.font = 'bold 80px Georgia, serif';
+            ctx.fillText('"', 60, 140);
+            ctx.globalAlpha = 1;
+            
+            // 正文
+            ctx.fillStyle = palette.textBg;
+            ctx.font = '28px system-ui, -apple-system, sans-serif';
+            this._wrapText(ctx, text, 300, 280, 480, 40, 'center');
+            
+            // 来源
+            ctx.fillStyle = palette.accent;
+            ctx.font = 'italic 16px Georgia, serif';
+            ctx.fillText(`— ${source}`, 300, 520, 480);
+        },
+        
+        _renderParagraph(ctx, text, source, palette) {
+            // 左侧装饰条
+            ctx.fillStyle = palette.accent;
+            ctx.fillRect(30, 60, 6, 480);
+            
+            // 大引号
+            ctx.fillStyle = palette.accent;
+            ctx.globalAlpha = 0.5;
+            ctx.font = 'bold 40px Georgia, serif';
+            ctx.fillText('"', 55, 100);
+            ctx.globalAlpha = 1;
+            
+            // 正文
+            ctx.fillStyle = palette.textBg;
+            ctx.font = '22px system-ui, -apple-system, sans-serif';
+            this._wrapText(ctx, text, 320, 300, 460, 36, 'left');
+            
+            // 来源
+            ctx.fillStyle = palette.accent;
+            ctx.font = 'italic 14px Georgia, serif';
+            ctx.fillText(`— ${source}`, 320, 540, 460);
+        },
+        
+        _wrapText(ctx, text, x, y, maxWidth, lineHeight, align) {
+            const chars = text.split('');
+            let line = '';
+            const lines = [];
+            
+            for (let i = 0; i < chars.length; i++) {
+                const testLine = line + chars[i];
+                const metrics = ctx.measureText(testLine);
+                
+                if (metrics.width > maxWidth && line.length > 0) {
+                    lines.push(line);
+                    line = chars[i];
+                    if (lines.length >= 5) {
+                        line += chars.slice(i + 1).join('');
+                        break;
+                    }
+                } else {
+                    line = testLine;
+                }
+            }
+            if (line) lines.push(line);
+            
+            // 居中对齐
+            const totalHeight = lines.length * lineHeight;
+            const startY = y - totalHeight / 2 + lineHeight / 2;
+            
+            lines.forEach((line, i) => {
+                let drawX = x;
+                if (align === 'center') {
+                    const metrics = ctx.measureText(line);
+                    drawX = x - metrics.width / 2;
+                }
+                ctx.fillText(line, drawX, startY + i * lineHeight);
+            });
         }
     };
 

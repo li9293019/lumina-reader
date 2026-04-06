@@ -1539,7 +1539,13 @@ const CoverCore = (function() {
         { code: 'dendrite', name: { 'zh-CN': '枝晶生长', 'en': 'Dendrite' }},
         { code: 'droste', name: { 'zh-CN': '递归画框', 'en': 'Droste Effect' }},
         { code: 'inkBleed', name: { 'zh-CN': '水墨晕染', 'en': 'Ink Bleed' }},
-        { code: 'snowflake', name: { 'zh-CN': '雪花冰晶', 'en': 'Snowflake' }}
+        { code: 'snowflake', name: { 'zh-CN': '雪花冰晶', 'en': 'Snowflake' }},
+        { code: 'sunburst', name: { 'zh-CN': '太阳光芒', 'en': 'Sunburst' }},
+        { code: 'gears', name: { 'zh-CN': '齿轮机械', 'en': 'Gears' }},
+        { code: 'bricks', name: { 'zh-CN': '砖墙纹理', 'en': 'Bricks' }},
+        { code: 'maple', name: { 'zh-CN': '飘落枫叶', 'en': 'Maple Leaves' }},
+        { code: 'typewriter', name: { 'zh-CN': '打字机文字', 'en': 'Typewriter' }},
+        { code: 'shanshui', name: { 'zh-CN': '水墨山水', 'en': 'Shanshui' }}
     ];
 
     const LAYOUTS = [
@@ -2912,7 +2918,7 @@ const CoverCore = (function() {
                 ctx.translate(cx, cy);
                 ctx.rotate(baseAngle);
                 
-                const mainLen = maxRadius * (0.6 + p[arm % 40] * 0.3);
+                const mainLen = maxRadius * (0.75 + p[arm % 40] * 0.15);
                 const branches = Math.floor((3 + p[(arm + 5) % 40] * 3) * density);
                 
                 ctx.globalAlpha = 0.8;
@@ -2929,7 +2935,7 @@ const CoverCore = (function() {
                     for (let side of [-1, 1]) {
                         ctx.save();
                         ctx.translate(0, -pos);
-                        ctx.rotate(side * (Math.PI / 4 + p[(arm + i) % 40] * 0.2));
+                        ctx.rotate(side * (Math.PI / 4 + (p[(arm + i) % 40] - 0.5) * 0.1));
                         
                         ctx.globalAlpha = 0.6 - (i / branches) * 0.3;
                         ctx.lineWidth = 1.5 - (i / branches) * 0.8;
@@ -2996,6 +3002,329 @@ const CoverCore = (function() {
                     else ctx.lineTo(x, y);
                 }
                 ctx.closePath();
+                ctx.stroke();
+            }
+        },
+
+        // 新图案：太阳光芒
+        sunburst(ctx, w, h, p, density) {
+            const cx = w/2, cy = h/2;
+            const rays = Math.floor((24 + p[0] * 16) * density);
+            const maxLen = Math.min(w, h) * 0.5;
+            for (let i = 0; i < rays; i++) {
+                const angle = (Math.PI * 2 * i) / rays + p[1] * 0.2;
+                const len = maxLen * (0.4 + p[i % 40] * 0.6);
+                const width = 1 + (i % 5) * 0.8;
+                ctx.lineWidth = width;
+                ctx.globalAlpha = 0.15 + (p[(i + 10) % 40] * 0.25);
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(angle) * maxLen * 0.1, cy + Math.sin(angle) * maxLen * 0.1);
+                ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, maxLen * 0.08, 0, Math.PI * 2);
+            ctx.fill();
+        },
+
+        // 新图案：齿轮机械（铺满版，工业化风格）
+        gears(ctx, w, h, p, density) {
+            // 绘制单个工业化齿轮
+            const drawGear = (cx, cy, r, teeth, rotation) => {
+                const outerR = r;
+                const innerR = r * 0.75;
+                const holeR = r * 0.15;
+                const toothDepth = r * 0.25;
+                
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = 0.28;
+                
+                // 绘制齿轮外圈（梯形齿）
+                ctx.beginPath();
+                for (let i = 0; i < teeth; i++) {
+                    const baseAngle = (Math.PI * 2 * i) / teeth + rotation;
+                    const nextAngle = (Math.PI * 2 * (i + 1)) / teeth + rotation;
+                    
+                    const rootStart = baseAngle + Math.PI / teeth * 0.15;
+                    const rootEnd = nextAngle - Math.PI / teeth * 0.15;
+                    const tipStart = baseAngle + Math.PI / teeth * 0.35;
+                    const tipEnd = nextAngle - Math.PI / teeth * 0.35;
+                    
+                    const x1 = cx + Math.cos(rootStart) * outerR;
+                    const y1 = cy + Math.sin(rootStart) * outerR;
+                    const x2 = cx + Math.cos(tipStart) * (outerR - toothDepth * 0.3);
+                    const y2 = cy + Math.sin(tipStart) * (outerR - toothDepth * 0.3);
+                    const x3 = cx + Math.cos(tipEnd) * (outerR - toothDepth * 0.3);
+                    const y3 = cy + Math.sin(tipEnd) * (outerR - toothDepth * 0.3);
+                    const x4 = cx + Math.cos(rootEnd) * outerR;
+                    const y4 = cy + Math.sin(rootEnd) * outerR;
+                    
+                    if (i === 0) ctx.moveTo(x1, y1);
+                    else ctx.lineTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.lineTo(x3, y3);
+                    ctx.lineTo(x4, y4);
+                }
+                ctx.closePath();
+                ctx.stroke();
+                
+                // 内圆
+                ctx.globalAlpha = 0.18;
+                ctx.beginPath();
+                ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 中心孔
+                ctx.globalAlpha = 0.22;
+                ctx.beginPath();
+                ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 辐条（大齿轮）
+                if (r > 30) {
+                    ctx.globalAlpha = 0.12;
+                    const spokes = r > 50 ? 6 : 4;
+                    for (let i = 0; i < spokes; i++) {
+                        const angle = (Math.PI * 2 * i) / spokes + rotation;
+                        ctx.beginPath();
+                        ctx.moveTo(cx + Math.cos(angle) * holeR * 1.5, cy + Math.sin(angle) * holeR * 1.5);
+                        ctx.lineTo(cx + Math.cos(angle) * innerR * 0.85, cy + Math.sin(angle) * innerR * 0.85);
+                        ctx.stroke();
+                    }
+                }
+            };
+            
+            // 网格化布局生成齿轮
+            const gears = [];
+            const margin = 8;
+            
+            // 定义三种规格齿轮
+            const sizes = [
+                { r: 45, teeth: 16 }, // 大
+                { r: 32, teeth: 12 }, // 中
+                { r: 20, teeth: 8 }   // 小
+            ];
+            
+            // 网格放置策略
+            const cols = 5;
+            const rows = 7;
+            const cellW = (w - margin * 2) / cols;
+            const cellH = (h - margin * 2) / rows;
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    // 随机决定是否放置（85%概率，制造空缺）
+                    if (p[(row * cols + col) % 40] > 0.85) continue;
+                    
+                    // 交错偏移
+                    const offsetX = (row % 2) * (cellW / 2);
+                    const baseX = margin + col * cellW + cellW / 2 + offsetX;
+                    const baseY = margin + row * cellH + cellH / 2;
+                    
+                    // 添加位置随机扰动
+                    const jitter = cellW * 0.15;
+                    const x = baseX + (p[(row * cols + col + 10) % 40] - 0.5) * jitter;
+                    const y = baseY + (p[(row * cols + col + 20) % 40] - 0.5) * jitter;
+                    
+                    // 随机选择大小（根据位置有倾向性）
+                    let sizeIdx;
+                    const rand = p[(row * cols + col + 5) % 40];
+                    if (rand > 0.7) sizeIdx = 0;      // 30% 大
+                    else if (rand > 0.3) sizeIdx = 1; // 40% 中
+                    else sizeIdx = 2;                 // 30% 小
+                    
+                    const size = sizes[sizeIdx];
+                    
+                    // 检查是否与已有齿轮重叠
+                    let overlaps = false;
+                    for (const g of gears) {
+                        const dx = x - g.x;
+                        const dy = y - g.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        // 允许轻微咬合（重叠15%以内）
+                        if (dist < size.r + g.r - Math.min(size.r, g.r) * 0.15) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!overlaps) {
+                        // 旋转角度随机
+                        const rotation = p[(row * cols + col + 30) % 40] * Math.PI * 2;
+                        gears.push({
+                            x: x,
+                            y: y,
+                            r: size.r,
+                            teeth: size.teeth,
+                            rotation: rotation
+                        });
+                    }
+                }
+            }
+            
+            // 按半径从大到小排序，先画大的
+            gears.sort((a, b) => b.r - a.r);
+            gears.forEach(g => drawGear(g.x, g.y, g.r, g.teeth, g.rotation));
+        },
+
+        // 新图案：砖墙纹理
+        bricks(ctx, w, h, p, density) {
+            const rows = Math.floor((8 + p[0] * 6) * Math.sqrt(density));
+            const cols = Math.floor((6 + p[1] * 4) * Math.sqrt(density));
+            const brickH = h / rows;
+            const brickW = w / cols;
+            ctx.lineWidth = 1.5;
+            for (let row = 0; row < rows; row++) {
+                const offset = (row % 2) * (brickW / 2);
+                for (let col = -1; col < cols; col++) {
+                    const x = col * brickW + offset;
+                    const y = row * brickH;
+                    if (p[(row * cols + col + 20) % 40] > 0.15) {
+                        ctx.globalAlpha = 0.12 + (p[(row * cols + col) % 40] * 0.15);
+                        ctx.strokeRect(x + 2, y + 2, brickW - 4, brickH - 4);
+                        if (p[(row * cols + col + 30) % 40] > 0.85) {
+                            ctx.globalAlpha = 0.08;
+                            ctx.beginPath();
+                            ctx.moveTo(x + 5, y + brickH/2);
+                            ctx.lineTo(x + brickW - 5, y + brickH/2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        },
+
+        // 新图案：飘落枫叶（优雅抽象版，大叶片）
+        maple(ctx, w, h, p, density) {
+            const drawLeaf = (x, y, scale, rotation) => {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(rotation);
+                ctx.globalAlpha = 0.35;
+                ctx.lineWidth = 1.5;
+                
+                const s = scale;
+                
+                // 简化的优雅枫叶形状 - 五角星形但更圆润
+                ctx.beginPath();
+                // 从顶部开始，顺时针绘制
+                ctx.moveTo(0, -s);                    // 顶部尖
+                ctx.quadraticCurveTo(s * 0.15, -s * 0.7, s * 0.5, -s * 0.6);  // 右上肩
+                ctx.lineTo(s * 0.85, -s * 0.75);     // 右上尖
+                ctx.quadraticCurveTo(s * 0.6, -s * 0.35, s * 0.5, 0);         // 右凹
+                ctx.lineTo(s * 0.9, s * 0.2);        // 右下尖
+                ctx.quadraticCurveTo(s * 0.35, s * 0.3, s * 0.15, s * 0.6);   // 右下肩
+                ctx.lineTo(0, s * 0.9);              // 底部尖（叶柄连接）
+                ctx.lineTo(-s * 0.15, s * 0.6);      // 左下肩
+                ctx.quadraticCurveTo(-s * 0.35, s * 0.3, -s * 0.9, s * 0.2);  // 左下尖
+                ctx.lineTo(-s * 0.5, 0);             // 左凹
+                ctx.quadraticCurveTo(-s * 0.6, -s * 0.35, -s * 0.85, -s * 0.75); // 左上尖
+                ctx.lineTo(-s * 0.5, -s * 0.6);      // 左上肩
+                ctx.quadraticCurveTo(-s * 0.15, -s * 0.7, 0, -s);             // 回到顶部
+                ctx.closePath();
+                ctx.stroke();
+                
+                // 主叶脉
+                ctx.globalAlpha = 0.25;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, -s * 0.85);
+                ctx.lineTo(0, s * 0.75);
+                ctx.stroke();
+                
+                // 侧叶脉（简化）
+                ctx.globalAlpha = 0.2;
+                const veins = [
+                    {x: s * 0.6, y: -s * 0.4},   // 右上
+                    {x: s * 0.65, y: 0.1},       // 右中
+                    {x: s * 0.4, y: 0.45},       // 右下
+                    {x: -s * 0.6, y: -s * 0.4},  // 左上
+                    {x: -s * 0.65, y: 0.1},      // 左中
+                    {x: -s * 0.4, y: 0.45},      // 左下
+                ];
+                veins.forEach(v => {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -s * 0.1);
+                    ctx.lineTo(v.x, v.y);
+                    ctx.stroke();
+                });
+                
+                ctx.restore();
+            };
+            
+            // 散落放置，大尺寸
+            const count = Math.floor((6 + p[0] * 8) * density);
+            const sizes = [55, 45, 38]; // 大、中、小三种规格
+            
+            for (let i = 0; i < count; i++) {
+                const x = p[i * 3 % 40] * w;
+                const y = p[(i * 3 + 15) % 40] * h;
+                const sizeIdx = Math.floor(p[(i + 30) % 40] * sizes.length);
+                const scale = sizes[sizeIdx];
+                const rotation = p[(i + 5) % 40] * Math.PI * 2;
+                drawLeaf(x, y, scale, rotation);
+            }
+        },
+
+        // 新图案：打字机文字
+        typewriter(ctx, w, h, p, density) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
+            const lines = Math.floor((12 + p[0] * 8) * density);
+            const charsPerLine = Math.floor((15 + p[1] * 10) * density);
+            for (let line = 0; line < lines; line++) {
+                const y = (h / lines) * line + (h / lines) * 0.7;
+                const lineOffset = (line % 2) * 10;
+                for (let i = 0; i < charsPerLine; i++) {
+                    if (p[(line * charsPerLine + i + 10) % 40] > 0.3) {
+                        const x = (w / charsPerLine) * i + lineOffset;
+                        const char = chars[Math.floor(p[(line * charsPerLine + i) % 40] * chars.length)];
+                        const size = 10 + p[(line * charsPerLine + i + 20) % 40] * 14;
+                        ctx.globalAlpha = 0.15 + p[(line * charsPerLine + i + 5) % 40] * 0.2;
+                        ctx.font = `${Math.floor(size)}px monospace`;
+                        ctx.fillText(char, x, y);
+                    }
+                }
+            }
+        },
+
+        // 新图案：水墨山水
+        shanshui(ctx, w, h, p, density) {
+            const layers = Math.floor((4 + p[0] * 3) * density);
+            for (let layer = 0; layer < layers; layer++) {
+                const yBase = h * (0.3 + layer * 0.2);
+                const alpha = 0.08 + (layer / layers) * 0.15;
+                ctx.globalAlpha = alpha;
+                ctx.lineWidth = 1 + (layers - layer) * 0.5;
+                ctx.beginPath();
+                let x = 0;
+                let y = yBase + Math.sin(p[layer % 40] * Math.PI) * 30;
+                ctx.moveTo(x, y);
+                while (x < w) {
+                    x += 5 + p[(layer + Math.floor(x/10)) % 40] * 15;
+                    y = yBase + Math.sin((x * 0.01) + p[layer % 40] * Math.PI) * (20 + layer * 10);
+                    y += Math.sin(x * 0.03) * 10;
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(w, h);
+                ctx.lineTo(0, h);
+                ctx.closePath();
+                ctx.stroke();
+            }
+            // 点缀的"飞鸟"（向下弧线，飞翔姿态）
+            const birds = Math.floor((4 + p[5] * 6) * density);
+            ctx.globalAlpha = 0.28;
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < birds; i++) {
+                const bx = p[i * 2 % 40] * w;
+                const by = h * (0.08 + p[(i * 2 + 1) % 40] * 0.22);
+                const size = 3 + p[(i + 10) % 40] * 5;
+                // 随机飞行方向（左飞或右飞）
+                const flip = p[(i + 20) % 40] > 0.5 ? 1 : -1;
+                ctx.beginPath();
+                ctx.moveTo(bx - size * flip, by);
+                // 控制点在下方，形成向下凸起的弧线（飞翔姿态）
+                ctx.quadraticCurveTo(bx, by + size * 0.6, bx + size * flip, by);
                 ctx.stroke();
             }
         }

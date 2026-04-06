@@ -120,7 +120,8 @@ Lumina.ShareCard = {
         
         this.usedSeeds.add(seed);
         this.currentSeed = seed;
-        this.currentPatternId = seed % 51;
+        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        this.currentPatternId = seed % CoverCore.PATTERNS.length;
         
         const svg = this.renderCard(width, height, layoutType, seed);
         

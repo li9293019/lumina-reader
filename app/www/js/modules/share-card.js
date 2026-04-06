@@ -1065,27 +1065,24 @@ Lumina.ShareCard = {
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
         const lineHeight = Math.floor(fontSize * 1.8);
         
-        // 分段和截断（使用当前字体栈，计算与 SVG 一致，考虑段落间距）
+        // 分段和截断（与 SVG 一致，初次不考虑段落间距）
         let allLines = [];
-        const paragraphBreaks = [];
+        let paragraphBreaks = [];
         const currentY = visualH + topGap + chapterH + chapterGap;
         const maxContentH = h - currentY - bottomGap;
         let linesRemaining = Math.floor(maxContentH / lineHeight);
         
         for (let idx = 0; idx < paragraphs.length && linesRemaining > 0; idx++) {
             const para = paragraphs[idx];
-            const paraLines = this.measureText(para, contentW, fontSize, fontStack).filter(line => line.trim());
-            
-            // 预估段落间距占用
-            const wouldAddBreak = idx < paragraphs.length - 1 && paraLines.length > 0;
-            const paraGap = wouldAddBreak ? Math.floor(lineHeight * 0.5) : 0;
+            const paraLines = this.measureText(para, contentW, fontSize, fontStack)
+                .filter(line => line.trim());
+            if (paraLines.length === 0) continue;
             
             if (paraLines.length <= linesRemaining) {
                 allLines.push(...paraLines);
                 linesRemaining -= paraLines.length;
-                if (wouldAddBreak) {
+                if (idx < paragraphs.length - 1) {
                     paragraphBreaks.push(allLines.length);
-                    linesRemaining -= Math.floor(lineHeight * 0.5) / lineHeight; // 扣除间距相当于占用0.5行
                 }
             } else {
                 const partialLines = paraLines.slice(0, linesRemaining);
@@ -1097,9 +1094,10 @@ Lumina.ShareCard = {
             }
         }
         
-        // 保底检查：确保总高度不超（与 SVG 一致）
-        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
-        const totalContentH = allLines.length * lineHeight + paraExtraH;
+        // 保底检查：考虑段落间距后的最终截断（与 SVG 一致）
+        let paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        let totalContentH = allLines.length * lineHeight + paraExtraH;
+        
         if (totalContentH > maxContentH && allLines.length > 1) {
             const maxContentLines = Math.floor((maxContentH - paraExtraH) / lineHeight);
             allLines = allLines.slice(0, maxContentLines);

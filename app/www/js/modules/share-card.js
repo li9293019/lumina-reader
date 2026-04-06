@@ -271,32 +271,26 @@ Lumina.ShareCard = {
             }
         });
         
-        // 检查是否超长（考虑段落间距占用的额外高度）
-        const bottomAreaH = Math.floor(h * 0.04); // 底部区域高度
+        // 最后保底检查：确保没有超长（与长版式一致的两阶段截断）
+        const bottomAreaH = Math.floor(h * 0.04);
         const availableH = h - halfH - lineGap * 2 - fontSize - bottomAreaH;
-        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
-        const maxLines = Math.floor((availableH - paraExtraH) / lineHeight);
+        let paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        let totalContentH = allLines.length * lineHeight + paraExtraH;
         
-        if (allLines.length > maxLines) {
-            // 需要截断，优先保留完整段落
-            let linesToKeep = maxLines;
-            // 从后往前检查，如果截断点在某个段落中间，则退到该段落开头
+        if (totalContentH > availableH && allLines.length > 1) {
+            // 需要进一步截断，但要保留未受影响的段落标记
+            const maxContentLines = Math.floor((availableH - paraExtraH) / lineHeight);
+            allLines = allLines.slice(0, maxContentLines);
+            // 只保留截断点之前的段落标记（原地修改）
             for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
-                if (paragraphBreaks[i] < maxLines) {
-                    // 可以保留到该段落
-                    linesToKeep = paragraphBreaks[i];
-                    break;
+                if (paragraphBreaks[i] >= maxContentLines) {
+                    paragraphBreaks.splice(i, 1);
                 }
             }
-            // 如果还是太长，强行截断
-            if (allLines.length > linesToKeep) {
-                allLines = allLines.slice(0, linesToKeep);
-                paragraphBreaks.length = 0; // 清空段落标记
-                // 最后一行添加省略号
-                const lastIdx = allLines.length - 1;
-                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
-                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
-            }
+            // 最后一行添加省略号
+            const lastIdx = allLines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+            allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
         }
         
         // 计算实际文本宽度，实现整体居中
@@ -528,7 +522,7 @@ Lumina.ShareCard = {
                 }
             }
             if (line) lines.push(line);
-            console.log('[measureText] CJK lines result:', lines);
+            // console.log('[measureText] CJK lines result:', lines);
         } else {
             const words = text.split(/(\s+)/);
             let line = '';
@@ -966,28 +960,25 @@ Lumina.ShareCard = {
             }
         });
         
-        // 检查是否超长（与 SVG renderMedium 一致，考虑段落间距）
+        // 最后保底检查：确保没有超长（与 SVG renderMedium 一致的两阶段截断）
         const bottomAreaH = Math.floor(h * 0.04);
         const availableH = h - halfH - lineGap * 2 - fontSize - bottomAreaH;
-        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
-        const maxLines = Math.floor((availableH - paraExtraH) / lineHeight);
+        let paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        let totalContentH = allLines.length * lineHeight + paraExtraH;
         
-        if (allLines.length > maxLines) {
-            // 优先保留完整段落
-            let linesToKeep = maxLines;
+        if (totalContentH > availableH && allLines.length > 1) {
+            // 需要进一步截断，但要保留未受影响的段落标记
+            const maxContentLines = Math.floor((availableH - paraExtraH) / lineHeight);
+            allLines = allLines.slice(0, maxContentLines);
+            // 只保留截断点之前的段落标记
             for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
-                if (paragraphBreaks[i] <= maxLines) {
-                    linesToKeep = paragraphBreaks[i];
-                    break;
+                if (paragraphBreaks[i] >= maxContentLines) {
+                    paragraphBreaks.splice(i, 1);
                 }
             }
-            if (allLines.length > linesToKeep) {
-                allLines = allLines.slice(0, linesToKeep);
-                paragraphBreaks.length = 0;
-                const lastIdx = allLines.length - 1;
-                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
-                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
-            }
+            const lastIdx = allLines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+            allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
         }
         
         // 计算文本块居中

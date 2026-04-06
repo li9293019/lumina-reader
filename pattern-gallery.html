@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina Pattern Gallery - 50 Patterns SVG Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; color: #fff; }
+        .header p { color: #888; font-size: 14px; }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #4a5568;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .controls button.primary { background: #3182ce; }
+        .controls button:hover { transform: translateY(-1px); opacity: 0.9; }
+        .controls button.clear {
+            background: #e53e3e;
+        }
+        .seed-display {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #2d3748;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #4fd1c5;
+        }
+        .selection-count {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #2d3748;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #f6ad55;
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto 30px;
+        }
+        .pattern-card {
+            background: #16213e;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #2d3748;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .pattern-card:hover { 
+            border-color: #4a5568;
+            transform: translateY(-2px);
+        }
+        .pattern-card.selected {
+            border-color: #f6ad55;
+            box-shadow: 0 0 20px rgba(246, 173, 85, 0.3);
+        }
+        .pattern-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 28px;
+            height: 28px;
+            background: #f6ad55;
+            color: #1a1a2e;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .pattern-svg {
+            width: 100%;
+            aspect-ratio: 3/4;
+            display: block;
+            pointer-events: none;
+        }
+        .pattern-info { padding: 15px; border-top: 1px solid #2d3748; }
+        .pattern-id { font-size: 12px; color: #718096; margin-bottom: 4px; }
+        .pattern-name { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+        .pattern-code { font-size: 12px; color: #4fd1c5; font-family: monospace; }
+        
+        .selection-panel {
+            max-width: 1600px;
+            margin: 0 auto 30px;
+            padding: 20px;
+            background: #2d3748;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+        }
+        .selection-panel h3 {
+            margin-bottom: 15px;
+            color: #fff;
+            font-size: 16px;
+        }
+        .selection-list {
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 14px;
+            color: #4fd1c5;
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 6px;
+            min-height: 50px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        .selection-list:empty::before {
+            content: '点击上方图案进行多选...';
+            color: #718096;
+        }
+        .copy-btn {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #38a169;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .copy-btn:hover { background: #48bb78; }
+        .copy-btn.copied { background: #718096; }
+        
+        .legend {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #2d3748;
+            border-radius: 8px;
+        }
+        .legend h3 { margin-bottom: 10px; color: #fff; }
+        .legend-item { display: inline-block; margin-right: 20px; font-size: 13px; color: #a0aec0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔮 Lumina Pattern Gallery</h1>
+        <p>50种封面图案 SVG 渲染检查工具 - 点击图案多选</p>
+    </div>
+    
+    <div class="controls">
+        <button class="primary" onclick="generateGallery()">🎲 随机种子</button>
+        <button onclick="setSeed(12345)">🧪 测试种子 12345</button>
+        <button onclick="setSeed(88888)">🧪 测试种子 88888</button>
+        <button class="clear" onclick="clearSelection()">❌ 清空选择</button>
+        <span class="seed-display" id="seedDisplay">Seed: 42</span>
+        <span class="selection-count" id="selectionCount">已选: 0</span>
+    </div>
+    
+    <div class="selection-panel">
+        <h3>📋 选中图案代码列表（可直接复制）</h3>
+        <div class="selection-list" id="selectionList"></div>
+        <button class="copy-btn" id="copyBtn" onclick="copySelection()">📋 复制到剪贴板</button>
+    </div>
+    
+    <div class="gallery" id="gallery"></div>
+
+    <div class="legend">
+        <h3>使用说明</h3>
+        <div class="legend-item">• 点击图案选中/取消（边框变橙色）</div>
+        <div class="legend-item">• 上方面板实时显示选中的英文代码</div>
+        <div class="legend-item">• 复制后可直接粘贴用于修改调整</div>
+    </div>
+
+    <!-- 定义全局 Lumina 对象 -->
+    <script>
+        window.Lumina = window.Lumina || {};
+    </script>
+    <!-- 加载核心库 -->
+    <script src="app/www/js/modules/cover-generator.js"></script>
+    <script>
+        let currentSeed = 42;
+        let selectedPatterns = new Set();
+        
+        function generateGallery() {
+            currentSeed = Math.floor(Math.random() * 100000);
+            // 保留选中状态，重新渲染
+            renderGallery();
+        }
+        
+        function setSeed(seed) {
+            currentSeed = seed;
+            renderGallery();
+        }
+        
+        function clearSelection() {
+            selectedPatterns.clear();
+            updateSelectionDisplay();
+            // 移除所有选中样式
+            document.querySelectorAll('.pattern-card.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+        
+        function toggleSelection(index, code) {
+            const card = document.querySelector(`[data-index="${index}"]`);
+            if (selectedPatterns.has(code)) {
+                selectedPatterns.delete(code);
+                card.classList.remove('selected');
+            } else {
+                selectedPatterns.add(code);
+                card.classList.add('selected');
+            }
+            updateSelectionDisplay();
+        }
+        
+        function updateSelectionDisplay() {
+            const list = document.getElementById('selectionList');
+            const count = document.getElementById('selectionCount');
+            const copyBtn = document.getElementById('copyBtn');
+            
+            if (selectedPatterns.size === 0) {
+                list.textContent = '';
+                count.textContent = '已选: 0';
+                copyBtn.textContent = '📋 复制到剪贴板';
+                copyBtn.classList.remove('copied');
+            } else {
+                // 按数组顺序排列
+                const CoverCore = Lumina.CoverGenerator.CoverCore;
+                const allCodes = CoverCore.PATTERNS.map(p => p.code);
+                const sorted = Array.from(selectedPatterns).sort((a, b) => {
+                    return allCodes.indexOf(a) - allCodes.indexOf(b);
+                });
+                
+                // 格式化为数组字符串
+                list.textContent = sorted.join(', ');
+                count.textContent = `已选: ${selectedPatterns.size}`;
+                copyBtn.textContent = '📋 复制到剪贴板';
+                copyBtn.classList.remove('copied');
+            }
+        }
+        
+        function copySelection() {
+            const list = document.getElementById('selectionList');
+            if (!list.textContent || selectedPatterns.size === 0) return;
+            
+            navigator.clipboard.writeText(list.textContent).then(() => {
+                const copyBtn = document.getElementById('copyBtn');
+                copyBtn.textContent = '✅ 已复制!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 复制到剪贴板';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+        
+        function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+            
+            const CoverCore = Lumina.CoverGenerator.CoverCore;
+            const PATTERNS = CoverCore.PATTERNS;
+            
+            // 生成调色板
+            const palette = CoverCore.generatePalette(currentSeed, 'monochrome');
+            
+            PATTERNS.forEach((pattern, index) => {
+                // 为每个图案生成唯一种子
+                const patternSeed = currentSeed + index;
+                const params = CoverCore.extractParams(patternSeed, 40);
+                
+                // 使用 SVGRenderer 绘制
+                const SVGRenderer = Lumina.CoverGenerator.SVGRenderer;
+                const renderer = new SVGRenderer(280, 373);
+                
+                // 设置样式
+                renderer.strokeStyle = palette.accent;
+                renderer.fillStyle = palette.accent;
+                renderer.lineWidth = 1.5;
+                
+                // 填充背景
+                renderer.elements.push(`<rect width="100%" height="100%" fill="${palette.bg}"/>`);
+                renderer.elements.push(`<rect width="100%" height="100%" fill="${palette.pattern}" fill-opacity="0.5"/>`);
+                
+                // 绘制图案
+                const drawer = CoverCore.PatternDrawers[pattern.code];
+                if (drawer) {
+                    try {
+                        drawer(renderer, 280, 373, params, 1.0);
+                    } catch (e) {
+                        console.error(`Pattern ${pattern.code} error:`, e);
+                    }
+                }
+                
+                const svgString = renderer.getSVG(palette.bg, true);
+                
+                const card = document.createElement('div');
+                card.className = 'pattern-card';
+                card.setAttribute('data-index', index);
+                card.setAttribute('data-code', pattern.code);
+                
+                // 恢复选中状态
+                if (selectedPatterns.has(pattern.code)) {
+                    card.classList.add('selected');
+                }
+                
+                // 点击事件
+                card.onclick = () => toggleSelection(index, pattern.code);
+                
+                card.innerHTML = `
+                    <div class="pattern-svg">${svgString}</div>
+                    <div class="pattern-info">
+                        <div class="pattern-id">#${String(index + 1).padStart(2, '0')}</div>
+                        <div class="pattern-name">${pattern.name['zh-CN'] || pattern.name}</div>
+                        <div class="pattern-code">${pattern.code}</div>
+                    </div>
+                `;
+                gallery.appendChild(card);
+            });
+            
+            document.getElementById('seedDisplay').textContent = `Seed: ${currentSeed}`;
+            updateSelectionDisplay();
+        }
+        
+        // 初始化
+        renderGallery();
+    </script>
+</body>
+</html>

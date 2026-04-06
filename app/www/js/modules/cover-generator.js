@@ -563,7 +563,7 @@
                 const count = Math.floor((20 + p[1] * 25) * density);
                 for (let i = 0; i < count; i++) {
                     ctx.lineWidth = (i % 4 === 0) ? 2 : 0.5;
-                    ctx.globalAlpha = 0.08 + Math.sin(i * 0.4) * 0.08;
+                    ctx.globalAlpha = 0.12 + Math.sin(i * 0.4) * 0.12;
                     ctx.beginPath();
                     const r = maxR * Math.pow(i / count, 0.7);
                     ctx.arc(cx, cy, Math.max(0, r), 0, Math.PI * 2);
@@ -575,8 +575,8 @@
                 const cols = Math.floor((8 + p[2] * 12) * Math.sqrt(density));
                 const rows = Math.floor((10 + p[3] * 14) * Math.sqrt(density));
                 const cw = w / cols, rh = h / rows;
-                ctx.lineWidth = 0.4;
-                ctx.globalAlpha = 0.25;
+                ctx.lineWidth = 0.5;
+                ctx.globalAlpha = 0.35;
                 for (let i = 0; i <= cols; i++) {
                     ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, h); ctx.stroke();
                 }
@@ -589,7 +589,7 @@
                 const lines = Math.floor((30 + p[0] * 40) * density);
                 ctx.lineWidth = 1;
                 for (let i = 0; i < lines; i++) {
-                    ctx.globalAlpha = 0.18 + (i / lines) * 0.12;
+                    ctx.globalAlpha = 0.25 + (i / lines) * 0.15;
                     const y = (h / lines) * i;
                     const phase = i * 0.3;
                     ctx.beginPath();
@@ -607,14 +607,14 @@
                 for (let i = 0; i < cellCount; i++) {
                     cells.push({x: p[i % 40] * w, y: p[(i + 10) % 40] * h, r: 5 + p[(i + 20) % 40] * 30});
                 }
-                ctx.globalAlpha = 0.15;
+                ctx.globalAlpha = 0.25;
                 cells.forEach((cell, i) => {
                     ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.arc(cell.x, cell.y, cell.r, 0, Math.PI * 2); ctx.stroke();
                     cells.slice(i + 1, i + 8).forEach(other => {
                         const dist = Math.hypot(cell.x - other.x, cell.y - other.y);
                         if (dist < 60 * density && (i + Math.floor(dist)) % 3 === 0) {
-                            ctx.lineWidth = 0.5; ctx.globalAlpha = 0.06;
+                            ctx.lineWidth = 0.5; ctx.globalAlpha = 0.12;
                             ctx.beginPath(); ctx.moveTo(cell.x, cell.y); ctx.lineTo(other.x, other.y); ctx.stroke();
                             ctx.globalAlpha = 0.15;
                         }
@@ -711,7 +711,7 @@
                 const amplitude = 3 + p[1] * 5, frequency = 0.02 + p[2] * 0.02;
                 ctx.lineWidth = 0.8;
                 for (let i = 0; i <= count; i++) {
-                    const x = (w / count) * i; ctx.globalAlpha = 0.12; ctx.beginPath();
+                    const x = (w / count) * i; ctx.globalAlpha = 0.2; ctx.beginPath();
                     for (let y = 0; y <= h; y += 4) {
                         const xOffset = Math.sin(y * frequency + i * 0.5) * amplitude * (i % 3 === 0 ? 1.5 : 0.5);
                         if (y === 0) ctx.moveTo(x + xOffset, y); else ctx.lineTo(x + xOffset, y);
@@ -746,7 +746,7 @@
                 const lines = Math.floor((25 + p[0] * 20) * density);
                 const scale = 0.008 + p[1] * 0.015;
                 for (let y = 0; y < lines; y++) {
-                    const baseY = (h / lines) * y; ctx.beginPath(); ctx.globalAlpha = 0.2; ctx.lineWidth = 1;
+                    const baseY = (h / lines) * y; ctx.beginPath(); ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
                     for (let x = 0; x <= w; x += 2) {
                         const elevation = Math.sin(x * scale + y * 0.5) * 10 + Math.sin(x * scale * 2.2) * 5 + Math.sin(x * scale * 4.5) * 2;
                         if (x === 0) ctx.moveTo(x, baseY + elevation); else ctx.lineTo(x, baseY + elevation);
@@ -764,7 +764,7 @@
                     for (let i = 0; i < particles; i++) {
                         const t = i / particles, angle = armAngle + t * Math.PI * 8;
                         const r = t * Math.min(w, h) * 0.45;
-                        ctx.globalAlpha = 0.25 * (1 - t);
+                        ctx.globalAlpha = 0.35 * (1 - t * 0.5);
                         ctx.beginPath(); ctx.arc(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r, (1 - t) * 3 + 0.5, 0, Math.PI * 2); ctx.fill();
                     }
                 }
@@ -812,7 +812,7 @@
                     const cx = w/2 + Math.cos(angle) * baseR * 0.5;
                     const cy = h/2 + Math.sin(angle) * baseR * 0.5;
                     const r = baseR * (0.9 + p[i % 40] * 0.5);
-                    ctx.lineWidth = 1.5; ctx.globalAlpha = 0.12;
+                    ctx.lineWidth = 1.5; ctx.globalAlpha = 0.2;
                     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
                     if (i % 3 === 0) { ctx.globalAlpha = 0.2; ctx.beginPath(); ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2); ctx.stroke(); }
                 }
@@ -827,7 +827,7 @@
                 for (let i = 0; i < cols; i++) {
                     for (let j = 0; j < rows; j++) {
                         if (((i * 7 + j * 13 + Math.floor(p[2] * 100)) % 5) < 3) {
-                            ctx.globalAlpha = 0.15;
+                            ctx.globalAlpha = 0.25;
                             if ((i + j) % 2 === 0) { ctx.beginPath(); ctx.moveTo((i + 1) * cw, j * rh); ctx.lineTo((i + 1) * cw, (j + 1) * rh); ctx.stroke(); }
                             else { ctx.beginPath(); ctx.moveTo(i * cw, (j + 1) * rh); ctx.lineTo((i + 1) * cw, (j + 1) * rh); ctx.stroke(); }
                         }
@@ -839,7 +839,7 @@
                 const cells = Math.floor((8 + p[0] * 6) * Math.sqrt(density));
                 for (let i = 0; i < cells; i++) {
                     const x = p[i % 40] * w, y = p[(i + 15) % 40] * h, size = 25 + p[(i + 30) % 40] * 60;
-                    ctx.globalAlpha = 0.12; ctx.lineWidth = 1; ctx.beginPath();
+                    ctx.globalAlpha = 0.2; ctx.lineWidth = 1; ctx.beginPath();
                     ctx.moveTo(x, y - size); ctx.lineTo(x + size * 0.7, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size * 0.7, y); ctx.closePath(); ctx.stroke();
                     ctx.globalAlpha = 0.15; ctx.beginPath(); ctx.moveTo(x, y - size); ctx.lineTo(x, y + size); ctx.moveTo(x - size * 0.7, y); ctx.lineTo(x + size * 0.7, y); ctx.stroke();
                 }
@@ -873,7 +873,7 @@
                 const threads = Math.floor((20 + p[0] * 15) * density);
                 const spacing = h / threads; ctx.lineWidth = 2;
                 for (let i = 0; i < threads; i++) {
-                    const y = i * spacing; ctx.globalAlpha = 0.12; ctx.beginPath();
+                    const y = i * spacing; ctx.globalAlpha = 0.2; ctx.beginPath();
                     for (let x = 0; x <= w; x += 4) {
                         const yOffset = (i % 2 === 0 ? 1 : -1) * Math.sin(x * 0.04) * 4;
                         if (x === 0) ctx.moveTo(x, y + yOffset); else ctx.lineTo(x, y + yOffset);
@@ -933,7 +933,7 @@
                 for (let i = 0; i < planes; i++) {
                     const x = p[i % 40] * w, y = p[(i + 15) % 40] * h;
                     const angle = -Math.PI / 4 + (p[(i + 25) % 40] - 0.5) * 0.8, size = 12 + p[(i + 35) % 40] * 30;
-                    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha = 0.25; ctx.lineWidth = 1.5;
+                    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha = 0.35; ctx.lineWidth = 1.5;
                     ctx.beginPath(); ctx.moveTo(0, -size); ctx.lineTo(size * 0.6, size * 0.3); ctx.lineTo(0, size * 0.1); ctx.lineTo(-size * 0.6, size * 0.3); ctx.closePath(); ctx.stroke();
                     ctx.globalAlpha = 0.12; ctx.setLineDash([4, 8]); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size * 2.5, size * 2.5); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
                 }
@@ -943,7 +943,7 @@
                 const drops = Math.floor((40 + p[0] * 40) * density);
                 for (let i = 0; i < drops; i++) {
                     const x = p[i % 40] * w, y = p[(i + 20) % 40] * h, len = 8 + p[(i + 30) % 40] * 25;
-                    ctx.globalAlpha = 0.2; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + len); ctx.stroke();
+                    ctx.globalAlpha = 0.3; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + len); ctx.stroke();
                 }
             },
 
@@ -996,8 +996,8 @@
                 for (let i = 0; i < folds; i++) {
                     const x1 = p[i % 40] * w, y1 = p[(i + 15) % 40] * h;
                     const x2 = p[(i + 30) % 40] * w, y2 = p[(i + 5) % 40] * h;
-                    ctx.globalAlpha = 0.2; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-                    ctx.globalAlpha = 0.12; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * 0.5 + 15, y1 + (y2 - y1) * 0.5); ctx.lineTo(x2, y2); ctx.stroke();
+                    ctx.globalAlpha = 0.3; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+                    ctx.globalAlpha = 0.2; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * 0.5 + 15, y1 + (y2 - y1) * 0.5); ctx.lineTo(x2, y2); ctx.stroke();
                 }
             },
 
@@ -1021,7 +1021,7 @@
                 for (let i = 0; i < count; i++) {
                     const r = 10 * Math.pow(phi, i / 2) * (1 + p[1]);
                     const angle = i * Math.PI * 2 / phi;
-                    ctx.globalAlpha = 0.3 - (i / count) * 0.2; ctx.lineWidth = 2 - (i / count);
+                    ctx.globalAlpha = 0.4 - (i / count) * 0.2; ctx.lineWidth = 2 - (i / count);
                     ctx.beginPath(); ctx.arc(cx + Math.cos(angle) * r * 0.3, cy + Math.sin(angle) * r * 0.3, r, angle, angle + Math.PI * 1.618); ctx.stroke();
                 }
             },
@@ -1163,7 +1163,7 @@
                     const rings = Math.floor((8 + p[c] * 6) * density);
                     for (let i = 0; i < rings; i++) {
                         const r = maxR * (i / rings); if (r < 3) continue;
-                        ctx.globalAlpha = 0.25 - (i / rings) * 0.15; ctx.lineWidth = (i % 2 === 0) ? 1.2 : 0.6; ctx.beginPath();
+                        ctx.globalAlpha = 0.35 - (i / rings) * 0.15; ctx.lineWidth = (i % 2 === 0) ? 1.2 : 0.6; ctx.beginPath();
                         for (let angle = 0; angle <= Math.PI * 2; angle += 0.03) {
                             const noise1 = Math.sin(angle * 3 + c * 2) * 0.4;
                             const noise2 = Math.cos(angle * 5 + i) * 0.25;
@@ -1182,7 +1182,7 @@
                 for (let x = 0; x < w; x += step) {
                     for (let y = 0; y < h; y += step) {
                         const noise = Math.sin(x * 0.03) * Math.cos(y * 0.03) * Math.sin((x+y) * 0.01);
-                        ctx.globalAlpha = Math.abs(noise) * 0.15 * density; ctx.fillRect(x, y, step, step);
+                        ctx.globalAlpha = Math.abs(noise) * 0.25 * density; ctx.fillRect(x, y, step, step);
                     }
                 }
             },
@@ -1287,13 +1287,13 @@
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
                 for (let arm = 0; arm < arms; arm++) {
                     const baseAngle = (arm * Math.PI * 2) / 6; ctx.save(); ctx.translate(cx, cy); ctx.rotate(baseAngle);
-                    const mainLen = maxRadius * (0.6 + p[arm % 40] * 0.3);
+                    const mainLen = maxRadius * (0.75 + p[arm % 40] * 0.15);
                     const branches = Math.floor((3 + p[(arm + 5) % 40] * 3) * density);
                     ctx.globalAlpha = 0.95; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -mainLen); ctx.stroke();
                     for (let i = 1; i <= branches; i++) {
                         const pos = (i / (branches + 1)) * mainLen, branchLen = mainLen * 0.4 * (1 - i / (branches + 1));
                         for (let side of [-1, 1]) {
-                            ctx.save(); ctx.translate(0, -pos); ctx.rotate(side * (Math.PI / 4 + p[(arm + i) % 40] * 0.2));
+                            ctx.save(); ctx.translate(0, -pos); ctx.rotate(side * (Math.PI / 4 + (p[(arm + i) % 40] - 0.5) * 0.1));
                             ctx.globalAlpha = 0.75 - (i / branches) * 0.3; ctx.lineWidth = 1.8 - (i / branches) * 0.8;
                             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -branchLen); ctx.stroke();
                             if (i < branches && p[(arm + i * 2) % 40] > 0.3) {

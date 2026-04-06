@@ -34,6 +34,9 @@ Lumina.ShareCard = {
     },
     
     show(selectedText) {
+        // 重置关闭标志，允许再次关闭
+        this._isClosing = false;
+        
         // 保留分段信息（按换行符分割段落，过滤空段落和纯空白段落）
         this.paragraphs = selectedText
             .split(/\n+/)
@@ -702,9 +705,17 @@ Lumina.ShareCard = {
     },
     
     close() {
+        // 防止重复关闭
+        if (this._isClosing) return;
+        this._isClosing = true;
+        
         if (this.overlay) {
             this.overlay.style.opacity = '0';
-            setTimeout(() => this.overlay.remove(), 200);
+            const overlayRef = this.overlay;
+            setTimeout(() => {
+                overlayRef?.remove();
+            }, 200);
+            this.overlay = null;
         }
     }
 };

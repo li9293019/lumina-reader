@@ -949,6 +949,7 @@ Lumina.BookDetail = {
         
         const input = document.createElement('input');
         input.type = 'text';
+        input.name = 'temp';
         input.className = inputClass || (el.id.replace('bookDetail', 'book-detail-').toLowerCase() + '-input');
         input.value = isDefault ? '' : currentValue;
         if (field === 'publishDate') input.placeholder = 'YYYY / YYYY-MM / YYYY-MM-DD';

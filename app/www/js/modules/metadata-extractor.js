@@ -1,4 +1,4 @@
-// ==================== 元数据自动提取器 v2.0 ====================
+// ==================== 元数据自动提取器 v2.1 ====================
 // 支持从文件名、文件头、文档结构等多维度自动识别元数据
 
 Lumina.Parser.MetadataExtractor = {
@@ -13,6 +13,16 @@ Lumina.Parser.MetadataExtractor = {
         { pattern: /^\((.+?)\)\s*(.+)$/, authorIndex: 1, titleIndex: 2 },
         { pattern: /^(.+?)《(.+?)》$/, authorIndex: 1, titleIndex: 2 },
         { pattern: /^《(.+?)》\s*(.+)$/, authorIndex: 2, titleIndex: 1 },
+    ],
+    
+    // 合集模式关键词
+    COLLECTION_KEYWORDS: [
+        { pattern: /^(.+?)(?:作品)?合集$/, weight: 70 },
+        { pattern: /^(.+?)全集$/, weight: 70 },
+        { pattern: /^(.+?)(?:作品)?选集$/, weight: 70 },
+        { pattern: /^(.+?)(?:作品)?文集$/, weight: 70 },
+        { pattern: /^(.+?)(?:小说|文学)?作品集$/, weight: 70 },
+        { pattern: /^(.+?)(?:精选|代表作)$/, weight: 65 }
     ],
     
     // 作者关键词
@@ -55,6 +65,7 @@ Lumina.Parser.MetadataExtractor = {
         'lofter.com': 'Lofter',
         'weibo.com': '微博',
         'archiveofourown.org': 'AO3',
+        'gutenberg.org': 'Gutenberg',
         'fanfiction.net': 'FanFiction',
         'syosetu.com': '成为小说家吧',
         'syosetu.org': '成为小说家吧',
@@ -195,10 +206,12 @@ Lumina.Parser.MetadataExtractor = {
         }
         
         // 3. 文件名提取
+        const fileNameMeta = this.extractFromFileName(fileName);
         candidates.push({
-            meta: this.extractFromFileName(fileName),
+            meta: fileNameMeta,
             source: 'filename',
-            priority: 2
+            priority: fileNameMeta._collectionSource ? 3 : 2,  // 合集检测提高优先级
+            _collectionSource: fileNameMeta._collectionSource || false  // 传递标记
         });
         
         // 4. 文档结构
@@ -223,9 +236,9 @@ Lumina.Parser.MetadataExtractor = {
         // 如果没有作者，设为空字符串
         if (!results.author) results.author = '';
         
-        // 计算置信度
+        // 计算置信度（传递完整候选对象以检测特殊标记）
         results.confidence.title = this.calculateConfidence(results.title, 'title', candidates);
-        results.confidence.author = results.author ? this.calculateConfidence(results.author, 'author', candidates) : 0;
+        results.confidence.author = this.calculateAuthorConfidence(results.author, candidates);
         results.confidence.publishDate = results.publishDate ? 35 : 0;
         results.confidence.sourceUrl = results.sourceUrl ? 35 : 0;
         results.confidence.description = results.description ? 35 : 0;
@@ -250,13 +263,13 @@ Lumina.Parser.MetadataExtractor = {
         const allLines = sampleText.split(/\r?\n/);
         const lines = allLines.slice(0, 100).map(l => l.trim()).filter(l => l.length > 0);
         
-        // 1. YAML Front Matter
+        // YAML Front Matter
         const yamlMeta = this.parseYAMLFrontMatter(sampleText);
         if (yamlMeta.title) result.title = yamlMeta.title;
         if (yamlMeta.author) result.author = yamlMeta.author;
         if (yamlMeta.tags) result.tags = yamlMeta.tags;
         
-        // 2. 逐行解析元数据区块（直到遇到结束标记）
+        // 逐行解析元数据区块（直到遇到结束标记）
         let inDescription = false;
         let descLines = [];
         
@@ -266,11 +279,13 @@ Lumina.Parser.MetadataExtractor = {
             // 检查是否元数据结束
             if (this.isMetaEndMarker(line)) break;
             
-            // 书名：第一行（如果无标记且符合质量）
-            if (i === 0 && !result.title && this.isValidTitle(line)) {
-                const cleaned = this.cleanTitle(line);
-                if (cleaned && cleaned.length <= 50) {
-                    result.title = cleaned;
+            // 书名：检查前3行，直到找到有效标题（顺延机制）
+            if (!result.title && i < 3) {
+                if (this.isValidTitle(line)) {
+                    const cleaned = this.cleanTitle(line);
+                    if (cleaned && cleaned.length <= 50) {
+                        result.title = cleaned;
+                    }
                 }
             }
             
@@ -291,23 +306,31 @@ Lumina.Parser.MetadataExtractor = {
                     if (this.isValidAuthor(author)) result.author = author;
                 }
             }
-            
-            // URL
+
+            // 作者 - 特殊格式
+            const possessiveMatch = line.match(/(a\s+)?([a-z ]+)['’]s\s+((novel|book|story|fiction|work|tale|fantasy|saga) ?)+/i);
+            if (possessiveMatch) {
+                const author = this.cleanAuthor(possessiveMatch[2]);
+                if (this.isValidAuthor(author)) result.author = author;
+            }
+
+            // URL（改进点1：支持无协议前缀）
             if (!result.sourceUrl) {
-                const urlMatch = line.match(/(https?:\/\/[^\s]+)/i);
+                // 支持完整URL或纯域名如 www.gutenberg.org
+                const urlMatch = line.match(/((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/i);
                 if (urlMatch) {
                     result.sourceUrl = urlMatch[1];
                     result.publisher = this.extractPlatformFromUrl(urlMatch[1]);
                 }
             }
             
-            // 日期（多种格式）
+            // 日期（多种格式，增加 Release date 识别）- 改进点4
             if (!result.publishDate) {
                 const dateMatch = this.parseDate(line);
                 if (dateMatch) result.publishDate = dateMatch;
             }
             
-            // 标签
+            // 标签（增加方括号格式）- 改进点4
             const tagsFromLine = this.extractTags(line);
             if (tagsFromLine.length > 0) {
                 result.tags.push(...tagsFromLine);
@@ -339,12 +362,19 @@ Lumina.Parser.MetadataExtractor = {
     },
     
     /**
-     * 解析日期（多种格式）
+     * 解析日期（多种格式，增强英文日期）
      */
     parseDate(line) {
-        // 带前缀的日期
-        const prefixed = line.match(/(?:更新日期|日期|date|published)[:：\s]*(\d{4}[-年/]\d{1,2}([-月/]\d{1,2})?)/i);
-        if (prefixed) return this.normalizeDate(prefixed[1]);
+        // 带前缀的日期（增加 Release date/updated）
+        const prefixed = line.match(/(?:更新日期|日期|date|published|release date|updated)[:：\s]*(\d{4}[-年/]\d{1,2}([-月/]\d{1,2})?|[a-zA-Z]{3,9}\s+\d{1,2},?\s*\d{4})/i);
+        if (prefixed) {
+            const datePart = prefixed[1];
+            // 判断是否为英文日期（包含字母）
+            if (/[a-zA-Z]/.test(datePart)) {
+                return this.parseEnglishDate(datePart);
+            }
+            return this.normalizeDate(datePart);
+        }
         
         // 独立日期格式
         // 2024-07-04, 2024/07/04, 2024.07.04
@@ -366,8 +396,39 @@ Lumina.Parser.MetadataExtractor = {
         // 年月（无时日）
         const ymMatch = line.match(/(\d{4})[-年/](\d{1,2})/);
         if (ymMatch) return this.normalizeDate(`${ymMatch[1]}-${ymMatch[2]}-01`);
+
+        // 英文日期格式 (April 22, 2016)
+        const englishMatch = line.match(/([a-zA-Z]{3,9})\s+(\d{1,2}),?\s*(\d{4})/);
+        if (englishMatch) {
+            return this.parseEnglishDate(`${englishMatch[1]} ${englishMatch[2]}, ${englishMatch[3]}`);
+        }
         
         return null;
+    },
+
+    /**
+     * 解析英文格式日期 (April 22, 2016 或 Oct 1, 2024)
+     */
+    parseEnglishDate(dateStr) {
+        const months = {
+            january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+            july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+            jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+            jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12
+        };
+        
+        // 匹配 Month DD, YYYY 格式（逗号可选）
+        const match = dateStr.match(/([a-zA-Z]+)\s+(\d{1,2}),?\s*(\d{4})/i);
+        if (!match) return null;
+        
+        const monthName = match[1].toLowerCase();
+        const day = parseInt(match[2]);
+        const year = parseInt(match[3]);
+        
+        const month = months[monthName];
+        if (!month || !year || day < 1 || day > 31) return null;
+        
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} 00:00:00`;
     },
     
     /**
@@ -391,32 +452,46 @@ Lumina.Parser.MetadataExtractor = {
     },
     
     /**
-     * 从URL提取平台名
+     * 从URL提取平台名（改进点1：支持无协议前缀）
      */
     extractPlatformFromUrl(url) {
         if (!url) return null;
         
+        let hostname;
         try {
-            const hostname = new URL(url).hostname.toLowerCase();
-            
-            // 去掉 www/m 前缀
-            const domain = hostname.replace(/^(www\.|m\.|mobile\.)/, '');
-            
-            // 查找已知平台
-            for (const [pattern, name] of Object.entries(this.PLATFORM_DOMAINS)) {
-                if (domain.includes(pattern)) return name;
-            }
-            
-            // 未知域名，取主域名（去掉 .com/.cn 等后缀）
-            const mainDomain = domain.split('.')[0];
-            return mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
+            // 尝试直接解析
+            hostname = new URL(url).hostname.toLowerCase();
         } catch {
-            return null;
+            // 如果没有协议，尝试添加 https:// 再解析
+            try {
+                hostname = new URL('https://' + url).hostname.toLowerCase();
+            } catch {
+                // 如果还是失败，使用正则提取域名
+                const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\s:]+)/i);
+                if (domainMatch) {
+                    hostname = domainMatch[1].toLowerCase();
+                } else {
+                    return null;
+                }
+            }
         }
+        
+        // 去掉 www/m 前缀
+        const domain = hostname.replace(/^(www\.|m\.|mobile\.)/, '');
+        
+        // 查找已知平台
+        for (const [pattern, name] of Object.entries(this.PLATFORM_DOMAINS)) {
+            if (domain.includes(pattern)) return name;
+        }
+        
+        // 未知域名，取主域名（去掉 .com/.cn 等后缀）
+        const parts = domain.split('.');
+        const mainDomain = parts[0];
+        return mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
     },
     
     /**
-     * 提取标签
+     * 提取标签（增加方括号格式）
      */
     extractTags(line) {
         const tags = [];
@@ -426,10 +501,13 @@ Lumina.Parser.MetadataExtractor = {
         if (hashTags) {
             hashTags.forEach(tag => {
                 const clean = tag.slice(1).trim(); // 去掉#
-                if (clean && !this.TAG_FILTER.includes(clean.toLowerCase())) {
+                // 排除纯数字标签（如 #245454）和过滤词
+                if (clean && 
+                    !/^\d+$/.test(clean) &&  // 新增：排除纯数字
+                    !this.TAG_FILTER.includes(clean.toLowerCase())) {
                     tags.push(clean);
                 }
-            });
+            });  
         }
         
         // 格式2: Tags: 标签1, 标签2 / 标签：a, b, c
@@ -529,13 +607,29 @@ Lumina.Parser.MetadataExtractor = {
         return result;
     },
     
-    // ==================== 原有方法（保持）====================
+    // ==================== 文件名解析（改进点2）====================
     
     extractFromFileName(fileName) {
         const result = { title: null, author: null };
         
         let cleanName = fileName.replace(/\.(txt|md|docx|epub|pdf|html?)$/i, '').trim();
         
+        // 改进点2：检测合集/全集/选集模式，提取前面的人名作为作者，置信度70
+        for (const rule of this.COLLECTION_KEYWORDS) {
+            const match = cleanName.match(rule.pattern);
+            if (match) {
+                const possibleAuthor = match[1].trim();
+                if (this.isValidAuthor(possibleAuthor)) {
+                    result.author = this.cleanAuthor(possibleAuthor);
+                    result.title = cleanName; // 标题保持完整文件名
+                    result._collectionSource = true; // 标记为合集来源
+                    result._collectionWeight = rule.weight; // 记录权重
+                    return result; // 直接返回，不再继续匹配
+                }
+            }
+        }
+        
+        // 原有逻辑
         for (const rule of this.FILE_NAME_PATTERNS) {
             const match = cleanName.match(rule.pattern);
             if (match) {
@@ -585,7 +679,10 @@ Lumina.Parser.MetadataExtractor = {
     // ==================== 工具方法 ====================
     
     getFileNameWithoutExt(fileName) {
-        return fileName.replace(/\.[^/.]+$/, '');
+        // 使用 lastIndexOf 确保只去掉最后一个扩展名，保留文件名中的其他点号
+        const lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex === -1 || lastDotIndex === 0) return fileName;
+        return fileName.substring(0, lastDotIndex);
     },
     
     cleanTitle(title) {
@@ -606,7 +703,7 @@ Lumina.Parser.MetadataExtractor = {
     },
     
     isValidTitle(title) {
-        if (!title || title.length < 1 || title.length > 100) return false;
+        if (!title || title.length < 1 || title.length > 100 || /[?<![\.,;:!?。，；：！？""''（）《》【】\[\]\(\)\{\}]/.test(title) === true) return false;
         const lower = title.toLowerCase().trim();
         if (this.INVALID_TITLES.some(inv => lower === inv || lower.includes(inv))) return false;
         
@@ -689,6 +786,51 @@ Lumina.Parser.MetadataExtractor = {
         return null;
     },
     
+    /**
+     * 计算作者置信度（特殊处理合集和高置信度标记）
+     */
+    calculateAuthorConfidence(author, candidates) {
+        if (!author) return 0;
+        
+        // 检查是否来自合集模式（改进点2）
+        const collectionCandidate = candidates.find(c => 
+            c._collectionSource && c.meta.author === author
+        );
+        if (collectionCandidate) {
+            return collectionCandidate._collectionWeight || 70;
+        }
+        
+        // 检查是否高置信度内容匹配（改进点3）
+        const highConfCandidate = candidates.find(c => 
+            c.meta._highConfidenceAuthor && c.meta.author === author
+        );
+        if (highConfCandidate) return 100;
+        
+        // 标准置信度计算
+        let score = 0;
+        
+        const sourceWeights = {
+            'content': 40,
+            'filename': 30,
+            'structure': 20,
+            'epub': 40,
+            'docx': 20,
+            'default': 10
+        };
+        
+        const candidate = candidates.find(c => c.meta.author === author);
+        if (candidate) {
+            score += sourceWeights[candidate.source] || 10;
+        }
+        
+        // 作者质量评分
+        if (author.length >= 2 && author.length <= 15) score += 20;
+        if (!/\d/.test(author)) score += 10;
+        if (!/[&\/\\#,+()$~%.'":*?<>{}]/.test(author)) score += 10;
+        
+        return Math.min(score, 100);
+    },
+    
     calculateConfidence(value, field, candidates) {
         if (!value) return 0;
         
@@ -699,7 +841,7 @@ Lumina.Parser.MetadataExtractor = {
             'filename': 30,
             'structure': 20,
             'epub': 40,
-            'docx': 20,  // 降低，因为可能是系统名
+            'docx': 20,
             'default': 10
         };
         
@@ -711,9 +853,6 @@ Lumina.Parser.MetadataExtractor = {
         if (field === 'title') {
             if (value.length >= 2 && value.length <= 30) score += 20;
             if (!/[。，；：！？.!?;:]$/g.test(value)) score += 10;
-            if (!/\d/.test(value)) score += 10;
-        } else if (field === 'author') {
-            if (value.length >= 2 && value.length <= 15) score += 20;
             if (!/\d/.test(value)) score += 10;
         }
         

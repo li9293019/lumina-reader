@@ -1428,7 +1428,7 @@
         getCoverSVG(book) {
             if (!book || book.cover) return null;
             const metadata = book.metadata || {};
-            const title = metadata.title || book.title || book.fileName || 'Untitled';
+            const title = metadata.title || book.title || book.fileName.replace(/\.[^/.]+$/, '') || 'Untitled';
             const author = metadata.author || book.author || '';
             const fontId = Lumina.State?.settings?.font;
             return this.generateSVGHTML(title, author, fontId);

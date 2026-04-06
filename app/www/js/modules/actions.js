@@ -187,13 +187,13 @@ Lumina.Actions = {
             // 提取元数据（书名、作者）
             const rawText = Lumina.State.app.currentFile.rawContent || 
                 (result.items?.slice(0, 50).map(i => i.text).join('\n'));
-            const extractedMeta = Lumina.Parser.extractMetadata(file, result, rawText);
+            const metadata = Lumina.Parser.extractMetadata(file, result, rawText);
             
             // 保存提取的元数据
-            Lumina.State.app.currentFile.extractedMetadata = extractedMeta;
+            Lumina.State.app.currentFile.metadata = metadata;
             
-            console.log('[Metadata] Extracted:', extractedMeta.title, '|', extractedMeta.author, 
-                '| Confidence:', extractedMeta.confidence, '| Source:', extractedMeta.source);
+            console.log('[Metadata] Extracted:', metadata.title, '|', metadata.author, 
+                '| Confidence:', metadata.confidence, '| Source:', metadata.source);
 
             Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];
             Lumina.State.app.chapters = Lumina.Parser.buildChapters(result.items);

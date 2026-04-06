@@ -712,7 +712,7 @@ Lumina.DataManager = class {
         const hasCover = !!file.cover;
         const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
         const sizeStr = file.estimatedSize ? Lumina.Utils.formatFileSize(file.estimatedSize) : '--';
-        const fileName = Lumina.Utils.escapeHtml(file.fileName);
+        const fileName = Lumina.Utils.escapeHtml(file.metadata?.title || file.fileName.replace(/\.[^/.]+$/, ''));
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
         let coverHtml;
         if (hasCover) {
@@ -1182,7 +1182,8 @@ Lumina.DataManager = class {
     
     // 明文导出
     async exportPlain(data) {
-        const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.json`;
+        const _filename = data.metadate?.title || data.fileName.replace(/\.[^/.]+$/, '');
+        const fileName = `Lumina_${_filename}_${new Date().getTime()}.json`;
         
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
         if (isApp && Capacitor.Plugins?.Filesystem) {
@@ -1295,7 +1296,8 @@ Lumina.DataManager = class {
                 progressDialog.update(progress);
             });
             
-            const fileName = `Lumina_${data.fileName.replace(/\.[^/.]+$/, '')}_${new Date().getTime()}.lmn`;
+            const _filename = data.metadate?.title || data.fileName.replace(/\.[^/.]+$/, '');
+            const fileName = `Lumina_${_filename}_${new Date().getTime()}.lmn`;
             
             const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
             if (isApp && Capacitor.Plugins?.Filesystem) {
@@ -2349,21 +2351,21 @@ Lumina.DB.HistoryDataBuilder = {
         }
         
         // 构建元数据（优先使用自动提取的）
-        const extractedMeta = state.currentFile.extractedMetadata;
+        const metadata = state.currentFile.metadata;
         const existingMeta = state.currentFile.metadata || {};
-        const metadata = {
-            title: extractedMeta?.title || existingMeta.title || '',
-            author: extractedMeta?.author || existingMeta.author || '',
-            publishDate: extractedMeta?.publishDate || existingMeta.publishDate || '',
-            sourceUrl: extractedMeta?.sourceUrl || existingMeta.sourceUrl || '',
-            publisher: extractedMeta?.publisher || existingMeta.publisher || '',
-            language: extractedMeta?.language || existingMeta.language || '',
-            description: extractedMeta?.description || existingMeta.description || '',
-            tags: extractedMeta?.tags?.length > 0 ? extractedMeta.tags : (existingMeta.tags || []),
+        const _metadata = {
+            title: metadata?.title || existingMeta.title || '',
+            author: metadata?.author || existingMeta.author || '',
+            publishDate: metadata?.publishDate || existingMeta.publishDate || '',
+            sourceUrl: metadata?.sourceUrl || existingMeta.sourceUrl || '',
+            publisher: metadata?.publisher || existingMeta.publisher || '',
+            language: metadata?.language || existingMeta.language || '',
+            description: metadata?.description || existingMeta.description || '',
+            tags: metadata?.tags?.length > 0 ? metadata.tags : (existingMeta.tags || []),
             // 保存提取置信度信息（调试用）
-            _extracted: extractedMeta ? {
-                confidence: extractedMeta.confidence,
-                source: extractedMeta.source
+            _extracted: metadata ? {
+                confidence: metadata.confidence,
+                source: metadata.source
             } : null
         };
         
@@ -2382,7 +2384,7 @@ Lumina.DB.HistoryDataBuilder = {
             annotations: [],
             cover: overrides.cover || null,
             heatMap: state.currentFile.heatMap, // 保存热力图数据（未设置时为 undefined，便于合并逻辑判断）
-            metadata: metadata // 新增：书籍元数据
+            metadata: _metadata // 新增：书籍元数据
         };
         return { ...baseData, ...overrides };
     }
@@ -2829,7 +2831,7 @@ Lumina.Renderer.renderHistoryFromDB = (files) => {
                         <div class="history-icon">${getFileIcon(item.fileType)}</div>
                         <div class="history-main">
                             <div class="history-header-row">
-                                <div class="history-name">${Lumina.Utils.escapeHtml(item.fileName)}</div>
+                                <div class="history-name">${Lumina.Utils.escapeHtml(item.metadata?.title || item.fileName.replace(/\.[^/.]+$/, ''))}</div>
                                 <div class="history-time">${timeAgo}</div>
                             </div>
                             <div class="history-meta-row">
@@ -2910,6 +2912,7 @@ Lumina.Renderer.renderHistoryFromDB = (files) => {
 };
 
 Lumina.DB.restoreFileFromDB = async (fileData) => {
+    // console.log(fileData)
     const t = Lumina.I18n.t;
     const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
     
@@ -2921,6 +2924,7 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         state.currentFile.type = fileData.fileType;
         state.currentFile.wordCount = fileData.wordCount;
         state.currentFile.fileKey = fileData.fileKey;
+        state.currentFile.metadata = fileData.metadata;
         state.currentFile.skipSave = false; // 从书库打开的文件允许自动保存
 
         state.document = { items: fileData.content, type: fileData.fileType };

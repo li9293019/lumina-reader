@@ -384,16 +384,20 @@ Lumina.ShareCard = {
         }
         
         // 最后保底检查：确保没有超长
-        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
-        const totalContentH = allLines.length * lineHeight + paraExtraH;
+        let paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        let totalContentH = allLines.length * lineHeight + paraExtraH;
         const maxContentH = h - currentY - bottomGap;
         
         if (totalContentH > maxContentH && allLines.length > 1) {
-            // 需要进一步截断
+            // 需要进一步截断，但要保留未受影响的段落标记
             const maxContentLines = Math.floor((maxContentH - paraExtraH) / lineHeight);
             allLines = allLines.slice(0, maxContentLines);
-            // 清空段落标记（因为可能截断在段落中间）
-            paragraphBreaks.length = 0;
+            // 只保留截断点之前的段落标记（原地修改）
+            for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
+                if (paragraphBreaks[i] >= maxContentLines) {
+                    paragraphBreaks.splice(i, 1);
+                }
+            }
             // 最后一行添加省略号
             const lastIdx = allLines.length - 1;
             const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);

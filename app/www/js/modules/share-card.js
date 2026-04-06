@@ -654,12 +654,10 @@ Lumina.ShareCard = {
     },
     
     async onSave() {
-        const t = Lumina.I18n.t;
         this.cardEl.style.transition = 'transform 0.3s ease, opacity 0.2s ease';
         this.cardEl.style.transform = 'translateX(120%) rotate(15deg)';
         this.cardEl.style.opacity = '0';
         await this.saveCard();
-        Lumina.UI.showToast(t('cardSaved') || '已保存');
         setTimeout(() => this.close(), 300);
     },
     

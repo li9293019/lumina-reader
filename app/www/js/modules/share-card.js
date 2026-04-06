@@ -1,5 +1,6 @@
 /**
- * Share Card - 分享书签 v7
+ * Share Card - 分享书签 v8
+ * 双轨渲染架构：SVG 预览（丝滑） + Canvas 高清输出（精准）
  * 跟随阅读器字体，精确排版，中文两端对齐
  */
 
@@ -15,6 +16,14 @@ Lumina.ShareCard = {
     BRAND_SIZE: 11,
     BRAND_OPACITY: 0.6,
     BRAND_Y: 22,
+    
+    // 高清输出配置
+    EXPORT_CONFIG: {
+        baseWidth: 600,        // 固定输出宽度
+        minScale: 3,           // 最小 3x 高清
+        maxScale: 4,           // 最大 4x 超清
+        quality: 0.95          // PNG 质量
+    },
     
     // 获取当前阅读器字体
     getReaderFont() {
@@ -472,12 +481,12 @@ Lumina.ShareCard = {
         return contentMatch ? contentMatch[1] : '';
     },
     
-    measureText(text, maxWidth, fontSize) {
+    measureText(text, maxWidth, fontSize, fontStack = null) {
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        // 使用阅读器字体
-        ctx.font = `${fontSize}px ${this.currentFont}`;
+        // 优先使用传入的字体栈，否则使用当前阅读器字体
+        ctx.font = `${fontSize}px ${fontStack || this.currentFont}`;
         
         // 微调安全边距
         const safeWidth = maxWidth - 2;
@@ -657,8 +666,515 @@ Lumina.ShareCard = {
         this.cardEl.style.transition = 'transform 0.3s ease, opacity 0.2s ease';
         this.cardEl.style.transform = 'translateX(120%) rotate(15deg)';
         this.cardEl.style.opacity = '0';
-        await this.saveCard();
+        
+        // 使用 Canvas 高清渲染
+        try {
+            await this.saveCardHD();
+        } catch (err) {
+            console.error('[ShareCard] 高清渲染失败，降级到 SVG:', err);
+            await this.saveCard(); // 降级
+        }
+        
         setTimeout(() => this.close(), 300);
+    },
+    
+    /**
+     * Canvas 高清渲染并保存
+     */
+    async saveCardHD() {
+        const { baseWidth, minScale, maxScale, quality } = this.EXPORT_CONFIG;
+        const layoutType = this.currentLayout;
+        
+        // 计算高度（与 SVG 一致）
+        let height = baseWidth;
+        if (layoutType === 'long') height = Math.floor(baseWidth * 1.5);
+        else if (layoutType === 'medium') height = Math.floor(baseWidth * 1.33);
+        
+        // 高 DPI 设置
+        const dpr = Math.min(Math.max(window.devicePixelRatio || 1, minScale), maxScale);
+        
+        // 创建 Canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = baseWidth * dpr;
+        canvas.height = height * dpr;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // 准备渲染数据
+        const renderData = {
+            paragraphs: this.paragraphs,
+            bookInfo: this.bookInfo,
+            palette: this.currentPalette,
+            fontFamily: this.currentFont  // 传递当前字体
+        };
+        
+        // 根据版式绘制（图案+内容一体化，确保区域一致）
+        switch(layoutType) {
+            case 'short': this.renderShortToCanvas(ctx, baseWidth, height, renderData); break;
+            case 'medium': this.renderMediumToCanvas(ctx, baseWidth, height, renderData); break;
+            case 'long': this.renderLongToCanvas(ctx, baseWidth, height, renderData); break;
+        }
+        
+        // 导出
+        await this.exportCanvas(canvas);
+    },
+    
+    /**
+     * 获取 Canvas 字体栈（使用阅读器当前字体）
+     */
+    getCanvasFontStack() {
+        // 优先使用阅读器当前字体，然后系统字体回退
+        const readerFont = this.currentFont || '';
+        
+        // 提取字体族名（去除引号）
+        const cleanFont = readerFont
+            .replace(/["']/g, '')
+            .split(',')[0]
+            .trim();
+        
+        if (cleanFont && cleanFont !== 'system-ui') {
+            // 使用阅读器字体 + 系统字体回退
+            return `${readerFont}, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif`;
+        }
+        
+        // 默认系统字体栈
+        return '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif';
+    },
+    
+    /**
+     * 绘制图案到指定区域（与 SVG renderPatternFull 完全一致）
+     */
+    renderPatternArea(ctx, x, y, w, h, palette, seed, intensity = 1) {
+        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        const patternCode = CoverCore.PATTERNS[this.currentPatternId]?.code || 'lines';
+        const drawer = CoverCore.PatternDrawers[patternCode];
+        
+        if (!drawer) {
+            ctx.fillStyle = palette.bg;
+            ctx.fillRect(x, y, w, h);
+            return;
+        }
+        
+        const params = CoverCore.extractParams(seed, 40);
+        
+        ctx.save();
+        
+        // 填充背景
+        ctx.fillStyle = palette.pattern || palette.bg;
+        ctx.fillRect(x, y, w, h);
+        
+        // 设置图案绘制样式（与 SVG 一致）
+        ctx.strokeStyle = palette.accent;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = Math.min(0.7 * intensity, 1);
+        ctx.lineWidth = Math.max(1.5, w * 0.003);
+        
+        // 在指定区域绘制图案
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();  // 限制绘制区域
+        
+        drawer(ctx, w, h, params, 1.0);
+        
+        ctx.restore();
+    },
+    
+    /**
+     * Canvas 工具：圆角矩形
+     */
+    roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    },
+    
+    /**
+     * Canvas 工具：绘制引号装饰
+     */
+    drawQuoteMark(ctx, x, y, size, color) {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.3;
+        
+        const s = size;
+        
+        // 左双引号路径（与 SVG path 数据一致）
+        ctx.beginPath();
+        ctx.moveTo(x + s * 0.9, y + s * 0.1);
+        ctx.bezierCurveTo(x + s * 0.5, y + s * 0.1, x + s * 0.2, y + s * 0.3, x + s * 0.15, y + s * 0.55);
+        ctx.bezierCurveTo(x + s * 0.1, y + s * 0.75, x + s * 0.25, y + s * 0.9, x + s * 0.4, y + s * 0.85);
+        ctx.bezierCurveTo(x + s * 0.55, y + s * 0.8, x + s * 0.6, y + s * 0.65, x + s * 0.55, y + s * 0.55);
+        ctx.bezierCurveTo(x + s * 0.5, y + s * 0.45, x + s * 0.35, y + s * 0.35, x + s * 0.6, y + s * 0.25);
+        ctx.bezierCurveTo(x + s * 0.75, y + s * 0.2, x + s * 0.85, y + s * 0.15, x + s * 0.9, y + s * 0.1);
+        ctx.fill();
+        
+        // 右双引号（偏移）
+        ctx.translate(s * 0.9, 0);
+        ctx.beginPath();
+        ctx.moveTo(x + s * 0.9, y + s * 0.1);
+        ctx.bezierCurveTo(x + s * 0.5, y + s * 0.1, x + s * 0.2, y + s * 0.3, x + s * 0.15, y + s * 0.55);
+        ctx.bezierCurveTo(x + s * 0.1, y + s * 0.75, x + s * 0.25, y + s * 0.9, x + s * 0.4, y + s * 0.85);
+        ctx.bezierCurveTo(x + s * 0.55, y + s * 0.8, x + s * 0.6, y + s * 0.65, x + s * 0.55, y + s * 0.55);
+        ctx.bezierCurveTo(x + s * 0.5, y + s * 0.45, x + s * 0.35, y + s * 0.35, x + s * 0.6, y + s * 0.25);
+        ctx.bezierCurveTo(x + s * 0.75, y + s * 0.2, x + s * 0.85, y + s * 0.15, x + s * 0.9, y + s * 0.1);
+        ctx.fill();
+        
+        ctx.restore();
+    },
+    
+    /**
+     * 短版式 Canvas 渲染（与 SVG renderShort 逐行对照）
+     */
+    renderShortToCanvas(ctx, w, h, data) {
+        const { paragraphs, bookInfo, palette, fontFamily } = data;
+        const padding = Math.floor(w * 0.08);
+        const fontStack = this.getCanvasFontStack();
+        
+        // --- 全图背景图案（intensity=1.0，与 SVG 一致）---
+        this.renderPatternArea(ctx, 0, 0, w, h, palette, this.currentSeed, 1.0);
+        
+        // --- 卡片背景 ---
+        const cardW = Math.floor(w * 0.82);
+        const cardH = Math.floor(h * 0.68);
+        const cardX = Math.floor((w - cardW) / 2);
+        const cardY = Math.floor((h - cardH) / 2);
+        
+        ctx.fillStyle = 'rgba(255,255,255,0.96)';
+        this.roundRect(ctx, cardX, cardY, cardW, cardH, 4);
+        ctx.fill();
+        
+        // --- 引号装饰 ---
+        this.drawQuoteMark(ctx, cardX + padding, cardY + padding, 26, palette.accent);
+        
+        // --- 文字排版 ---
+        const fontSize = Math.max(20, Math.floor(w * 0.045));
+        const lineHeight = Math.floor(fontSize * 1.6);
+        const quoteH = 35;
+        const lineAndSourceH = Math.floor(h * 0.12);
+        const availableH = cardH - quoteH - lineAndSourceH - padding * 2;
+        const contentW = cardW - padding * 2;
+        
+        // 测量文本（使用当前字体栈）
+        let lines = this.measureText(paragraphs.join(''), contentW, fontSize, fontStack);
+        const maxLines = Math.floor(availableH / lineHeight);
+        
+        if (lines.length > maxLines) {
+            lines = lines.slice(0, maxLines);
+            const last = lines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(lines[last]);
+            lines[last] = lines[last].substring(0, lines[last].length - 2) + (isCJK ? '……' : '...');
+        }
+        
+        const totalTextH = lines.length * lineHeight;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + fontSize * 0.85;
+        
+        // 绘制文字（使用阅读器字体）
+        ctx.font = `600 ${fontSize}px ${fontStack}`;
+        ctx.fillStyle = '#2c3e50';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        
+        lines.forEach((line, i) => {
+            ctx.fillText(line, w / 2, textStartY + i * lineHeight);
+        });
+        
+        // --- 装饰线 ---
+        const lineY = cardY + cardH - Math.floor(h * 0.12);
+        ctx.strokeStyle = palette.accent;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cardX + Math.floor(cardW * 0.2), lineY);
+        ctx.lineTo(cardX + Math.floor(cardW * 0.8), lineY);
+        ctx.stroke();
+        
+        // --- 来源 ---
+        const source = this.buildSource(contentW, bookInfo);
+        const sourceSize = Math.max(12, Math.floor(w * 0.024));
+        ctx.font = `italic ${sourceSize}px Georgia, serif`;
+        ctx.fillStyle = '#666';
+        ctx.fillText(source, w / 2, cardY + cardH - Math.floor(h * 0.06));
+        
+        // --- 品牌 ---
+        const brandY = h - Math.floor(h * 0.04);
+        ctx.font = `11px ${fontStack}`;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w / 2, brandY);
+        ctx.globalAlpha = 1;
+    },
+    
+    /**
+     * 中版式 Canvas 渲染（与 SVG renderMedium 逐行对照）
+     */
+    renderMediumToCanvas(ctx, w, h, data) {
+        const { paragraphs, bookInfo, palette } = data;
+        const halfH = Math.floor(h / 2);
+        const padding = Math.floor(w * 0.08);
+        const fontStack = this.getCanvasFontStack();
+        
+        // --- 上半部分图案背景（intensity=1.0，与 SVG 一致）---
+        this.renderPatternArea(ctx, 0, 0, w, halfH, palette, this.currentSeed, 1.0);
+        
+        // --- 下半部分白色背景 ---
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, halfH, w, h - halfH);
+        
+        // --- 装饰线 ---
+        const lineGap = Math.floor(h * 0.04);
+        const lineY = halfH + lineGap;
+        ctx.strokeStyle = palette.accent;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.floor(w * 0.08), lineY);
+        ctx.lineTo(Math.floor(w * 0.92), lineY);
+        ctx.stroke();
+        
+        // --- 文字排版 ---
+        const fontSize = Math.max(16, Math.floor(w * 0.036));
+        const lineHeight = Math.floor(fontSize * 1.7);
+        const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
+        const textStartY = lineY + lineGap + fontSize;
+        
+        // 分段渲染（使用当前字体栈）
+        let allLines = [];
+        const paragraphBreaks = [];
+        
+        paragraphs.forEach((para, idx) => {
+            const paraLines = this.measureText(para, contentW, fontSize, fontStack).filter(line => line.trim());
+            allLines.push(...paraLines);
+            if (idx < paragraphs.length - 1) {
+                paragraphBreaks.push(allLines.length);
+            }
+        });
+        
+        // 计算文本块居中
+        ctx.font = `400 ${fontSize}px ${fontStack}`;
+        const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width));
+        const textBlockX = Math.floor((w - maxLineWidth) / 2);
+        
+        // 绘制文字（使用阅读器字体）
+        ctx.fillStyle = '#2c3e50';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        
+        allLines.forEach((line, i) => {
+            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+            const yOffset = i * lineHeight + extraGap;
+            ctx.fillText(line, textBlockX, textStartY + yOffset);
+        });
+        
+        // --- 底部信息 ---
+        const bottomY = h - Math.floor(h * 0.04);
+        
+        // 来源（左对齐）
+        const source = this.buildSource(contentW, bookInfo);
+        const sourceSize = Math.max(11, Math.floor(w * 0.022));
+        ctx.font = `italic ${sourceSize}px Georgia, serif`;
+        ctx.fillStyle = '#888';
+        ctx.textAlign = 'left';
+        ctx.fillText(source, padding, bottomY);
+        
+        // 品牌（右对齐，使用阅读器字体）
+        ctx.textAlign = 'right';
+        ctx.font = `11px ${fontStack}`;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, bottomY);
+        ctx.globalAlpha = 1;
+    },
+    
+    /**
+     * 长版式 Canvas 渲染（与 SVG renderLong 逐行对照）
+     */
+    renderLongToCanvas(ctx, w, h, data) {
+        const { paragraphs, bookInfo, palette } = data;
+        const visualH = Math.floor(h * 0.30);
+        const padding = Math.floor(w * 0.08);
+        const fontSize = Math.max(15, Math.floor(w * 0.033));
+        const fontStack = this.getCanvasFontStack();
+        
+        // --- 顶部图案区域（intensity=1.1，与 SVG 一致）---
+        this.renderPatternArea(ctx, 0, 0, w, visualH, palette, this.currentSeed, 1.1);
+        
+        // --- 内容区域背景 ---
+        ctx.fillStyle = '#fafafa';
+        ctx.fillRect(0, visualH, w, h - visualH);
+        
+        // --- 装饰条 ---
+        ctx.fillStyle = palette.accent;
+        ctx.fillRect(0, visualH, w, Math.max(4, Math.floor(h * 0.006)));
+        
+        // --- 呼吸间隙 ---
+        const topGap = Math.floor(h * 0.06);
+        const chapterGap = Math.floor(h * 0.08);
+        const bottomGap = Math.floor(h * 0.10);
+        
+        // --- 章节标题 ---
+        const hasChapter = bookInfo.chapterTitle && 
+            bookInfo.chapterTitle !== bookInfo.bookTitle &&
+            bookInfo.chapterTitle.length < 20;
+        
+        const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
+        const lineHeight = Math.floor(fontSize * 1.8);
+        
+        // 分段和截断（使用当前字体栈）
+        let allLines = [];
+        const paragraphBreaks = [];
+        let linesRemaining = Math.floor((h - visualH - topGap - chapterGap - bottomGap) / lineHeight);
+        
+        for (let idx = 0; idx < paragraphs.length && linesRemaining > 0; idx++) {
+            const para = paragraphs[idx];
+            const paraLines = this.measureText(para, contentW, fontSize, fontStack).filter(line => line.trim());
+            
+            if (paraLines.length <= linesRemaining) {
+                allLines.push(...paraLines);
+                linesRemaining -= paraLines.length;
+                if (idx < paragraphs.length - 1) {
+                    paragraphBreaks.push(allLines.length);
+                }
+            } else {
+                const partialLines = paraLines.slice(0, linesRemaining);
+                allLines.push(...partialLines);
+                const lastIdx = allLines.length - 1;
+                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+                allLines[lastIdx] = allLines[lastIdx] + (isCJK ? '……' : '...');
+                break;
+            }
+        }
+        
+        // 计算文本边界（使用阅读器字体）
+        ctx.font = `400 ${fontSize}px ${fontStack}`;
+        const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width), contentW * 0.5);
+        const textLeftX = Math.floor((w - maxLineWidth) / 2);
+        const textRightX = textLeftX + maxLineWidth;
+        
+        // --- 绘制章节标题（使用阅读器字体）---
+        let renderY = visualH + topGap;
+        if (hasChapter) {
+            ctx.font = `600 ${Math.max(13, Math.floor(w * 0.028))}px ${fontStack}`;
+            ctx.fillStyle = palette.accent;
+            ctx.textAlign = 'left';
+            ctx.fillText(bookInfo.chapterTitle, textLeftX, renderY);
+            renderY += chapterGap;
+        }
+        
+        // --- 绘制正文（使用阅读器字体）---
+        ctx.font = `400 ${fontSize}px ${fontStack}`;
+        ctx.fillStyle = '#2c3e50';
+        
+        allLines.forEach((line, i) => {
+            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+            ctx.fillText(line, textLeftX, renderY + i * lineHeight + extraGap);
+        });
+        
+        // --- 底部信息 ---
+        const textEndY = renderY + allLines.length * lineHeight + paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const separatorY = textEndY + Math.floor(h * 0.04);
+        
+        // 分隔线（左对齐）
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(textLeftX, separatorY);
+        ctx.lineTo(textLeftX + Math.min(maxLineWidth, Math.floor(w * 0.15)), separatorY);
+        ctx.stroke();
+        
+        // 来源（左对齐）
+        const source = this.buildSource(maxLineWidth, bookInfo);
+        ctx.font = `italic ${Math.max(11, Math.floor(w * 0.022))}px Georgia, serif`;
+        ctx.fillStyle = '#888';
+        ctx.fillText(source, textLeftX, separatorY + Math.floor(h * 0.035));
+        
+        // 品牌（右对齐，与文本右边界对齐，使用阅读器字体）
+        ctx.textAlign = 'right';
+        ctx.font = `11px ${fontStack}`;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), textRightX, h - Math.floor(h * 0.04));
+        ctx.globalAlpha = 1;
+    },
+    
+    /**
+     * 导出 Canvas（跨平台）
+     */
+    async exportCanvas(canvas) {
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        
+        if (isApp) {
+            await this.saveCanvasApp(canvas);
+        } else {
+            await this.saveCanvasWeb(canvas);
+        }
+    },
+    
+    async saveCanvasWeb(canvas) {
+        const blob = await new Promise(resolve => 
+            canvas.toBlob(resolve, 'image/png', this.EXPORT_CONFIG.quality)
+        );
+        
+        // 下载
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Lumina-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        // 复制到剪贴板
+        if (navigator.clipboard?.write) {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                Lumina.UI.showToast('已保存并复制到剪贴板');
+            } catch (e) {
+                Lumina.UI.showToast('已保存到下载文件夹');
+            }
+        }
+    },
+    
+    async saveCanvasApp(canvas) {
+        const t = Lumina.I18n.t;
+        const { Filesystem, Share } = Capacitor.Plugins;
+        const fileName = `Lumina-${Date.now()}.png`;
+        
+        try {
+            const base64Data = canvas.toDataURL('image/png', this.EXPORT_CONFIG.quality).split(',')[1];
+            
+            const result = await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: 'CACHE',
+                recursive: true
+            });
+            
+            await Share.share({
+                title: t('shareCardTitle') || '分享书签',
+                text: t('fromLuminaReader') || '来自流萤阅读器',
+                url: result.uri,
+                dialogTitle: t('saveToAlbumOrShare') || '保存到相册或分享'
+            });
+            
+            // 清理缓存文件
+            setTimeout(async () => {
+                try {
+                    await Filesystem.deleteFile({ path: fileName, directory: 'CACHE' });
+                } catch (e) {}
+            }, 60000);
+            
+        } catch (err) {
+            console.error('[ShareCard] APP save failed:', err);
+            Lumina.UI.showToast((t('saveFailed') || '保存失败') + ': ' + err.message);
+        }
     },
     
     onSwitch() {

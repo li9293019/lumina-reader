@@ -193,7 +193,7 @@ Lumina.Parser.RegexCache = {
         '\\W': '[A-Za-z]+',
         
         // 中文字符（汉字、中文标点等）
-        '\\Z': '[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+',
+        '\\Z': '[\u4e00-\u9fff]',
         
         // 数字（阿拉伯数字，多个）
         '\\N': '\\d+',
@@ -226,7 +226,7 @@ Lumina.Parser.RegexCache = {
             try {
                 let pattern = expandedChapter;
                 if (!pattern.startsWith('^')) pattern = '^' + pattern;
-                if (!pattern.includes('(')) pattern = pattern + '\\s*(.*)';
+                if (!pattern.includes('(') && !pattern.endsWith('$')) pattern = pattern + '\\s*(.*)';
                 this.customPatterns.chapter = new RegExp(pattern, 'i');
             } catch (e) {}
         }
@@ -235,7 +235,7 @@ Lumina.Parser.RegexCache = {
             try {
                 let pattern = expandedSection;
                 if (!pattern.startsWith('^')) pattern = '^' + pattern;
-                if (!pattern.includes('(')) pattern = pattern + '\\s*(.*)';
+                if (!pattern.includes('(') && !pattern.endsWith('$')) pattern = pattern + '\\s*(.*)';
                 this.customPatterns.section = new RegExp(pattern, 'i');
             } catch (e) {}
         }
@@ -248,7 +248,6 @@ Lumina.Parser.RegexCache = {
 
         if (useCustom) {
             if (!this.customPatterns.chapter && !this.customPatterns.section) return this.detectChapter(text, false);
-
             if (this.customPatterns.chapter) {
                 const match = trimmed.match(this.customPatterns.chapter);
                 if (match) {

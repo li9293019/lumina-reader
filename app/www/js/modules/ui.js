@@ -833,7 +833,7 @@ Lumina.UI = {
                         // 如果文档已加载，重新渲染以应用新的章节正则
                         if (Lumina.State.app.document.items?.length > 0) {
                             // 重新识别章节
-                            Lumina.Parser.recognizeChapters(Lumina.State.app.document.items);
+                            Lumina.Parser.reparseWithRegex();
                             // 重新渲染当前视图
                             const currentIdx = Lumina.Renderer.getCurrentVisibleIndex();
                             Lumina.Renderer.renderCurrentChapter(currentIdx);

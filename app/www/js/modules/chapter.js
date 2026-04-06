@@ -89,7 +89,7 @@ Lumina.Parser.reparseDocumentStructure = async () => {
 
     // 重新解析：根据新的正则规则重新识别标题级别
     // PDF 和 DOCX 都是二进制格式，需要重新分析已有 items，而不是重新解析原始内容
-    if (ext === 'docx' || ext === 'pdf') {
+    if (['docx', 'pdf', 'epub'].includes(ext) === true) {
         Lumina.Parser.reanalyzeDocumentItems();
     } else {
         const result = Lumina.Parser.parseTextFile(Lumina.State.app.currentFile.rawContent, ext, Lumina.State.app.currentFile.file);
@@ -119,16 +119,17 @@ Lumina.Parser.reanalyzeDocumentItems = () => {
             if (!item) return; // 跳过空项
             if (item.type === 'image') { newItems.push(item); return; }
 
+            // [关键修复] 重新分析章节标题时，要先重置原来的 haeding 为普通段落
+            if (item.type.startsWith('heading')) { 
+                item.type = 'paragraph';
+                item.display = item.text;
+            }
             const text = item.text || '';
             const trimmed = text.trim();
             const chapterInfo = Lumina.Parser.RegexCache.detectChapter(trimmed, true);
 
             if (chapterInfo) {
                 const newItem = Lumina.Parser.processHeading(chapterInfo.level, chapterInfo.raw, chapterInfo.text);
-                newItems.push(newItem);
-            } else if (item.type && item.type.startsWith('heading')) {
-                const level = parseInt(item.type.replace('heading', '')) || 1;
-                const newItem = Lumina.Parser.processHeading(level, item.text || '');
                 newItems.push(newItem);
             } else {
                 // 确保段落有 display 字段

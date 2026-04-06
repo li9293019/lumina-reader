@@ -315,29 +315,29 @@ Lumina.ShareCard = {
     // ========== 长文字: 2:3 顶部30%图案+底部70%文字 ==========
     renderLong(w, h, palette, seed) {
         const visualH = Math.floor(h * 0.30);
-        
-        let svg = '';
-        svg += this.renderPatternFull(w, visualH, palette, seed, 1.1);
-        svg += `<rect x="0" y="${visualH}" width="${w}" height="${h - visualH}" fill="#fafafa"/>`;
-        svg += `<rect x="0" y="${visualH}" width="${w}" height="${Math.max(4, Math.floor(h * 0.006))}" fill="${palette.accent}"/>`;
-        
         const padding = Math.floor(w * 0.08);
         const fontSize = Math.max(15, Math.floor(w * 0.033));
         // 调整后的内容宽度（减少右边留白约半个字符）
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
+        const lineHeight = Math.floor(fontSize * 1.8);
         
-        let currentY = visualH + Math.floor(h * 0.05);
+        // 增加呼吸感：章节与图案、长文本的间隙
+        const topGap = Math.floor(h * 0.08);      // 图案与章节标题的间隙
+        const chapterGap = Math.floor(h * 0.05);  // 章节标题与正文间隙
+        const bottomGap = Math.floor(h * 0.12);   // 底部预留空间
         
-        // 章节标题
-        if (this.bookInfo.chapterTitle && 
+        // 计算正文起始位置（考虑章节标题）
+        let chapterH = 0;
+        const hasChapter = this.bookInfo.chapterTitle && 
             this.bookInfo.chapterTitle !== this.bookInfo.bookTitle &&
-            this.bookInfo.chapterTitle.length < 20) {
-            svg += `<text x="${padding}" y="${currentY}" font-size="${Math.max(13, Math.floor(w * 0.028))}" font-weight="600" fill="${palette.accent}">${this.escapeXml(this.bookInfo.chapterTitle)}</text>`;
-            currentY += Math.floor(h * 0.045);
+            this.bookInfo.chapterTitle.length < 20;
+        if (hasChapter) {
+            chapterH = Math.floor(h * 0.045); // 章节标题高度
         }
         
-        const lineHeight = Math.floor(fontSize * 1.8);
-        const maxLines = Math.floor((h - currentY - Math.floor(h * 0.15)) / lineHeight);
+        // 先计算文本渲染，确定最大行数
+        let currentY = visualH + topGap + chapterH + chapterGap;
+        const maxLines = Math.floor((h - currentY - bottomGap) / lineHeight);
         
         // 分段渲染（带截断限制）
         let allLines = [];
@@ -372,7 +372,7 @@ Lumina.ShareCard = {
         // 最后保底检查：确保没有超长
         const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
         const totalContentH = allLines.length * lineHeight + paraExtraH;
-        const maxContentH = h - currentY - Math.floor(h * 0.15);
+        const maxContentH = h - currentY - bottomGap;
         
         if (totalContentH > maxContentH && allLines.length > 1) {
             // 需要进一步截断
@@ -386,31 +386,54 @@ Lumina.ShareCard = {
             allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
         }
         
-        // 计算实际文本宽度，实现整体居中
+        // 计算实际文本边界
         const canvas2 = document.createElement('canvas');
         const ctx2 = canvas2.getContext('2d');
         ctx2.font = `${fontSize}px ${this.currentFont}`;
-        const maxLineWidth = Math.max(...allLines.map(l => ctx2.measureText(l).width));
-        const textBlockX = Math.floor((w - maxLineWidth) / 2);
+        const lineWidths = allLines.map(l => ctx2.measureText(l).width);
+        const maxLineWidth = Math.max(...lineWidths);
         
-        // 中文渲染（左对齐，段落间有间距）
-        svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
+        // 文本块的实际左右边界（左对齐）
+        const textLeftX = Math.floor((w - maxLineWidth) / 2);
+        const textRightX = textLeftX + maxLineWidth;
+        
+        // ===== 构建 SVG：按顺序渲染 =====
+        let svg = '';
+        
+        // 1. 顶部图案
+        svg += this.renderPatternFull(w, visualH, palette, seed, 1.1);
+        svg += `<rect x="0" y="${visualH}" width="${w}" height="${h - visualH}" fill="#fafafa"/>`;
+        svg += `<rect x="0" y="${visualH}" width="${w}" height="${Math.max(4, Math.floor(h * 0.006))}" fill="${palette.accent}"/>`;
+        
+        // 2. 章节标题（与文本左对齐，有呼吸间隙）
+        let renderY = visualH + topGap;
+        if (hasChapter) {
+            svg += `<text x="${textLeftX}" y="${renderY}" font-size="${Math.max(13, Math.floor(w * 0.028))}" font-weight="600" fill="${palette.accent}">${this.escapeXml(this.bookInfo.chapterTitle)}</text>`;
+            renderY += chapterGap;
+        }
+        
+        // 3. 长文本正文（左对齐）
+        svg += `<text x="${textLeftX}" y="${renderY}" font-size="${fontSize}" fill="#2c3e50">`;
         allLines.forEach((line, i) => {
-            // 段落开始的新一行添加额外间距
             const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-            svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
+            svg += `<tspan x="${textLeftX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
         });
         svg += '</text>';
         
-        const textEndY = currentY + allLines.length * lineHeight + paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        // 4. 底部信息（与文本左右边界对齐）
+        const textEndY = renderY + allLines.length * lineHeight + paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const separatorY = textEndY + Math.floor(h * 0.04);
         
-        svg += `<line x1="${padding}" y1="${textEndY + Math.floor(h * 0.03)}" x2="${padding + Math.floor(w * 0.15)}" y2="${textEndY + Math.floor(h * 0.03)}" stroke="#ddd" stroke-width="1"/>`;
+        // 分隔线（左对齐）
+        svg += `<line x1="${textLeftX}" y1="${separatorY}" x2="${textLeftX + Math.min(maxLineWidth, Math.floor(w * 0.15))}" y2="${separatorY}" stroke="#ddd" stroke-width="1"/>`;
         
-        const source = this.buildSource(contentW);
-        svg += `<text x="${padding}" y="${textEndY + Math.floor(h * 0.065)}" font-size="${Math.max(11, Math.floor(w * 0.022))}" font-style="italic" fill="#888">${this.escapeXml(source)}</text>`;
+        // 来源（左对齐）
+        const source = this.buildSource(maxLineWidth);
+        svg += `<text x="${textLeftX}" y="${separatorY + Math.floor(h * 0.035)}" font-size="${Math.max(11, Math.floor(w * 0.022))}" font-style="italic" fill="#888">${this.escapeXml(source)}</text>`;
         
+        // 品牌（右对齐，与文本右边界对齐）
         const t = Lumina.I18n.t;
-        svg += `<text x="${w - padding}" y="${h - this.BRAND_Y}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${textRightX}" y="${h - this.BRAND_Y}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },

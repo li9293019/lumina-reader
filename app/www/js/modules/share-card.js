@@ -34,8 +34,11 @@ Lumina.ShareCard = {
     },
     
     show(selectedText) {
-        // 保留分段信息（按换行符分割段落）
-        this.paragraphs = selectedText.split(/\n+/).filter(p => p.trim());
+        // 保留分段信息（按换行符分割段落，过滤空段落和纯空白段落）
+        this.paragraphs = selectedText
+            .split(/\n+/)
+            .map(p => p.trim())
+            .filter(p => p && p.length > 0 && !/^(&nbsp;|\s)*$/.test(p));
         this.selectedText = selectedText;
         
         // 调试日志
@@ -230,7 +233,10 @@ Lumina.ShareCard = {
         const paragraphBreaks = [];
         
         this.paragraphs.forEach((para, idx) => {
-            const paraLines = this.measureText(para, contentW, fontSize);
+            const paraLines = this.measureText(para, contentW, fontSize)
+                .filter(line => line.trim() && !/^(&nbsp;|\s)*$/.test(line));
+            if (paraLines.length === 0) return; // 跳过空段落
+            
             console.log(`[ShareCard] Paragraph ${idx}:`, JSON.stringify(para), 'lines:', paraLines);
             allLines.push(...paraLines);
             if (idx < this.paragraphs.length - 1) {
@@ -318,7 +324,9 @@ Lumina.ShareCard = {
         
         for (let idx = 0; idx < this.paragraphs.length; idx++) {
             const para = this.paragraphs[idx];
-            const paraLines = this.measureText(para, contentW, fontSize);
+            const paraLines = this.measureText(para, contentW, fontSize)
+                .filter(line => line.trim() && !/^(&nbsp;|\s)*$/.test(line));
+            if (paraLines.length === 0) continue; // 跳过空段落
             
             if (paraLines.length <= linesRemaining) {
                 allLines.push(...paraLines);

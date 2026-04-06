@@ -899,10 +899,10 @@ Lumina.ShareCard = {
         ctx.lineTo(cardX + Math.floor(cardW * 0.8), lineY);
         ctx.stroke();
         
-        // --- 来源 ---
+        // --- 来源（使用阅读器字体，与 SVG 一致）---
         const source = this.buildSource(contentW, bookInfo);
         const sourceSize = Math.max(12, Math.floor(w * 0.024));
-        ctx.font = `italic ${sourceSize}px Georgia, serif`;
+        ctx.font = `italic ${sourceSize}px ${fontStack}`;
         ctx.fillStyle = '#666';
         ctx.fillText(source, w / 2, cardY + cardH - Math.floor(h * 0.06));
         
@@ -952,42 +952,65 @@ Lumina.ShareCard = {
         const paragraphBreaks = [];
         
         paragraphs.forEach((para, idx) => {
-            const paraLines = this.measureText(para, contentW, fontSize, fontStack).filter(line => line.trim());
+            const paraLines = this.measureText(para, contentW, fontSize, fontStack)
+                .filter(line => line.trim());
+            if (paraLines.length === 0) return;
+            
             allLines.push(...paraLines);
             if (idx < paragraphs.length - 1) {
                 paragraphBreaks.push(allLines.length);
             }
         });
         
+        // 检查是否超长（与 SVG renderMedium 一致，考虑段落间距）
+        const bottomAreaH = Math.floor(h * 0.04);
+        const availableH = h - halfH - lineGap * 2 - fontSize - bottomAreaH;
+        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const maxLines = Math.floor((availableH - paraExtraH) / lineHeight);
+        
+        if (allLines.length > maxLines) {
+            // 优先保留完整段落
+            let linesToKeep = maxLines;
+            for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
+                if (paragraphBreaks[i] <= maxLines) {
+                    linesToKeep = paragraphBreaks[i];
+                    break;
+                }
+            }
+            if (allLines.length > linesToKeep) {
+                allLines = allLines.slice(0, linesToKeep);
+                paragraphBreaks.length = 0;
+                const lastIdx = allLines.length - 1;
+                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
+            }
+        }
+        
         // 计算文本块居中
         ctx.font = `400 ${fontSize}px ${fontStack}`;
         const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
-        // 绘制文字（使用阅读器字体，段落间距累加）
+        // 绘制文字（使用阅读器字体，段落间距与 SVG 一致）
         ctx.fillStyle = '#2c3e50';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         
-        let currentY = textStartY;
         let paraGapAccumulated = 0;
-        
         allLines.forEach((line, i) => {
-            // 段落间距累加（除第一行外，每次遇到段落断点都增加间距）
             if (i > 0 && paragraphBreaks.includes(i)) {
                 paraGapAccumulated += Math.floor(lineHeight * 0.5);
             }
-            const yOffset = i * lineHeight + paraGapAccumulated;
-            ctx.fillText(line, textBlockX, textStartY + yOffset);
+            ctx.fillText(line, textBlockX, textStartY + i * lineHeight + paraGapAccumulated);
         });
         
         // --- 底部信息 ---
         const bottomY = h - Math.floor(h * 0.04);
         
-        // 来源（左对齐）
+        // 来源（左对齐，使用阅读器字体，与 SVG 一致）
         const source = this.buildSource(contentW, bookInfo);
         const sourceSize = Math.max(11, Math.floor(w * 0.022));
-        ctx.font = `italic ${sourceSize}px Georgia, serif`;
+        ctx.font = `italic ${sourceSize}px ${fontStack}`;
         ctx.fillStyle = '#888';
         ctx.textAlign = 'left';
         ctx.fillText(source, padding, bottomY);
@@ -1032,13 +1055,18 @@ Lumina.ShareCard = {
             bookInfo.chapterTitle !== bookInfo.bookTitle &&
             bookInfo.chapterTitle.length < 20;
         
+        // 计算章节标题高度（与 SVG 一致）
+        const chapterH = hasChapter ? Math.floor(h * 0.045) : 0;
+        
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
         const lineHeight = Math.floor(fontSize * 1.8);
         
-        // 分段和截断（使用当前字体栈）
+        // 分段和截断（使用当前字体栈，计算与 SVG 一致）
         let allLines = [];
         const paragraphBreaks = [];
-        let linesRemaining = Math.floor((h - visualH - topGap - chapterGap - bottomGap) / lineHeight);
+        const currentY = visualH + topGap + chapterH + chapterGap;
+        const maxLines = Math.floor((h - currentY - bottomGap) / lineHeight);
+        let linesRemaining = maxLines;
         
         for (let idx = 0; idx < paragraphs.length && linesRemaining > 0; idx++) {
             const para = paragraphs[idx];
@@ -1076,13 +1104,12 @@ Lumina.ShareCard = {
             renderY += chapterGap;
         }
         
-        // --- 绘制正文（使用阅读器字体，段落间距累加）---
+        // --- 绘制正文（使用阅读器字体，段落间距与 SVG 一致）---
         ctx.font = `400 ${fontSize}px ${fontStack}`;
         ctx.fillStyle = '#2c3e50';
         
         let paraGapAccumulated = 0;
         allLines.forEach((line, i) => {
-            // 段落间距累加（除第一行外，每次遇到段落断点都增加间距）
             if (i > 0 && paragraphBreaks.includes(i)) {
                 paraGapAccumulated += Math.floor(lineHeight * 0.5);
             }
@@ -1101,9 +1128,9 @@ Lumina.ShareCard = {
         ctx.lineTo(textLeftX + Math.min(maxLineWidth, Math.floor(w * 0.15)), separatorY);
         ctx.stroke();
         
-        // 来源（左对齐）
+        // 来源（左对齐，使用阅读器字体，与 SVG 一致）
         const source = this.buildSource(maxLineWidth, bookInfo);
-        ctx.font = `italic ${Math.max(11, Math.floor(w * 0.022))}px Georgia, serif`;
+        ctx.font = `italic ${Math.max(11, Math.floor(w * 0.022))}px ${fontStack}`;
         ctx.fillStyle = '#888';
         ctx.fillText(source, textLeftX, separatorY + Math.floor(h * 0.035));
         

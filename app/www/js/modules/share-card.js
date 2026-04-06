@@ -219,7 +219,8 @@ Lumina.ShareCard = {
         svg += `<text x="${Math.floor(w/2)}" y="${cardY + cardH - Math.floor(h * 0.06)}" text-anchor="middle" font-size="${Math.max(12, Math.floor(w * 0.024))}" font-style="italic" fill="#666">${this.escapeXml(source)}</text>`;
         
         const t = Lumina.I18n.t;
-        svg += `<text x="${Math.floor(w/2)}" y="${h - this.BRAND_Y}" text-anchor="middle" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        const brandY = h - Math.floor(h * 0.04);
+        svg += `<text x="${Math.floor(w/2)}" y="${brandY}" text-anchor="middle" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },
@@ -307,7 +308,8 @@ Lumina.ShareCard = {
         svg += `<text x="${padding}" y="${bottomY}" font-size="${Math.max(11, Math.floor(w * 0.022))}" font-style="italic" fill="#888">${this.escapeXml(source)}</text>`;
         
         const t = Lumina.I18n.t;
-        svg += `<text x="${w - padding}" y="${bottomY}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        const brandY = h - Math.floor(h * 0.04);
+        svg += `<text x="${w - padding}" y="${brandY}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },
@@ -433,7 +435,8 @@ Lumina.ShareCard = {
         
         // 品牌（右对齐，与文本右边界对齐）
         const t = Lumina.I18n.t;
-        svg += `<text x="${textRightX}" y="${h - this.BRAND_Y}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        const brandY = h - Math.floor(h * 0.04);
+        svg += `<text x="${textRightX}" y="${brandY}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },

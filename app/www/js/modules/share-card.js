@@ -324,9 +324,9 @@ Lumina.ShareCard = {
         const lineHeight = Math.floor(fontSize * 1.8);
         
         // 增加呼吸感：章节与图案、长文本的间隙
-        const topGap = Math.floor(h * 0.08);      // 图案与章节标题的间隙
-        const chapterGap = Math.floor(h * 0.05);  // 章节标题与正文间隙
-        const bottomGap = Math.floor(h * 0.12);   // 底部预留空间
+        const topGap = Math.floor(h * 0.06);      // 图案与章节标题的间隙（减小一点）
+        const chapterGap = Math.floor(h * 0.08);  // 章节标题与正文间隙（增大到8%）
+        const bottomGap = Math.floor(h * 0.10);   // 底部预留空间（稍微减小）
         
         // 计算正文起始位置（考虑章节标题）
         let chapterH = 0;

@@ -42,8 +42,7 @@ Lumina.ShareCard = {
         this.selectedText = selectedText;
         
         // 调试日志
-        console.log('[ShareCard] selectedText:', JSON.stringify(selectedText));
-        console.log('[ShareCard] paragraphs:', this.paragraphs);
+
         this.currentFont = this.getReaderFont();
         
         const state = Lumina.State.app;
@@ -81,8 +80,8 @@ Lumina.ShareCard = {
         const isCJK = /[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(text);
         const visualLength = isCJK ? text.length : text.length * 0.6;
         
-        if (visualLength <= 45) return 'short';   // 放宽到45
-        if (visualLength <= 180) return 'medium'; // 放宽到180
+        if (visualLength <= 35) return 'short';   // 短版式：35字符
+        if (visualLength <= 160) return 'medium'; // 中版式：160字符
         return 'long';
     },
     
@@ -187,9 +186,25 @@ Lumina.ShareCard = {
         const fontSize = Math.max(20, Math.floor(w * 0.045));
         const lineHeight = Math.floor(fontSize * 1.6);
         
-        const lines = this.measureText(this.selectedText, contentW, fontSize);
+        // 计算可用文本区域（减去引号、横线、来源等占用的空间）
+        const quoteH = 35;
+        const lineAndSourceH = Math.floor(h * 0.12);
+        const availableH = cardH - quoteH - lineAndSourceH - padding * 2;
+        const maxLines = Math.floor(availableH / lineHeight);
+        
+        let lines = this.measureText(this.selectedText, contentW, fontSize);
+        
+        // 检查是否超长，超长则截断
+        if (lines.length > maxLines) {
+            lines = lines.slice(0, maxLines);
+            // 最后一行添加省略号
+            const lastIdx = lines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(lines[lastIdx]);
+            lines[lastIdx] = lines[lastIdx].substring(0, lines[lastIdx].length - 2) + (isCJK ? '……' : '...');
+        }
+        
         const totalTextH = lines.length * lineHeight;
-        const textStartY = cardY + (cardH - totalTextH) / 2 + lineHeight * 0.3;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 0.3;
         
         svg += `<text x="${Math.floor(w/2)}" y="${textStartY}" text-anchor="middle" font-size="${fontSize}" font-weight="600" fill="#2c3e50">`;
         lines.forEach((line, i) => {
@@ -229,7 +244,7 @@ Lumina.ShareCard = {
         const textStartY = lineY + lineGap + fontSize;
         
         // 分段渲染
-        const allLines = [];
+        let allLines = [];
         const paragraphBreaks = [];
         
         this.paragraphs.forEach((para, idx) => {
@@ -237,14 +252,39 @@ Lumina.ShareCard = {
                 .filter(line => line.trim() && !/^(&nbsp;|\s)*$/.test(line));
             if (paraLines.length === 0) return; // 跳过空段落
             
-            console.log(`[ShareCard] Paragraph ${idx}:`, JSON.stringify(para), 'lines:', paraLines);
             allLines.push(...paraLines);
             if (idx < this.paragraphs.length - 1) {
                 paragraphBreaks.push(allLines.length);
             }
         });
         
-        console.log('[ShareCard] allLines:', allLines, 'paragraphBreaks:', paragraphBreaks);
+        // 检查是否超长（考虑段落间距占用的额外高度）
+        const bottomAreaH = Math.floor(h * 0.04); // 底部区域高度
+        const availableH = h - halfH - lineGap * 2 - fontSize - bottomAreaH;
+        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const maxLines = Math.floor((availableH - paraExtraH) / lineHeight);
+        
+        if (allLines.length > maxLines) {
+            // 需要截断，优先保留完整段落
+            let linesToKeep = maxLines;
+            // 从后往前检查，如果截断点在某个段落中间，则退到该段落开头
+            for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
+                if (paragraphBreaks[i] < maxLines) {
+                    // 可以保留到该段落
+                    linesToKeep = paragraphBreaks[i];
+                    break;
+                }
+            }
+            // 如果还是太长，强行截断
+            if (allLines.length > linesToKeep) {
+                allLines = allLines.slice(0, linesToKeep);
+                paragraphBreaks.length = 0; // 清空段落标记
+                // 最后一行添加省略号
+                const lastIdx = allLines.length - 1;
+                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
+            }
+        }
         
         // 计算实际文本宽度，实现整体居中
         const canvas = document.createElement('canvas');
@@ -253,32 +293,14 @@ Lumina.ShareCard = {
         const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
-        // 中文两端对齐
-        const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
-        if (isCJK && allLines.length > 1) {
-            svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
-            allLines.forEach((line, i) => {
-                const isParaEnd = paragraphBreaks.includes(i + 1);
-                const isLast = i === allLines.length - 1;
-                const justify = !isLast && !isParaEnd && line.length > 4;
-                // 段落开始的新一行添加额外间距
-                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-                
-                if (justify) {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
-                } else {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
-                }
-            });
-            svg += '</text>';
-        } else {
-            svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
-            allLines.forEach((line, i) => {
-                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
-            });
-            svg += '</text>';
-        }
+        // 渲染文本（左对齐，段落间有间距）
+        svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
+        allLines.forEach((line, i) => {
+            // 段落开始的新一行添加额外间距
+            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+            svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
+        });
+        svg += '</text>';
         
         const bottomY = h - Math.floor(h * 0.04);
         const source = this.buildSource(contentW);
@@ -318,7 +340,7 @@ Lumina.ShareCard = {
         const maxLines = Math.floor((h - currentY - Math.floor(h * 0.15)) / lineHeight);
         
         // 分段渲染（带截断限制）
-        const allLines = [];
+        let allLines = [];
         const paragraphBreaks = [];
         let linesRemaining = maxLines;
         
@@ -347,6 +369,23 @@ Lumina.ShareCard = {
             }
         }
         
+        // 最后保底检查：确保没有超长
+        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const totalContentH = allLines.length * lineHeight + paraExtraH;
+        const maxContentH = h - currentY - Math.floor(h * 0.15);
+        
+        if (totalContentH > maxContentH && allLines.length > 1) {
+            // 需要进一步截断
+            const maxContentLines = Math.floor((maxContentH - paraExtraH) / lineHeight);
+            allLines = allLines.slice(0, maxContentLines);
+            // 清空段落标记（因为可能截断在段落中间）
+            paragraphBreaks.length = 0;
+            // 最后一行添加省略号
+            const lastIdx = allLines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+            allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
+        }
+        
         // 计算实际文本宽度，实现整体居中
         const canvas2 = document.createElement('canvas');
         const ctx2 = canvas2.getContext('2d');
@@ -354,33 +393,14 @@ Lumina.ShareCard = {
         const maxLineWidth = Math.max(...allLines.map(l => ctx2.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
-        // 中文两端对齐
-        const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
-        if (isCJK && allLines.length > 1) {
-            svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
-            allLines.forEach((line, i) => {
-                // isParaEnd: 当前行是否是段落最后一行
-                const isParaEnd = paragraphBreaks.includes(i + 1);
-                const isLast = i === allLines.length - 1;
-                const justify = !isLast && !isParaEnd && line.length > 4;
-                // 段落结束后的下一行添加额外间距
-                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-                
-                if (justify) {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
-                } else {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
-                }
-            });
-            svg += '</text>';
-        } else {
-            svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
-            allLines.forEach((line, i) => {
-                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
-            });
-            svg += '</text>';
-        }
+        // 中文渲染（左对齐，段落间有间距）
+        svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
+        allLines.forEach((line, i) => {
+            // 段落开始的新一行添加额外间距
+            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+            svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
+        });
+        svg += '</text>';
         
         const textEndY = currentY + allLines.length * lineHeight + paragraphBreaks.length * Math.floor(lineHeight * 0.5);
         
@@ -424,7 +444,7 @@ Lumina.ShareCard = {
     },
     
     measureText(text, maxWidth, fontSize) {
-        console.log('[measureText] Input:', JSON.stringify(text.substring(0, 50)), 'maxWidth:', maxWidth);
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         // 使用阅读器字体
@@ -486,7 +506,7 @@ Lumina.ShareCard = {
                 }
             }
             if (line.trim()) lines.push(line.trim());
-            console.log('[measureText] Non-CJK lines result:', lines);
+
         }
         
         return lines;

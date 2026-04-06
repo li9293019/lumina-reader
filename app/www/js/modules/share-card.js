@@ -1065,22 +1065,27 @@ Lumina.ShareCard = {
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
         const lineHeight = Math.floor(fontSize * 1.8);
         
-        // 分段和截断（使用当前字体栈，计算与 SVG 一致）
+        // 分段和截断（使用当前字体栈，计算与 SVG 一致，考虑段落间距）
         let allLines = [];
         const paragraphBreaks = [];
         const currentY = visualH + topGap + chapterH + chapterGap;
-        const maxLines = Math.floor((h - currentY - bottomGap) / lineHeight);
-        let linesRemaining = maxLines;
+        const maxContentH = h - currentY - bottomGap;
+        let linesRemaining = Math.floor(maxContentH / lineHeight);
         
         for (let idx = 0; idx < paragraphs.length && linesRemaining > 0; idx++) {
             const para = paragraphs[idx];
             const paraLines = this.measureText(para, contentW, fontSize, fontStack).filter(line => line.trim());
             
+            // 预估段落间距占用
+            const wouldAddBreak = idx < paragraphs.length - 1 && paraLines.length > 0;
+            const paraGap = wouldAddBreak ? Math.floor(lineHeight * 0.5) : 0;
+            
             if (paraLines.length <= linesRemaining) {
                 allLines.push(...paraLines);
                 linesRemaining -= paraLines.length;
-                if (idx < paragraphs.length - 1) {
+                if (wouldAddBreak) {
                     paragraphBreaks.push(allLines.length);
+                    linesRemaining -= Math.floor(lineHeight * 0.5) / lineHeight; // 扣除间距相当于占用0.5行
                 }
             } else {
                 const partialLines = paraLines.slice(0, linesRemaining);
@@ -1090,6 +1095,23 @@ Lumina.ShareCard = {
                 allLines[lastIdx] = allLines[lastIdx] + (isCJK ? '……' : '...');
                 break;
             }
+        }
+        
+        // 保底检查：确保总高度不超（与 SVG 一致）
+        const paraExtraH = paragraphBreaks.length * Math.floor(lineHeight * 0.5);
+        const totalContentH = allLines.length * lineHeight + paraExtraH;
+        if (totalContentH > maxContentH && allLines.length > 1) {
+            const maxContentLines = Math.floor((maxContentH - paraExtraH) / lineHeight);
+            allLines = allLines.slice(0, maxContentLines);
+            // 只保留截断点之前的段落标记
+            for (let i = paragraphBreaks.length - 1; i >= 0; i--) {
+                if (paragraphBreaks[i] >= maxContentLines) {
+                    paragraphBreaks.splice(i, 1);
+                }
+            }
+            const lastIdx = allLines.length - 1;
+            const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+            allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
         }
         
         // 计算文本边界（使用阅读器字体）

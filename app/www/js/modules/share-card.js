@@ -762,8 +762,8 @@ Lumina.ShareCard = {
         
         ctx.save();
         
-        // 填充背景
-        ctx.fillStyle = palette.pattern || palette.bg;
+        // 填充背景（与 SVG renderPatternFull 一致使用 palette.bg）
+        ctx.fillStyle = palette.bg;
         ctx.fillRect(x, y, w, h);
         
         // 设置图案绘制样式（与 SVG 一致）
@@ -805,7 +805,8 @@ Lumina.ShareCard = {
     drawQuoteMark(ctx, x, y, size, color) {
         ctx.save();
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.3;
+        // 引号不使用透明度，与 SVG 一致
+        ctx.globalAlpha = 1.0;
         
         const s = size;
         
@@ -963,14 +964,20 @@ Lumina.ShareCard = {
         const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
-        // 绘制文字（使用阅读器字体）
+        // 绘制文字（使用阅读器字体，段落间距累加）
         ctx.fillStyle = '#2c3e50';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         
+        let currentY = textStartY;
+        let paraGapAccumulated = 0;
+        
         allLines.forEach((line, i) => {
-            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-            const yOffset = i * lineHeight + extraGap;
+            // 段落间距累加（除第一行外，每次遇到段落断点都增加间距）
+            if (i > 0 && paragraphBreaks.includes(i)) {
+                paraGapAccumulated += Math.floor(lineHeight * 0.5);
+            }
+            const yOffset = i * lineHeight + paraGapAccumulated;
             ctx.fillText(line, textBlockX, textStartY + yOffset);
         });
         
@@ -1069,13 +1076,17 @@ Lumina.ShareCard = {
             renderY += chapterGap;
         }
         
-        // --- 绘制正文（使用阅读器字体）---
+        // --- 绘制正文（使用阅读器字体，段落间距累加）---
         ctx.font = `400 ${fontSize}px ${fontStack}`;
         ctx.fillStyle = '#2c3e50';
         
+        let paraGapAccumulated = 0;
         allLines.forEach((line, i) => {
-            const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
-            ctx.fillText(line, textLeftX, renderY + i * lineHeight + extraGap);
+            // 段落间距累加（除第一行外，每次遇到段落断点都增加间距）
+            if (i > 0 && paragraphBreaks.includes(i)) {
+                paraGapAccumulated += Math.floor(lineHeight * 0.5);
+            }
+            ctx.fillText(line, textLeftX, renderY + i * lineHeight + paraGapAccumulated);
         });
         
         // --- 底部信息 ---

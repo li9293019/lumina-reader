@@ -510,6 +510,7 @@ public class MainActivity extends BridgeActivity {
             // 执行 JS 检查是否有面板打开
             bridge.getWebView().evaluateJavascript(
                 "javascript:(function() { " +
+                "  if (document.querySelector('.share-card-overlay')) return 'shareCard'; " +  // 分享卡片（最高优先级）
                 "  if (document.getElementById('bookDetailPanel')?.classList.contains('active')) return 'bookDetail'; " +
                 "  if (document.getElementById('fileBrowserPanel')?.classList.contains('active')) return 'fileBrowser'; " +
                 "  if (document.getElementById('dataManagerPanel')?.classList.contains('active')) return 'dataManager'; " +
@@ -543,6 +544,7 @@ public class MainActivity extends BridgeActivity {
         Log.d(TAG, "Back button state: " + state);
         
         switch (state) {
+            case "shareCard":
             case "bookDetail":
             case "dataManager":
             case "about":

@@ -993,7 +993,13 @@ Lumina.BackButtonHandler = {
         // 注意：此方法由原生层通过 onBackPressed 调用
         // 原生层已经检查了状态，这里直接执行关闭逻辑
         
-        // 优先级1: 关闭书籍详情页 (z-index 300)
+        // 优先级1: 关闭分享卡片（临时覆盖层，最高优先级）
+        if (Lumina.ShareCard?.overlay) {
+            Lumina.ShareCard.close();
+            return true;
+        }
+        
+        // 优先级2: 关闭书籍详情页 (z-index 300)
         const bookDetailPanel = document.getElementById('bookDetailPanel');
         if (bookDetailPanel?.classList.contains('active')) {
             Lumina.BookDetail.close();

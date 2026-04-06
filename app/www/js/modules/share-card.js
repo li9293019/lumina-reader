@@ -34,7 +34,13 @@ Lumina.ShareCard = {
     },
     
     show(selectedText) {
+        // 保留分段信息（按换行符分割段落）
+        this.paragraphs = selectedText.split(/\n+/).filter(p => p.trim());
         this.selectedText = selectedText;
+        
+        // 调试日志
+        console.log('[ShareCard] selectedText:', JSON.stringify(selectedText));
+        console.log('[ShareCard] paragraphs:', this.paragraphs);
         this.currentFont = this.getReaderFont();
         
         const state = Lumina.State.app;
@@ -214,40 +220,56 @@ Lumina.ShareCard = {
         
         const padding = Math.floor(w * 0.08);
         const fontSize = Math.max(16, Math.floor(w * 0.036));
-        // 调整后的内容宽度 - 减少右边留白（约半个字符）
-        const contentW = w - padding * 2 + Math.floor(fontSize * 0.4);
+        // 调整后的内容宽度（减少右边留白）
+        const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
         const lineHeight = Math.floor(fontSize * 1.7);
         const textStartY = lineY + lineGap + fontSize;
         
-        const lines = this.measureText(this.selectedText, contentW, fontSize);
+        // 分段渲染
+        const allLines = [];
+        const paragraphBreaks = [];
+        
+        this.paragraphs.forEach((para, idx) => {
+            const paraLines = this.measureText(para, contentW, fontSize);
+            console.log(`[ShareCard] Paragraph ${idx}:`, JSON.stringify(para), 'lines:', paraLines);
+            allLines.push(...paraLines);
+            if (idx < this.paragraphs.length - 1) {
+                paragraphBreaks.push(allLines.length);
+            }
+        });
+        
+        console.log('[ShareCard] allLines:', allLines, 'paragraphBreaks:', paragraphBreaks);
         
         // 计算实际文本宽度，实现整体居中
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         ctx.font = `${fontSize}px ${this.currentFont}`;
-        const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+        const maxLineWidth = Math.max(...allLines.map(l => ctx.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
         // 中文两端对齐
         const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
-        if (isCJK && lines.length > 1) {
+        if (isCJK && allLines.length > 1) {
             svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
-            lines.forEach((line, i) => {
-                const isLast = i === lines.length - 1;
-                const justify = !isLast && line.length > 4; // 最后一行不对齐
+            allLines.forEach((line, i) => {
+                const isParaEnd = paragraphBreaks.includes(i + 1);
+                const isLast = i === allLines.length - 1;
+                const justify = !isLast && !isParaEnd && line.length > 4;
+                // 段落开始的新一行添加额外间距
+                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
                 
                 if (justify) {
-                    // 使用 textLength 实现两端对齐
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
                 } else {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
                 }
             });
             svg += '</text>';
         } else {
             svg += `<text x="${textBlockX}" y="${textStartY}" font-size="${fontSize}" fill="#2c3e50">`;
-            lines.forEach((line, i) => {
-                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+            allLines.forEach((line, i) => {
+                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
             });
             svg += '</text>';
         }
@@ -273,8 +295,8 @@ Lumina.ShareCard = {
         
         const padding = Math.floor(w * 0.08);
         const fontSize = Math.max(15, Math.floor(w * 0.033));
-        // 调整后的内容宽度 - 减少右边留白（约半个字符）
-        const contentW = w - padding * 2 + Math.floor(fontSize * 0.3);
+        // 调整后的内容宽度（减少右边留白约半个字符）
+        const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
         
         let currentY = visualH + Math.floor(h * 0.05);
         
@@ -289,39 +311,70 @@ Lumina.ShareCard = {
         const lineHeight = Math.floor(fontSize * 1.8);
         const maxLines = Math.floor((h - currentY - Math.floor(h * 0.15)) / lineHeight);
         
-        const lines = this.measureTextWithLimit(this.selectedText, contentW, fontSize, maxLines);
+        // 分段渲染（带截断限制）
+        const allLines = [];
+        const paragraphBreaks = [];
+        let linesRemaining = maxLines;
+        
+        for (let idx = 0; idx < this.paragraphs.length; idx++) {
+            const para = this.paragraphs[idx];
+            const paraLines = this.measureText(para, contentW, fontSize);
+            
+            if (paraLines.length <= linesRemaining) {
+                allLines.push(...paraLines);
+                linesRemaining -= paraLines.length;
+                // 标记段落结束位置（用于视觉间距）
+                if (idx < this.paragraphs.length - 1) {
+                    paragraphBreaks.push(allLines.length);
+                }
+            } else {
+                // 只能放下部分
+                const partialLines = paraLines.slice(0, linesRemaining);
+                allLines.push(...partialLines);
+                // 添加省略号
+                const lastIdx = allLines.length - 1;
+                const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
+                allLines[lastIdx] = allLines[lastIdx] + (isCJK ? '……' : '...');
+                break;
+            }
+        }
         
         // 计算实际文本宽度，实现整体居中
         const canvas2 = document.createElement('canvas');
         const ctx2 = canvas2.getContext('2d');
         ctx2.font = `${fontSize}px ${this.currentFont}`;
-        const maxLineWidth = Math.max(...lines.map(l => ctx2.measureText(l).width));
+        const maxLineWidth = Math.max(...allLines.map(l => ctx2.measureText(l).width));
         const textBlockX = Math.floor((w - maxLineWidth) / 2);
         
         // 中文两端对齐
         const isCJK = /[\u4e00-\u9fa5]/.test(this.selectedText);
-        if (isCJK && lines.length > 1) {
+        if (isCJK && allLines.length > 1) {
             svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
-            lines.forEach((line, i) => {
-                const isLast = i === lines.length - 1;
-                const justify = !isLast && line.length > 4;
+            allLines.forEach((line, i) => {
+                // isParaEnd: 当前行是否是段落最后一行
+                const isParaEnd = paragraphBreaks.includes(i + 1);
+                const isLast = i === allLines.length - 1;
+                const justify = !isLast && !isParaEnd && line.length > 4;
+                // 段落结束后的下一行添加额外间距
+                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
                 
                 if (justify) {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}" textLength="${maxLineWidth}" lengthAdjust="spacing">${this.escapeXml(line)}</tspan>`;
                 } else {
-                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+                    svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
                 }
             });
             svg += '</text>';
         } else {
             svg += `<text x="${textBlockX}" y="${currentY}" font-size="${fontSize}" fill="#2c3e50">`;
-            lines.forEach((line, i) => {
-                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+            allLines.forEach((line, i) => {
+                const extraGap = (i > 0 && paragraphBreaks.includes(i)) ? Math.floor(lineHeight * 0.5) : 0;
+                svg += `<tspan x="${textBlockX}" dy="${i === 0 ? 0 : lineHeight + extraGap}">${this.escapeXml(line)}</tspan>`;
             });
             svg += '</text>';
         }
         
-        const textEndY = currentY + lines.length * lineHeight;
+        const textEndY = currentY + allLines.length * lineHeight + paragraphBreaks.length * Math.floor(lineHeight * 0.5);
         
         svg += `<line x1="${padding}" y1="${textEndY + Math.floor(h * 0.03)}" x2="${padding + Math.floor(w * 0.15)}" y2="${textEndY + Math.floor(h * 0.03)}" stroke="#ddd" stroke-width="1"/>`;
         
@@ -363,6 +416,7 @@ Lumina.ShareCard = {
     },
     
     measureText(text, maxWidth, fontSize) {
+        console.log('[measureText] Input:', JSON.stringify(text.substring(0, 50)), 'maxWidth:', maxWidth);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         // 使用阅读器字体
@@ -387,13 +441,14 @@ Lumina.ShareCard = {
                 const metrics = ctx.measureText(testLine);
                 
                 if (metrics.width > safeWidth && line.length > 0) {
-                    // 如果当前字符是避头标点，且前面还有字符
-                    if (noStartPuncts.includes(char) && line.length >= 1) {
-                        // 把上一行最后一个字符移到下一行，和这个标点一起
+                    // 如果当前字符是避头标点
+                    if (noStartPuncts.includes(char) && line.length > 1) {
+                        // 把上一行最后一个字符移到下一行
                         const lastChar = line.slice(-1);
                         line = line.slice(0, -1);
                         lines.push(line);
-                        line = lastChar + char;
+                        line = lastChar;
+                        i--; // 回退，下次循环再处理当前标点字符
                     } else {
                         lines.push(line);
                         line = char;
@@ -403,6 +458,7 @@ Lumina.ShareCard = {
                 }
             }
             if (line) lines.push(line);
+            console.log('[measureText] CJK lines result:', lines);
         } else {
             const words = text.split(/(\s+)/);
             let line = '';
@@ -422,6 +478,7 @@ Lumina.ShareCard = {
                 }
             }
             if (line.trim()) lines.push(line.trim());
+            console.log('[measureText] Non-CJK lines result:', lines);
         }
         
         return lines;

@@ -387,6 +387,25 @@ Lumina.Annotations = {
         // 获取选区的精确文本内容
         const selectedText = selection.toString().trim();
         
+        // 从 Range 中提取带段落格式的文本
+        let formattedText = selectedText;
+        try {
+            const container = document.createElement('div');
+            container.appendChild(range.cloneContents());
+            
+            // 方法：获取 innerHTML，在每个 </div> 后插入换行符
+            // 然后去除 HTML 标签，保留文本和换行
+            const html = container.innerHTML;
+            formattedText = html
+                .replace(/<\/div>/gi, '\n')  // </div> 替换为换行
+                .replace(/<br\s*\/?>/gi, '\n')  // <br> 替换为换行
+                .replace(/<[^>]+>/g, '')  // 去除其他 HTML 标签
+                .replace(/\n{3,}/g, '\n\n')  // 多个换行转为双换行
+                .trim();
+        } catch (e) {
+            console.error('[Annotations] Error getting formatted text:', e);
+        }
+        
         // 获取选区在文档中的位置信息（用于移动端定位菜单）
         const rect = range.getBoundingClientRect();
         
@@ -398,6 +417,7 @@ Lumina.Annotations = {
             startContainer: range.startContainer.nodeType === Node.TEXT_NODE ? 'text' : 'element',
             endContainer: range.endContainer.nodeType === Node.TEXT_NODE ? 'text' : 'element',
             selectedText: selectedText,
+            formattedText: formattedText,
             // 选区位置信息（用于菜单位置）
             selectionRect: {
                 left: rect.left,
@@ -472,10 +492,10 @@ Lumina.Annotations = {
                 });
             }
         } else if (action === 'share-card') {
-            // 分享书签
-            const selectedText = this.pendingSelection?.selectedText || '';
-            if (selectedText && Lumina.ShareCard) {
-                Lumina.ShareCard.show(selectedText);
+            // 分享书签（使用 formattedText 保留段落结构）
+            const formattedText = this.pendingSelection?.formattedText || this.pendingSelection?.selectedText || '';
+            if (formattedText && Lumina.ShareCard) {
+                Lumina.ShareCard.show(formattedText);
             }
         }
         

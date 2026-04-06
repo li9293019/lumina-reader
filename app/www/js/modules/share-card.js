@@ -690,18 +690,76 @@ Lumina.ShareCard = {
         
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Lumina-${Date.now()}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
+        // 检查是否在 APP 环境
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        
+        if (isApp) {
+            // APP 端：保存到文件 + 系统分享 + 剪贴板
+            await this.saveCardApp(canvas);
+        } else {
+            // PC/Web 端：下载 + 剪贴板
+            await this.saveCardWeb(canvas);
+        }
+    },
+    
+    // PC/Web 端保存
+    async saveCardWeb(canvas) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        
+        // 下载
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Lumina-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        // 复制到剪贴板
+        if (navigator.clipboard?.write) {
+            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
+        }
+    },
+    
+    // APP 端保存
+    async saveCardApp(canvas) {
+        const t = Lumina.I18n.t;
+        const { Filesystem, Share } = Capacitor.Plugins;
+        const fileName = `Lumina-${Date.now()}.png`;
+        
+        try {
+            // 获取 base64 数据
+            const base64Data = canvas.toDataURL('image/png').split(',')[1];
             
-            if (navigator.clipboard?.write) {
-                navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
-            }
-        }, 'image/png');
+            // 保存到缓存目录
+            const result = await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: 'CACHE',
+                recursive: true
+            });
+            
+            // 调起系统分享（可选择保存到相册）
+            await Share.share({
+                title: t('shareCardTitle') || '分享书签',
+                text: t('fromLuminaReader') || '来自流萤阅读器',
+                url: result.uri,
+                dialogTitle: t('saveToAlbumOrShare') || '保存到相册或分享'
+            });
+            
+            // 清理缓存文件
+            setTimeout(async () => {
+                try {
+                    await Filesystem.deleteFile({
+                        path: fileName,
+                        directory: 'CACHE'
+                    });
+                } catch (e) {}
+            }, 60000); // 1分钟后删除
+            
+        } catch (err) {
+            console.error('[ShareCard] APP save failed:', err);
+            Lumina.UI.showToast((t('saveFailed') || '保存失败') + ': ' + err.message);
+        }
     },
     
     close() {

@@ -1598,7 +1598,7 @@
                             const x = (w / charsPerLine) * i + lineOffset;
                             const char = chars[Math.floor(p[(line * charsPerLine + i) % 40] * chars.length)];
                             const size = 10 + p[(line * charsPerLine + i + 20) % 40] * 14;
-                            ctx.globalAlpha = 0.3 + p[(line * charsPerLine + i + 5) % 40] * 0.3;
+                            ctx.globalAlpha = 0.2 + p[(line * charsPerLine + i + 5) % 40] * 0.2;
                             ctx.font = `${Math.floor(size)}px monospace`;
                             ctx.fillText(char, x, y);
                         }

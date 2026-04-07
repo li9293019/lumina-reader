@@ -22,7 +22,7 @@ Lumina.ShareCard = {
         baseWidth: 600,        // 固定输出宽度
         minScale: 3,           // 最小 3x 高清
         maxScale: 4,           // 最大 4x 超清
-        quality: 0.95          // PNG 质量
+        quality: 1          // PNG 质量
     },
     
     // 获取当前阅读器字体
@@ -44,6 +44,7 @@ Lumina.ShareCard = {
         if (vw / w * vh > vh) {
             w = (vh - 40) / 3 * 2;
         }
+        this.EXPORT_CONFIG.baseWidth = w;
         return w;
     },
     
@@ -222,7 +223,7 @@ Lumina.ShareCard = {
         }
         
         const totalTextH = lines.length * lineHeight;
-        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 0.3;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 1;
         
         svg += `<text x="${Math.floor(w/2)}" y="${textStartY}" text-anchor="middle" font-size="${fontSize}" font-weight="600" fill="#2c3e50">`;
         lines.forEach((line, i) => {
@@ -256,7 +257,7 @@ Lumina.ShareCard = {
         svg += `<line x1="${Math.floor(w*0.08)}" y1="${lineY}" x2="${Math.floor(w*0.92)}" y2="${lineY}" stroke="${palette.accent}" stroke-width="2"/>`;
         
         const padding = Math.floor(w * 0.08);
-        const fontSize = Math.max(16, Math.floor(w * 0.036));
+        const fontSize = Math.max(18, Math.floor(w * 0.036));
         // 调整后的内容宽度（减少右边留白）
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
         const lineHeight = Math.floor(fontSize * 1.7);
@@ -330,7 +331,7 @@ Lumina.ShareCard = {
     renderLong(w, h, palette, seed) {
         const visualH = Math.floor(h * 0.30);
         const padding = Math.floor(w * 0.08);
-        const fontSize = Math.max(15, Math.floor(w * 0.033));
+        const fontSize = Math.max(18, Math.floor(w * 0.033));
         // 调整后的内容宽度（减少右边留白约半个字符）
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.5);
         const lineHeight = Math.floor(fontSize * 1.8);
@@ -378,7 +379,7 @@ Lumina.ShareCard = {
                 // 添加省略号
                 const lastIdx = allLines.length - 1;
                 const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
-                allLines[lastIdx] = allLines[lastIdx] + (isCJK ? '……' : '...');
+                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
                 break;
             }
         }
@@ -582,7 +583,7 @@ Lumina.ShareCard = {
         
         const lastLine = result[result.length - 1];
         const isCJK = /[\u4e00-\u9fa5]/.test(lastLine);
-        result[result.length - 1] = lastLine + (isCJK ? '……' : '...');
+        result[result.length - 1] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
         
         return result;
     },
@@ -882,7 +883,7 @@ Lumina.ShareCard = {
         }
         
         const totalTextH = lines.length * lineHeight;
-        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + fontSize * 0.85;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight;
         
         // 绘制文字（使用阅读器字体）
         ctx.font = `600 ${fontSize}px ${fontStack}`;
@@ -946,7 +947,7 @@ Lumina.ShareCard = {
         ctx.stroke();
         
         // --- 文字排版 ---
-        const fontSize = Math.max(16, Math.floor(w * 0.036));
+        const fontSize = Math.max(18, Math.floor(w * 0.036));
         const lineHeight = Math.floor(fontSize * 1.7);
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
         const textStartY = lineY + lineGap + fontSize;
@@ -1032,7 +1033,7 @@ Lumina.ShareCard = {
         const { paragraphs, bookInfo, palette } = data;
         const visualH = Math.floor(h * 0.30);
         const padding = Math.floor(w * 0.08);
-        const fontSize = Math.max(15, Math.floor(w * 0.033));
+        const fontSize = Math.max(18, Math.floor(w * 0.033));
         const fontStack = this.getCanvasFontStack();
         
         // --- 顶部图案区域（intensity=1.1，与 SVG 一致）---
@@ -1086,7 +1087,7 @@ Lumina.ShareCard = {
                 allLines.push(...partialLines);
                 const lastIdx = allLines.length - 1;
                 const isCJK = /[\u4e00-\u9fa5]/.test(allLines[lastIdx]);
-                allLines[lastIdx] = allLines[lastIdx] + (isCJK ? '……' : '...');
+                allLines[lastIdx] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
                 break;
             }
         }

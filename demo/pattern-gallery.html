@@ -95,7 +95,7 @@
         }
         .pattern-svg {
             width: 100%;
-            aspect-ratio: 3/4;
+            aspect-ratio: 1 / 1;
             display: block;
             pointer-events: none;
         }
@@ -192,7 +192,7 @@
         window.Lumina = window.Lumina || {};
     </script>
     <!-- 加载核心库 -->
-    <script src="app/www/js/modules/cover-generator.js"></script>
+    <script src="../app/www/js/modules/cover-generator.js"></script>
     <script>
         let currentSeed = 42;
         let selectedPatterns = new Set();
@@ -278,7 +278,7 @@
             const PATTERNS = CoverCore.PATTERNS;
             
             // 生成调色板
-            const palette = CoverCore.generatePalette(currentSeed, 'monochrome');
+            const palette = CoverCore.generatePalette(currentSeed, 'split');
             
             PATTERNS.forEach((pattern, index) => {
                 // 为每个图案生成唯一种子
@@ -287,7 +287,7 @@
                 
                 // 使用 SVGRenderer 绘制
                 const SVGRenderer = Lumina.CoverGenerator.SVGRenderer;
-                const renderer = new SVGRenderer(280, 373);
+                const renderer = new SVGRenderer(280, 280);
                 
                 // 设置样式
                 renderer.strokeStyle = palette.accent;
@@ -302,7 +302,7 @@
                 const drawer = CoverCore.PatternDrawers[pattern.code];
                 if (drawer) {
                     try {
-                        drawer(renderer, 280, 373, params, 1.0);
+                        drawer(renderer, 280, 280, params, 1.0);
                     } catch (e) {
                         console.error(`Pattern ${pattern.code} error:`, e);
                     }

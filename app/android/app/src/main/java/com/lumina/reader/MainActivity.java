@@ -77,6 +77,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TTSBackgroundPlugin.class);
         registerPlugin(TTSEnhancedPlugin.class);
         
+        // 检查是否是从其他应用（如TG）启动的，如果是，确保我们在自己的任务中
+        if (handleExternalIntent()) {
+            return; // 已经重新启动到新任务，结束当前实例
+        }
+        
         // 检查是否已有主实例在运行（且还活着）
         if (isActiveInstanceAlive() && sActiveInstance != this) {
             Log.d(TAG, "已有主实例运行，将文件传递给主实例");
@@ -159,6 +164,25 @@ public class MainActivity extends BridgeActivity {
             bringToFront();
         }
         
+        // 确保我们在自己的任务中，如果不是，尝试修复
+        if (!isTaskRoot()) {
+            Log.w(TAG, "onNewIntent: 检测到不在正确任务中，尝试重新定位");
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (am != null) {
+                List<ActivityManager.AppTask> tasks = am.getAppTasks();
+                for (ActivityManager.AppTask task : tasks) {
+                    ActivityManager.RecentTaskInfo info = task.getTaskInfo();
+                    if (info != null && info.baseIntent != null && 
+                        info.baseIntent.getComponent() != null &&
+                        info.baseIntent.getComponent().getPackageName().equals(getPackageName())) {
+                        task.moveToFront();
+                        Log.d(TAG, "已移动到正确的任务");
+                        break;
+                    }
+                }
+            }
+        }
+        
         handleIntent(intent);
     }
     
@@ -174,6 +198,54 @@ public class MainActivity extends BridgeActivity {
             exec.shutdown();
         }
         super.onDestroy();
+    }
+    
+    /**
+     * 处理从外部应用（如TG）启动的情况
+     * 确保 Activity 运行在自己的独立任务中，而不是嵌入到调用者的任务里
+     * 
+     * @return true 如果 Activity 已重新启动到新任务，当前实例应该结束
+     */
+    private boolean handleExternalIntent() {
+        Intent intent = getIntent();
+        if (intent == null) return false;
+        
+        String action = intent.getAction();
+        boolean isExternalOpen = Intent.ACTION_VIEW.equals(action) || 
+                                 Intent.ACTION_SEND.equals(action) ||
+                                 Intent.ACTION_SEND_MULTIPLE.equals(action);
+        
+        if (!isExternalOpen) return false;
+        
+        // 检查当前是否在正确的任务中
+        // 如果 isTaskRoot() 返回 false，说明我们被嵌入到了其他应用的任务中
+        if (!isTaskRoot()) {
+            Log.d(TAG, "检测到被嵌入外部任务，重新启动到独立任务");
+            
+            // 创建新的 Intent，添加 NEW_TASK 标志
+            Intent newIntent = new Intent(intent);
+            newIntent.setClass(this, MainActivity.class);
+            newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
+                              Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                              Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+            
+            // 传递原始数据
+            if (intent.getData() != null) {
+                newIntent.setData(intent.getData());
+            }
+            if (intent.getExtras() != null) {
+                newIntent.putExtras(intent.getExtras());
+            }
+            
+            // 启动新的独立任务实例
+            startActivity(newIntent);
+            
+            // 结束当前的嵌入实例
+            finish();
+            return true;
+        }
+        
+        return false;
     }
     
     /**

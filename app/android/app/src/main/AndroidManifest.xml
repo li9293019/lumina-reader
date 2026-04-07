@@ -17,6 +17,7 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:taskAffinity="com.lumina.reader.task"
+            android:allowTaskReparenting="true"
             android:excludeFromRecents="false"
             android:exported="true"
             android:keepScreenOn="true"

@@ -3032,99 +3032,99 @@ const CoverCore = (function() {
         },
 
         kintsugi(ctx, w, h, p, density) {
-    const accentColor = ctx.strokeStyle;
-    const cracks = Math.floor((4 + p[0] * 6) * density);
-    
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    for (let i = 0; i < cracks; i++) {
-        // 起始点
-        let x = p[i * 5] * w;
-        let y = p[(i * 5 + 1) % 40] * h;
-        
-        // 自然弯曲的裂纹路径（3-5个控制点）
-        const points = [{x, y}];
-        const segments = 3 + Math.floor(p[(i + 2) % 40] * 3);
-        const len = 60 + p[(i + 3) % 40] * 120;
-        
-        for (let j = 1; j <= segments; j++) {
-            const t = j / segments;
-            // 随机游走式弯曲（自然断裂）
-            x += (p[(i + j * 2) % 40] - 0.5) * len * 0.4;
-            y += (p[(i + j * 2 + 1) % 40] - 0.5) * len * 0.4;
-            // 总体趋势向外扩散
-            x += Math.cos(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
-            y += Math.sin(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
-            points.push({x, y});
-        }
-        
-        // 偶尔分叉（简单的一次性分叉，不递归）
-        const hasBranch = p[(i + 5) % 40] > 0.6;
-        
-        // 绘制主裂纹（单一粗细，自然透明度变化）
-        ctx.globalAlpha = 0.6 + p[i % 40] * 0.3;
-        ctx.lineWidth = 1.5 + p[(i + 1) % 40] * 1.5;
-        ctx.strokeStyle = accentColor;
-        
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        // 使用二次曲线使线条更自然顺滑
-        for (let j = 1; j < points.length - 1; j++) {
-            const xc = (points[j].x + points[j + 1].x) / 2;
-            const yc = (points[j].y + points[j + 1].y) / 2;
-            ctx.quadraticCurveTo(points[j].x, points[j].y, xc, yc);
-        }
-        if (points.length > 1) {
-            ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-        }
-        ctx.stroke();
-        
-        // 简单分叉（短小细线）
-        if (hasBranch && points.length > 2) {
-            const branchIdx = Math.floor(points.length * 0.6);
-            const bx = points[branchIdx].x;
-            const by = points[branchIdx].y;
-            const branchLen = len * 0.3;
-            const branchAngle = Math.atan2(
-                points[branchIdx].y - points[branchIdx - 1].y,
-                points[branchIdx].x - points[branchIdx - 1].x
-            ) + (p[(i + 6) % 40] - 0.5);
+            const accentColor = ctx.strokeStyle;
+            const cracks = Math.floor((4 + p[0] * 6) * density);
             
-            ctx.globalAlpha = 0.4;
-            ctx.lineWidth = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(bx, by);
-            ctx.quadraticCurveTo(
-                bx + Math.cos(branchAngle) * branchLen * 0.5 + (p[(i+7)%40]-0.5)*10,
-                by + Math.sin(branchAngle) * branchLen * 0.5 + (p[(i+8)%40]-0.5)*10,
-                bx + Math.cos(branchAngle) * branchLen,
-                by + Math.sin(branchAngle) * branchLen
-            );
-            ctx.stroke();
-        }
-    }
-    
-    // 细微填充裂纹（更淡更细，增加自然密度）
-    const microCracks = Math.floor(8 * density);
-    ctx.globalAlpha = 0.25;
-    ctx.lineWidth = 0.6;
-    
-    for (let i = 0; i < microCracks; i++) {
-        const x1 = p[i * 2] * w;
-        const y1 = p[(i * 2 + 1) % 40] * h;
-        const angle = p[(i + 20) % 40] * Math.PI * 2;
-        const len = 15 + p[(i + 30) % 40] * 30;
-        
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(
-            x1 + Math.cos(angle) * len,
-            y1 + Math.sin(angle) * len
-        );
-        ctx.stroke();
-    }
-},
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            for (let i = 0; i < cracks; i++) {
+                // 起始点
+                let x = p[i * 5] * w;
+                let y = p[(i * 5 + 1) % 40] * h;
+                
+                // 自然弯曲的裂纹路径（3-5个控制点）
+                const points = [{x, y}];
+                const segments = 3 + Math.floor(p[(i + 2) % 40] * 3);
+                const len = 60 + p[(i + 3) % 40] * 120;
+                
+                for (let j = 1; j <= segments; j++) {
+                    const t = j / segments;
+                    // 随机游走式弯曲（自然断裂）
+                    x += (p[(i + j * 2) % 40] - 0.5) * len * 0.4;
+                    y += (p[(i + j * 2 + 1) % 40] - 0.5) * len * 0.4;
+                    // 总体趋势向外扩散
+                    x += Math.cos(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
+                    y += Math.sin(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
+                    points.push({x, y});
+                }
+                
+                // 偶尔分叉（简单的一次性分叉，不递归）
+                const hasBranch = p[(i + 5) % 40] > 0.6;
+                
+                // 绘制主裂纹（单一粗细，自然透明度变化）
+                ctx.globalAlpha = 0.6 + p[i % 40] * 0.3;
+                ctx.lineWidth = 1.5 + p[(i + 1) % 40] * 1.5;
+                ctx.strokeStyle = accentColor;
+                
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                // 使用二次曲线使线条更自然顺滑
+                for (let j = 1; j < points.length - 1; j++) {
+                    const xc = (points[j].x + points[j + 1].x) / 2;
+                    const yc = (points[j].y + points[j + 1].y) / 2;
+                    ctx.quadraticCurveTo(points[j].x, points[j].y, xc, yc);
+                }
+                if (points.length > 1) {
+                    ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+                }
+                ctx.stroke();
+                
+                // 简单分叉（短小细线）
+                if (hasBranch && points.length > 2) {
+                    const branchIdx = Math.floor(points.length * 0.6);
+                    const bx = points[branchIdx].x;
+                    const by = points[branchIdx].y;
+                    const branchLen = len * 0.3;
+                    const branchAngle = Math.atan2(
+                        points[branchIdx].y - points[branchIdx - 1].y,
+                        points[branchIdx].x - points[branchIdx - 1].x
+                    ) + (p[(i + 6) % 40] - 0.5);
+                    
+                    ctx.globalAlpha = 0.4;
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.quadraticCurveTo(
+                        bx + Math.cos(branchAngle) * branchLen * 0.5 + (p[(i+7)%40]-0.5)*10,
+                        by + Math.sin(branchAngle) * branchLen * 0.5 + (p[(i+8)%40]-0.5)*10,
+                        bx + Math.cos(branchAngle) * branchLen,
+                        by + Math.sin(branchAngle) * branchLen
+                    );
+                    ctx.stroke();
+                }
+            }
+            
+            // 细微填充裂纹（更淡更细，增加自然密度）
+            const microCracks = Math.floor(8 * density);
+            ctx.globalAlpha = 0.25;
+            ctx.lineWidth = 0.6;
+            
+            for (let i = 0; i < microCracks; i++) {
+                const x1 = p[i * 2] * w;
+                const y1 = p[(i * 2 + 1) % 40] * h;
+                const angle = p[(i + 20) % 40] * Math.PI * 2;
+                const len = 15 + p[(i + 30) % 40] * 30;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(
+                    x1 + Math.cos(angle) * len,
+                    y1 + Math.sin(angle) * len
+                );
+                ctx.stroke();
+            }
+        },
 
         contour(ctx, w, h, p, density) {
             const centers = 3 + Math.floor(p[0] * 4);

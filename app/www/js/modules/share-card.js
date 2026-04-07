@@ -223,7 +223,7 @@ Lumina.ShareCard = {
         }
         
         const totalTextH = lines.length * lineHeight;
-        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 1;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 0.5;
         
         svg += `<text x="${Math.floor(w/2)}" y="${textStartY}" text-anchor="middle" font-size="${fontSize}" font-weight="600" fill="#2c3e50">`;
         lines.forEach((line, i) => {
@@ -883,7 +883,7 @@ Lumina.ShareCard = {
         }
         
         const totalTextH = lines.length * lineHeight;
-        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight;
+        const textStartY = cardY + quoteH + padding + (availableH - totalTextH) / 2 + lineHeight * 0.5;
         
         // 绘制文字（使用阅读器字体）
         ctx.font = `600 ${fontSize}px ${fontStack}`;

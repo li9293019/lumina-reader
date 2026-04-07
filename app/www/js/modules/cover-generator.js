@@ -181,6 +181,82 @@
             }
         }
 
+        createLinearGradient(x0, y0, x1, y1) {
+            const id = `grad-${++this.defId}`;
+            
+            // 关键修复：应用当前变换矩阵到渐变端点（与Canvas行为一致）
+            const t = this.state.transform;
+            const nx0 = t[0]*x0 + t[2]*y0 + t[4];
+            const ny0 = t[1]*x0 + t[3]*y0 + t[5];
+            const nx1 = t[0]*x1 + t[2]*y1 + t[4];
+            const ny1 = t[1]*x1 + t[3]*y1 + t[5];
+            
+            const gradient = {
+                type: 'linear',
+                id: id,
+                x0: nx0, y0: ny0, x1: nx1, y1: ny1,  // 存储变换后的绝对坐标
+                stops: [],
+                addColorStop(pos, color) {
+                    this.stops.push({pos, color});
+                }
+            };
+            
+            this.pendingGradient = gradient;
+            return gradient;
+        }
+
+        createRadialGradient(x0, y0, r0, x1, y1, r1) {
+            const id = `radial-${++this.defId}`;
+            
+            // 应用当前变换矩阵到渐变端点
+            const t = this.state.transform;
+            const nx0 = t[0]*x0 + t[2]*y0 + t[4];
+            const ny0 = t[1]*x0 + t[3]*y0 + t[5];
+            const nx1 = t[0]*x1 + t[2]*y1 + t[4];
+            const ny1 = t[1]*x1 + t[3]*y1 + t[5];
+            // 半径缩放（取变换矩阵的平均缩放因子）
+            const scale = Math.sqrt(t[0]*t[0] + t[1]*t[1]);
+            const nr0 = r0 * scale;
+            const nr1 = r1 * scale;
+            
+            const gradient = {
+                type: 'radial',
+                id: id,
+                x0: nx0, y0: ny0, r0: nr0,
+                x1: nx1, y1: ny1, r1: nr1,
+                stops: [],
+                addColorStop(pos, color) {
+                    this.stops.push({pos, color});
+                }
+            };
+            
+            this.pendingGradient = gradient;
+            return gradient;
+        }
+
+        applyGradient(gradient) {
+            if (!gradient || !gradient.stops || gradient.stops.length === 0) return;
+            
+            const stops = gradient.stops.map(s => 
+                `<stop offset="${s.pos}" stop-color="${s.color}"/>`
+            ).join('');
+            
+            if (gradient.type === 'radial') {
+                // SVG 径向渐变：cx,cy,r 定义外圆，fx,fy 定义焦点（内圆中心）
+                // fr（内圆半径）是 SVG 新特性，用 r0 映射
+                this.defs.push(`<radialGradient id="${gradient.id}" 
+                    cx="${gradient.x1.toFixed(2)}" cy="${gradient.y1.toFixed(2)}" r="${gradient.r1.toFixed(2)}"
+                    fx="${gradient.x0.toFixed(2)}" fy="${gradient.y0.toFixed(2)}"
+                    gradientUnits="userSpaceOnUse">${stops}</radialGradient>`);
+            } else {
+                // 线性渐变（原有逻辑）
+                this.defs.push(`<linearGradient id="${gradient.id}" 
+                    x1="${gradient.x0.toFixed(2)}" y1="${gradient.y0.toFixed(2)}" 
+                    x2="${gradient.x1.toFixed(2)}" y2="${gradient.y1.toFixed(2)}" 
+                    gradientUnits="userSpaceOnUse">${stops}</linearGradient>`);
+            }
+        }
+
         parseFont(fontString) {
             const weightMatch = fontString.match(/\b(bold|700|600|500|400|300)\b/i);
             const weight = weightMatch ? weightMatch[1].replace(/bold/i, '700') : '400';

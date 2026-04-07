@@ -152,7 +152,7 @@ Lumina.ShareCard = {
         // 字体嵌入 SVG
         const fontFamily = this.currentFont.replace(/"/g, "'");
         
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" color="${palette.accent}">`;
         svg += `<defs><style>text { font-family: ${fontFamily}; }</style></defs>`;
         
         switch(layoutType) {

@@ -123,8 +123,14 @@
         }
 
         .preview-meta-info {
+            font-weight: normal;
             font-size: 12px;
             flex: 1;
+        }
+
+        .btn-wrapper {
+            display: flex;
+            gap: 6px;
         }
 
         .icon-btn {
@@ -724,6 +730,127 @@
         @media (max-width: 1200px) {
             .preview-panel { width: 500px; height: 640px; }
         }
+
+        .pattern-preview-panel {
+            width: 720px;
+            height: 650px;
+            min-width: 320px;
+            min-height: 400px;
+            z-index: 150; 
+        }
+
+        .pattern-preview-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px;
+            overflow-y: auto;
+            align-content: flex-start;
+            justify-content: space-between;
+        }
+
+        .pattern-card {
+            width: calc(33.333% - 8px); /* 三列布局，更紧凑 */
+            min-width: 120px;
+            background: transparent; /* 透明背景 */
+            border: 2px solid transparent; /* 默认透明边框 */
+            border-radius: 8px;
+            padding: 0; /* 无内边距 */
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            position: relative; /* 为悬浮名称定位 */
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .pattern-card:hover {
+            border-color: var(--border-strong);
+            transform: scale(1.02);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 10;
+        }
+
+        .pattern-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        /* 悬浮在图案上的名称 */
+        .pattern-name-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 4px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            pointer-events: none; /* 不阻挡点击 */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            border-radius: 0 0 4px 4px;
+        }
+
+        .pattern-card.selected .pattern-name-overlay {
+            background: linear-gradient(to top, rgba(201,166,107,0.9), transparent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* 紧凑布局：面板内容区 */
+        .pattern-preview-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px; /* 减小间距 */
+            padding: 16px;
+            overflow-y: auto;
+            align-content: flex-start;
+            justify-content: flex-start; /* 左对齐更紧凑 */
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 600px) {
+            .pattern-card {
+                width: calc(50% - 6px); /* 小屏幕双列 */
+            }
+        }
+
+        .pattern-card canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+            background: var(--bg-primary);
+            aspect-ratio: attr(data-ratio);
+        }
+
+        .pattern-card .pattern-name {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
+        }
+
+        .pattern-card.selected .pattern-name {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* 响应式：面板较窄时改为单列 */
+        @media (max-width: 400px) {
+            .pattern-card {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body data-theme="dark">
@@ -745,6 +872,10 @@
             <symbol id="icon-vector" viewBox="0 0 24 24"><path d="M12 2l-9 4v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V6l-9-4zm0 2.2L19 7v5c0 4-3 8-7 9-4-1-7-5-7-9V7l7-2.8z"/><path d="M12 6L7 8v4c0 3 2 6 5 7 3-1 5-4 5-7V8l-5-2z" fill="currentColor" opacity="0.3"/></symbol>
             <symbol id="icon-image" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></symbol>
             <symbol id="icon-compare" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" opacity="0.3"/><path d="M9 2h6v20H9z" fill="currentColor" opacity="0.2"/><path d="M2 9h20v6H2z" fill="currentColor" opacity="0.2"/></symbol>
+            <symbol id="icon-grid" viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z"/></symbol>
+            <symbol id="icon-copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></symbol>
+            <symbol id="icon-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+            <symbol id="icon-clear" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z M7 11h10v2H7z"/></symbol>
         </defs>
     </svg>
 
@@ -864,10 +995,15 @@
 
             <div class="control-section">
                 <div class="section-header">
-                    <span data-i18n="section.pattern">图案 (40种)</span>
-                    <button class="icon-btn" onclick="app.randomizePattern()">
-                        <svg><use href="#icon-dice"/></svg>
-                    </button>
+                    <span data-i18n="section.pattern">图案</span>
+                    <div class="btn-wrapper">
+                        <button class="icon-btn" onclick="app.togglePatternPreviewPanel()">
+                            <svg><use href="#icon-grid"/></svg>
+                        </button>
+                        <button class="icon-btn" onclick="app.randomizePattern()">
+                            <svg><use href="#icon-dice"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="option-grid" id="patternGrid"></div>
             </div>
@@ -1005,6 +1141,41 @@
         </div>
         <div class="batch-grid" id="batchGrid"></div>
         
+        <div class="resize-handle n" data-direction="n"></div>
+        <div class="resize-handle s" data-direction="s"></div>
+        <div class="resize-handle e" data-direction="e"></div>
+        <div class="resize-handle w" data-direction="w"></div>
+        <div class="resize-handle nw" data-direction="nw"></div>
+        <div class="resize-handle ne" data-direction="ne"></div>
+        <div class="resize-handle sw" data-direction="sw"></div>
+        <div class="resize-handle se" data-direction="se"></div>
+    </div>
+
+    <!-- 图案预览面板 -->
+    <div class="floating-panel pattern-preview-panel" id="patternPreviewPanel" style="display:none;">
+        <div class="panel-header" id="patternPreviewHeader">
+            <div class="panel-title">
+                <svg><use href="#icon-palette"/></svg>
+                <span data-i18n="panel.patternPreview">图案预览</span>
+                <span class="preview-meta-info" id="patternSelectCount"></span>
+            </div>
+            <div class="panel-actions">
+                <button class="icon-btn" onclick="app.clearPatternSelection()" id="clearPatternsBtn" style="opacity:0.5; pointer-events:none;">
+                    <svg><use href="#icon-clear"/></svg>
+                </button>
+                <button class="icon-btn" onclick="app.copySelectedPatterns()" id="copyPatternsBtn" style="opacity:0.5; pointer-events:none;">
+                    <svg><use href="#icon-copy"/></svg>
+                </button>
+                <button class="icon-btn" onclick="app.closePatternPreviewPanel()">
+                    <svg><use href="#icon-close"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="panel-content pattern-preview-content" id="patternPreviewContent">
+            <!-- 动态生成图案卡片 -->
+        </div>
+        
+        <!-- 四向八角 resize handles -->
         <div class="resize-handle n" data-direction="n"></div>
         <div class="resize-handle s" data-direction="s"></div>
         <div class="resize-handle e" data-direction="e"></div>
@@ -1335,6 +1506,35 @@ class SVGRenderer {
         return gradient;
     }
 
+    createRadialGradient(x0, y0, r0, x1, y1, r1) {
+        const id = `radial-${++this.defId}`;
+        
+        // 应用当前变换矩阵到渐变端点
+        const t = this.state.transform;
+        const nx0 = t[0]*x0 + t[2]*y0 + t[4];
+        const ny0 = t[1]*x0 + t[3]*y0 + t[5];
+        const nx1 = t[0]*x1 + t[2]*y1 + t[4];
+        const ny1 = t[1]*x1 + t[3]*y1 + t[5];
+        // 半径缩放（取变换矩阵的平均缩放因子）
+        const scale = Math.sqrt(t[0]*t[0] + t[1]*t[1]);
+        const nr0 = r0 * scale;
+        const nr1 = r1 * scale;
+        
+        const gradient = {
+            type: 'radial',
+            id: id,
+            x0: nx0, y0: ny0, r0: nr0,
+            x1: nx1, y1: ny1, r1: nr1,
+            stops: [],
+            addColorStop(pos, color) {
+                this.stops.push({pos, color});
+            }
+        };
+        
+        this.pendingGradient = gradient;
+        return gradient;
+    }
+
     applyGradient(gradient) {
         if (!gradient || !gradient.stops || gradient.stops.length === 0) return;
         
@@ -1342,8 +1542,20 @@ class SVGRenderer {
             `<stop offset="${s.pos}" stop-color="${s.color}"/>`
         ).join('');
         
-        // 关键修复：使用 userSpaceOnUse 确保使用绝对像素坐标（匹配Canvas）
-        this.defs.push(`<linearGradient id="${gradient.id}" x1="${gradient.x0.toFixed(2)}" y1="${gradient.y0.toFixed(2)}" x2="${gradient.x1.toFixed(2)}" y2="${gradient.y1.toFixed(2)}" gradientUnits="userSpaceOnUse">${stops}</linearGradient>`);
+        if (gradient.type === 'radial') {
+            // SVG 径向渐变：cx,cy,r 定义外圆，fx,fy 定义焦点（内圆中心）
+            // fr（内圆半径）是 SVG 新特性，用 r0 映射
+            this.defs.push(`<radialGradient id="${gradient.id}" 
+                cx="${gradient.x1.toFixed(2)}" cy="${gradient.y1.toFixed(2)}" r="${gradient.r1.toFixed(2)}"
+                fx="${gradient.x0.toFixed(2)}" fy="${gradient.y0.toFixed(2)}"
+                gradientUnits="userSpaceOnUse">${stops}</radialGradient>`);
+        } else {
+            // 线性渐变（原有逻辑）
+            this.defs.push(`<linearGradient id="${gradient.id}" 
+                x1="${gradient.x0.toFixed(2)}" y1="${gradient.y0.toFixed(2)}" 
+                x2="${gradient.x1.toFixed(2)}" y2="${gradient.y1.toFixed(2)}" 
+                gradientUnits="userSpaceOnUse">${stops}</linearGradient>`);
+        }
     }
 
     parseFont(fontString) {
@@ -1472,7 +1684,13 @@ const CoverCore = (function() {
             'density.sparse': '稀疏', 'density.normal': '标准', 'density.dense': '浓密',
             'hint.updated': '已更新', 'hint.loaded': '已加载', 'hint.fontRandom': '已随机字体',
             'hint.hashMode': 'Hash模式已开启', 'hint.reset': '已恢复默认布局', 'hint.maximize': '已最大化',
-            'hint.restore': '已还原', 'hint.svg': '已生成矢量预览'
+            'hint.restore': '已还原', 'hint.svg': '已生成矢量预览',
+            'hint.selectionCleared': '已取消所有选择',
+            'hint.selectFirst': '请先选择图案',
+            'hint.copied': '已复制',
+            'hint.copiedPatternCount': '个图案名称',
+            'hint.copyFailed': '复制失败',
+            'panel.patternPreview': '图案预览',
         },
         'en': {
             'panel.control': 'Parameters', 'panel.preview': 'Preview', 'panel.batch': 'Batch Test',
@@ -1490,7 +1708,13 @@ const CoverCore = (function() {
             'density.sparse': 'Sparse', 'density.normal': 'Normal', 'density.dense': 'Dense',
             'hint.updated': 'Updated', 'hint.loaded': 'Loaded', 'hint.fontRandom': 'Font randomized',
             'hint.hashMode': 'Hash mode enabled', 'hint.reset': 'Layout reset', 'hint.maximize': 'Maximized',
-            'hint.restore': 'Restored', 'hint.svg': 'SVG generated'
+            'hint.restore': 'Restored', 'hint.svg': 'SVG generated',
+            'hint.selectionCleared': 'Selection cleared',
+            'hint.selectFirst': 'Please select patterns first',
+            'hint.copied': 'Copied',
+            'hint.copiedPatternCount': 'pattern names',
+            'hint.copyFailed': 'Copy failed',
+            'panel.patternPreview': 'Pattern Preview',
         }
     };
 
@@ -1511,7 +1735,7 @@ const CoverCore = (function() {
         { code: 'spiral', name: { 'zh-CN': '对数螺旋', 'en': 'Log Spiral' }},
         { code: 'rays', name: { 'zh-CN': '光束射线', 'en': 'Light Rays' }},
         { code: 'dots', name: { 'zh-CN': '波点矩阵', 'en': 'Dot Matrix' }},
-        { code: 'overlap', name: { 'zh-CN': '叠印圆圈', 'en': 'Overlapping' }},
+        { code: 'shattered', name: { 'zh-CN': '破碎晶体', 'en': 'Shattered' }},
         { code: 'maze', name: { 'zh-CN': '迷宫路径', 'en': 'Labyrinth' }},
         { code: 'crystal', name: { 'zh-CN': '晶体结构', 'en': 'Crystal' }},
         { code: 'spectrum', name: { 'zh-CN': '频谱柱状', 'en': 'Spectrum' }},
@@ -1547,11 +1771,17 @@ const CoverCore = (function() {
         { code: 'inkBleed', name: { 'zh-CN': '水墨晕染', 'en': 'Ink Bleed' }},
         { code: 'snowflake', name: { 'zh-CN': '雪花冰晶', 'en': 'Snowflake' }},
         { code: 'sunburst', name: { 'zh-CN': '太阳光芒', 'en': 'Sunburst' }},
-        { code: 'gears', name: { 'zh-CN': '齿轮机械', 'en': 'Gears' }},
         { code: 'bricks', name: { 'zh-CN': '砖墙纹理', 'en': 'Bricks' }},
         { code: 'maple', name: { 'zh-CN': '飘落枫叶', 'en': 'Maple Leaves' }},
         { code: 'typewriter', name: { 'zh-CN': '打字机文字', 'en': 'Typewriter' }},
-        { code: 'shanshui', name: { 'zh-CN': '水墨山水', 'en': 'Shanshui' }}
+        { code: 'shanshui', name: { 'zh-CN': '水墨山水', 'en': 'Shanshui' }},
+        { code: 'stripes', name: { 'zh-CN': '斜条纹', 'en': 'Stripes' }},
+        { code: 'hexagon', name: { 'zh-CN': '六边形蜂巢', 'en': 'Honeycomb' }},
+        { code: 'clouds', name: { 'zh-CN': '云层', 'en': 'Clouds' }},
+        { code: 'goldenSpiral', name: { 'zh-CN': '黄金螺线', 'en': 'Golden Spiral' }},
+        { code: 'cropCircles', name: { 'zh-CN': '麦田圈', 'en': 'Crop Circles' }},
+        { code: 'fractalPeaks', name: { 'zh-CN': '分形山脉', 'en': 'Fractal Peaks' }},
+        { code: 'moirePattern', name: { 'zh-CN': '莫列波纹', 'en': 'Moire Pattern' }},
     ];
 
     const LAYOUTS = [
@@ -1577,6 +1807,7 @@ const CoverCore = (function() {
         { id: 'bookmark', name: { 'zh-CN': '标签悬挂', 'en': 'Bookmark' }, align: 'center' },
         { id: 'lshape', name: { 'zh-CN': 'L留白', 'en': 'L Shape' }, align: 'left' },
         { id: 'porthole', name: { 'zh-CN': '舷窗式', 'en': 'Porthole' }, align: 'center' },
+        { id: 'museum', name: { 'zh-CN': '展签式', 'en': 'Museum Plaque' }, align: 'right' },
     ];
 
     const PALETTE_STRATEGIES = ['monochrome', 'complementary', 'analogous', 'triadic', 'split'];
@@ -1669,7 +1900,7 @@ const CoverCore = (function() {
             const count = Math.floor((20 + p[1] * 25) * density);
             for (let i = 0; i < count; i++) {
                 ctx.lineWidth = (i % 4 === 0) ? 2 : 0.5;
-                ctx.globalAlpha = 0.08 + Math.sin(i * 0.4) * 0.08;
+                ctx.globalAlpha = 0.15 + Math.sin(i * 0.4) * 0.15;
                 ctx.beginPath();
                 const r = maxR * Math.pow(i / count, 0.7);
                 ctx.arc(cx, cy, Math.max(0, r), 0, Math.PI * 2);
@@ -1682,7 +1913,7 @@ const CoverCore = (function() {
             const rows = Math.floor((10 + p[3] * 14) * Math.sqrt(density));
             const cw = w / cols, rh = h / rows;
             ctx.lineWidth = 0.4;
-            ctx.globalAlpha = 0.25;
+            ctx.globalAlpha = 0.35;
             
             for (let i = 0; i <= cols; i++) {
                 ctx.beginPath();
@@ -1702,7 +1933,7 @@ const CoverCore = (function() {
             const lines = Math.floor((30 + p[0] * 40) * density);
             ctx.lineWidth = 1;
             for (let i = 0; i < lines; i++) {
-                ctx.globalAlpha = 0.18 + (i / lines) * 0.12;
+                ctx.globalAlpha = 0.25 + (i / lines) * 0.15;
                 const y = (h / lines) * i;
                 const phase = i * 0.3;
                 ctx.beginPath();
@@ -1873,7 +2104,7 @@ const CoverCore = (function() {
             
             for (let i = 0; i <= count; i++) {
                 const x = (w / count) * i;
-                ctx.globalAlpha = 0.12;
+                ctx.globalAlpha = 0.35;
                 ctx.beginPath();
                 for (let y = 0; y <= h; y += 4) {
                     const xOffset = Math.sin(y * frequency + i * 0.5) * amplitude * (i % 3 === 0 ? 1.5 : 0.5);
@@ -1934,7 +2165,7 @@ const CoverCore = (function() {
             for (let y = 0; y < lines; y++) {
                 const baseY = (h / lines) * y;
                 ctx.beginPath();
-                ctx.globalAlpha = 0.2;
+                ctx.globalAlpha = 0.35;
                 ctx.lineWidth = 1;
                 
                 for (let x = 0; x <= w; x += 2) {
@@ -2020,34 +2251,97 @@ const CoverCore = (function() {
             }
         },
 
-        overlap(ctx, w, h, p, density) {
-            const count = Math.floor((10 + p[0] * 8) * density);
-            const baseR = Math.min(w, h) * 0.2;
+        shattered(ctx, w, h, p, density) {
+            const shards = Math.floor((14 + p[0] * 18) * density);
             
-            for (let i = 0; i < count; i++) {
-                const angle = (Math.PI * 2 * i) / count;
-                const cx = w/2 + Math.cos(angle) * baseR * 0.5;
-                const cy = h/2 + Math.sin(angle) * baseR * 0.5;
-                const r = baseR * (0.9 + p[i % 40] * 0.5);
+            for (let i = 0; i < shards; i++) {
+                // 碎片位置 - 使用更分散的分布
+                const cx = p[(i * 3) % 40] * w;
+                const cy = p[(i * 3 + 1) % 40] * h;
                 
-                ctx.lineWidth = 1.5;
-                ctx.globalAlpha = 0.12;
+                // 碎片大小变化
+                const baseSize = 20 + p[(i * 3 + 2) % 40] * 45;
+                const irregularity = 0.7 + p[(i + 5) % 40] * 0.6; // 不规则程度
+                
+                // 3-6 边的多边形（锐角几何体）
+                const sides = 3 + Math.floor(p[(i + 10) % 40] * 4);
+                const rotation = p[(i + 20) % 40] * Math.PI * 2;
+                
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(rotation);
+                
+                // 主轮廓 - 尖锐的多边形碎片
+                ctx.globalAlpha = 0.2 + (p[i % 40] * 0.3);
+                ctx.lineWidth = 1.2 + (i % 4) * 0.4;
+                ctx.lineJoin = 'miter';
+                
                 ctx.beginPath();
-                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                const angles = [];
+                for (let j = 0; j < sides; j++) {
+                    // 创建不规则的角度分布，避免完美的正多边形
+                    const baseAngle = (j / sides) * Math.PI * 2;
+                    const angleNoise = (p[(i + j * 2) % 40] - 0.5) * 0.4;
+                    angles.push(baseAngle + angleNoise);
+                }
+                
+                // 绘制多边形轮廓
+                angles.forEach((angle, idx) => {
+                    const r = baseSize * (idx % 2 === 0 ? 1 : irregularity);
+                    const x = r * Math.cos(angle);
+                    const y = r * Math.sin(angle);
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.closePath();
                 ctx.stroke();
                 
-                if (i % 3 === 0) {
-                    ctx.globalAlpha = 0.2;
+                // 内部裂纹 - 从中心辐射到边缘的细线
+                ctx.globalAlpha = 0.12;
+                ctx.lineWidth = 0.6;
+                ctx.beginPath();
+                for (let j = 0; j < sides; j++) {
+                    if (p[(i + j * 3) % 40] > 0.4) { // 随机选择是否绘制裂纹
+                        const angle = angles[j];
+                        const innerR = baseSize * 0.2;
+                        const outerR = baseSize * (0.6 + p[(i + j * 3 + 5) % 40] * 0.3);
+                        
+                        // 裂纹不一定直达顶点，增加破碎感
+                        ctx.moveTo(innerR * Math.cos(angle), innerR * Math.sin(angle));
+                        ctx.lineTo(outerR * Math.cos(angle), outerR * Math.sin(angle));
+                    }
+                }
+                ctx.stroke();
+                
+                // 高光边缘 - 模拟玻璃/晶体的反光
+                if (p[(i + 15) % 40] > 0.6) {
+                    ctx.globalAlpha = 0.4;
+                    ctx.lineWidth = 1.5;
+                    const highlightSide = Math.floor(p[(i + 25) % 40] * sides);
+                    const angle1 = angles[highlightSide];
+                    const angle2 = angles[(highlightSide + 1) % sides];
+                    const r = baseSize * 0.9;
+                    
                     ctx.beginPath();
-                    ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+                    ctx.moveTo(r * Math.cos(angle1), r * Math.sin(angle1));
+                    ctx.lineTo(r * Math.cos(angle2), r * Math.sin(angle2));
                     ctx.stroke();
                 }
+                
+                // 偶尔添加连接的"碎片群"
+                if (i < shards - 1 && p[(i + 30) % 40] > 0.85) {
+                    const nextX = (p[(i + 1) * 3 % 40] - cx / w) * w * 0.3;
+                    const nextY = (p[(i + 1) * 3 + 1 % 40] - cy / h) * h * 0.3;
+                    ctx.globalAlpha = 0.08;
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(nextX, nextY);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
             }
-            
-            ctx.globalAlpha = 0.25;
-            ctx.beginPath();
-            ctx.arc(w/2, h/2, baseR * 0.15, 0, Math.PI * 2);
-            ctx.fill();
         },
 
         maze(ctx, w, h, p, density) {
@@ -2086,7 +2380,7 @@ const CoverCore = (function() {
                 const y = p[(i + 15) % 40] * h;
                 const size = 25 + p[(i + 30) % 40] * 60;
                 
-                ctx.globalAlpha = 0.12;
+                ctx.globalAlpha = 0.35;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(x, y - size);
@@ -2273,7 +2567,7 @@ const CoverCore = (function() {
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.rotate(angle);
-                ctx.globalAlpha = 0.25;
+                ctx.globalAlpha = 0.5;
                 ctx.lineWidth = 1.5;
                 
                 ctx.beginPath();
@@ -2284,7 +2578,7 @@ const CoverCore = (function() {
                 ctx.closePath();
                 ctx.stroke();
                 
-                ctx.globalAlpha = 0.12;
+                ctx.globalAlpha = 0.3;
                 ctx.setLineDash([4, 8]);
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
@@ -2406,7 +2700,7 @@ const CoverCore = (function() {
                 const x2 = p[(i + 30) % 40] * w;
                 const y2 = p[(i + 5) % 40] * h;
                 
-                ctx.globalAlpha = 0.2;
+                ctx.globalAlpha = 0.35;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
@@ -2452,7 +2746,7 @@ const CoverCore = (function() {
                 const r = 10 * Math.pow(phi, i / 2) * (1 + p[1]);
                 const angle = i * Math.PI * 2 / phi;
                 
-                ctx.globalAlpha = 0.2 - (i / count) * 0.15;
+                ctx.globalAlpha = 0.35 - (i / count) * 0.15;
                 ctx.lineWidth = 2 - (i / count);
                 ctx.beginPath();
                 ctx.arc(cx + Math.cos(angle) * r * 0.3, cy + Math.sin(angle) * r * 0.3, r, angle, angle + Math.PI * 1.618);
@@ -2466,7 +2760,7 @@ const CoverCore = (function() {
             const count = Math.floor((3 + p[0] * 5) * density);
             
             for (let j = 0; j < count; j++) {
-                ctx.globalAlpha = 0.15;
+                ctx.globalAlpha = 0.35;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 
@@ -2588,67 +2882,137 @@ const CoverCore = (function() {
         },
 
         superellipse(ctx, w, h, p, density) {
-            const cx = w/2, cy = h/2;
-            const n = 2 + p[0] * 4;
-            const count = Math.floor((5 + p[1] * 6) * density);
+            const cx = w / 2;
+            const cy = h / 2;
             
-            for (let i = 0; i < count; i++) {
-                const a = (w * 0.4) * (1 - i * 0.12);
-                const b = (h * 0.4) * (1 - i * 0.12);
+            // 层数随密度增加（更多细微变化）
+            const layers = Math.floor((6 + p[0] * 10) * density);
+            const maxR = Math.min(w, h) * 0.45;
+            
+            // 级次参数定义（从外到内的进化路径）
+            const nStart = 0.6 + p[1] * 1.0;   // 起始：尖角星形 (n<1)
+            const nEnd = 4 + p[2] * 4;         // 结束：超方圆 (n>4)
+            const rotAccum = (0.03 + p[3] * 0.12) * Math.PI; // 每级累积旋转（螺旋扭转）
+            const baseRot = p[4] * Math.PI * 2;
+            
+            for (let i = 0; i < layers; i++) {
+                const t = i / (layers - 1); // 0(外) → 1(内) 的级次
                 
-                ctx.globalAlpha = 0.15;
-                ctx.lineWidth = 2 - i * 0.2;
+                // 1. 曲率指数 n 的非线性级次变化
+                // 使用幂函数使变化先快后慢（或反之），产生韵律感
+                const nCurve = Math.pow(t, 0.7); // 缓动曲线
+                const n = nStart + (nEnd - nStart) * nCurve;
+                
+                // 2. 旋转级次（累积扭转，形成螺旋进动）
+                const rotation = baseRot + i * rotAccum;
+                
+                // 3. 半径级次（非线性衰减，内层更密）
+                const rDecay = Math.pow(1 - t, 1.2); // 内层收缩更快
+                const r = maxR * rDecay;
+                
+                // 4. 视觉属性级次
+                ctx.lineWidth = 2.2 - t * 1.5; // 外粗内细
+                ctx.globalAlpha = 0.08 + (1 - t) * 0.6; // 外淡内浓（强调中心）
+                
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(rotation);
+                
+                // 绘制超椭圆：|x/a|^n + |y/b|^n = 1
                 ctx.beginPath();
+                const steps = 120; // 平滑度
                 
-                for (let t = 0; t <= Math.PI * 2; t += 0.02) {
-                    const cosT = Math.cos(t);
-                    const sinT = Math.sin(t);
-                    const x = cx + a * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
-                    const y = cy + b * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
+                for (let j = 0; j <= steps; j++) {
+                    const theta = (j / steps) * Math.PI * 2;
+                    const cosT = Math.cos(theta);
+                    const sinT = Math.sin(theta);
                     
-                    if (t === 0) ctx.moveTo(x, y);
+                    // 超椭圆参数方程（带符号处理）
+                    const x = r * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
+                    const y = r * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
+                    
+                    if (j === 0) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
+                
                 ctx.closePath();
                 ctx.stroke();
+                ctx.restore();
             }
+            
+            // 5. 中心核心（n=2的完美圆，作为视觉锚点）
+            ctx.globalAlpha = 0.9;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(cx, cy, maxR * 0.06, 0, Math.PI * 2);
+            ctx.stroke();
         },
 
         tessellation(ctx, w, h, p, density) {
-            const cols = Math.floor((6 + p[0] * 6) * Math.sqrt(density));
-            const rows = Math.floor((8 + p[1] * 6) * Math.sqrt(density));
-            const cw = w / cols;
-            const rh = h / rows;
+            const cols = Math.floor((5 + p[0] * 5) * Math.sqrt(density));
+            const cellSize = w / cols;
+            const rows = Math.floor(h / cellSize);
+            const startY = (h - rows * cellSize) / 2;
+            
+            const gap = cellSize * (0.08 + p[1] * 0.07);
+            const drawSize = cellSize - gap;
             
             for (let i = 0; i < cols; i++) {
                 for (let j = 0; j < rows; j++) {
-                    const x = i * cw;
-                    const y = j * rh;
+                    const x = i * cellSize + gap/2;
+                    const y = startY + j * cellSize + gap/2;
                     const type = (i + j + Math.floor(p[2] * 3)) % 3;
                     
-                    ctx.globalAlpha = 0.2;
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
+                    ctx.globalAlpha = 0.4;
+                    ctx.lineWidth = 1.2;
                     
                     if (type === 0) {
-                        ctx.moveTo(x + cw/2, y);
-                        ctx.lineTo(x + cw, y + rh);
-                        ctx.lineTo(x, y + rh);
+                        // 关键修改：正方形 → 六边形（平顶）
+                        const cx = x + drawSize/2;
+                        const cy = y + drawSize/2;
+                        const r = drawSize * 0.45; // 内切半径
+                        
+                        ctx.beginPath();
+                        for (let k = 0; k < 6; k++) {
+                            // 从 -30° 开始，使上下边水平（平顶六边形）
+                            const angle = (k * Math.PI) / 3 - Math.PI / 6;
+                            const hx = cx + r * Math.cos(angle);
+                            const hy = cy + r * Math.sin(angle);
+                            if (k === 0) ctx.moveTo(hx, hy);
+                            else ctx.lineTo(hx, hy);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                        
                     } else if (type === 1) {
-                        ctx.moveTo(x + cw*0.3, y);
-                        ctx.lineTo(x + cw*0.7, y);
-                        ctx.lineTo(x + cw, y + rh*0.5);
-                        ctx.lineTo(x + cw*0.7, y + rh);
-                        ctx.lineTo(x + cw*0.3, y + rh);
-                        ctx.lineTo(x, y + rh*0.5);
+                        // 菱形（保持）
+                        const cx = x + drawSize/2;
+                        const cy = y + drawSize/2;
+                        const half = drawSize * 0.45;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(cx, y);
+                        ctx.lineTo(x + drawSize, cy);
+                        ctx.lineTo(cx, y + drawSize);
+                        ctx.lineTo(x, cy);
+                        ctx.closePath();
+                        ctx.stroke();
+                        
                     } else {
-                        ctx.moveTo(x + cw/2, y);
-                        ctx.lineTo(x + cw, y + rh/2);
-                        ctx.lineTo(x + cw/2, y + rh);
-                        ctx.lineTo(x, y + rh/2);
+                        // 三角形（保持）
+                        ctx.beginPath();
+                        if ((i + j) % 2 === 0) {
+                            ctx.moveTo(x + drawSize/2, y);
+                            ctx.lineTo(x + drawSize, y + drawSize);
+                            ctx.lineTo(x, y + drawSize);
+                        } else {
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x + drawSize, y);
+                            ctx.lineTo(x + drawSize/2, y + drawSize);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
                     }
-                    ctx.closePath();
-                    ctx.stroke();
                 }
             }
         },
@@ -2668,31 +3032,99 @@ const CoverCore = (function() {
         },
 
         kintsugi(ctx, w, h, p, density) {
-            const accentColor = ctx.strokeStyle;
-            const cracks = Math.floor(5 * density);
+    const accentColor = ctx.strokeStyle;
+    const cracks = Math.floor((4 + p[0] * 6) * density);
+    
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    for (let i = 0; i < cracks; i++) {
+        // 起始点
+        let x = p[i * 5] * w;
+        let y = p[(i * 5 + 1) % 40] * h;
+        
+        // 自然弯曲的裂纹路径（3-5个控制点）
+        const points = [{x, y}];
+        const segments = 3 + Math.floor(p[(i + 2) % 40] * 3);
+        const len = 60 + p[(i + 3) % 40] * 120;
+        
+        for (let j = 1; j <= segments; j++) {
+            const t = j / segments;
+            // 随机游走式弯曲（自然断裂）
+            x += (p[(i + j * 2) % 40] - 0.5) * len * 0.4;
+            y += (p[(i + j * 2 + 1) % 40] - 0.5) * len * 0.4;
+            // 总体趋势向外扩散
+            x += Math.cos(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
+            y += Math.sin(p[(i + 4) % 40] * Math.PI * 2) * len * 0.3 * t;
+            points.push({x, y});
+        }
+        
+        // 偶尔分叉（简单的一次性分叉，不递归）
+        const hasBranch = p[(i + 5) % 40] > 0.6;
+        
+        // 绘制主裂纹（单一粗细，自然透明度变化）
+        ctx.globalAlpha = 0.6 + p[i % 40] * 0.3;
+        ctx.lineWidth = 1.5 + p[(i + 1) % 40] * 1.5;
+        ctx.strokeStyle = accentColor;
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        // 使用二次曲线使线条更自然顺滑
+        for (let j = 1; j < points.length - 1; j++) {
+            const xc = (points[j].x + points[j + 1].x) / 2;
+            const yc = (points[j].y + points[j + 1].y) / 2;
+            ctx.quadraticCurveTo(points[j].x, points[j].y, xc, yc);
+        }
+        if (points.length > 1) {
+            ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        }
+        ctx.stroke();
+        
+        // 简单分叉（短小细线）
+        if (hasBranch && points.length > 2) {
+            const branchIdx = Math.floor(points.length * 0.6);
+            const bx = points[branchIdx].x;
+            const by = points[branchIdx].y;
+            const branchLen = len * 0.3;
+            const branchAngle = Math.atan2(
+                points[branchIdx].y - points[branchIdx - 1].y,
+                points[branchIdx].x - points[branchIdx - 1].x
+            ) + (p[(i + 6) % 40] - 0.5);
             
-            for (let i = 0; i < cracks; i++) {
-                let x = p[i*3] * w;
-                let y = p[i*3+1] * h;
-                
-                ctx.globalAlpha = 0.8;
-                ctx.strokeStyle = accentColor;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                for (let j = 0; j < 5; j++) {
-                    x += (p[(i+j)%40] - 0.5) * 80;
-                    y += (p[(i+j+10)%40] - 0.5) * 80;
-                    ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-                
-                ctx.globalAlpha = 0.2;
-                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-        },
+            ctx.globalAlpha = 0.4;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.quadraticCurveTo(
+                bx + Math.cos(branchAngle) * branchLen * 0.5 + (p[(i+7)%40]-0.5)*10,
+                by + Math.sin(branchAngle) * branchLen * 0.5 + (p[(i+8)%40]-0.5)*10,
+                bx + Math.cos(branchAngle) * branchLen,
+                by + Math.sin(branchAngle) * branchLen
+            );
+            ctx.stroke();
+        }
+    }
+    
+    // 细微填充裂纹（更淡更细，增加自然密度）
+    const microCracks = Math.floor(8 * density);
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = 0.6;
+    
+    for (let i = 0; i < microCracks; i++) {
+        const x1 = p[i * 2] * w;
+        const y1 = p[(i * 2 + 1) % 40] * h;
+        const angle = p[(i + 20) % 40] * Math.PI * 2;
+        const len = 15 + p[(i + 30) % 40] * 30;
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(
+            x1 + Math.cos(angle) * len,
+            y1 + Math.sin(angle) * len
+        );
+        ctx.stroke();
+    }
+},
 
         contour(ctx, w, h, p, density) {
             const centers = 3 + Math.floor(p[0] * 4);
@@ -2707,7 +3139,7 @@ const CoverCore = (function() {
                     const r = maxR * (i / rings);
                     if (r < 3) continue;
                     
-                    ctx.globalAlpha = 0.25 - (i / rings) * 0.15;
+                    ctx.globalAlpha = 0.35 - (i / rings) * 0.15;
                     ctx.lineWidth = (i % 2 === 0) ? 1.2 : 0.6;
                     
                     ctx.beginPath();
@@ -2734,7 +3166,7 @@ const CoverCore = (function() {
             for (let x = 0; x < w; x += step) {
                 for (let y = 0; y < h; y += step) {
                     const noise = Math.sin(x * 0.03) * Math.cos(y * 0.03) * Math.sin((x+y) * 0.01);
-                    ctx.globalAlpha = Math.abs(noise) * 0.15 * density;
+                    ctx.globalAlpha = Math.abs(noise) * 0.25 * density;
                     ctx.fillRect(x, y, step, step);
                 }
             }
@@ -2767,7 +3199,7 @@ const CoverCore = (function() {
             for (let y = -h; y < h * 2; y += size * 0.866) {
                 for (let x = -w; x < w * 2; x += size) {
                     const offset = (Math.floor(y / (size * 0.866)) % 2) * (size / 2);
-                    ctx.globalAlpha = 0.2;
+                    ctx.globalAlpha = 0.35;
                     ctx.beginPath();
                     ctx.moveTo(x + offset, y);
                     ctx.lineTo(x + offset + size/2, y - size * 0.433);
@@ -3012,7 +3444,6 @@ const CoverCore = (function() {
             }
         },
 
-        // 新图案：太阳光芒
         sunburst(ctx, w, h, p, density) {
             const cx = w/2, cy = h/2;
             const rays = Math.floor((24 + p[0] * 16) * density);
@@ -3034,147 +3465,6 @@ const CoverCore = (function() {
             ctx.fill();
         },
 
-        // 新图案：齿轮机械（铺满版，工业化风格）
-        gears(ctx, w, h, p, density) {
-            // 绘制单个工业化齿轮
-            const drawGear = (cx, cy, r, teeth, rotation) => {
-                const outerR = r;
-                const innerR = r * 0.75;
-                const holeR = r * 0.15;
-                const toothDepth = r * 0.25;
-                
-                ctx.lineWidth = 1.2;
-                ctx.globalAlpha = 0.28;
-                
-                // 绘制齿轮外圈（梯形齿）
-                ctx.beginPath();
-                for (let i = 0; i < teeth; i++) {
-                    const baseAngle = (Math.PI * 2 * i) / teeth + rotation;
-                    const nextAngle = (Math.PI * 2 * (i + 1)) / teeth + rotation;
-                    
-                    const rootStart = baseAngle + Math.PI / teeth * 0.15;
-                    const rootEnd = nextAngle - Math.PI / teeth * 0.15;
-                    const tipStart = baseAngle + Math.PI / teeth * 0.35;
-                    const tipEnd = nextAngle - Math.PI / teeth * 0.35;
-                    
-                    const x1 = cx + Math.cos(rootStart) * outerR;
-                    const y1 = cy + Math.sin(rootStart) * outerR;
-                    const x2 = cx + Math.cos(tipStart) * (outerR - toothDepth * 0.3);
-                    const y2 = cy + Math.sin(tipStart) * (outerR - toothDepth * 0.3);
-                    const x3 = cx + Math.cos(tipEnd) * (outerR - toothDepth * 0.3);
-                    const y3 = cy + Math.sin(tipEnd) * (outerR - toothDepth * 0.3);
-                    const x4 = cx + Math.cos(rootEnd) * outerR;
-                    const y4 = cy + Math.sin(rootEnd) * outerR;
-                    
-                    if (i === 0) ctx.moveTo(x1, y1);
-                    else ctx.lineTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.lineTo(x3, y3);
-                    ctx.lineTo(x4, y4);
-                }
-                ctx.closePath();
-                ctx.stroke();
-                
-                // 内圆
-                ctx.globalAlpha = 0.18;
-                ctx.beginPath();
-                ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
-                ctx.stroke();
-                
-                // 中心孔
-                ctx.globalAlpha = 0.22;
-                ctx.beginPath();
-                ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
-                ctx.stroke();
-                
-                // 辐条（大齿轮）
-                if (r > 30) {
-                    ctx.globalAlpha = 0.12;
-                    const spokes = r > 50 ? 6 : 4;
-                    for (let i = 0; i < spokes; i++) {
-                        const angle = (Math.PI * 2 * i) / spokes + rotation;
-                        ctx.beginPath();
-                        ctx.moveTo(cx + Math.cos(angle) * holeR * 1.5, cy + Math.sin(angle) * holeR * 1.5);
-                        ctx.lineTo(cx + Math.cos(angle) * innerR * 0.85, cy + Math.sin(angle) * innerR * 0.85);
-                        ctx.stroke();
-                    }
-                }
-            };
-            
-            // 网格化布局生成齿轮
-            const gears = [];
-            const margin = 8;
-            
-            // 定义三种规格齿轮
-            const sizes = [
-                { r: 45, teeth: 16 }, // 大
-                { r: 32, teeth: 12 }, // 中
-                { r: 20, teeth: 8 }   // 小
-            ];
-            
-            // 网格放置策略
-            const cols = 5;
-            const rows = 7;
-            const cellW = (w - margin * 2) / cols;
-            const cellH = (h - margin * 2) / rows;
-            
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    // 随机决定是否放置（85%概率，制造空缺）
-                    if (p[(row * cols + col) % 40] > 0.85) continue;
-                    
-                    // 交错偏移
-                    const offsetX = (row % 2) * (cellW / 2);
-                    const baseX = margin + col * cellW + cellW / 2 + offsetX;
-                    const baseY = margin + row * cellH + cellH / 2;
-                    
-                    // 添加位置随机扰动
-                    const jitter = cellW * 0.15;
-                    const x = baseX + (p[(row * cols + col + 10) % 40] - 0.5) * jitter;
-                    const y = baseY + (p[(row * cols + col + 20) % 40] - 0.5) * jitter;
-                    
-                    // 随机选择大小（根据位置有倾向性）
-                    let sizeIdx;
-                    const rand = p[(row * cols + col + 5) % 40];
-                    if (rand > 0.7) sizeIdx = 0;      // 30% 大
-                    else if (rand > 0.3) sizeIdx = 1; // 40% 中
-                    else sizeIdx = 2;                 // 30% 小
-                    
-                    const size = sizes[sizeIdx];
-                    
-                    // 检查是否与已有齿轮重叠
-                    let overlaps = false;
-                    for (const g of gears) {
-                        const dx = x - g.x;
-                        const dy = y - g.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        // 允许轻微咬合（重叠15%以内）
-                        if (dist < size.r + g.r - Math.min(size.r, g.r) * 0.15) {
-                            overlaps = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!overlaps) {
-                        // 旋转角度随机
-                        const rotation = p[(row * cols + col + 30) % 40] * Math.PI * 2;
-                        gears.push({
-                            x: x,
-                            y: y,
-                            r: size.r,
-                            teeth: size.teeth,
-                            rotation: rotation
-                        });
-                    }
-                }
-            }
-            
-            // 按半径从大到小排序，先画大的
-            gears.sort((a, b) => b.r - a.r);
-            gears.forEach(g => drawGear(g.x, g.y, g.r, g.teeth, g.rotation));
-        },
-
-        // 新图案：砖墙纹理
         bricks(ctx, w, h, p, density) {
             const rows = Math.floor((8 + p[0] * 6) * Math.sqrt(density));
             const cols = Math.floor((6 + p[1] * 4) * Math.sqrt(density));
@@ -3201,7 +3491,6 @@ const CoverCore = (function() {
             }
         },
 
-        // 新图案：飘落枫叶（优雅抽象版，大叶片）
         maple(ctx, w, h, p, density) {
             const drawLeaf = (x, y, scale, rotation) => {
                 ctx.save();
@@ -3273,7 +3562,6 @@ const CoverCore = (function() {
             }
         },
 
-        // 新图案：打字机文字
         typewriter(ctx, w, h, p, density) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
             const lines = Math.floor((12 + p[0] * 8) * density);
@@ -3286,7 +3574,7 @@ const CoverCore = (function() {
                         const x = (w / charsPerLine) * i + lineOffset;
                         const char = chars[Math.floor(p[(line * charsPerLine + i) % 40] * chars.length)];
                         const size = 10 + p[(line * charsPerLine + i + 20) % 40] * 14;
-                        ctx.globalAlpha = 0.15 + p[(line * charsPerLine + i + 5) % 40] * 0.2;
+                        ctx.globalAlpha = 0.3 + p[(line * charsPerLine + i + 5) % 40] * 0.2;
                         ctx.font = `${Math.floor(size)}px monospace`;
                         ctx.fillText(char, x, y);
                     }
@@ -3294,29 +3582,35 @@ const CoverCore = (function() {
             }
         },
 
-        // 新图案：水墨山水
         shanshui(ctx, w, h, p, density) {
             const layers = Math.floor((4 + p[0] * 3) * density);
+            
             for (let layer = 0; layer < layers; layer++) {
                 const yBase = h * (0.3 + layer * 0.2);
-                const alpha = 0.08 + (layer / layers) * 0.15;
+                const alpha = 0.3 + (layer / layers) * 0.15;
+                
                 ctx.globalAlpha = alpha;
                 ctx.lineWidth = 1 + (layers - layer) * 0.5;
                 ctx.beginPath();
-                let x = 0;
+                
+                // 从画布左侧外开始（延伸出画布）
+                let x = -50;
                 let y = yBase + Math.sin(p[layer % 40] * Math.PI) * 30;
                 ctx.moveTo(x, y);
-                while (x < w) {
-                    x += 5 + p[(layer + Math.floor(x/10)) % 40] * 15;
-                    y = yBase + Math.sin((x * 0.01) + p[layer % 40] * Math.PI) * (20 + layer * 10);
-                    y += Math.sin(x * 0.03) * 10;
+                
+                // 绘制到画布右侧外（超出画布边界）
+                while (x < w + 50) {
+                    x += 5 + p[(layer + Math.floor((x + 50) / 10)) % 40] * 15;
+                    y = yBase + Math.sin(((x + 50) * 0.01) + p[layer % 40] * Math.PI) * (20 + layer * 10);
+                    y += Math.sin((x + 50) * 0.03) * 10;
                     ctx.lineTo(x, y);
                 }
-                ctx.lineTo(w, h);
-                ctx.lineTo(0, h);
-                ctx.closePath();
+                
+                // 不闭合路径，让线条自然结束在画布外
+                // 画布边界会自动裁剪显示
                 ctx.stroke();
             }
+            
             // 点缀的"飞鸟"（向下弧线，飞翔姿态）
             const birds = Math.floor((4 + p[5] * 6) * density);
             ctx.globalAlpha = 0.28;
@@ -3325,15 +3619,577 @@ const CoverCore = (function() {
                 const bx = p[i * 2 % 40] * w;
                 const by = h * (0.08 + p[(i * 2 + 1) % 40] * 0.22);
                 const size = 3 + p[(i + 10) % 40] * 5;
-                // 随机飞行方向（左飞或右飞）
                 const flip = p[(i + 20) % 40] > 0.5 ? 1 : -1;
                 ctx.beginPath();
                 ctx.moveTo(bx - size * flip, by);
-                // 控制点在下方，形成向下凸起的弧线（飞翔姿态）
                 ctx.quadraticCurveTo(bx, by + size * 0.6, bx + size * flip, by);
                 ctx.stroke();
             }
-        }
+        },
+
+        stripes(ctx, w, h, p, density) {
+            const angle = p[0] * Math.PI; // 0-180度随机角度
+            const spacing = (8 + p[1] * 12) / density;
+            const lineWidth = 1 + p[2] * 1;
+            
+            ctx.save();
+            ctx.translate(w/2, h/2);
+            ctx.rotate(angle);
+            ctx.translate(-w/2, -h/2);
+            
+            const diag = Math.sqrt(w*w + h*h);
+            ctx.lineWidth = lineWidth;
+            ctx.globalAlpha = 0.3 + p[3] * 0.3;
+            
+            for (let i = -diag; i < diag * 2; i += spacing) {
+                ctx.beginPath();
+                ctx.moveTo(i, -diag);
+                ctx.lineTo(i, diag * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+        },
+
+        hexagon(ctx, w, h, p, density) {
+            const r = 18 / Math.sqrt(density);     // 六边形半径（中心到顶点距离）
+            const scale = 0.98;                     // 0.98=几乎无缝(如图), 0.8=有间隙
+            
+            // 标准蜂窝密铺几何（平顶六边形）
+            // 水平方向：中心距 = 2r（边对边接触）
+            // 垂直方向：中心距 = √3 * r（行间交错）
+            const xStep = 2 * r;                    // 水平步进
+            const yStep = Math.sqrt(3) * r;         // 垂直步进
+            const rowOffset = r;                    // 奇偶行偏移半个格子
+            
+            const drawR = r * scale;                // 实际绘制半径
+            ctx.lineWidth = 1.5;
+            let index = 0;
+            
+            // 计算所需行列
+            const rows = Math.ceil(h / yStep) + 2;
+            const cols = Math.ceil(w / xStep) + 2;
+            
+            for (let row = -1; row < rows; row++) {
+                // 垂直中心位置
+                const cy = row * yStep + (yStep / 2);
+                
+                // 奇偶行水平偏移（蜂窝交错）
+                const xShift = (row % 2 === 1) ? rowOffset : 0;
+                
+                for (let col = -1; col < cols; col++) {
+                    const cx = col * xStep + xShift;
+                    
+                    // 边界检查（用原始半径）
+                    if (cx < -r || cx > w + r || cy < -r || cy > h + r) {
+                        index++;
+                        continue;
+                    }
+                    
+                    // 绘制平顶正六边形
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        // -30°起始使上下边水平（平顶）
+                        const angle = (Math.PI / 3) * i - Math.PI / 6;
+                        const px = cx + drawR * Math.cos(angle);
+                        const py = cy + drawR * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    
+                    // 描边
+                    ctx.globalAlpha = 0.35;
+                    ctx.stroke();
+                    
+                    // 随机填充（像参考图那样的多彩效果）
+                    if (p[index % 40] > 0.65) {
+                        ctx.globalAlpha = 0.2 + p[(index + 20) % 40] * 0.15;
+                        ctx.fill();
+                    }
+                    
+                    index++;
+                }
+            }
+        },
+
+        clouds(ctx, w, h, p, density) {
+            // 先铺淡色天空（提亮深色背景）
+            ctx.fillStyle = 'currentColor';
+            ctx.globalAlpha = 0.08;
+            ctx.fillRect(0, 0, w, h);
+            
+            const cloudCount = Math.floor((15 + p[0] * 15) * density);
+            
+            for (let i = 0; i < cloudCount; i++) {
+                // 每个云团由3-5个偏移圆叠加形成不规则形状
+                const blobsPerCloud = 3 + Math.floor(p[i % 40] * 3);
+                const centerX = p[(i + 5) % 40] * w;
+                const centerY = p[(i + 15) % 40] * h;
+                const baseSize = 25 + p[(i + 25) % 40] * 35;
+                
+                // 云团整体不透明度
+                ctx.globalAlpha = 0.25 - (i / cloudCount) * 0.1;
+                
+                for (let b = 0; b < blobsPerCloud; b++) {
+                    // 在每个云团内随机偏移，避免同心圆
+                    const offsetAngle = p[(i + b * 3) % 40] * Math.PI * 2;
+                    const offsetDist = baseSize * 0.4 * p[(i + b * 3 + 10) % 40];
+                    const bx = centerX + Math.cos(offsetAngle) * offsetDist;
+                    const by = centerY + Math.sin(offsetAngle) * offsetDist * 0.6; // 压扁一点
+                    const br = baseSize * (0.5 + p[(i + b * 3 + 20) % 40] * 0.5);
+                    
+                    // 超柔和渐变，边缘极淡
+                    const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br * 1.5);
+                    grad.addColorStop(0, 'currentColor');
+                    grad.addColorStop(0.3, 'currentColor'); // 快速淡出
+                    grad.addColorStop(1, 'transparent');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, br * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        },
+
+        goldenSpiral(ctx, w, h, p, density) {
+            const cx = w / 2;
+            const cy = h / 2;
+            
+            // 起始半径减半（4），展示更大区域
+            const baseScale = 4 / Math.sqrt(density);
+            const scale = baseScale * (0.8 + p[0] * 0.4);
+            const color = ctx.strokeStyle;
+            
+            // 斐波那契初始化（0, 0, 1）
+            let i = 0, j = 0, k = 1;
+            let dir = 0;
+            let x = cx + (p[1] - 0.5) * 10;
+            let y = cy + (p[2] - 0.5) * 10;
+            
+            const squares = [];
+            const maxBound = Math.max(w, h) * 1.2;
+            
+            while (k * scale < maxBound) {
+                const size = k * scale;
+                let squareX = x, squareY = y;
+                let arcX, arcY, startAngle, endAngle;
+                
+                // 关键修复：使用负角度确保 |end-start| = π/2，强制 SVG 绘制小弧（90°）
+                switch(dir) {
+                    case 0: // 北（上）：圆心左下角，从右(0)到上(-π/2)
+                        x = x - (i * scale);
+                        y = y - (k * scale);
+                        squareX = x; 
+                        squareY = y;
+                        arcX = x; 
+                        arcY = y + size;
+                        startAngle = 0;           // 右
+                        endAngle = -Math.PI / 2;  // 上（负角度）
+                        break;
+                    case 1: // 西（左）：圆心右下角，从上(-π/2)到左(-π)
+                        x = x - (k * scale);
+                        squareX = x; 
+                        squareY = y;
+                        arcX = x + size; 
+                        arcY = y + size;
+                        startAngle = -Math.PI / 2; // 上
+                        endAngle = -Math.PI;       // 左（负角度）
+                        break;
+                    case 2: // 南（下）：圆心右上角，从左(-π或π)到下(π/2)
+                        y = y + (j * scale);
+                        squareX = x; 
+                        squareY = y;
+                        arcX = x + size; 
+                        arcY = y;
+                        startAngle = Math.PI;      // 左（或 -Math.PI）
+                        endAngle = Math.PI / 2;    // 下
+                        break;
+                    case 3: // 东（右）：圆心左上角，从下(π/2)到右(0)
+                        x = x + (j * scale);
+                        y = y - (i * scale);
+                        squareX = x; 
+                        squareY = y;
+                        arcX = x; 
+                        arcY = y;
+                        startAngle = Math.PI / 2;  // 下
+                        endAngle = 0;              // 右
+                        break;
+                }
+                
+                squares.push({
+                    x: squareX, y: squareY, size, dir,
+                    arc: { x: arcX, y: arcY, startAngle, endAngle }
+                });
+                
+                i = j; j = k; k = i + j;
+                dir = (dir + 1) % 4;
+            }
+            
+            // 绘制正方形网格
+            ctx.globalAlpha = 0.12;
+            ctx.lineWidth = 0.6;
+            ctx.strokeStyle = color;
+            squares.forEach(sq => {
+                ctx.strokeRect(sq.x, sq.y, sq.size, sq.size);
+            });
+            
+            // 绘制斐波那契螺旋（连续路径）
+            ctx.globalAlpha = 0.95;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            
+            squares.forEach((sq, idx) => {
+                const a = sq.arc;
+                if (idx === 0) {
+                    const sx = a.x + sq.size * Math.cos(a.startAngle);
+                    const sy = a.y + sq.size * Math.sin(a.startAngle);
+                    ctx.moveTo(sx, sy);
+                }
+                // anticlockwise=true 确保绘制 90° 小弧（而非 270° 大弧）
+                ctx.arc(a.x, a.y, sq.size, a.startAngle, a.endAngle, true);
+            });
+            
+            ctx.stroke();
+            
+            // 中心标记
+            ctx.globalAlpha = 0;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        },
+
+        cropCircles(ctx, w, h, p, density) {
+            const cx = w / 2;
+            const cy = h / 2;
+            const maxR = Math.min(w, h) * 0.48;
+            
+            // 对称阶数（3-12重旋转对称）
+            const symmetry = 3 + Math.floor(p[0] * 9);
+            
+            // 层数（根据密度调整）
+            const layers = Math.floor((4 + p[1] * 6) * Math.sqrt(density));
+            
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // 1. 外圈编织纹理（模拟麦秆倒伏的编织效果）
+            const weaveRings = Math.floor(3 + p[2] * 4);
+            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 0.8;
+            
+            for (let i = 0; i < weaveRings; i++) {
+                const r = maxR * (0.85 + i * 0.05);
+                const segments = symmetry * 4;
+                
+                for (let j = 0; j < segments; j++) {
+                    const angle = (Math.PI * 2 * j) / segments;
+                    const nextAngle = (Math.PI * 2 * (j + 1)) / segments;
+                    
+                    // 交替倒伏方向（编织感）
+                    if ((i + j) % 2 === 0) {
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, angle, nextAngle);
+                        ctx.stroke();
+                    } else {
+                        // 压扁的直线段（麦秆倒伏痕迹）
+                        const x1 = cx + r * Math.cos(angle);
+                        const y1 = cy + r * Math.sin(angle);
+                        const x2 = cx + r * Math.cos(nextAngle);
+                        const y2 = cy + r * Math.sin(nextAngle);
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            // 2. 主要几何层（从外向内构建）
+            for (let layer = layers; layer > 0; layer--) {
+                const t = layer / layers;
+                const rOuter = maxR * t * 0.9;
+                const rInner = maxR * (t - 1/layers) * 0.9;
+                const rMid = (rOuter + rInner) / 2;
+                
+                // 每层不同的图案类型
+                const patternType = Math.floor(p[(layer + 3) % 40] * 4);
+                
+                ctx.globalAlpha = 0.35 + (1 - t) * 0.5;
+                ctx.lineWidth = 1.5 - t * 0.8;
+                
+                switch(patternType) {
+                    case 0: // 星芒射线
+                        for (let i = 0; i < symmetry; i++) {
+                            const angle = (Math.PI * 2 * i) / symmetry + p[layer % 40] * 0.2;
+                            ctx.beginPath();
+                            ctx.moveTo(cx + rInner * Math.cos(angle), cy + rInner * Math.sin(angle));
+                            ctx.lineTo(cx + rOuter * Math.cos(angle), cy + rOuter * Math.sin(angle));
+                            ctx.stroke();
+                            
+                            // 次级射线（更细）
+                            if (symmetry > 6) {
+                                ctx.globalAlpha = 0.15;
+                                const subAngle = angle + Math.PI / symmetry;
+                                ctx.beginPath();
+                                ctx.moveTo(cx + rInner * 1.1 * Math.cos(subAngle), cy + rInner * 1.1 * Math.sin(subAngle));
+                                ctx.lineTo(cx + rOuter * 0.9 * Math.cos(subAngle), cy + rOuter * 0.9 * Math.sin(subAngle));
+                                ctx.stroke();
+                                ctx.globalAlpha = 0.35 + (1 - t) * 0.3;
+                            }
+                        }
+                        break;
+                        
+                    case 1: // 同心圆环带切口
+                        const arcGap = Math.PI / symmetry;
+                        for (let i = 0; i < symmetry; i++) {
+                            const startAngle = (Math.PI * 2 * i) / symmetry;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, rMid, startAngle, startAngle + arcGap * 0.8);
+                            ctx.stroke();
+                        }
+                        break;
+                        
+                    case 2: // 螺旋花瓣（涡旋）
+                        const petals = symmetry;
+                        for (let i = 0; i < petals; i++) {
+                            const baseAngle = (Math.PI * 2 * i) / petals;
+                            ctx.beginPath();
+                            
+                            for (let step = 0; step <= 20; step++) {
+                                const t2 = step / 20;
+                                const r = rInner + (rOuter - rInner) * t2;
+                                const twist = t2 * Math.PI * 0.5; // 涡旋扭曲
+                                const angle = baseAngle + twist;
+                                
+                                const x = cx + r * Math.cos(angle);
+                                const y = cy + r * Math.sin(angle);
+                                
+                                if (step === 0) ctx.moveTo(x, y);
+                                else ctx.lineTo(x, y);
+                            }
+                            ctx.stroke();
+                        }
+                        break;
+                        
+                    case 3: // 几何多边形（嵌套）
+                        ctx.beginPath();
+                        for (let i = 0; i <= symmetry; i++) {
+                            const angle = (Math.PI * 2 * i) / symmetry - Math.PI / 2;
+                            const x = cx + rMid * Math.cos(angle);
+                            const y = cy + rMid * Math.sin(angle);
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                        
+                        // 内部交叉线（神圣几何）
+                        ctx.globalAlpha = 0.12;
+                        for (let i = 0; i < symmetry; i++) {
+                            for (let j = i + 2; j < symmetry; j++) {
+                                if (Math.abs(i - j) === symmetry / 2) continue; // 避免直径重复
+                                const angle1 = (Math.PI * 2 * i) / symmetry - Math.PI / 2;
+                                const angle2 = (Math.PI * 2 * j) / symmetry - Math.PI / 2;
+                                ctx.beginPath();
+                                ctx.moveTo(cx + rMid * Math.cos(angle1), cy + rMid * Math.sin(angle1));
+                                ctx.lineTo(cx + rMid * Math.cos(angle2), cy + rMid * Math.sin(angle2));
+                                ctx.stroke();
+                            }
+                        }
+                        ctx.globalAlpha = 0.25 + (1 - t) * 0.3;
+                        break;
+                }
+            }
+            
+            // 3. 中心核心（种子图案）
+            const centerR = maxR * 0.08;
+            const centerType = Math.floor(p[5] * 3);
+            
+            ctx.globalAlpha = 0.5;
+            ctx.lineWidth = 2;
+            
+            if (centerType === 0) { // 同心圆核心
+                for (let i = 3; i > 0; i--) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, centerR * (i / 3), 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            } else if (centerType === 1) { // 星形核心
+                const points = 5 + Math.floor(p[6] * 4);
+                ctx.beginPath();
+                for (let i = 0; i <= points * 2; i++) {
+                    const r = (i % 2 === 0) ? centerR : centerR * 0.4;
+                    const angle = (Math.PI * i) / points - Math.PI / 2;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            } else { // 螺旋核心
+                ctx.beginPath();
+                for (let i = 0; i < 50; i++) {
+                    const t = i / 50;
+                    const r = centerR * t;
+                    const angle = t * Math.PI * 4;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            
+            // 4. 神秘连接线（暗示非人类智慧的几何关联）
+            ctx.globalAlpha = 0.25;
+            ctx.lineWidth = 0.6;
+            const connectPoints = [];
+            for (let i = 0; i < symmetry * 2; i++) {
+                const angle = (Math.PI * i) / symmetry;
+                const r = maxR * (0.3 + p[(i + 10) % 40] * 0.6);
+                connectPoints.push({
+                    x: cx + r * Math.cos(angle),
+                    y: cy + r * Math.sin(angle)
+                });
+            }
+            
+            // 连接特定节点形成隐藏多边形
+            for (let i = 0; i < connectPoints.length; i++) {
+                const next = (i + 3) % connectPoints.length;
+                ctx.beginPath();
+                ctx.moveTo(connectPoints[i].x, connectPoints[i].y);
+                ctx.lineTo(connectPoints[next].x, connectPoints[next].y);
+                ctx.stroke();
+            }
+            
+            // 5. 压扁麦秆纹理（随机细线模拟田野质感）
+            ctx.globalAlpha = 0.15;
+            for (let i = 0; i < 30 * density; i++) {
+                const angle = p[i % 40] * Math.PI * 2;
+                const r = maxR * (0.1 + p[(i + 5) % 40] * 0.9);
+                const len = 5 + p[(i + 10) % 40] * 15;
+                
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+                
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + len * Math.cos(angle), y + len * Math.sin(angle));
+                ctx.stroke();
+            }
+        },
+
+        // 分形山脉 - 中点位移算法
+        fractalPeaks(ctx, w, h, p, density) {
+            const iterations = Math.floor(8 + density * 6);
+            const roughness = 0.5 + p[0] * 0.3;
+            
+            // 生成多层山脉（远景到近景）
+            const layers = Math.floor(3 + p[1] * 3);
+            
+            for (let layer = 0; layer < layers; layer++) {
+                const baseHeight = h * (0.2 + layer * 0.25); // 逐层抬高
+                const amplitude = h * (0.15 - layer * 0.03); // 逐层降低振幅（透视）
+                const colorAlpha = 0.15 + (layer / layers) * 0.5; // 近景更清晰
+                
+                // 中点位移生成地形线
+                let points = [{x:0, y:baseHeight}, {x:w, y:baseHeight}];
+                
+                for (let i = 0; i < iterations; i++) {
+                    const newPoints = [];
+                    for (let j = 0; j < points.length - 1; j++) {
+                        const p1 = points[j];
+                        const p2 = points[j + 1];
+                        const midX = (p1.x + p2.x) / 2;
+                        const midY = (p1.y + p2.y) / 2 + (Math.random() - 0.5) * amplitude * Math.pow(roughness, i);
+                        
+                        newPoints.push(p1);
+                        newPoints.push({x:midX, y:midY});
+                    }
+                    newPoints.push(points[points.length - 1]);
+                    points = newPoints;
+                }
+                
+                // 绘制填充山体
+                ctx.globalAlpha = colorAlpha;
+                ctx.beginPath();
+                ctx.moveTo(0, h);
+                points.forEach(pt => ctx.lineTo(pt.x, pt.y));
+                ctx.lineTo(w, h);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 绘制山脊线
+                ctx.lineWidth = 1.5 - layer * 0.3;
+                ctx.beginPath();
+                points.forEach((pt, idx) => {
+                    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+                    else ctx.lineTo(pt.x, pt.y);
+                });
+                ctx.stroke();
+            }
+        },
+
+        // 莫列波纹 - 干涉图案
+        moirePattern(ctx, w, h, p, density) {
+            const lineCount = Math.floor(40 * density);
+            const spacing = Math.min(w, h) / lineCount;
+            
+            // 第一层网格（基础）
+            ctx.globalAlpha = 0.25;
+            ctx.lineWidth = 0.8;
+            
+            for (let i = -lineCount; i <= lineCount; i++) {
+                const x = w/2 + i * spacing;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+                
+                const y = h/2 + i * spacing;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+            
+            // 第二层网格（旋转2-5度）
+            ctx.save();
+            ctx.translate(w/2, h/2);
+            const angle = (2 + p[0] * 3) * Math.PI / 180; // 2-5度
+            ctx.rotate(angle);
+            ctx.translate(-w/2, -h/2);
+            
+            ctx.globalAlpha = 0.25;
+            for (let i = -lineCount; i <= lineCount; i++) {
+                const x = w/2 + i * spacing * 0.98; // 微小间距差异增强干涉
+                ctx.beginPath();
+                ctx.moveTo(x, -h);
+                ctx.lineTo(x, h * 2);
+                ctx.stroke();
+                
+                const y = h/2 + i * spacing * 0.98;
+                ctx.beginPath();
+                ctx.moveTo(-w, y);
+                ctx.lineTo(w * 2, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+            
+            // 添加同心圆莫列（可选，增加层次）
+            if (p[1] > 0.5) {
+                ctx.globalAlpha = 0.15;
+                const rings = Math.floor(lineCount * 0.7);
+                for (let i = 1; i <= rings; i++) {
+                    ctx.beginPath();
+                    ctx.arc(w/2, h/2, i * spacing, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+        },
     };
 
     function calculateTextMetrics(ctx, title, author, availableWidth, availableHeight, scaleFactor, fontStack, layoutType, depth = 0) {
@@ -3683,12 +4539,24 @@ const CoverCore = (function() {
             const margin = Math.max(12, 14 * scaleFactor);
             const contentW = w - margin * 2;
             const contentH = h - margin * 2;
-            
             const patternH = Math.floor(contentH * 0.62);
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(margin, margin, contentW, patternH);
+            ctx.closePath();
+            ctx.clip(); 
+            
             drawPatternArea(ctx, margin, margin, contentW, patternH, seed, palette, patternId, density);
+            
+            ctx.restore(); 
             
             const textY = margin + patternH;
             const textH = contentH - patternH;
+            
+            ctx.fillStyle = palette.textBg;
+            ctx.globalAlpha = 1;
+            ctx.fillRect(margin, textY, contentW, textH);
             
             drawTextBlock(ctx, title, author, margin, textY, contentW, textH, scaleFactor, palette.text, fontStack, 'framed', 'center');
         },
@@ -3842,10 +4710,10 @@ const CoverCore = (function() {
         
         header(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const headerH = Math.floor(h * 0.28);
+            drawPatternArea(ctx, 0, headerH, w, h - headerH, seed, palette, patternId, density);
             ctx.fillStyle = palette.textBg;
             ctx.fillRect(0, 0, w, headerH);
-            drawTextBlock(ctx, title, author, 0, 0, w, headerH, scaleFactor, palette.text, fontStack, 'header', 'center');
-            drawPatternArea(ctx, 0, headerH, w, h - headerH, seed, palette, patternId, density);
+            drawTextBlock(ctx, title, author, 0, 0, w, headerH, scaleFactor, palette.text, fontStack, 'header', 'center'); 
         },
         
         footer(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
@@ -3905,10 +4773,10 @@ const CoverCore = (function() {
         
         'minimal-top'(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const splitY = Math.floor(h * 0.5);
+            drawPatternArea(ctx, 0, splitY, w, h - splitY, seed, palette, patternId, density);
             ctx.fillStyle = palette.textBg;
             ctx.fillRect(0, 0, w, splitY);
             drawTextBlock(ctx, title, author, 0, 0, w, splitY, scaleFactor, palette.text, fontStack, 'minimal-top', 'center');
-            drawPatternArea(ctx, 0, splitY, w, h - splitY, seed, palette, patternId, density);
         },
         
         'minimal-bottom'(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
@@ -3933,15 +4801,15 @@ const CoverCore = (function() {
         
         asymmetric(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const splitX = Math.floor(w * 0.42);
+            drawPatternArea(ctx, splitX, 0, w, h, seed, palette, patternId, density);
             ctx.fillStyle = palette.textBg;
             ctx.fillRect(0, 0, splitX, h);
-            drawPatternArea(ctx, splitX, 0, w - splitX, h, seed, palette, patternId, density);
             drawTextBlock(ctx, title, author, 0, 0, splitX, h, scaleFactor, palette.text, fontStack, 'asymmetric', 'left');
         },
         
         'asymmetric-right'(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const splitX = Math.floor(w * 0.58);
-            drawPatternArea(ctx, 0, 0, splitX, h, seed, palette, patternId, density);
+            drawPatternArea(ctx, 0, 0, w, h, seed, palette, patternId, density);
             ctx.fillStyle = palette.textBg;
             ctx.fillRect(splitX, 0, w - splitX, h);
             drawTextBlock(ctx, title, author, splitX, 0, w - splitX, h, scaleFactor, palette.text, fontStack, 'asymmetric-right', 'right');
@@ -4077,7 +4945,6 @@ const CoverCore = (function() {
             const cx = w / 2;
             const cy = h / 2;
             const r = Math.min(w, h) * 0.38;
-            
             const textAreaH = (h - r * 2) / 2;
             const padding = Math.max(20, 24 * scaleFactor);
             
@@ -4092,17 +4959,141 @@ const CoverCore = (function() {
             
             drawPatternArea(ctx, cx - r, cy - r, r * 2, r * 2, seed, palette, patternId, density);
             
-            ctx.strokeStyle = palette.accent;
-            ctx.lineWidth = Math.max(2, scaleFactor);
-            ctx.globalAlpha = 0.6;
-            ctx.stroke();
-            
-            ctx.globalAlpha = 0.2;
-            ctx.lineWidth = 8 * scaleFactor;
-            ctx.stroke();
-            
             ctx.restore();
         },
+
+        museum(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
+            const p = extractParams(seed, 10);
+            
+            // 1. 图案全出血
+            drawPatternArea(ctx, 0, 0, w, h, seed, palette, patternId, density);
+            
+            // 2. 紧凑参数
+            const margin = Math.floor(20 * scaleFactor);
+            const padding = Math.floor(10 * scaleFactor);
+            const maxCardW = w * 0.45;
+            
+            // 3. 字体大小
+            let titleSize = Math.floor(12 * scaleFactor);
+            let authorSize = Math.floor(8 * scaleFactor);
+            
+            ctx.font = `300 ${titleSize}px ${fontStack}`;
+            const maxTextW = maxCardW - padding * 2;
+            
+            // 处理标题换行
+            let titleLines = [];
+            let titleW = ctx.measureText(title).width;
+            
+            if (titleW > maxTextW && title.length > 8) {
+                const mid = Math.floor(title.length / 2);
+                let splitIdx = mid;
+                const searchRange = 3;
+                for (let i = 0; i < searchRange; i++) {
+                    if (mid - i > 0 && /[ \s\-,，.。;；]/.test(title[mid - i])) {
+                        splitIdx = mid - i;
+                        break;
+                    }
+                    if (mid + i < title.length && /[ \s\-,，.。;；]/.test(title[mid + i])) {
+                        splitIdx = mid + i;
+                        break;
+                    }
+                }
+                titleLines = [title.slice(0, splitIdx), title.slice(splitIdx).trim()];
+            } else {
+                titleLines = [title];
+            }
+            
+            // 测量宽度
+            let titleLineW = 0;
+            titleLines.forEach(line => {
+                const w = ctx.measureText(line).width;
+                if (w > titleLineW) titleLineW = w;
+            });
+            
+            let authorW = 0;
+            if (author) {
+                ctx.font = `400 ${authorSize}px ${fontStack}`;
+                authorW = ctx.measureText(author).width;
+            }
+            
+            // 4. 计算尺寸（关键：增加标题与作者的间隙）
+            const textW = Math.max(titleLineW, authorW);
+            const cardW = Math.min(textW + padding * 2, maxCardW);
+            
+            const titleLineGap = 3 * scaleFactor;           // 标题行间距（紧凑）
+            const titleAuthorGap = 8 * scaleFactor;         // 标题与作者间隙（稍宽，视觉呼吸感）
+            
+            const titleBlockH = titleLines.length * titleSize + (titleLines.length - 1) * titleLineGap;
+            const authorBlockH = author ? authorSize : 0;
+            const contentH = titleBlockH + titleAuthorGap + authorBlockH; // 总高度包含间隙
+            
+            const cardH = contentH + padding * 2;
+            const cardX = w - cardW - margin;
+            const cardY = h - cardH - margin;
+            const r = Math.floor(2 * scaleFactor);
+            
+            // 5. 绘制圆角卡片
+            ctx.fillStyle = palette.textBg;
+            ctx.globalAlpha = 0.9;
+            
+            if (ctx.roundRect) {
+                ctx.beginPath();
+                ctx.roundRect(cardX, cardY, cardW, cardH, r);
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(cardX + r, cardY);
+                ctx.lineTo(cardX + cardW - r, cardY);
+                ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + r);
+                ctx.lineTo(cardX + cardW, cardY + cardH - r);
+                ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - r, cardY + cardH);
+                ctx.lineTo(cardX + r, cardY + cardH);
+                ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - r);
+                ctx.lineTo(cardX, cardY + r);
+                ctx.quadraticCurveTo(cardX, cardY, cardX + r, cardY);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // 6. 绘制文字（垂直居中布局）
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            
+            const contentTop = cardY + padding;
+            const textX = cardX + cardW - padding;
+            
+            // 计算整体内容的垂直中心
+            const totalContentH = titleBlockH + titleAuthorGap + authorBlockH;
+            const startY = cardY + padding + totalContentH / 2;
+            
+            // 标题位置（偏上）
+            const titleCenterOffset = (titleAuthorGap + authorBlockH) / 2;
+            let titleY = startY - titleCenterOffset;
+            
+            // 调整：如果是多行，Y是中间行的位置
+            if (titleLines.length > 1) {
+                titleY = startY - titleCenterOffset + titleSize / 2;
+            }
+            
+            ctx.fillStyle = palette.text;
+            ctx.font = `300 ${titleSize}px ${fontStack}`;
+            ctx.globalAlpha = 0.95;
+            
+            titleLines.forEach((line, idx) => {
+                const lineOffset = (idx - (titleLines.length - 1) / 2) * (titleSize + titleLineGap);
+                ctx.fillText(line, textX, titleY + lineOffset);
+            });
+            
+            // 作者位置（偏下，与标题有明确间隙）
+            if (author) {
+                const authorCenterOffset = (titleBlockH + titleAuthorGap) / 2;
+                const authorY = startY + authorCenterOffset;
+                
+                ctx.font = `400 ${authorSize}px ${fontStack}`;
+                ctx.globalAlpha = 0.5;
+                ctx.fillText(author, textX, authorY);
+            }
+        }
     };
 
     function generate(options, format = 'canvas', patternOnly = false) {
@@ -4228,11 +5219,24 @@ const CoverCore = (function() {
     }
 
     return {
-        generate, getLayouts, getPatterns, getDimensionPresets, setDimensions, getText,
-        randomText, randomFromPool, CONFIG, version: '9.0',
+        generate, 
+        getLayouts, 
+        getPatterns, 
+        getDimensionPresets, 
+        setDimensions, 
+        getText,
+        randomText, 
+        randomFromPool, 
+        CONFIG, 
+        version: '9.0',
         generatePatternOnly: (opts, format = 'canvas') => generate(opts, format, true),
         generateSVG: (opts) => generate(opts, 'svg', false),
-        generateSVGPattern: (opts) => generate(opts, 'svg', true)
+        generateSVGPattern: (opts) => generate(opts, 'svg', true),
+        
+        // 关键：必须显式暴露这三个内部工具
+        PatternDrawers: PatternDrawers,  // 图案绘制器对象
+        extractParams: extractParams,    // 参数提取函数
+        generatePalette: generatePalette // 配色生成函数
     };
 })();
 
@@ -4807,7 +5811,42 @@ const CoverLabUI = {
             el.textContent = CoverCore.getText(el.dataset.i18n, this.currentLang);
         });
         this.renderControls();
+        const previewPanel = document.getElementById('patternPreviewPanel');
+        if (previewPanel && previewPanel.style.display !== 'none') {
+            this.updatePatternPreviewLabels(); 
+        }
         this.updatePreview();
+    },
+
+    updatePatternPreviewLabels() {
+        const patterns = CoverCore.getPatterns(this.currentLang);
+        const cards = document.querySelectorAll('#patternPreviewContent .pattern-card');
+        
+        cards.forEach((card, index) => {
+            if (patterns[index]) {
+                const newName = patterns[index].name;
+                const label = card.querySelector('.pattern-name-overlay');
+                if (label) {
+                    label.textContent = newName;
+                }
+                card.dataset.patternName = newName;
+                
+                // 关键：如果该卡片在选中集合中，同步更新 Set 中的 name
+                const code = card.dataset.patternCode;
+                for (const item of this.selectedPatterns) {
+                    if (item.code === code) {
+                        item.name = newName; // 更新为当前语言名称
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // 更新标题
+        const title = document.querySelector('#patternPreviewPanel .panel-title span[data-i18n]');
+        if (title) {
+            title.textContent = CoverCore.getText('panel.patternPreview', this.currentLang);
+        }
     },
 
     toggleTheme() {
@@ -4987,7 +6026,301 @@ const CoverLabUI = {
         bar.textContent = text;
         bar.classList.add('show');
         setTimeout(() => bar.classList.remove('show'), 2000);
-    }
+    },
+
+    selectedPatterns: new Set(),
+
+    // 切换图案预览面板
+    togglePatternPreviewPanel() {
+        const panel = document.getElementById('patternPreviewPanel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            // 强制重置所有定位属性，避免继承其他面板的样式
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            panel.style.transform = 'none';
+            panel.style.display = 'flex';
+            panel.style.opacity = '0';
+            
+            // 先设置一个默认居中位置（使用left/top，不用transform）
+            const defaultWidth = 720;
+            const defaultHeight = 650;
+            panel.style.width = defaultWidth + 'px';
+            panel.style.height = defaultHeight + 'px';
+            panel.style.left = (window.innerWidth - defaultWidth) / 2 + 'px';
+            panel.style.top = (window.innerHeight - defaultHeight) / 2 + 'px';
+            
+            // 初始化拖拽头部
+            this.initPanel('patternPreviewPanel', 'patternPreviewHeader');
+            
+            // 生成内容（如果是首次打开）
+            if (!panel.dataset.initialized) {
+                this.generatePatternPreviews();
+                panel.dataset.initialized = 'true';
+            }
+            
+            // 延迟初始化resize和显示
+            setTimeout(() => {
+                this.initResizeHandlesForPanel(panel);
+                panel.style.opacity = '1';
+            }, 50);
+        } else {
+            this.closePatternPreviewPanel();
+        }
+    },
+
+    initResizeHandlesForPanel(panel) {
+        panel.querySelectorAll('.resize-handle').forEach(handle => {
+            // 避免重复绑定
+            const newHandle = handle.cloneNode(true);
+            handle.parentNode.replaceChild(newHandle, handle);
+            
+            newHandle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const direction = newHandle.dataset.direction;
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startW = panel.offsetWidth;
+                const startH = panel.offsetHeight;
+                
+                // 获取当前实际位置（考虑可能存在的transform）
+                const rect = panel.getBoundingClientRect();
+                const computedStyle = window.getComputedStyle(panel);
+                let startL = rect.left;
+                let startT = rect.top;
+                
+                // 如果有transform，将其转换为left/top
+                if (computedStyle.transform && computedStyle.transform !== 'none') {
+                    panel.style.transform = 'none';
+                    panel.style.left = startL + 'px';
+                    panel.style.top = startT + 'px';
+                }
+
+                const onMove = (e) => {
+                    e.preventDefault();
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    
+                    if (direction.includes('e')) {
+                        panel.style.width = Math.max(320, startW + dx) + 'px';
+                    }
+                    if (direction.includes('s')) {
+                        panel.style.height = Math.max(400, startH + dy) + 'px';
+                    }
+                    if (direction.includes('w')) {
+                        const newW = Math.max(320, startW - dx);
+                        panel.style.width = newW + 'px';
+                        panel.style.left = (startL + startW - newW) + 'px';
+                    }
+                    if (direction.includes('n')) {
+                        const newH = Math.max(400, startH - dy);
+                        panel.style.height = newH + 'px';
+                        panel.style.top = (startT + startH - newH) + 'px';
+                    }
+                };
+                
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        });
+    },
+
+    // 关闭图案预览面板
+    closePatternPreviewPanel() {
+        document.getElementById('patternPreviewPanel').style.display = 'none';
+        // 清空选中状态
+        this.selectedPatterns.clear();
+        this.updatePatternSelectCount();
+    },
+
+    // 生成所有图案预览
+    generatePatternPreviews() {
+        const container = document.getElementById('patternPreviewContent');
+        container.innerHTML = '';
+        
+        const patterns = CoverCore.getPatterns(this.currentLang);
+        
+        patterns.forEach((pattern, index) => {
+            const card = document.createElement('div');
+            card.className = 'pattern-card';
+            card.dataset.patternId = pattern.id;
+            card.dataset.patternCode = pattern.code;
+            card.dataset.patternName = pattern.name;
+            
+            // 创建Canvas直接绘制图案，不使用版式
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300; // 1:1正方形
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.aspectRatio = '1/1';
+            canvas.style.borderRadius = '4px';
+            canvas.style.background = '#0a0a0f'; // 深色背景
+            
+            // 延迟绘制避免阻塞
+            setTimeout(() => {
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const w = 300, h = 300;
+                    
+                    // 使用 CoverCore 暴露的方法
+                    const seed = 12345 + index;
+                    const palette = CoverCore.generatePalette(seed, 'auto');
+                    
+                    // 绘制背景
+                    ctx.fillStyle = palette.bg;
+                    ctx.fillRect(0, 0, w, h);
+                    
+                    // 设置图案绘制颜色
+                    ctx.strokeStyle = palette.accent;
+                    ctx.fillStyle = palette.accent;
+                    
+                    // 获取参数并绘制纯图案 - 使用 CoverCore 暴露的方法
+                    const p = CoverCore.extractParams(seed, 40);
+                    const drawer = CoverCore.PatternDrawers[pattern.code];
+                    if (drawer) {
+                        ctx.save();
+                        drawer(ctx, w, h, p, 0.8); // 0.8密度
+                        ctx.restore();
+                    }
+                    
+                } catch (e) {
+                    console.error('Pattern draw error:', e);
+                }
+            }, index * 20);
+            
+            card.appendChild(canvas);
+            
+            // 悬浮名称（绝对定位）
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'pattern-name-overlay';
+            nameLabel.textContent = pattern.name;
+            card.appendChild(nameLabel);
+            
+            // 点击事件
+            card.addEventListener('click', (e) => {
+                this.togglePatternSelection(card, pattern, e);
+            });
+            
+            container.appendChild(card);
+        });
+    },
+
+    // 切换图案选中状态
+    togglePatternSelection(cardElement, pattern, event) {
+        const isSelected = cardElement.classList.contains('selected');
+        
+        if (isSelected) {
+            // 已选中 -> 取消选中
+            cardElement.classList.remove('selected');
+            // 从 Set 中删除（通过 code 匹配）
+            for (const item of this.selectedPatterns) {
+                if (item.code === pattern.code) {
+                    this.selectedPatterns.delete(item);
+                    break;
+                }
+            }
+        } else {
+            // 未选中 -> 选中（添加到 Set）
+            cardElement.classList.add('selected');
+            this.selectedPatterns.add({
+                id: pattern.id,
+                code: pattern.code,
+                name: pattern.name
+            });
+        }
+        
+        this.updatePatternSelectCount();
+    },
+
+    // 更新选中计数和复制按钮状态
+    updatePatternSelectCount() {
+        const countSpan = document.getElementById('patternSelectCount');
+        const copyBtn = document.getElementById('copyPatternsBtn');
+        const clearBtn = document.getElementById('clearPatternsBtn');
+        
+        if (this.selectedPatterns.size > 0) {
+            countSpan.textContent = `(${this.selectedPatterns.size})`;
+            copyBtn.style.opacity = '1';
+            copyBtn.style.pointerEvents = 'auto';
+            clearBtn.style.opacity = '1';        // 启用清除按钮
+            clearBtn.style.pointerEvents = 'auto';
+        } else {
+            countSpan.textContent = '';
+            copyBtn.style.opacity = '0.5';
+            copyBtn.style.pointerEvents = 'none';
+            clearBtn.style.opacity = '0.5';      // 禁用清除按钮
+            clearBtn.style.pointerEvents = 'none';
+        }
+    },
+
+    // 取消所有选择
+    clearPatternSelection() {
+        if (this.selectedPatterns.size === 0) return;
+        
+        // 清空 Set
+        this.selectedPatterns.clear();
+        
+        // 移除所有卡片的选中样式
+        document.querySelectorAll('#patternPreviewContent .pattern-card.selected').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // 更新按钮状态
+        this.updatePatternSelectCount();
+        
+        this.showHint(CoverCore.getText('hint.selectionCleared', this.currentLang));
+    },
+
+    // 复制选中的图案名称
+    copySelectedPatterns() {
+        if (this.selectedPatterns.size === 0) {
+            this.showHint(CoverCore.getText('hint.selectFirst', this.currentLang));
+            return;
+        }
+        
+        // 按 id 排序后获取名称
+        const sorted = Array.from(this.selectedPatterns).sort((a, b) => a.id - b.id);
+        const names = sorted.map(p => p.name).join(', ');
+        
+        // 复制到剪贴板...
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(names).then(() => {
+                this.showHint(`${CoverCore.getText('hint.copied', this.currentLang)} ${this.selectedPatterns.size} ${CoverCore.getText('hint.copiedPatternCount', this.currentLang)}`);
+            }).catch(() => this.fallbackCopyText(names));
+        } else {
+            this.fallbackCopyText(names);
+        }
+    },
+
+    // 降级复制方案
+    fallbackCopyText(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.cssText = 'position:fixed; opacity:0; pointer-events:none;';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                this.showHint(`${CoverCore.getText('hint.copied', this.currentLang)} ${this.selectedPatterns.size} ${CoverCore.getText('hint.copiedPatternCount', this.currentLang)}`);
+            } else {
+                throw new Error('execCommand failed');
+            }
+        } catch (err) {
+            console.error('Copy failed:', err);
+            this.showHint(CoverCore.getText('hint.copyFailed', this.currentLang));
+        }
+        
+        document.body.removeChild(textarea);
+    },
 };
 
 const app = CoverLabUI;

@@ -38,8 +38,13 @@ Lumina.ShareCard = {
     // 响应式基础宽度
     getBaseWidth() {
         const vw = window.innerWidth;
+        const vh = window.innerHeight;
         if (vw < 640) return Math.max(320, vw - 40);
-        return 600;
+        let w = 600.0;
+        if (vw / w * vh > vh) {
+            w = (vh - 40) / 3 * 2;
+        }
+        return w;
     },
     
     show(selectedText) {
@@ -66,7 +71,7 @@ Lumina.ShareCard = {
         this.bookInfo = {
             chapterTitle: chapter?.title || '',
             bookTitle: file?.metadata?.title || file?.title || file?.name?.replace(/\.[^/.]+$/, '') || 'Untitled',
-            author: file?.metadata?.author || '佚名'
+            author: file?.metadata?.author || Lumina.I18n.t('anonymousAuthor') || '佚名'
         };
         
         this.usedSeeds.clear();

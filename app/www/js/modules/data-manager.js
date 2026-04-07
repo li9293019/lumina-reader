@@ -2014,7 +2014,11 @@ Lumina.DataManager = class {
                         await this.handleBatchImport(data.books);
                     else if (data.fileName && Array.isArray(data.content))
                         await this.importJSONFile(file);
-                    else
+                    else if (data.version && data.reading) {
+                        // 配置文件
+                        console.log('[FilePicker] 检测为配置文件');
+                        await Lumina.Settings.handleConfigImport(file);
+                    } else
                         throw new Error('Invalid format');
                 }
             } catch (err) {
@@ -2028,6 +2032,9 @@ Lumina.DataManager = class {
     // 导入 .lmn 加密文件（支持 base64 文本格式和二进制格式兼容）
     async importLmnFile(file) {
         console.log('[Import LMN] 开始导入:', file.name, 'size:', file.size);
+        
+        // 检测是否为配置文件（通过文件名）
+        const isConfigFile = file.name.toLowerCase().includes('config');
         
         let binary;
         try {
@@ -2054,6 +2061,18 @@ Lumina.DataManager = class {
         } catch (e) {
             console.error('[Import LMN] 读取文件失败:', e);
             throw new Error('读取文件失败: ' + e.message);
+        }
+        
+        // 如果是配置文件，尝试配置文件导入流程
+        if (isConfigFile) {
+            console.log('[Import LMN] 检测到可能的配置文件，尝试配置导入');
+            try {
+                await this.importLmnConfig(binary.buffer || binary, file.name);
+                return;
+            } catch (configErr) {
+                // 配置文件导入失败，继续尝试书籍导入
+                console.log('[Import LMN] 配置文件导入失败，尝试书籍导入:', configErr.message);
+            }
         }
         
         // 检测是否为 .lmn 格式
@@ -2089,6 +2108,9 @@ Lumina.DataManager = class {
                 await this.handleBatchImport(data.books);
             } else if (data.fileName && Array.isArray(data.content)) {
                 await this.importDataToDB(data);
+            } else if (data.version && data.reading) {
+                // 配置文件（文件名不含 config 的情况）
+                await this.importLmnConfigData(data);
             } else {
                 throw new Error('无效的文件格式');
             }

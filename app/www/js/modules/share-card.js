@@ -697,6 +697,8 @@ Lumina.ShareCard = {
         
         // 高 DPI 设置
         const dpr = Math.min(Math.max(window.devicePixelRatio || 1, minScale), maxScale);
+
+        Lumina.UI.showDialog(`window.innerWidth:${window.innerWidth} width:${baseWidth}, height:${height}`);
         
         // 创建 Canvas
         const canvas = document.createElement('canvas');

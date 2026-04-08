@@ -1892,6 +1892,76 @@ Lumina.DataManager = class {
         if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
         Lumina.I18n.updateUI();
         Lumina.UI.showToast(t('configImportSuccess') || '配置导入成功');
+        
+        // 重新加载并激活自定义字体
+        if (data.customFonts && data.customFonts.length > 0) {
+            await this.reloadCustomFonts(data.customFonts);
+        }
+    }
+    
+    // 重新加载自定义字体（导入配置后调用）
+    async reloadCustomFonts(customFonts) {
+        const t = Lumina.I18n?.t || ((k) => k);
+        let loadedCount = 0;
+        let missingFonts = [];
+        let failedFonts = [];
+        
+        console.log('[FontReload] 开始加载', customFonts.length, '个自定义字体');
+        
+        for (const font of customFonts) {
+            console.log('[FontReload] 检查字体:', font.name, 'storedName:', font.storedName);
+            
+            // 检查私有目录是否存在
+            let ttfExists = await Lumina.FontManager._checkFontFileExists(font.storedName);
+            console.log('[FontReload] 私有目录 TTF 存在:', ttfExists);
+            
+
+            if (ttfExists) {
+                // 确保字体在 FontManager 的列表中
+                if (!Lumina.FontManager.customFonts.find(f => f.id === font.id)) {
+                    Lumina.FontManager.customFonts.push(font);
+                    console.log('[FontReload] 添加到列表:', font.id);
+                }
+                
+                // 加载字体（使用内联 CSS 注入）
+                try {
+                    await Lumina.FontManager.loadFont(font.id);
+                    console.log('[FontReload] 字体加载成功:', font.name);
+                    loadedCount++;
+                } catch (e) {
+                    console.error('[FontReload] 加载字体失败:', font.name, e);
+                    failedFonts.push({ font, error: e.message });
+                }
+            } else {
+                console.log('[FontReload] TTF 不存在:', font.storedName);
+                missingFonts.push(font);
+            }
+        }
+        
+        // 保存更新后的字体列表
+        await Lumina.FontManager._saveCustomFonts();
+        
+        console.log('[FontReload] 结果: 成功', loadedCount, '缺失', missingFonts.length, '失败', failedFonts.length);
+        
+        // 如果有加载失败的字体，提示用户
+        if (failedFonts.length > 0) {
+            const failedNames = failedFonts.map(f => f.font.name).join(', ');
+            Lumina.UI.showToast(`字体加载失败: ${failedNames}`);
+        }
+        
+        // 有缺失字体时静默清理配置（现在通过配置内嵌字体数据恢复）
+        if (missingFonts.length > 0) {
+            console.log('[FontReload] 清理缺失字体配置:', missingFonts.length);
+            const current = Lumina.ConfigManager.get('customFonts') || [];
+            const missingIds = missingFonts.map(f => f.id);
+            const remaining = current.filter(f => !missingIds.includes(f.id));
+            Lumina.ConfigManager.set('customFonts', remaining);
+            Lumina.FontManager.customFonts = remaining;
+        }
+        
+        if (loadedCount > 0) {
+            Lumina.UI.showToast(`成功加载 ${loadedCount} 个自定义字体`);
+        }
     }
     
     // 导入加密的 LMN 配置文件

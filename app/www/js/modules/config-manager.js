@@ -185,6 +185,11 @@ Lumina.ConfigManager = {
     async export(encrypt = false) {
         const config = this.load();
         
+        // 如果有自定义字体，打包字体文件数据（用于重装后恢复）
+        if (config.customFonts?.length > 0) {
+            config.customFontsData = await this._packCustomFonts(config.customFonts);
+        }
+        
         if (encrypt) {
             // 使用 Lumina 专用 .lmn 格式加密
             const password = await this._requestPassword('set');
@@ -203,6 +208,129 @@ Lumina.ConfigManager = {
         }
         
         return JSON.stringify(config, null, 2);
+    },
+    
+    // 打包自定义字体文件为 base64（用于配置导出）
+    async _packCustomFonts(customFonts) {
+        const fontsData = [];
+        
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            const { Filesystem } = Capacitor.Plugins;
+            
+            for (const font of customFonts) {
+                try {
+                    // 优先从私有目录读取
+                    let result = null;
+                    try {
+                        result = await Filesystem.readFile({
+                            path: `fonts/user/${font.storedName}`,
+                            directory: 'DATA'
+                        });
+                    } catch {
+                        // 私有目录没有，尝试 Documents
+                        try {
+                            result = await Filesystem.readFile({
+                                path: `fonts/user/${font.storedName}`,
+                                directory: 'DOCUMENTS'
+                            });
+                        } catch {}
+                    }
+                    
+                    if (result?.data) {
+                        fontsData.push({
+                            id: font.id,
+                            name: font.name,
+                            fileName: font.fileName,
+                            storedName: font.storedName,
+                            data: typeof result.data === 'string' ? result.data : await this._arrayBufferToBase64(result.data)
+                        });
+                        console.log('[ConfigManager] 打包字体:', font.name);
+                    }
+                } catch (e) {
+                    console.warn('[ConfigManager] 打包字体失败:', font.name, e);
+                }
+            }
+        }
+        
+        return fontsData;
+    },
+    
+    // 从配置中的字体数据恢复（重装后无需文件权限）
+    async _restoreFontsFromConfig(customFonts, fontsData) {
+        if (!fontsData || fontsData.length === 0) {
+            console.log('[ConfigManager] 配置中没有字体数据，尝试从文件恢复');
+            // 回退到文件恢复方式
+            Lumina.DataManager?.reloadCustomFonts?.(customFonts);
+            return;
+        }
+        
+        let restoredCount = 0;
+        
+        for (const fontData of fontsData) {
+            try {
+                // 解码 base64 并保存到私有目录
+                const binary = atob(fontData.data);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                
+                await Lumina.FontManager._saveFontFile(fontData.storedName, bytes.buffer);
+                
+                // 添加到 FontManager
+                const fontInfo = customFonts.find(f => f.id === fontData.id);
+                if (fontInfo && !Lumina.FontManager.customFonts.find(f => f.id === fontData.id)) {
+                    Lumina.FontManager.customFonts.push(fontInfo);
+                }
+                
+                // 加载字体
+                await Lumina.FontManager.loadFont(fontData.id);
+                
+                restoredCount++;
+                console.log('[ConfigManager] 恢复字体成功:', fontData.name);
+            } catch (e) {
+                console.error('[ConfigManager] 恢复字体失败:', fontData.name, e);
+            }
+        }
+        
+        // 保存字体列表
+        await Lumina.FontManager._saveCustomFonts();
+        
+        if (restoredCount > 0) {
+            Lumina.UI.showToast(`成功恢复 ${restoredCount} 个自定义字体`);
+        }
+        
+        console.log('[ConfigManager] 字体恢复完成:', restoredCount, '/', fontsData.length);
+        
+        // 如果配置中当前字体是自定义字体，应用它
+        const currentFont = Lumina.ConfigManager.get('reading.font');
+        if (currentFont && currentFont.startsWith('cf_')) {
+            const fontExists = Lumina.FontManager.getFont(currentFont);
+            if (fontExists) {
+                console.log('[ConfigManager] 应用配置中的自定义字体:', currentFont);
+                // 应用字体到阅读器
+                if (Lumina.Reader) {
+                    Lumina.Reader.applyFont(currentFont);
+                }
+                // 更新设置面板显示
+                Lumina.Settings?.renderFontButtons?.();
+            } else {
+                console.warn('[ConfigManager] 配置中的字体不存在:', currentFont);
+            }
+        }
+    },
+    
+    // ArrayBuffer 转 Base64
+    async _arrayBufferToBase64(buffer) {
+        if (typeof buffer === 'string') return buffer;
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 65536;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, chunk);
+        }
+        return btoa(binary);
     },
     
     // ========== 导入配置（恢复） ==========
@@ -248,12 +376,12 @@ Lumina.ConfigManager = {
             
             this.save(merged);
             
-            // 导入成功后重新初始化字体管理器
+            // 导入成功后恢复字体（从配置中打包的数据直接恢复，无需文件权限）
             if (merged.customFonts?.length > 0) {
                 console.log('[ConfigManager] 导入配置包含', merged.customFonts.length, '个自定义字体');
                 // 延迟执行，确保配置已保存
                 setTimeout(() => {
-                    Lumina.FontManager?.init?.().then(() => {
+                    this._restoreFontsFromConfig(merged.customFonts, merged.customFontsData).then(() => {
                         // 更新设置面板的字体按钮
                         Lumina.Settings?.renderFontButtons?.();
                         console.log('[ConfigManager] 字体面板已更新');

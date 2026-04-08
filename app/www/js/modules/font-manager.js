@@ -214,23 +214,63 @@ Lumina.FontManager = {
         if (font.isBuiltIn) {
             if (font.cssUrl) await this._loadCSS(font.cssUrl);
         } else {
-            // APP 环境：加载 CSS 文件（使用 convertFileSrc 转换路径）
-            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-                // 先获取 CSS 文件的绝对路径，再转换为 WebView URL
-                const cssStat = await Capacitor.Plugins.Filesystem.stat({
-                    path: `${this.FONT_DIR}/${font.id}.css`,
-                    directory: 'DOCUMENTS'
-                });
-                const fileUrl = Capacitor.convertFileSrc(cssStat.uri);
-                await this._loadCSS(fileUrl);
-            }
-            // Web 环境：重新生成 CSS（确保 Blob URL 有效）
-            else {
-                await this._generateFontCSS(fontId, font.family, font.storedName);
-            }
+            // 统一使用内联 CSS 注入，避免重装后文件访问权限问题
+            await this._injectFontCSS(font);
         }
         
         this.loadedFonts.add(fontId);
+    },
+    
+    // 直接注入字体 CSS 到页面（使用私有目录，有完整权限）
+    async _injectFontCSS(font) {
+        const safeFontName = font.name.replace(/['"\\]/g, '\\$&');
+        
+        // 检查是否已存在
+        const existingStyle = document.getElementById(`font-style-${font.id}`);
+        if (existingStyle) return;
+        
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            // APP 环境：读取字体文件为 base64，内联到 CSS 中
+            try {
+                const { Filesystem } = Capacitor.Plugins;
+                const result = await Filesystem.readFile({
+                    path: `${this.FONT_DIR}/${font.storedName}`,
+                    directory: 'DATA'  // 使用私有目录，有完整权限
+                });
+                
+                // result.data 是 base64 字符串
+                const base64Data = typeof result.data === 'string' ? result.data : await this._arrayBufferToBase64(result.data);
+                const fontUrl = `data:font/ttf;base64,${base64Data}`;
+                
+                const css = `@font-face{font-family:'${safeFontName}';src:url('${fontUrl}') format('truetype');font-display:swap}`;
+                
+                const style = document.createElement('style');
+                style.id = `font-style-${font.id}`;
+                style.textContent = css;
+                document.head.appendChild(style);
+                
+                console.log('[FontManager] CSS 内联注入成功:', font.name);
+            } catch (e) {
+                console.error('[FontManager] 内联字体注入失败:', font.name, e);
+                throw e;
+            }
+        } else {
+            // Web 环境：使用 Blob URL
+            await this._generateFontCSS(font.id, font.name, font.storedName);
+        }
+    },
+    
+    // ArrayBuffer 转 Base64
+    async _arrayBufferToBase64(buffer) {
+        if (typeof buffer === 'string') return buffer;
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 65536;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, chunk);
+        }
+        return btoa(binary);
     },
     
     // 添加自定义字体
@@ -257,8 +297,10 @@ Lumina.FontManager = {
             const fontId = `cf_${Date.now().toString(36)}`;
             const storedName = `${fontId}.ttf`;
             
+            // 保存到私有目录（用于 APP 内使用）
             await this._saveFontFile(storedName, arrayBuffer);
-            await this._generateFontCSS(fontId, fontName, storedName);
+            // 同时保存到 Documents（用于导出配置时恢复）
+            await this._saveFontFileToDocuments(storedName, arrayBuffer);
             
             const fontInfo = {
                 id: fontId,
@@ -294,10 +336,13 @@ Lumina.FontManager = {
         
         try {
             await this._deleteFontFile(font.storedName);
-            await this._deleteFontCSS(fontId);
         } catch (e) {
             console.warn('[FontManager] 删除文件失败:', e);
         }
+        
+        // 清理页面上的 style 标签
+        const styleEl = document.getElementById(`font-style-${fontId}`);
+        if (styleEl) styleEl.remove();
         
         this.customFonts.splice(index, 1);
         this.loadedFonts.delete(fontId);
@@ -350,14 +395,14 @@ Lumina.FontManager = {
     },
     
     async _saveFontFile(fileName, arrayBuffer) {
-        // APP 环境：保存到沙盒
+        // APP 环境：保存到 APP 私有目录（有完整读写权限）
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
             const { Filesystem } = Capacitor.Plugins;
             
             try {
                 await Filesystem.mkdir({
                     path: this.FONT_DIR,
-                    directory: 'DOCUMENTS',
+                    directory: 'DATA',
                     recursive: true
                 });
             } catch {}
@@ -374,7 +419,7 @@ Lumina.FontManager = {
             await Filesystem.writeFile({
                 path: `${this.FONT_DIR}/${fileName}`,
                 data: base64,
-                directory: 'DOCUMENTS'
+                directory: 'DATA'
             });
         }
         // Web 环境：保存到 IndexedDB
@@ -387,6 +432,40 @@ Lumina.FontManager = {
                 request.onsuccess = () => resolve();
                 request.onerror = () => reject(request.error);
             });
+        }
+    },
+    
+    // 同时保存到 Documents 目录（用于导出配置时携带字体）
+    async _saveFontFileToDocuments(fileName, arrayBuffer) {
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            const { Filesystem } = Capacitor.Plugins;
+            
+            try {
+                await Filesystem.mkdir({
+                    path: this.FONT_DIR,
+                    directory: 'DOCUMENTS',
+                    recursive: true
+                });
+            } catch {}
+            
+            const bytes = new Uint8Array(arrayBuffer);
+            const chunkSize = 65536;
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            const base64 = btoa(binary);
+            
+            try {
+                await Filesystem.writeFile({
+                    path: `${this.FONT_DIR}/${fileName}`,
+                    data: base64,
+                    directory: 'DOCUMENTS'
+                });
+            } catch (e) {
+                console.warn('[FontManager] 保存到 Documents 失败:', e);
+            }
         }
     },
     
@@ -462,6 +541,14 @@ Lumina.FontManager = {
     
     async _deleteFontFile(fileName) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            // 删除私有目录中的文件
+            try {
+                await Capacitor.Plugins.Filesystem.deleteFile({
+                    path: `${this.FONT_DIR}/${fileName}`,
+                    directory: 'DATA'
+                });
+            } catch {}
+            // 删除 Documents 中的备份
             try {
                 await Capacitor.Plugins.Filesystem.deleteFile({
                     path: `${this.FONT_DIR}/${fileName}`,
@@ -520,32 +607,26 @@ Lumina.FontManager = {
     async _loadCustomFonts() {
         try {
             const data = Lumina.ConfigManager.get(this.STORAGE_KEY);
-            console.log('[FontManager] 加载自定义字体:', data);
-            if (Array.isArray(data) && data.length > 0) {
-                // 验证每个字体文件是否存在
-                const validFonts = [];
-                for (const font of data) {
-                    const exists = await this._checkFontFileExists(font.storedName);
-                    if (exists) {
-                        validFonts.push(font);
-                    } else {
-                        console.warn('[FontManager] 字体文件不存在，跳过:', font.name);
-                    }
-                }
-                
-                this.customFonts = validFonts;
-                
-                // 如果有无效字体，更新存储
-                if (validFonts.length !== data.length) {
-                    await this._saveCustomFonts();
-                }
-                
-                // 预加载所有自定义字体CSS
-                for (const font of this.customFonts) {
+            if (!Array.isArray(data) || data.length === 0) {
+                this.customFonts = [];
+                return;
+            }
+            
+            // 简单过滤：只保留文件存在的字体
+            const validFonts = [];
+            for (const font of data) {
+                if (await this._checkFontFileExists(font.storedName)) {
+                    validFonts.push(font);
+                    // 预加载CSS
                     this.loadFont(font.id).catch(() => {});
                 }
-            } else {
-                this.customFonts = [];
+            }
+            
+            this.customFonts = validFonts;
+            
+            // 如果有失效字体，静默更新存储（不提示用户）
+            if (validFonts.length !== data.length) {
+                await this._saveCustomFonts();
             }
         } catch (err) {
             console.error('[FontManager] 加载自定义字体失败:', err);
@@ -553,14 +634,14 @@ Lumina.FontManager = {
         }
     },
     
-    // 检查字体文件是否存在
+    // 检查字体文件是否存在（在私有 DATA 目录中）
     async _checkFontFileExists(fileName) {
-        // APP 环境：检查文件系统
+        // APP 环境：检查私有目录
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
             try {
                 await Capacitor.Plugins.Filesystem.stat({
                     path: `${this.FONT_DIR}/${fileName}`,
-                    directory: 'DOCUMENTS'
+                    directory: 'DATA'
                 });
                 return true;
             } catch {
@@ -583,6 +664,22 @@ Lumina.FontManager = {
                 return false;
             }
         }
+    },
+    
+    // 检查 Documents 目录中是否有备份字体（用于导入配置时恢复）
+    async _checkFontBackupExists(fileName) {
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            try {
+                await Capacitor.Plugins.Filesystem.stat({
+                    path: `${this.FONT_DIR}/${fileName}`,
+                    directory: 'DOCUMENTS'
+                });
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        return false;
     },
     
     async _saveCustomFonts() {

@@ -142,10 +142,27 @@ Lumina.ConfigManager = {
         try {
             config.version = this.CURRENT_VERSION;
             config.lastModified = Date.now();
+            
+            // 保存前临时移除字体数据（避免超出 LocalStorage 配额）
+            const fontsData = config.customFontsData;
+            if (fontsData) {
+                delete config.customFontsData;
+            }
+            
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(config));
+            
+            // 恢复字体数据（如果需要）
+            if (fontsData) {
+                config.customFontsData = fontsData;
+            }
+            
             return true;
         } catch (e) {
             console.error('[ConfigManager] 保存配置失败:', e);
+            // 如果是配额错误，提示用户
+            if (e.name === 'QuotaExceededError') {
+                Lumina.UI.showToast('配置保存失败：存储空间不足，请清理一些数据');
+            }
             return false;
         }
     },
@@ -185,9 +202,13 @@ Lumina.ConfigManager = {
     async export(encrypt = false) {
         const config = this.load();
         
-        // 如果有自定义字体，打包字体文件数据（用于重装后恢复）
-        if (config.customFonts?.length > 0) {
-            config.customFontsData = await this._packCustomFonts(config.customFonts);
+        // 如果有自定义字体，打包字体文件数据（仅 APP 端，用于重装后恢复）
+        // PC 端不打包，因为 Web 端 IndexedDB 会保留，且 LocalStorage 配额有限
+        if (config.customFonts?.length > 0 && typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            const fontsData = await this._packCustomFonts(config.customFonts);
+            if (fontsData.length > 0) {
+                config.customFontsData = fontsData;
+            }
         }
         
         if (encrypt) {
@@ -257,10 +278,24 @@ Lumina.ConfigManager = {
     
     // 从配置中的字体数据恢复（重装后无需文件权限）
     async _restoreFontsFromConfig(customFonts, fontsData) {
+        // Web 端（PC）：字体数据不存在，直接从 IndexedDB 加载
         if (!fontsData || fontsData.length === 0) {
-            console.log('[ConfigManager] 配置中没有字体数据，尝试从文件恢复');
-            // 回退到文件恢复方式
-            Lumina.DataManager?.reloadCustomFonts?.(customFonts);
+            console.log('[ConfigManager] Web 端导入：从 IndexedDB 加载字体');
+            // 将字体配置添加到 FontManager
+            for (const font of customFonts) {
+                if (!Lumina.FontManager.customFonts.find(f => f.id === font.id)) {
+                    Lumina.FontManager.customFonts.push(font);
+                }
+            }
+            await Lumina.FontManager._saveCustomFonts();
+            // 加载字体
+            for (const font of customFonts) {
+                try {
+                    await Lumina.FontManager.loadFont(font.id);
+                } catch (e) {
+                    console.warn('[ConfigManager] 加载字体失败:', font.name, e);
+                }
+            }
             return;
         }
         
@@ -301,23 +336,98 @@ Lumina.ConfigManager = {
         }
         
         console.log('[ConfigManager] 字体恢复完成:', restoredCount, '/', fontsData.length);
+    },
+    
+    // 从 Documents 目录恢复字体（APP 端导入 PC 端配置时使用）
+    async _restoreFontsFromDocuments(customFonts) {
+        const { Filesystem } = Capacitor?.Plugins || {};
+        if (!Filesystem) return;
         
-        // 如果配置中当前字体是自定义字体，应用它
-        const currentFont = Lumina.ConfigManager.get('reading.font');
-        if (currentFont && currentFont.startsWith('cf_')) {
-            const fontExists = Lumina.FontManager.getFont(currentFont);
-            if (fontExists) {
-                console.log('[ConfigManager] 应用配置中的自定义字体:', currentFont);
-                // 应用字体到阅读器
-                if (Lumina.Reader) {
-                    Lumina.Reader.applyFont(currentFont);
+        let restoredCount = 0;
+        let missingFonts = [];
+        
+        for (const font of customFonts) {
+            try {
+                // 检查 Documents 中是否有备份
+                const stat = await Filesystem.stat({
+                    path: `fonts/user/${font.storedName}`,
+                    directory: 'DOCUMENTS'
+                });
+                
+                if (stat) {
+                    // 读取字体文件
+                    const result = await Filesystem.readFile({
+                        path: `fonts/user/${font.storedName}`,
+                        directory: 'DOCUMENTS'
+                    });
+                    
+                    // 保存到私有目录
+                    await Lumina.FontManager._saveFontFile(font.storedName, result.data);
+                    
+                    // 添加到 FontManager
+                    if (!Lumina.FontManager.customFonts.find(f => f.id === font.id)) {
+                        Lumina.FontManager.customFonts.push(font);
+                    }
+                    
+                    // 加载字体
+                    await Lumina.FontManager.loadFont(font.id);
+                    
+                    restoredCount++;
+                    console.log('[ConfigManager] 从 Documents 恢复字体:', font.name);
                 }
-                // 更新设置面板显示
-                Lumina.Settings?.renderFontButtons?.();
-            } else {
-                console.warn('[ConfigManager] 配置中的字体不存在:', currentFont);
+            } catch (e) {
+                // 文件不存在或读取失败
+                console.warn('[ConfigManager] Documents 中没有字体:', font.name);
+                missingFonts.push(font);
             }
         }
+        
+        // 保存字体列表
+        await Lumina.FontManager._saveCustomFonts();
+        
+        if (restoredCount > 0) {
+            Lumina.UI.showToast(`从 Documents 恢复 ${restoredCount} 个字体`);
+        }
+        
+        if (missingFonts.length > 0) {
+            console.log('[ConfigManager] 以下字体未找到，需要手动添加:', missingFonts.map(f => f.name).join(', '));
+            setTimeout(() => {
+                Lumina.UI.showToast(`${missingFonts.length} 个字体未找到，请手动添加`);
+            }, 500);
+        }
+    },
+    
+    // 应用配置中指定的字体
+    async _applyCurrentFont(fontId) {
+        if (!fontId) return;
+        
+        console.log('[ConfigManager] 应用配置中的字体:', fontId);
+        
+        // 等待字体管理器就绪
+        if (!Lumina.FontManager.customFonts) {
+            await new Promise(r => setTimeout(r, 100));
+        }
+        
+        // 检查字体是否存在
+        const fontExists = Lumina.FontManager.getFont(fontId);
+        if (!fontExists) {
+            console.warn('[ConfigManager] 配置中的字体不存在，使用默认:', fontId);
+            return;
+        }
+        
+        // 应用字体
+        console.log('[ConfigManager] 字体存在，应用到阅读器:', fontId);
+        
+        // 更新设置面板
+        Lumina.Settings?.renderFontButtons?.();
+        
+        // 应用到阅读器
+        if (Lumina.Reader?.applyFont) {
+            Lumina.Reader.applyFont(fontId);
+        }
+        
+        // 触发自定义事件通知字体已更改
+        window.dispatchEvent(new CustomEvent('fontChanged', { detail: { fontId } }));
     },
     
     // ArrayBuffer 转 Base64
@@ -374,20 +484,41 @@ Lumina.ConfigManager = {
             merged.meta.importCount = (current.meta.importCount || 0) + 1;
             merged.meta.lastImport = Date.now();
             
+            // 处理跨平台字体导入
+            const isApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem;
+            const hasFontData = merged.customFontsData?.length > 0;
+            
+            if (merged.customFonts?.length > 0) {
+                if (isApp && hasFontData) {
+                    // APP 端导入含字体数据的配置（正常流程）
+                    console.log('[ConfigManager] APP 导入：恢复', merged.customFonts.length, '个字体');
+                    await this._restoreFontsFromConfig(merged.customFonts, merged.customFontsData);
+                    delete merged.customFontsData;
+                } else if (isApp && !hasFontData) {
+                    // APP 端导入不含字体数据的配置（来自 PC）
+                    console.log('[ConfigManager] APP 导入 PC 配置：尝试从 Documents 恢复字体');
+                    await this._restoreFontsFromDocuments(merged.customFonts);
+                } else if (!isApp && hasFontData) {
+                    // PC 端导入含字体数据的配置（来自 APP）
+                    console.log('[ConfigManager] PC 导入 APP 配置：字体数据忽略，保留配置');
+                    // 保存字体配置但不保存字体数据
+                    delete merged.customFontsData;
+                    // 提示用户需要重新添加字体
+                    setTimeout(() => {
+                        Lumina.UI.showToast('自定义字体配置已导入，请手动重新添加字体文件');
+                    }, 500);
+                } else {
+                    // PC 端导入不含字体数据的配置（正常 PC 间导入）
+                    console.log('[ConfigManager] PC 导入：从 IndexedDB 加载字体');
+                    await this._restoreFontsFromConfig(merged.customFonts, null);
+                }
+            }
+            
+            // 保存配置（不含字体数据）
             this.save(merged);
             
-            // 导入成功后恢复字体（从配置中打包的数据直接恢复，无需文件权限）
-            if (merged.customFonts?.length > 0) {
-                console.log('[ConfigManager] 导入配置包含', merged.customFonts.length, '个自定义字体');
-                // 延迟执行，确保配置已保存
-                setTimeout(() => {
-                    this._restoreFontsFromConfig(merged.customFonts, merged.customFontsData).then(() => {
-                        // 更新设置面板的字体按钮
-                        Lumina.Settings?.renderFontButtons?.();
-                        console.log('[ConfigManager] 字体面板已更新');
-                    });
-                }, 100);
-            }
+            // 应用配置中的当前字体设置
+            await this._applyCurrentFont(merged.reading?.font);
             
             return { success: true, config: merged };
         } catch (e) {

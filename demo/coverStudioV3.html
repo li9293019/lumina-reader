@@ -5027,30 +5027,32 @@ const CoverCore = (function() {
         genitalTile(ctx, w, h, p, density) {
     const basePath = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
     
-    // 关键修正：基于 Path 实际边界计算，而非 viewBox 100x100
-    // X 范围 [19.26, 80.74] → 宽度 61.48
-    // Y 范围 [1.45, 98.54] → 高度 97.09
-    // 旋转后最大外接圆直径（任意角度安全值）：sqrt(61.48² + 97.09²) ≈ 114.9
-    const PATH_WIDTH = 61.48;
-    const PATH_HEIGHT = 97.09;
-    const PATH_DIAGONAL = Math.sqrt(PATH_WIDTH * PATH_WIDTH + PATH_HEIGHT * PATH_HEIGHT); // ≈114.9
-    
     const prng = (seed) => {
         let h = 5381 + seed * 997;
         h = ((h << 5) + h) + (seed * 137);
         return (Math.abs(h) % 1000) / 1000;
     };
     
+    // 平铺网格计算
     const baseCount = Math.floor((9 + p[0] * 15) * density);
     const cols = Math.ceil(Math.sqrt(baseCount * w / h));
     const rows = Math.ceil(baseCount / cols);
     const cellW = w / cols;
     const cellH = h / rows;
     
-    // 严格防重叠：使用实际对角线长度计算固定缩放
-    // 确保即使旋转 45°（最大外接状态），图案也严格位于单元格内
+    // 关键修复：基于实际 content 边界计算（非 viewBox）
+    // Path 实际边界：x[19.26, 80.74], y[1.45, 98.54]
+    const contentW = 61.48;  // 80.74 - 19.26
+    const contentH = 97.09;  // 98.54 - 1.45
+    // 旋转 45° 时的最大边界（|w*cos|+|h*sin|）
+    const maxRotatedWidth = (contentW + contentH) / Math.sqrt(2); // ≈ 112.1
+    // 安全缩放：确保任意角度旋转都不溢出，保留 15% 边距
     const minCellSize = Math.min(cellW, cellH);
-    const fixedScale = (minCellSize * 0.92) / PATH_DIAGONAL; // 8% 边距防止描边溢出
+    const fixedScale = (minCellSize * 0.85) / maxRotatedWidth;
+    
+    // 半尺寸（用于居中偏移）
+    const offsetX = -50 * fixedScale;  // viewBox 中心是 50
+    const offsetY = -50 * fixedScale;
     
     const isSVG = ctx.elements && Array.isArray(ctx.elements);
     
@@ -5058,32 +5060,37 @@ const CoverCore = (function() {
         const col = i % cols;
         const row = Math.floor(i / cols);
         
-        // 严格网格中心定位，无抖动，确保几何不重叠
+        // 严格网格中心（无抖动，确保几何不重叠）
         const cx = col * cellW + cellW / 2;
         const cy = row * cellH + cellH / 2;
         
-        // 仅角度与透明度变异，大小严格固定
-        const rotation = prng(i * 3) * Math.PI * 2;      // 0° ~ 360°
-        const alpha = 0.12 + prng(i * 5) * 0.28;        // 0.12 ~ 0.40
+        // 仅角度与透明度变异
+        const rotation = prng(i * 3) * Math.PI * 2;
+        const alpha = 0.15 + prng(i * 5) * 0.25;
         
         if (isSVG) {
             const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
-            const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)})`;
+            // 关键：先平移到中心，再旋转，再缩放到固定尺寸，最后偏移使图案中心对齐
+            const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)}) translate(-50, -50)`;
             
             let fill = ctx.state.fillStyle;
             let stroke = ctx.state.strokeStyle;
             if (fill && fill.id) fill = `url(#${fill.id})`;
             if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
             
+            // 描边宽度反向缩放，保持视觉一致（0.8px 视觉粗细）
             const strokeWidth = (0.8 / fixedScale).toFixed(2);
             
-            ctx.elements.push(`<path d="${basePath}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.9).toFixed(3)}" stroke-linejoin="round" stroke-linecap="round"/>`);
+            ctx.elements.push(`<path d="${basePath}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.85).toFixed(3)}" stroke-linejoin="round" stroke-linecap="round"/>`);
             
         } else {
             ctx.save();
+            // Canvas 变换顺序：平移 -> 旋转 -> 缩放 -> 偏移（使图案中心位于原点）
             ctx.translate(cx, cy);
             ctx.rotate(rotation);
             ctx.scale(fixedScale, fixedScale);
+            ctx.translate(-50, -50);  // viewBox 中心是 50,50
+            
             ctx.globalAlpha = alpha;
             
             const path = new Path2D(basePath);

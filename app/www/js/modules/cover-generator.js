@@ -4119,7 +4119,7 @@
                     scaleFactor: 1.0,
                     hashMode: true,
                     fontStack: fontStack,
-                    asHTML: true
+                    asHTML: true,
                 });
                 
                 this._cache.set(cacheKey, svgHTML);

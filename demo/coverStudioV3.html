@@ -1850,6 +1850,7 @@ const CoverCore = (function() {
         { code: 'spermatozoa', name: { 'zh-CN': '游动细胞', 'en': 'Spermatozoa' }},
         { code: 'genitalTile', name: { 'zh-CN': '几何图腾', 'en': 'Genital Tile' }},
         { code: 'rectTiling', name: { 'zh-CN': '矩形测试', 'en': 'Rect Test' }},
+        
     ];
 
     const LAYOUTS = [
@@ -5025,101 +5026,8 @@ const CoverCore = (function() {
             }
         },
 
-        rectTiling(ctx, w, h, p, density) {
-            const rectWidth = 30;
-            const rectHeight = 45;
-            const halfW = rectWidth / 2;
-            const halfH = rectHeight / 2;
-            const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH);
-            
-            const fixedScale = Math.min(w, h) / 280;
-            const minDist = maxRadius * 2 * fixedScale * 1.02;
-
-            let rngState = (p[0] * 1000000000 + p[1] * 1000000 + p[2] * 1000 + p[3] * 10 + density * 100) % 233280;
-            const rng = () => {
-                rngState = (rngState * 9301 + 49297) % 233280;
-                return rngState / 233280;
-            };
-            
-            const placed = [];
-            const targetCount = Math.floor((20 + p[4] * 30) * density);
-            const maxAttempts = targetCount * 300; 
-            
-            let placedCount = 0;
-            let attempts = 0;
-            const isSVG = ctx.elements && Array.isArray(ctx.elements);
-            
-            while (placedCount < targetCount && attempts < maxAttempts) {
-                attempts++;
-                
-                const margin = minDist * 0.5;
-                const cx = -margin + rng() * (w + margin * 2);
-                const cy = -margin + rng() * (h + margin * 2);
-                
-                let overlapping = false;
-                for (const unit of placed) {
-                    const dx = cx - unit.x;
-                    const dy = cy - unit.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < minDist) {
-                        overlapping = true;
-                        break;
-                    }
-                }
-                
-                if (!overlapping) {
-                    const rotation = rng() * Math.PI * 2;
-                    const alpha = 0.15 + rng() * 0.35;
-                    
-                    placed.push({ x: cx, y: cy });
-                    placedCount++;
-                    
-                    if (isSVG) {
-                        // 关键修复：不再手动处理 clip-path，依赖 drawPatternArea 的分组裁剪
-                        ctx.save();
-                        ctx.translate(cx, cy);
-                        ctx.rotate(rotation);
-                        ctx.scale(fixedScale, fixedScale);
-                        
-                        // 获取当前变换矩阵（相对于图案区域原点）
-                        const t = ctx.state.transform;
-                        // 注意：这里的矩阵是相对于 drawPatternArea 的 translate(x,y) 之后的坐标系
-                        const matrix = `matrix(${t[0].toFixed(4)},${t[1].toFixed(4)},${t[2].toFixed(4)},${t[3].toFixed(4)},${t[4].toFixed(2)},${t[5].toFixed(2)})`;
-                        
-                        let fill = ctx.state.fillStyle;
-                        let stroke = ctx.state.strokeStyle;
-                        if (fill && fill.id) fill = `url(#${fill.id})`;
-                        if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
-                        
-                        const strokeWidth = (1.5 / fixedScale).toFixed(2);
-                        
-                        // 不再添加 clip-path 属性，由父级 <g> 统一管理
-                        ctx.elements.push(
-                            `<rect x="${-halfW}" y="${-halfH}" width="${rectWidth}" height="${rectHeight}" ` +
-                            `transform="${matrix}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" ` +
-                            `stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.8).toFixed(3)}"/>`
-                        );
-                        ctx.restore();
-                    } else {
-                        // Canvas 模式保持不变
-                        ctx.save();
-                        ctx.translate(cx, cy);
-                        ctx.rotate(rotation);
-                        ctx.scale(fixedScale, fixedScale);
-                        ctx.globalAlpha = alpha;
-                        
-                        ctx.fillRect(-halfW, -halfH, rectWidth, rectHeight);
-                        ctx.lineWidth = 1.5 / fixedScale;
-                        ctx.strokeRect(-halfW, -halfH, rectWidth, rectHeight);
-                        ctx.restore();
-                    }
-                }
-            }
-        },
-
         genitalTile(ctx, w, h, p, density) {
             const pathData = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
-
             const numbers = pathData.match(/-?\d+(\.\d+)?/g)?.map(Number) || [];
             const xs = numbers.filter((_, i) => i % 2 === 0);
             const ys = numbers.filter((_, i) => i % 2 === 1);
@@ -5206,6 +5114,98 @@ const CoverCore = (function() {
                         ctx.fill(path);
                         ctx.lineWidth = 1.2 / fixedScale;
                         ctx.stroke(path);
+                        ctx.restore();
+                    }
+                }
+            }
+        },
+
+        rectTiling(ctx, w, h, p, density) {
+            const rectWidth = 30;
+            const rectHeight = 45;
+            const halfW = rectWidth / 2;
+            const halfH = rectHeight / 2;
+            const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH);
+            
+            const fixedScale = Math.min(w, h) / 280;
+            const minDist = maxRadius * 2 * fixedScale * 1.02;
+
+            let rngState = (p[0] * 1000000000 + p[1] * 1000000 + p[2] * 1000 + p[3] * 10 + density * 100) % 233280;
+            const rng = () => {
+                rngState = (rngState * 9301 + 49297) % 233280;
+                return rngState / 233280;
+            };
+            
+            const placed = [];
+            const targetCount = Math.floor((20 + p[4] * 30) * density);
+            const maxAttempts = targetCount * 300; 
+            
+            let placedCount = 0;
+            let attempts = 0;
+            const isSVG = ctx.elements && Array.isArray(ctx.elements);
+            
+            while (placedCount < targetCount && attempts < maxAttempts) {
+                attempts++;
+                
+                const margin = minDist * 0.5;
+                const cx = -margin + rng() * (w + margin * 2);
+                const cy = -margin + rng() * (h + margin * 2);
+                
+                let overlapping = false;
+                for (const unit of placed) {
+                    const dx = cx - unit.x;
+                    const dy = cy - unit.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+                
+                if (!overlapping) {
+                    const rotation = rng() * Math.PI * 2;
+                    const alpha = 0.15 + rng() * 0.35;
+                    
+                    placed.push({ x: cx, y: cy });
+                    placedCount++;
+                    
+                    if (isSVG) {
+                        // 关键修复：不再手动处理 clip-path，依赖 drawPatternArea 的分组裁剪
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        
+                        // 获取当前变换矩阵（相对于图案区域原点）
+                        const t = ctx.state.transform;
+                        // 注意：这里的矩阵是相对于 drawPatternArea 的 translate(x,y) 之后的坐标系
+                        const matrix = `matrix(${t[0].toFixed(4)},${t[1].toFixed(4)},${t[2].toFixed(4)},${t[3].toFixed(4)},${t[4].toFixed(2)},${t[5].toFixed(2)})`;
+                        
+                        let fill = ctx.state.fillStyle;
+                        let stroke = ctx.state.strokeStyle;
+                        if (fill && fill.id) fill = `url(#${fill.id})`;
+                        if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
+                        
+                        const strokeWidth = (1.5 / fixedScale).toFixed(2);
+                        
+                        // 不再添加 clip-path 属性，由父级 <g> 统一管理
+                        ctx.elements.push(
+                            `<rect x="${-halfW}" y="${-halfH}" width="${rectWidth}" height="${rectHeight}" ` +
+                            `transform="${matrix}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" ` +
+                            `stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.8).toFixed(3)}"/>`
+                        );
+                        ctx.restore();
+                    } else {
+                        // Canvas 模式保持不变
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        ctx.globalAlpha = alpha;
+                        
+                        ctx.fillRect(-halfW, -halfH, rectWidth, rectHeight);
+                        ctx.lineWidth = 1.5 / fixedScale;
+                        ctx.strokeRect(-halfW, -halfH, rectWidth, rectHeight);
                         ctx.restore();
                     }
                 }

@@ -28,16 +28,30 @@ Lumina.Exporter = {
     },
 
     generateTXT() {
-        return Lumina.State.app.document.items.map(i => i.type === 'image' ? '[图片]' : (i.display || i.text)).join('\n');
+        return Lumina.State.app.document.items.map((i, idx) => {
+            if (i.type === 'image') return '[图片]';
+            let text = i.display || i.text;
+            // 简繁转换
+            if (Lumina.Converter?.isConverting && text) {
+                text = Lumina.Converter.getConvertedText(i, idx);
+            }
+            return text;
+        }).join('\n');
     },
 
     generateMD() {
-        return Lumina.State.app.document.items.map(i => {
+        return Lumina.State.app.document.items.map((i, idx) => {
+            // 获取文本并转换
+            let text = i.text || i.display || '';
+            if (Lumina.Converter?.isConverting && text) {
+                text = Lumina.Converter.getConvertedText(i, idx);
+            }
+            
             if (i.type === 'image') return `![${i.alt || 'image'}](${i.data})`;
-            if (i.type === 'title') return `# ${i.text}`;
-            if (i.type === 'subtitle') return `## ${i.text}`;
-            if (i.type.startsWith('heading')) return `${'#'.repeat(i.level)} ${i.text}`;
-            return i.text;
+            if (i.type === 'title') return `# ${text}`;
+            if (i.type === 'subtitle') return `## ${text}`;
+            if (i.type.startsWith('heading')) return `${'#'.repeat(i.level)} ${text}`;
+            return text;
         }).join('\n');
     },
 
@@ -89,14 +103,18 @@ Lumina.Exporter = {
                 if (item.type === 'title') {
                     // 文档标题（通常只有一个）
                     const hid = idMap.get(item);
-                    const text = escapeHtml(getCleanText(item.text));
+                    let text = item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(getCleanText(text));
                     tocItems += `
                     <li class="toc-item level-1 doc-title-item" data-target="${hid}" data-ch="${cidx}">
                         <span class="toc-text">${text}</span>
                     </li>`;
                 } else if (item.type === 'subtitle') {
                     // 副标题（通常不加入目录，或作为二级）
-                    const text = escapeHtml(getCleanText(item.text));
+                    let text = item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(getCleanText(text));
                     // 副标题可选加入目录，这里选择加入作为level-2
                     const hid = `sub-${cidx}`; // 副标题使用独立ID生成
                     idMap.set(item, hid);
@@ -106,7 +124,9 @@ Lumina.Exporter = {
                     </li>`;
                 } else if (item.type?.startsWith('heading')) {
                     const level = Math.min(parseInt(item.type.replace('heading', '')) || 1, 6);
-                    const text = escapeHtml(item.display || item.text);
+                    let text = item.display || item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(text);
                     const hid = idMap.get(item);
 
                     // 前言章节且是第一个heading，如果是前言入口已显示，这里跳过或降级
@@ -133,19 +153,27 @@ Lumina.Exporter = {
                 if (item.type === 'image') {
                     contentItems += `<p class="img-wrap"><img src="${item.data}" alt="${escapeHtml(item.alt || '')}"></p>`;
                 } else if (item.type === 'paragraph') {
-                    const text = escapeHtml(getCleanText(item.text));
+                    let text = item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(getCleanText(text));
                     contentItems += text ? `<p>${text}</p>` : '';
                 } else if (item.type === 'title') {
-                    const text = escapeHtml(getCleanText(item.text));
+                    let text = item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(getCleanText(text));
                     const hid = idMap.get(item);
                     contentItems += text ? `<h1 class="doc-title" id="${hid}">${text}</h1>` : '';
                 } else if (item.type === 'subtitle') {
-                    const text = escapeHtml(getCleanText(item.text));
+                    let text = item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(getCleanText(text));
                     const hid = idMap.get(item);
                     contentItems += text ? `<h2 class="doc-subtitle" id="${hid}">${text}</h2>` : '';
                 } else if (item.type?.startsWith('heading')) {
                     const level = Math.min(parseInt(item.type.replace('heading', '')) || 1, 6);
-                    const text = escapeHtml(item.display || item.text);
+                    let text = item.display || item.text;
+                    if (Lumina.Converter?.isConverting && text) text = Lumina.Converter.convert(text);
+                    text = escapeHtml(text);
                     const hid = idMap.get(item);
                     contentItems += `<h${level} id="${hid}" class="heading-${level}">${text}</h${level}>`;
                 }

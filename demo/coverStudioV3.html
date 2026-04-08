@@ -1850,7 +1850,6 @@ const CoverCore = (function() {
         { code: 'spermatozoa', name: { 'zh-CN': '游动细胞', 'en': 'Spermatozoa' }},
         { code: 'genitalTile', name: { 'zh-CN': '几何图腾', 'en': 'Genital Tile' }},
         { code: 'rectTiling', name: { 'zh-CN': '矩形测试', 'en': 'Rect Test' }},
-        
     ];
 
     const LAYOUTS = [
@@ -5493,38 +5492,38 @@ const CoverCore = (function() {
     }
 
     function drawPatternArea(ctx, x, y, w, h, seed, palette, patternId, density) {
-    ctx.save();
-    ctx.translate(x, y);
-    
-    // 检测是否为 SVG 模式
-    const isSVG = ctx.elements && Array.isArray(ctx.elements);
-    
-    // 如果在 SVG 模式下且存在裁剪路径，创建带裁剪的分组
-    let clipGroupId = null;
-    if (isSVG && ctx.clipPath) {
-        clipGroupId = ctx.clipPath;
-        ctx.elements.push(`<g clip-path="url(#${clipGroupId})">`);
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // 检测是否为 SVG 模式
+        const isSVG = ctx.elements && Array.isArray(ctx.elements);
+        
+        // 如果在 SVG 模式下且存在裁剪路径，创建带裁剪的分组
+        let clipGroupId = null;
+        if (isSVG && ctx.clipPath) {
+            clipGroupId = ctx.clipPath;
+            ctx.elements.push(`<g clip-path="url(#${clipGroupId})">`);
+        }
+        
+        ctx.fillStyle = palette.pattern;
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = palette.accent;
+        ctx.fillStyle = palette.accent;
+        
+        const p = extractParams(seed, 40);
+        const pattern = PATTERNS[patternId] || PATTERNS[0];
+        const drawer = PatternDrawers[pattern.code];
+        if (drawer) {
+            drawer(ctx, w, h, p, density);
+        }
+        
+        // 关闭 SVG 裁剪分组
+        if (isSVG && clipGroupId) {
+            ctx.elements.push('</g>');
+        }
+        
+        ctx.restore();
     }
-    
-    ctx.fillStyle = palette.pattern;
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = palette.accent;
-    ctx.fillStyle = palette.accent;
-    
-    const p = extractParams(seed, 40);
-    const pattern = PATTERNS[patternId] || PATTERNS[0];
-    const drawer = PatternDrawers[pattern.code];
-    if (drawer) {
-        drawer(ctx, w, h, p, density);
-    }
-    
-    // 关闭 SVG 裁剪分组
-    if (isSVG && clipGroupId) {
-        ctx.elements.push('</g>');
-    }
-    
-    ctx.restore();
-}
 
     const LayoutImplementations = {
         horizontal(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {

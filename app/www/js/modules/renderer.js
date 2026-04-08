@@ -175,6 +175,12 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
         let content = item.display || item.text;
         // 防御：确保 content 是字符串
         if (typeof content !== 'string') content = String(content || '');
+        
+        // 简繁转换
+        if (Lumina.Converter?.isConverting && content) {
+            content = Lumina.Converter.getConvertedText(item, index);
+        }
+        
         content = Lumina.Renderer.getCleanText(content);
         if (item.isEmpty || (!content.trim() && !Lumina.State.settings.ignoreEmptyLines)) {
             div.innerHTML = '&nbsp;'; // 使用不换行空格确保高度
@@ -378,6 +384,10 @@ Lumina.Renderer.generateTOC = () => {
                 li.dataset.index = globalIndex;
                 li.dataset.chapterIndex = chIdx;  // 章节索引（用于热力图）
                 let content = item.display || item.text;
+                // 简繁转换
+                if (Lumina.Converter?.isConverting && content) {
+                    content = Lumina.Converter.convert(content);
+                }
                 content = Lumina.Renderer.getCleanText(content).trim();
                 if (!content) return;
                 li.textContent = content;
@@ -455,7 +465,12 @@ Lumina.Renderer.updateChapterNavInfo = () => {
         return;
     }
     const chapter = state.chapters[state.currentChapterIndex];
-    Lumina.DOM.chapterNavInfo.textContent = chapter.isPreface ? Lumina.I18n.t('preface') : Lumina.Renderer.getCleanText(chapter.title);
+    let title = chapter.isPreface ? Lumina.I18n.t('preface') : chapter.title;
+    // 简繁转换
+    if (Lumina.Converter?.isConverting && title) {
+        title = Lumina.Converter.convert(title);
+    }
+    Lumina.DOM.chapterNavInfo.textContent = Lumina.Renderer.getCleanText(title);
 };
 
 // ==================== 10. 搜索功能 ====================

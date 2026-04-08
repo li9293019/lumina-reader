@@ -6,6 +6,18 @@ Lumina.Plugin = Lumina.Plugin || {};
 Lumina.Plugin.Markdown = Lumina.Plugin.Markdown || {};
 
 Lumina.Plugin.Markdown.Renderer = {
+    // 当前渲染的索引（用于简繁转换缓存）
+    currentIndex: 0,
+
+    /**
+     * 获取转换后的文本（支持简繁转换）
+     */
+    getConvertedText(text, index) {
+        if (!text || !Lumina.Converter?.isConverting) return text;
+        // 对于 Markdown，我们使用 Converter.convert 而不是 getConvertedText
+        // 因为 item 结构不同
+        return Lumina.Converter.convert(text);
+    },
     // 代码高亮状态
     highlightState: {
         loaded: false,
@@ -253,8 +265,8 @@ Lumina.Plugin.Markdown.Renderer = {
                 this.renderHR(div);
                 break;
             default:
-                // 未知类型，按纯文本处理
-                div.textContent = item.text || '';
+                // 未知类型，按纯文本处理（支持简繁转换）
+                div.textContent = this.getConvertedText(item.text) || '';
         }
 
         return div;
@@ -267,11 +279,11 @@ Lumina.Plugin.Markdown.Renderer = {
         const h = document.createElement(`h${item.level}`);
         h.className = `markdown-heading markdown-h${item.level}`;
         
-        // 渲染行内内容
+        // 渲染行内内容（支持简繁转换）
         if (item.inlineContent) {
             this.renderInlineContent(h, item.inlineContent);
         } else {
-            h.textContent = item.text;
+            h.textContent = this.getConvertedText(item.text);
         }
         
         container.appendChild(h);
@@ -295,7 +307,7 @@ Lumina.Plugin.Markdown.Renderer = {
         if (item.inlineContent) {
             this.renderInlineContent(p, item.inlineContent);
         } else {
-            p.textContent = item.text;
+            p.textContent = this.getConvertedText(item.text);
         }
         
         container.appendChild(p);
@@ -323,11 +335,11 @@ Lumina.Plugin.Markdown.Renderer = {
         
         figure.appendChild(img);
         
-        // 图片标题
+        // 图片标题（支持简繁转换）
         if (imgItem.title || imgItem.alt) {
             const figcaption = document.createElement('figcaption');
             figcaption.className = 'markdown-figcaption';
-            figcaption.textContent = imgItem.title || imgItem.alt;
+            figcaption.textContent = this.getConvertedText(imgItem.title || imgItem.alt);
             figure.appendChild(figcaption);
         }
         
@@ -405,7 +417,7 @@ Lumina.Plugin.Markdown.Renderer = {
             // 没有 inlineContent，回退到普通渲染
             const p = document.createElement('p');
             p.className = 'markdown-paragraph';
-            p.textContent = item.text || '';
+            p.textContent = this.getConvertedText(item.text) || '';
             p.style.margin = '0.2em 0';
             container.appendChild(p);
             return;
@@ -734,7 +746,7 @@ Lumina.Plugin.Markdown.Renderer = {
             // 降级：如果 items 丢失，尝试从 text 渲染简单列表项
             if (item.text) {
                 const p = document.createElement('p');
-                p.textContent = item.text;
+                p.textContent = this.getConvertedText(item.text);
                 p.style.fontStyle = 'italic';
                 container.appendChild(p);
             }
@@ -752,11 +764,11 @@ Lumina.Plugin.Markdown.Renderer = {
             const li = document.createElement('li');
             li.className = 'markdown-li';
             
-            // 渲染列表项内容
+            // 渲染列表项内容（支持简繁转换）
             if (listItem.inlineContent) {
                 this.renderInlineContent(li, listItem.inlineContent);
             } else {
-                li.textContent = listItem.text;
+                li.textContent = this.getConvertedText(listItem.text);
             }
             
             // 递归渲染嵌套列表
@@ -797,7 +809,7 @@ Lumina.Plugin.Markdown.Renderer = {
                 if (header.inlineContent) {
                     this.renderInlineContent(th, header.inlineContent);
                 } else {
-                    th.textContent = header.text;
+                    th.textContent = this.getConvertedText(header.text);
                 }
                 tr.appendChild(th);
             });
@@ -819,7 +831,7 @@ Lumina.Plugin.Markdown.Renderer = {
                     if (cell.inlineContent) {
                         this.renderInlineContent(td, cell.inlineContent);
                     } else {
-                        td.textContent = cell.text;
+                        td.textContent = this.getConvertedText(cell.text);
                     }
                     tr.appendChild(td);
                 });
@@ -854,33 +866,34 @@ Lumina.Plugin.Markdown.Renderer = {
         inlineContent.forEach(item => {
             switch (item.type) {
                 case 'text':
-                    container.appendChild(document.createTextNode(item.content));
+                    container.appendChild(document.createTextNode(this.getConvertedText(item.content)));
                     break;
                     
                 case 'strong':
                     const strong = document.createElement('strong');
                     strong.className = 'markdown-strong';
-                    strong.textContent = item.content;
+                    strong.textContent = this.getConvertedText(item.content);
                     container.appendChild(strong);
                     break;
                     
                 case 'em':
                     const em = document.createElement('em');
                     em.className = 'markdown-em';
-                    em.textContent = item.content;
+                    em.textContent = this.getConvertedText(item.content);
                     container.appendChild(em);
                     break;
                     
                 case 'del':
                     const del = document.createElement('del');
                     del.className = 'markdown-del';
-                    del.textContent = item.content;
+                    del.textContent = this.getConvertedText(item.content);
                     container.appendChild(del);
                     break;
                     
                 case 'code':
                     const code = document.createElement('code');
                     code.className = 'markdown-inline-code';
+                    // 行内代码通常不转换（保留技术术语）
                     code.textContent = item.content;
                     container.appendChild(code);
                     break;
@@ -891,13 +904,13 @@ Lumina.Plugin.Markdown.Renderer = {
                     a.href = item.href;
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
-                    if (item.title) a.title = item.title;
+                    if (item.title) a.title = this.getConvertedText(item.title);
                     
                     // 链接内容可能还有格式
                     if (item.inlineContent) {
                         this.renderInlineContent(a, item.inlineContent);
                     } else {
-                        a.textContent = item.content;
+                        a.textContent = this.getConvertedText(item.content);
                     }
                     container.appendChild(a);
                     break;
@@ -905,15 +918,15 @@ Lumina.Plugin.Markdown.Renderer = {
                 case 'image':
                     const img = document.createElement('img');
                     img.src = item.src;
-                    img.alt = item.alt;
+                    img.alt = this.getConvertedText(item.alt);
                     img.className = 'markdown-inline-image';
-                    if (item.title) img.title = item.title;
+                    if (item.title) img.title = this.getConvertedText(item.title);
                     img.loading = 'lazy';
                     container.appendChild(img);
                     break;
                     
                 default:
-                    container.appendChild(document.createTextNode(item.content || ''));
+                    container.appendChild(document.createTextNode(this.getConvertedText(item.content) || ''));
             }
         });
     },

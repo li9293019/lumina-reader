@@ -257,8 +257,14 @@ Lumina.Actions = {
             }
             Lumina.Settings.save();
 
-            Lumina.DOM.fileInfo.textContent = file.name;
+            // 显示书名（优先用 metadata.title，支持简繁转换）
+            Lumina.DOM.fileInfo.textContent = Lumina.Converter?.getDisplayTitle?.(Lumina.State.app.currentFile) || file.name;
             Lumina.DOM.welcomeScreen.style.display = 'none';
+
+            // 触发文件打开事件
+            window.dispatchEvent(new CustomEvent('fileOpened', { 
+                detail: { fileKey: Lumina.State.app.currentFile.fileKey }
+            }));
 
             if (Lumina.State.app.currentFile.encoding && !['UTF-8', 'UTF8'].includes(Lumina.State.app.currentFile.encoding)) {
                 Lumina.UI.showToast(`${Lumina.State.app.currentFile.encoding} → UTF-8`, 2000);

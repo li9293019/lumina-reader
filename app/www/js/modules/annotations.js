@@ -384,8 +384,16 @@ Lumina.Annotations = {
         const endEl = range.endContainer.parentElement?.closest('[data-index]') || 
                      range.endContainer.closest?.('[data-index]');
         
-        // 获取选区的精确文本内容
+        // 获取选区的精确文本内容（用户看到的是转换后的文本）
         const selectedText = selection.toString().trim();
+        
+        // 获取原始文本（用于无转换时匹配）
+        let originalText = selectedText;
+        if (Lumina.Converter?.isConverting && selectedText) {
+            // 逆向转换得到原文
+            originalText = Lumina.Converter.fallbackConvert(selectedText, 
+                Lumina.Converter.direction === 's2t' ? 't2s' : 's2t');
+        }
         
         // 从 Range 中提取带段落格式的文本
         let formattedText = selectedText;
@@ -416,7 +424,8 @@ Lumina.Annotations = {
             endOffset: range.endOffset,
             startContainer: range.startContainer.nodeType === Node.TEXT_NODE ? 'text' : 'element',
             endContainer: range.endContainer.nodeType === Node.TEXT_NODE ? 'text' : 'element',
-            selectedText: selectedText,
+            selectedText: selectedText,        // 显示文本（可能已转换）
+            originalText: originalText,        // 原始文本（用于匹配）
             formattedText: formattedText,
             // 选区位置信息（用于菜单位置）
             selectionRect: {
@@ -734,7 +743,7 @@ Lumina.Annotations = {
         
         if (selectedText && selectedText.length > 0) {
             // 尝试在文本中查找并高亮选中的部分
-            this.highlightSelectedText(line, selectedText, anno.color, anno.id);
+            this.highlightSelectedText(line, selectedText, anno.color, anno.id, anno);
         }
         
         // 添加标记类但不设置背景色
@@ -743,7 +752,7 @@ Lumina.Annotations = {
     },
     
     // 高亮选中的文本
-    highlightSelectedText(lineElement, selectedText, colorId, annoId) {
+    highlightSelectedText(lineElement, selectedText, colorId, annoId, anno = null) {
         if (!selectedText || !lineElement) return;
         
         // 保存原始内容（如果还没有保存）
@@ -788,7 +797,7 @@ Lumina.Annotations = {
             fullText += node.textContent;
         });
         
-        // 查找选中文本在合并后文本中的位置（使用原始文本或规范化文本）
+        // 查找选中文本在合并后文本中的位置
         let matchIndex = fullText.indexOf(selectedText);
         let matchText = selectedText;
         
@@ -797,8 +806,16 @@ Lumina.Annotations = {
             const normalizedFullText = fullText.replace(/\s+/g, ' ');
             matchIndex = normalizedFullText.indexOf(normalizedSearchText);
             if (matchIndex !== -1) {
-                // 找到后，在原始文本中重新定位
                 matchText = fullText.substring(matchIndex, matchIndex + normalizedSearchText.length);
+            }
+        }
+        
+        // 如果还是失败，且启用了转换，尝试用原始文本匹配
+        if (matchIndex === -1 && Lumina.Converter?.isConverting) {
+            const originalText = anno.originalText || selectedText;
+            matchIndex = fullText.indexOf(originalText);
+            if (matchIndex !== -1) {
+                matchText = originalText;
             }
         }
         

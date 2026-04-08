@@ -138,7 +138,13 @@ Lumina.UI = {
                     if (Lumina.State.app.dbReady && Lumina.State.app.currentFile.fileKey) {
                         Lumina.DB.saveHistory(Lumina.State.app.currentFile.name, Lumina.State.app.currentFile.type, Lumina.State.app.currentFile.wordCount, null);
                     }
-                } else if (group === 'language') Lumina.I18n.updateUI();
+                } else if (group === 'language') {
+                    // 触发语言变更事件
+                    window.dispatchEvent(new CustomEvent('languageChanged', { 
+                        detail: { language: btn.dataset.value }
+                    }));
+                    Lumina.I18n.updateUI();
+                }
                 await Lumina.Settings.apply();
             }
 
@@ -1323,23 +1329,32 @@ Lumina.UI.closeStorageInfo = () => {
 
 Lumina.I18n.updateUI = () => {
     const t = Lumina.I18n.t;
+    const language = Lumina.State.settings.language;
+    
     document.title = t('appName');
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.dataset.i18n;
-        if (Lumina.I18n.data[Lumina.State.settings.language]?.[key]) el.textContent = t(key);
+        if (Lumina.I18n.data[language]?.[key]) el.textContent = t(key);
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.dataset.i18nPlaceholder;
-        if (Lumina.I18n.data[Lumina.State.settings.language]?.[key]) el.placeholder = t(key);
+        if (Lumina.I18n.data[language]?.[key]) el.placeholder = t(key);
     });
     document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
         const key = el.dataset.i18nTooltip;
-        if (Lumina.I18n.data[Lumina.State.settings.language]?.[key]) el.dataset.tooltipText = t(key);
+        if (Lumina.I18n.data[language]?.[key]) el.dataset.tooltipText = t(key);
     });
-    if (Lumina.State.app.currentFile.name) Lumina.DOM.fileInfo.textContent = Lumina.State.app.currentFile.name;
+    // 更新书名（优先用 metadata.title，支持简繁转换）
+    const currentFile = Lumina.State.app.currentFile;
+    if (currentFile.name || currentFile.fileName) {
+        Lumina.DOM.fileInfo.textContent = Lumina.Converter?.getDisplayTitle?.(currentFile) 
+            || currentFile.name 
+            || currentFile.fileName;
+    }
     Lumina.Renderer.updateChapterNavInfo();
     Lumina.DB.loadHistoryFromDB();
     Lumina.UI.updateRegexFeedback('chapter');
     Lumina.UI.updateRegexFeedback('section');
+    
 };
 

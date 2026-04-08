@@ -102,6 +102,14 @@ Lumina.init = async () => {
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用
     Lumina.DataManager.init();
     
+    // 初始化简繁转换器（异步，不阻塞）
+    if (Lumina.Converter) {
+        console.log('[Init] 正在初始化 Converter...');
+        Lumina.Converter.init().catch(e => console.error('[Init] Converter 初始化失败:', e));
+    } else {
+        console.error('[Init] Lumina.Converter 未定义，检查脚本加载顺序');
+    }
+    
     // 预加载书库面板（静默，不阻塞）
     if (Lumina.State.app.dbReady) {
         Lumina.DataManager.preload().catch(() => {});

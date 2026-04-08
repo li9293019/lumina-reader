@@ -10,6 +10,7 @@ Lumina.Settings = {
             ...config.reading,
             chapterRegex: config.regex.chapter,
             sectionRegex: config.regex.section,
+            autoConvertSC: config.reading.autoConvertSC ?? false,
             // TTS 设置映射
             ttsRate: config.tts?.rate ?? 10,
             ttsPitch: config.tts?.pitch ?? 10,
@@ -48,6 +49,7 @@ Lumina.Settings = {
             smoothScroll: settings.smoothScroll,
             sidebarVisible: settings.sidebarVisible,
             chapterNumbering: settings.chapterNumbering,
+            autoConvertSC: settings.autoConvertSC,
         });
         
         // TTS 设置保存到新路径
@@ -146,6 +148,17 @@ Lumina.Settings = {
         });
 
         Lumina.UI.updateActiveButtons();
+        
+        // 简繁转换开关变更时重新评估
+        if (Lumina.Converter) {
+            const wasConverting = Lumina.Converter.isConverting;
+            Lumina.Converter.setEnabled(settings.autoConvertSC);
+            // 如果转换状态变化且有文档打开，重新渲染
+            if (wasConverting !== Lumina.Converter.isConverting && Lumina.State.app.document.items.length > 0) {
+                savedScrollIndex = Lumina.Renderer.getCurrentVisibleIndex();
+            }
+        }
+        
         // 只有当前输入框不是焦点时才更新值（避免覆盖用户正在输入的内容）
         const chapterInput = document.getElementById('chapterRegex');
         const sectionInput = document.getElementById('sectionRegex');

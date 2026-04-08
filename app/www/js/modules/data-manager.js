@@ -3069,7 +3069,8 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         // 初始化 G点热力图
         Lumina.HeatMap.onBookOpen();
 
-        Lumina.DOM.fileInfo.textContent = fileData.fileName;
+        // 显示书名（优先用 metadata.title，支持简繁转换）
+        Lumina.DOM.fileInfo.textContent = Lumina.Converter?.getDisplayTitle?.(fileData) || fileData.fileName;
         Lumina.DOM.welcomeScreen.style.display = 'none';
 
         const isMobileView = window.innerWidth <= 768;
@@ -3147,6 +3148,11 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         // 加载注释/书签
         Lumina.State.app.annotations = fileData.annotations || [];
         Lumina.Annotations.renderAnnotations();
+        
+        // 触发文件打开事件（用于简繁转换等模块）
+        window.dispatchEvent(new CustomEvent('fileOpened', { 
+            detail: { fileKey: fileData.fileKey }
+        }));
         
     } catch (err) {
         throw err;

@@ -33,6 +33,7 @@ Lumina.ConfigManager = {
                 smoothScroll: true,
                 sidebarVisible: false,
                 chapterNumbering: 'none',
+                autoConvertSC: false,      // 自动简繁转换
             },
             
             // ========== 2. 正则表达式设置 ==========

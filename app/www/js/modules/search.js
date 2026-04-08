@@ -120,6 +120,17 @@ Lumina.Search = {
     searchLibrary(query) {
         // 强制从 DataManager 获取最新内存数据
         const files = Lumina.DataManager?.currentStats?.files || [];
+        const converter = Lumina.Converter;
+        const lowerQuery = query.toLowerCase();
+        
+        // 准备查询词（双向搜索）
+        const searchTerms = [lowerQuery];
+        if (converter?.isConverting) {
+            const convertedQuery = converter.convert(query).toLowerCase();
+            if (convertedQuery !== lowerQuery) {
+                searchTerms.push(convertedQuery);
+            }
+        }
         
         return files.filter(file => {
             const meta = file.metadata || {};
@@ -134,7 +145,8 @@ Lumina.Search = {
             ].filter(Boolean);  // 过滤空值
             
             const searchableText = searchableParts.join(' ').toLowerCase();
-            return searchableText.includes(query);
+            // 任一查询词匹配即可
+            return searchTerms.some(q => searchableText.includes(q));
         });
     },
 
@@ -148,17 +160,33 @@ Lumina.Search = {
             return [];
         }
 
+        // 准备查询词（双向搜索）
+        const converter = Lumina.Converter;
+        const searchTerms = [query.toLowerCase()];
+        
+        if (converter?.isConverting) {
+            // 用户输入的是 UI 语言，需要转换为书籍语言去搜索原文
+            const bookLangQuery = converter.convert(query);
+            if (bookLangQuery !== query) {
+                searchTerms.push(bookLangQuery.toLowerCase());
+            }
+        }
+
         // 遍历所有章节
         state.chapters.forEach((chapter, chIdx) => {
             chapter.items.forEach((item, itemIdx) => {
-                if (item.text?.toLowerCase().includes(query)) {
+                const itemText = item.text?.toLowerCase() || '';
+                // 任一查询词匹配即可
+                if (searchTerms.some(q => itemText.includes(q))) {
                     matches.push({
                         item,
                         chapterIndex: chIdx,
                         globalIndex: chapter.startIndex + itemIdx,
                         chapterTitle: chapter.isPreface 
                             ? Lumina.I18n.t('preface') 
-                            : chapter.title
+                            : chapter.title,
+                        // 保存匹配信息用于高亮
+                        matchedTerm: searchTerms.find(q => itemText.includes(q))
                     });
                 }
             });
@@ -246,22 +274,40 @@ Lumina.Search = {
 
     // 渲染文档搜索结果
     renderDocumentResults(matches, query) {
-        const lowerQuery = query.toLowerCase();
+        const converter = Lumina.Converter;
 
         document.getElementById('aggregateSearch').innerHTML = matches.map((match, idx) => {
-            const text = match.item.text;
-            const matchIndex = text.toLowerCase().indexOf(lowerQuery);
+            // 获取显示文本（转换后）
+            let text = match.item.text;
+            if (converter?.isConverting && text) {
+                text = converter.convert(text);
+            }
+            
+            // 高亮用的查询词也需要转换为 UI 语言
+            let highlightQuery = query;
+            if (converter?.isConverting) {
+                highlightQuery = converter.convert(query);
+            }
+            const lowerHighlightQuery = highlightQuery.toLowerCase();
+            
+            const matchIndex = text.toLowerCase().indexOf(lowerHighlightQuery);
             const start = Math.max(0, matchIndex - 30);
-            const end = Math.min(text.length, matchIndex + query.length + 30);
+            const end = Math.min(text.length, highlightQuery.length + 30);
             let context = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
-            context = context.replace(new RegExp(`(${Lumina.Utils.escapeRegex(lowerQuery)})`, 'gi'), '<span class="search-result-match">$1</span>');
+            context = context.replace(new RegExp(`(${Lumina.Utils.escapeRegex(lowerHighlightQuery)})`, 'gi'), '<span class="search-result-match">$1</span>');
+
+            // 章节标题转换
+            let chapterTitle = match.chapterTitle;
+            if (converter?.isConverting && chapterTitle) {
+                chapterTitle = converter.convert(chapterTitle);
+            }
 
             return `
         <div class="search-result-item" data-index="${idx}" data-global="${match.globalIndex}" data-chapter="${match.chapterIndex}">
         <div class="search-result-context">${context}</div>
         <div class="search-result-info">
             <span>${this.getItemTypeLabel(match.item.type)}</span>
-            <span>${Lumina.Utils.escapeHtml(match.chapterTitle)}</span>
+            <span>${Lumina.Utils.escapeHtml(chapterTitle)}</span>
         </div>
         </div>
     `;
@@ -302,20 +348,32 @@ Lumina.Search = {
 
     // 渲染书库搜索结果
     renderLibraryResults(files, query) {
-        const lowerQuery = query.toLowerCase();
+        const converter = Lumina.Converter;
+        
+        // 高亮用的查询词需要是 UI 语言
+        let highlightQuery = query.toLowerCase();
+        if (converter?.isConverting) {
+            highlightQuery = converter.convert(query).toLowerCase();
+        }
 
         document.getElementById('aggregateSearch').innerHTML = files.map((file, idx) => {
             const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
             const sizeStr = file.estimatedSize ? Lumina.Utils.formatFileSize(file.estimatedSize) : '--';
-            const fileName = Lumina.Utils.escapeHtml(file.fileName);
             
-            // 高亮匹配的文件名
-            const matchIndex = fileName.toLowerCase().indexOf(lowerQuery);
-            let highlightedName = fileName;
+            // 获取显示名称（优先用 title，支持转换）
+            let displayName = file.metadata?.title || file.fileName;
+            if (converter?.isConverting && displayName) {
+                displayName = converter.convert(displayName);
+            }
+            displayName = Lumina.Utils.escapeHtml(displayName);
+            
+            // 高亮匹配（使用 UI 语言的查询词）
+            const matchIndex = displayName.toLowerCase().indexOf(highlightQuery);
+            let highlightedName = displayName;
             if (matchIndex >= 0) {
-                const before = fileName.substring(0, matchIndex);
-                const match = fileName.substring(matchIndex, matchIndex + query.length);
-                const after = fileName.substring(matchIndex + query.length);
+                const before = displayName.substring(0, matchIndex);
+                const match = displayName.substring(matchIndex, matchIndex + highlightQuery.length);
+                const after = displayName.substring(matchIndex + highlightQuery.length);
                 highlightedName = `${before}<span class="search-result-match">${match}</span>${after}`;
             }
 

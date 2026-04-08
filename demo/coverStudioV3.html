@@ -5025,95 +5025,6 @@ const CoverCore = (function() {
             }
         },
 
-        genitalTile(ctx, w, h, p, density) {
-            const basePath = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
-    
-            // 精确几何边界（从 path 数据提取的极值）
-            const rawMinX = 19.26024, rawMaxX = 80.73969;  // 宽度 61.479
-            const rawMinY = 1.454803, rawMaxY = 98.54512;  // 高度 97.090
-            const rawWidth = rawMaxX - rawMinX;
-            const rawHeight = rawMaxY - rawMinY;
-            
-            // 关键：计算中心到最远顶点的距离（半对角线）
-            const halfW = rawWidth / 2;   // 30.7395
-            const halfH = rawHeight / 2;  // 48.54516
-            const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH); // ≈57.456
-            
-            // 旋转后的轴对齐包围盒（AABB）最大半边长 = maxRadius
-            // 因此直径 = maxRadius * 2 ≈ 114.912
-            
-            const prng = (seed) => {
-                let h = 5381 + seed * 997;
-                h = ((h << 5) + h) + (seed * 137);
-                return (Math.abs(h) % 1000) / 1000;
-            };
-            
-            // 平铺网格计算（密度控制单元数量）
-            const baseCount = Math.floor((6 + p[0] * 10) * density);
-            const cols = Math.ceil(Math.sqrt(baseCount * w / h));
-            const rows = Math.ceil(baseCount / cols);
-            
-            // 关键修正：单元格尺寸必须 >= 旋转后图案的直径 + 安全间隙
-            // 使用 0.6 安全系数（40% 边距），确保即使描边和浮点误差也绝对不重叠
-            const safetyFactor = 0.6; // 图案占据单元格的 60%，两侧各留 20% 间隙
-            const requiredCellSize = (maxRadius * 2) / safetyFactor; // 约 191.5
-            
-            // 动态调整网格：确保单元格不小于所需最小尺寸
-            const actualCols = Math.max(cols, Math.ceil(w / requiredCellSize));
-            const actualRows = Math.max(rows, Math.ceil(h / requiredCellSize));
-            const cellW = w / actualCols;
-            const cellH = h / actualRows;
-            
-            // 固定缩放：基于最小单元格边长计算，确保旋转任意角度都不溢出
-            const minCellSize = Math.min(cellW, cellH);
-            const fixedScale = (minCellSize * safetyFactor) / (maxRadius * 2);
-            
-            const isSVG = ctx.elements && Array.isArray(ctx.elements);
-            
-            for (let i = 0; i < actualCols * actualRows; i++) {
-                const col = i % actualCols;
-                const row = Math.floor(i / actualCols);
-                
-                // 严格网格中心定位
-                const cx = col * cellW + cellW / 2;
-                const cy = row * cellH + cellH / 2;
-                
-                // 仅角度（0°-360°）与透明度（0.15-0.45）变异
-                const rotation = prng(i * 3) * Math.PI * 2;
-                const alpha = 0.15 + prng(i * 5) * 0.30;
-                
-                if (isSVG) {
-                    const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
-                    const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)})`;
-                    
-                    let fill = ctx.state.fillStyle;
-                    let stroke = ctx.state.strokeStyle;
-                    if (fill && fill.id) fill = `url(#${fill.id})`;
-                    if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
-                    
-                    // 反向缩放描边保持视觉一致
-                    const strokeWidth = (1.2 / fixedScale).toFixed(2);
-                    
-                    ctx.elements.push(`<path d="${basePath}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.9).toFixed(3)}" stroke-linejoin="round" stroke-linecap="round"/>`);
-                    
-                } else {
-                    ctx.save();
-                    ctx.translate(cx, cy);
-                    ctx.rotate(rotation);
-                    ctx.scale(fixedScale, fixedScale);
-                    ctx.globalAlpha = alpha;
-                    
-                    const path = new Path2D(basePath);
-                    ctx.fill(path);
-                    
-                    ctx.lineWidth = 1.2 / fixedScale;
-                    ctx.stroke(path);
-                    
-                    ctx.restore();
-                }
-            }
-        },
-
         rectTiling(ctx, w, h, p, density) {
             const rectWidth = 30;
             const rectHeight = 45;
@@ -5121,12 +5032,9 @@ const CoverCore = (function() {
             const halfH = rectHeight / 2;
             const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH);
             
-            // 固定缩放（可调整此值控制图案大小）
             const fixedScale = Math.min(w, h) / 280;
-            // 碰撞距离（中心点最小间距）
-            const minDist = maxRadius * 2 * fixedScale * 1.02; // 2%间隙
-            
-            // 基于 p 数组的随机数生成器
+            const minDist = maxRadius * 2 * fixedScale * 1.02;
+
             let rngState = (p[0] * 1000000000 + p[1] * 1000000 + p[2] * 1000 + p[3] * 10 + density * 100) % 233280;
             const rng = () => {
                 rngState = (rngState * 9301 + 49297) % 233280;
@@ -5134,9 +5042,7 @@ const CoverCore = (function() {
             };
             
             const placed = [];
-            // 关键修正：大幅提高目标数量，允许填满画布
-            const targetCount = Math.floor((20 + p[4] * 30) * density); // 20-50个基础数量
-            // 允许大量尝试以找到不重叠位置
+            const targetCount = Math.floor((20 + p[4] * 30) * density);
             const maxAttempts = targetCount * 300; 
             
             let placedCount = 0;
@@ -5146,13 +5052,10 @@ const CoverCore = (function() {
             while (placedCount < targetCount && attempts < maxAttempts) {
                 attempts++;
                 
-                // 关键修正：允许图案部分超出画布（-margin 到 w+margin）
-                // 这样图案可以延伸到画布边缘外，由画布自动裁剪
                 const margin = minDist * 0.5;
                 const cx = -margin + rng() * (w + margin * 2);
                 const cy = -margin + rng() * (h + margin * 2);
                 
-                // 碰撞检测：与所有已放置单元比较
                 let overlapping = false;
                 for (const unit of placed) {
                     const dx = cx - unit.x;
@@ -5172,8 +5075,16 @@ const CoverCore = (function() {
                     placedCount++;
                     
                     if (isSVG) {
-                        const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
-                        const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)})`;
+                        // 关键修复：不再手动处理 clip-path，依赖 drawPatternArea 的分组裁剪
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        
+                        // 获取当前变换矩阵（相对于图案区域原点）
+                        const t = ctx.state.transform;
+                        // 注意：这里的矩阵是相对于 drawPatternArea 的 translate(x,y) 之后的坐标系
+                        const matrix = `matrix(${t[0].toFixed(4)},${t[1].toFixed(4)},${t[2].toFixed(4)},${t[3].toFixed(4)},${t[4].toFixed(2)},${t[5].toFixed(2)})`;
                         
                         let fill = ctx.state.fillStyle;
                         let stroke = ctx.state.strokeStyle;
@@ -5182,8 +5093,15 @@ const CoverCore = (function() {
                         
                         const strokeWidth = (1.5 / fixedScale).toFixed(2);
                         
-                        ctx.elements.push(`<rect x="${-halfW}" y="${-halfH}" width="${rectWidth}" height="${rectHeight}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.8).toFixed(3)}"/>`);
+                        // 不再添加 clip-path 属性，由父级 <g> 统一管理
+                        ctx.elements.push(
+                            `<rect x="${-halfW}" y="${-halfH}" width="${rectWidth}" height="${rectHeight}" ` +
+                            `transform="${matrix}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" ` +
+                            `stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.8).toFixed(3)}"/>`
+                        );
+                        ctx.restore();
                     } else {
+                        // Canvas 模式保持不变
                         ctx.save();
                         ctx.translate(cx, cy);
                         ctx.rotate(rotation);
@@ -5193,6 +5111,101 @@ const CoverCore = (function() {
                         ctx.fillRect(-halfW, -halfH, rectWidth, rectHeight);
                         ctx.lineWidth = 1.5 / fixedScale;
                         ctx.strokeRect(-halfW, -halfH, rectWidth, rectHeight);
+                        ctx.restore();
+                    }
+                }
+            }
+        },
+
+        genitalTile(ctx, w, h, p, density) {
+            const pathData = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
+
+            const numbers = pathData.match(/-?\d+(\.\d+)?/g)?.map(Number) || [];
+            const xs = numbers.filter((_, i) => i % 2 === 0);
+            const ys = numbers.filter((_, i) => i % 2 === 1);
+            
+            if (xs.length === 0 || ys.length === 0) return;
+            
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const halfW_path = (maxX - minX) / 2;
+            const halfH_path = (maxY - minY) / 2;
+            const maxRadius = Math.sqrt(halfW_path*halfW_path + halfH_path*halfH_path) || 50;
+            
+            const baseScaleFactor = 0.6;
+            const fixedScale = (Math.min(w, h) / 350) * baseScaleFactor;
+            const minDist = maxRadius * 2 * fixedScale * 1.02;
+            
+            let rngState = (p[0]*1000000000 + p[1]*1000000 + p[2]*1000 + p[3]*10 + density*100) % 233280;
+            const rng = () => {
+                rngState = (rngState * 9301 + 49297) % 233280;
+                return rngState / 233280;
+            };
+            
+            const placed = [];
+            const targetCount = Math.floor((25 + p[4]*40) * density / Math.sqrt(baseScaleFactor));
+            const maxAttempts = targetCount * 300;
+            let placedCount = 0, attempts = 0;
+            const isSVG = ctx.elements && Array.isArray(ctx.elements);
+            
+            while (placedCount < targetCount && attempts < maxAttempts) {
+                attempts++;
+                
+                const margin = minDist * 0.5;
+                const cx = -margin + rng() * (w + margin * 2);
+                const cy = -margin + rng() * (h + margin * 2);
+                
+                let overlapping = false;
+                for (const unit of placed) {
+                    const dx = cx - unit.x, dy = cy - unit.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < minDist) { overlapping = true; break; }
+                }
+                
+                if (!overlapping) {
+                    const rotation = rng() * Math.PI * 2;
+                    const alpha = 0.15 + rng() * 0.35;
+                    placed.push({ x: cx, y: cy });
+                    placedCount++;
+                    
+                    if (isSVG) {
+                        // 关键修复：不再手动处理 clip-path
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        ctx.translate(-centerX, -centerY);
+                        
+                        const t = ctx.state.transform;
+                        const matrix = `matrix(${t[0].toFixed(4)},${t[1].toFixed(4)},${t[2].toFixed(4)},${t[3].toFixed(4)},${t[4].toFixed(2)},${t[5].toFixed(2)})`;
+                        
+                        let fill = ctx.state.fillStyle;
+                        let stroke = ctx.state.strokeStyle;
+                        if (fill?.id) fill = `url(#${fill.id})`;
+                        if (stroke?.id) stroke = `url(#${stroke.id})`;
+                        
+                        // 不再添加 clip-path 属性
+                        ctx.elements.push(
+                            `<path d="${pathData}" transform="${matrix}" fill="${fill}" ` +
+                            `fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" ` +
+                            `stroke-width="${(1.2/fixedScale).toFixed(2)}" ` +
+                            `stroke-opacity="${(alpha*0.85).toFixed(3)}"/>`
+                        );
+                        ctx.restore();
+                    } else {
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        ctx.translate(-centerX, -centerY);
+                        ctx.globalAlpha = alpha;
+                        
+                        const path = new Path2D(pathData);
+                        ctx.fill(path);
+                        ctx.lineWidth = 1.2 / fixedScale;
+                        ctx.stroke(path);
                         ctx.restore();
                     }
                 }
@@ -5480,19 +5493,38 @@ const CoverCore = (function() {
     }
 
     function drawPatternArea(ctx, x, y, w, h, seed, palette, patternId, density) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.fillStyle = palette.pattern;
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = palette.accent;
-        ctx.fillStyle = palette.accent;
-        
-        const p = extractParams(seed, 40);
-        const pattern = PATTERNS[patternId] || PATTERNS[0];
-        const drawer = PatternDrawers[pattern.code];
-        if (drawer) drawer(ctx, w, h, p, density);
-        ctx.restore();
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // 检测是否为 SVG 模式
+    const isSVG = ctx.elements && Array.isArray(ctx.elements);
+    
+    // 如果在 SVG 模式下且存在裁剪路径，创建带裁剪的分组
+    let clipGroupId = null;
+    if (isSVG && ctx.clipPath) {
+        clipGroupId = ctx.clipPath;
+        ctx.elements.push(`<g clip-path="url(#${clipGroupId})">`);
     }
+    
+    ctx.fillStyle = palette.pattern;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = palette.accent;
+    ctx.fillStyle = palette.accent;
+    
+    const p = extractParams(seed, 40);
+    const pattern = PATTERNS[patternId] || PATTERNS[0];
+    const drawer = PatternDrawers[pattern.code];
+    if (drawer) {
+        drawer(ctx, w, h, p, density);
+    }
+    
+    // 关闭 SVG 裁剪分组
+    if (isSVG && clipGroupId) {
+        ctx.elements.push('</g>');
+    }
+    
+    ctx.restore();
+}
 
     const LayoutImplementations = {
         horizontal(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {

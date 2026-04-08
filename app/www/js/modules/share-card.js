@@ -197,6 +197,18 @@ Lumina.ShareCard = {
     renderShort(w, h, palette, seed) {
         let svg = this.renderPatternFull(w, h, palette, seed, 1.0);
         
+        // 底部渐变遮罩（在图案之上、白色卡片之下，优化品牌文字显示）
+        const maskHeight = Math.floor(h * 0.28);
+        const gradientId = `bottomMask-${seed}`;
+        svg += `<defs>
+            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${palette.bg}" stop-opacity="0.3" />
+                <stop offset="50%" stop-color="${palette.bg}" stop-opacity="0.6" />
+                <stop offset="100%" stop-color="${palette.bg}" stop-opacity="1" />
+            </linearGradient>
+        </defs>`;
+        svg += `<rect x="0" y="${h - maskHeight}" width="${w}" height="${maskHeight}" fill="url(#${gradientId})" />`;
+        
         const cardW = Math.floor(w * 0.82);
         const cardH = Math.floor(h * 0.68);
         const cardX = Math.floor((w - cardW) / 2);
@@ -858,6 +870,15 @@ Lumina.ShareCard = {
         // --- 全图背景图案（intensity=1.0，与 SVG 一致）---
         this.renderPatternArea(ctx, 0, 0, w, h, palette, this.currentSeed, 1.0);
         
+        // --- 底部渐变遮罩（在图案之上、白色卡片之下，与 SVG 一致）---
+        const maskHeight = Math.floor(h * 0.28);
+        const gradient = ctx.createLinearGradient(0, h - maskHeight, 0, h);
+        gradient.addColorStop(0, this.hexToRgba(palette.bg, 0.3));
+        gradient.addColorStop(0.5, this.hexToRgba(palette.bg, 0.6));
+        gradient.addColorStop(1, this.hexToRgba(palette.bg, 1));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, h - maskHeight, w, maskHeight);
+        
         // --- 卡片背景 ---
         const cardW = Math.floor(w * 0.82);
         const cardH = Math.floor(h * 0.68);
@@ -926,6 +947,53 @@ Lumina.ShareCard = {
         ctx.globalAlpha = 0.6;
         ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w / 2, brandY);
         ctx.globalAlpha = 1;
+    },
+    
+    // 辅助方法：将颜色值转换为 rgba
+    hexToRgba(color, alpha) {
+        if (!color || typeof color !== 'string') {
+            // 默认返回深色背景
+            return `rgba(30, 30, 35, ${alpha})`;
+        }
+        
+        let hex = color.trim();
+        
+        // 处理 rgb/rgba 格式
+        if (hex.startsWith('rgb')) {
+            const match = hex.match(/rgba?\(([^)]+)\)/);
+            if (match) {
+                const parts = match[1].split(',').map(p => parseFloat(p.trim()));
+                const r = parts[0] || 0;
+                const g = parts[1] || 0;
+                const b = parts[2] || 0;
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+        }
+        
+        // 处理 hex 格式
+        if (hex.startsWith('#')) {
+            // 简写形式 #rgb 或 #rgba
+            if (hex.length === 4 || hex.length === 5) {
+                const r = hex[1], g = hex[2], b = hex[3], a = hex[4];
+                hex = '#' + r + r + g + g + b + b + (a ? a + a : '');
+            }
+            
+            const r = parseInt(hex.slice(1, 3), 16) || 0;
+            const g = parseInt(hex.slice(3, 5), 16) || 0;
+            const b = parseInt(hex.slice(5, 7), 16) || 0;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        
+        // 处理命名颜色或 hsl（简单回退）
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = color;
+        const computed = ctx.fillStyle;
+        if (computed && computed.startsWith('#')) {
+            return this.hexToRgba(computed, alpha);
+        }
+        
+        // 默认回退
+        return `rgba(30, 30, 35, ${alpha})`;
     },
     
     /**
@@ -1177,13 +1245,47 @@ Lumina.ShareCard = {
      * 导出 Canvas（跨平台）
      */
     async exportCanvas(canvas) {
+        // 添加圆角效果
+        const roundedCanvas = this.applyRoundedCorners(canvas, 24);
+        
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
         
         if (isApp) {
-            await this.saveCanvasApp(canvas);
+            await this.saveCanvasApp(roundedCanvas);
         } else {
-            await this.saveCanvasWeb(canvas);
+            await this.saveCanvasWeb(roundedCanvas);
         }
+    },
+    
+    // 为 Canvas 添加圆角
+    applyRoundedCorners(sourceCanvas, radius) {
+        const w = sourceCanvas.width;
+        const h = sourceCanvas.height;
+        
+        // 创建新 canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        
+        // 绘制圆角矩形路径作为裁剪区域
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(w - radius, 0);
+        ctx.quadraticCurveTo(w, 0, w, radius);
+        ctx.lineTo(w, h - radius);
+        ctx.quadraticCurveTo(w, h, w - radius, h);
+        ctx.lineTo(radius, h);
+        ctx.quadraticCurveTo(0, h, 0, h - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        
+        // 裁剪并绘制原图
+        ctx.clip();
+        ctx.drawImage(sourceCanvas, 0, 0);
+        
+        return canvas;
     },
     
     async saveCanvasWeb(canvas) {

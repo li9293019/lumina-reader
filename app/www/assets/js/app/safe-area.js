@@ -122,50 +122,80 @@
         return result;
     }
 
-    // 通过屏幕尺寸计算安全区域
+    // 通过屏幕尺寸计算安全区域（带设备检测）
     function calculateSafeAreaFromScreen() {
         const width = window.screen.width;
         const height = window.screen.height;
         const availHeight = window.screen.availHeight;
         const innerHeight = window.innerHeight;
         const pixelRatio = window.devicePixelRatio || 1;
+        const clientWidth = document.documentElement.clientWidth || window.innerWidth;
+        const clientHeight = document.documentElement.clientHeight || window.innerHeight;
 
         // 计算宽高比
         const ratio = height / width;
 
+        // 根据屏幕尺寸判断设备类型（使用物理像素或 CSS 像素）
+        const shortEdge = Math.min(width, height);
+        const longEdge = Math.max(width, height);
+        const isTablet = shortEdge > 600; // 平板判断
+        const isFoldable = ratio > 0.8 && ratio < 1.3; // 折叠屏展开状态
+
         let top = 0;
         let bottom = 0;
 
-        // 根据屏幕比例判断设备类型
-        if (ratio > 2.0) {
+        // 使用更可靠的检测：如果 innerHeight 比 screen height 小很多，说明有系统 UI
+        const heightDiff = height - innerHeight;
+        const hasSystemUI = heightDiff > 20; // 误差容忍
+
+        if (isFoldable) {
+            // 折叠屏展开状态，通常没有刘海，但可能有任务栏
+            top = Math.round(0 * pixelRatio);
+            bottom = Math.round(hasSystemUI ? 48 : 0);
+        } else if (ratio > 2.0) {
             // 刘海屏设备 (iPhone X+ 风格)
-            top = Math.round(44 * pixelRatio); // 约 44pt/132px
-            bottom = Math.round(34 * pixelRatio); // 底部安全区域约 34pt/102px
+            // 使用 CSS 像素而非物理像素
+            top = 44; // 约 44pt
+            bottom = hasSystemUI ? 34 : 0; // 底部安全区域约 34pt
         } else if (ratio > 1.9) {
             // Android 刘海屏/水滴屏
-            top = Math.round(24 * pixelRatio); // 状态栏 24dp
-            bottom = Math.round(48 * pixelRatio); // 虚拟按键 48dp
+            top = 32; // 状态栏约 32dp
+            bottom = hasSystemUI ? 48 : 0; // 虚拟按键 48dp
+        } else if (ratio > 1.7) {
+            // 标准全面屏
+            top = 28;
+            bottom = hasSystemUI ? 48 : 0;
         } else {
-            // 标准屏幕
-            top = Math.round(24 * pixelRatio); // 标准状态栏
-            // 检测是否有虚拟导航栏
-            if (height - availHeight > 50) {
-                bottom = Math.round(48 * pixelRatio);
-            }
+            // 标准屏幕或平板
+            top = 24;
+            bottom = hasSystemUI ? 48 : (isTablet ? 0 : 24);
         }
 
-        // 如果 innerHeight 明显小于 availHeight，说明有系统 UI
+        // 最后兜底：如果 innerHeight 明显小于 availHeight，使用差值
         const systemUIHeight = availHeight - innerHeight;
-        if (systemUIHeight > 0 && bottom === 0) {
-            bottom = systemUIHeight;
+        if (systemUIHeight > 20 && bottom === 0) {
+            bottom = Math.max(systemUIHeight, 48);
         }
 
-        console.log('[SafeArea] 屏幕计算值:', { top, bottom, ratio, pixelRatio });
+        // 确保有合理的非零值（防止计算错误）
+        if (top === 0 && longEdge > 700) {
+            top = 32; // 至少给个状态栏高度
+        }
+        if (bottom === 0 && hasSystemUI) {
+            bottom = 48; // 如果有系统 UI，至少给个导航栏高度
+        }
+
+        console.log('[SafeArea] 屏幕计算值:', { 
+            top, bottom, ratio, pixelRatio, 
+            hasSystemUI, isTablet, isFoldable,
+            screen: `${width}x${height}`,
+            client: `${clientWidth}x${clientHeight}`
+        });
         return { top, bottom, left: 0, right: 0 };
     }
 
-    // 综合获取安全区域（带重试逻辑）
-    async function getSafeArea() {
+    // 综合获取安全区域（带重试逻辑和首次启动优化）
+    async function getSafeArea(allowSave = true) {
         // 如果已有内存缓存值，直接使用
         if (cachedSafeArea) {
             safeAreaData = cachedSafeArea;
@@ -173,67 +203,59 @@
             return safeAreaData;
         }
 
-        // 尝试从 localStorage 加载缓存
+        // 尝试从 localStorage 加载缓存（优先级最高，因为是之前从插件获取的准确值）
         const storageCache = loadCachedSafeAreaFromStorage();
+        if (storageCache && (storageCache.top > 0 || storageCache.bottom > 0)) {
+            console.log('[SafeArea] 使用 localStorage 缓存:', storageCache);
+            safeAreaData = storageCache;
+            cachedSafeArea = { ...storageCache };
+            return safeAreaData;
+        }
         
-        // 优先从插件获取（包括0值，因为可能是正确的）
+        // 首次启动（无缓存）：优先尝试插件获取（准确值）
         const pluginData = await fetchSafeAreaFromPlugin();
+        if (pluginData && (pluginData.top > 0 || pluginData.bottom > 0)) {
+            safeAreaData = pluginData;
+            console.log('[SafeArea] 使用插件数据:', safeAreaData);
+            cachedSafeArea = { ...safeAreaData };
+            // 只有插件获取的准确值才保存到 localStorage
+            if (allowSave) {
+                saveSafeAreaToStorage(safeAreaData);
+            }
+            return safeAreaData;
+        }
         
-        // 其次从 CSS env() 获取（如果 body 已准备好）
+        // 插件返回 0 或未就绪，尝试 CSS env()
         let cssData = null;
         if (document.body) {
             cssData = getSafeAreaFromCSS();
         }
-        
-        // 决策逻辑：优先使用有正值的来源
-        if (pluginData && (pluginData.top > 0 || pluginData.bottom > 0)) {
-            // 插件有正值，使用插件
-            safeAreaData = pluginData;
-            console.log('[SafeArea] 使用插件数据:', safeAreaData);
-        } else if (cssData && (cssData.top > 0 || cssData.bottom > 0)) {
-            // CSS env() 有正值，使用 CSS
+        if (cssData && (cssData.top > 0 || cssData.bottom > 0)) {
             safeAreaData = cssData;
             console.log('[SafeArea] 使用 CSS env() 数据:', safeAreaData);
-        } else if (storageCache && (storageCache.top > 0 || storageCache.bottom > 0)) {
-            // 两者都是0或无值，使用 localStorage 缓存
-            safeAreaData = storageCache;
-            console.log('[SafeArea] 使用 localStorage 缓存数据:', safeAreaData);
-        } else {
-            // 首次安装/无缓存/都是0值时，使用屏幕计算作为备选
-            const calculatedData = calculateSafeAreaFromScreen();
-            if (calculatedData.top > 0 || calculatedData.bottom > 0) {
-                safeAreaData = calculatedData;
-                console.log('[SafeArea] 使用屏幕计算数据:', safeAreaData);
-            } else if (pluginData) {
-                safeAreaData = pluginData;
-                console.log('[SafeArea] 使用插件数据(0值):', safeAreaData);
-            } else if (cssData) {
-                safeAreaData = cssData;
-                console.log('[SafeArea] 使用 CSS env() 数据(0值):', safeAreaData);
-            } else {
-                // 最后 fallback 到默认值
-                safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
-                console.log('[SafeArea] 使用默认零值:', safeAreaData);
-            }
-        }
-        
-        // 缓存到内存
-        if (safeAreaData && typeof safeAreaData.top === 'number') {
             cachedSafeArea = { ...safeAreaData };
-            
-            // 如果获取到了有效的安全区域值，保存到 localStorage
-            if (safeAreaData.top > 0 || safeAreaData.bottom > 0) {
+            // CSS env() 也是准确值，可以保存
+            if (allowSave) {
                 saveSafeAreaToStorage(safeAreaData);
             }
+            return safeAreaData;
         }
+        
+        // 都失败了，使用屏幕计算值（估算值，仅临时使用）
+        const calculatedData = calculateSafeAreaFromScreen();
+        safeAreaData = calculatedData;
+        console.log('[SafeArea] 使用屏幕计算数据(临时估算):', safeAreaData);
+        // 注意：屏幕计算值不保存到 localStorage，等待后续获取准确值
+        cachedSafeArea = { ...safeAreaData };
         
         return safeAreaData;
     }
 
     // 设置并应用安全区域
-    async function setupSafeArea() {
+    async function setupSafeArea(isRetry = false) {
         try {
-            await getSafeArea();
+            // 首次调用允许保存，重试时也允许保存（如果获取到插件值）
+            await getSafeArea(true);
         } catch (e) {
             console.error('[SafeArea] 获取安全区域失败:', e);
             // 保持默认值 { top: 0, bottom: 0, left: 0, right: 0 }
@@ -244,22 +266,34 @@
             safeAreaData = { top: 0, bottom: 0, left: 0, right: 0 };
         }
 
-        // 检查是否需要重试（如果安全区域为0且未达到最大重试次数）
-        if (safeAreaData.top === 0 && safeAreaData.bottom === 0) {
-            const storageCache = loadCachedSafeAreaFromStorage();
+        // 检查是否需要重试
+        const isZeroValue = safeAreaData.top === 0 && safeAreaData.bottom === 0;
+        const storageCache = loadCachedSafeAreaFromStorage();
+        
+        if (isZeroValue) {
             if (storageCache && (storageCache.top > 0 || storageCache.bottom > 0)) {
-                // 使用 localStorage 缓存作为备选
+                // 有 localStorage 缓存，使用它（这是之前保存的准确值）
                 console.log('[SafeArea] 使用 localStorage 缓存作为备选:', storageCache);
                 safeAreaData = storageCache;
+                cachedSafeArea = { ...storageCache };
             } else if (retryCount < MAX_RETRY_COUNT) {
+                // 首次启动且都是0，需要重试（给插件更多时间初始化）
                 retryCount++;
-                console.log(`[SafeArea] 安全区域为0，${retryCount}/${MAX_RETRY_COUNT} 秒后重试...`);
+                const delay = 500 * retryCount; // 递增延迟：500, 1000, 1500...
+                console.log(`[SafeArea] 安全区域为0，${retryCount}/${MAX_RETRY_COUNT} 次重试，${delay}ms 后重试...`);
                 setTimeout(() => {
-                    // 清除缓存强制重新获取
+                    // 清除内存缓存，强制重新获取
                     cachedSafeArea = null;
-                    setupSafeArea();
-                }, 500 * retryCount); // 递增延迟
+                    setupSafeArea(true);
+                }, delay);
                 return;
+            } else {
+                // 重试次数用尽，使用屏幕计算值作为最后手段
+                console.log('[SafeArea] 重试次数用尽，使用屏幕计算值作为最后手段');
+                safeAreaData = calculateSafeAreaFromScreen();
+                cachedSafeArea = { ...safeAreaData };
+                // 注意：即使是最后手段，屏幕计算值也不保存到 localStorage
+                // 下次启动会继续尝试获取插件的准确值
             }
         } else {
             // 成功获取到有效值，重置重试计数
@@ -414,14 +448,24 @@
         console.log('[SafeArea] 轻量级刷新完成，键盘状态:', isKeyboardOpen);
     };
 
-    // 初始化 - 确保 DOM 已准备好
+    // 初始化 - 确保 DOM 已准备好，并给 Capacitor 插件足够时间初始化
     function init() {
         if (!document.body) {
             // body 还未准备好，延迟执行
             setTimeout(init, 50);
             return;
         }
-        setupSafeArea();
+        
+        // 检查是否有缓存，没有则认为是首次启动，增加延迟
+        const hasCache = loadCachedSafeAreaFromStorage();
+        if (!hasCache) {
+            console.log('[SafeArea] 首次启动，等待 Capacitor 插件初始化...');
+            // 首次启动：等待 500ms 让 Capacitor 插件初始化
+            setTimeout(() => setupSafeArea(), 500);
+        } else {
+            // 有缓存，立即应用
+            setupSafeArea();
+        }
     }
     
     if (document.readyState === 'loading') {
@@ -450,12 +494,102 @@
         }
     });
 
+    // 测试安全区域数据来源（调试用）
+    async function testSafeAreaSources() {
+        const results = [];
+        
+        // 1. Device 插件
+        try {
+            const Device = Capacitor?.Plugins?.Device;
+            if (Device) {
+                const info = await Device.getInfo();
+                results.push(`【Device 插件】`);
+                results.push(`safeAreaInsets: ${JSON.stringify(info.safeAreaInsets || {})}`);
+                results.push(`平台: ${info.platform || 'unknown'}`);
+                results.push(`型号: ${info.model || 'unknown'}`);
+            } else {
+                results.push(`【Device 插件】未找到`);
+            }
+        } catch (e) {
+            results.push(`【Device 插件】错误: ${e.message}`);
+        }
+        
+        results.push(''); // 空行
+        
+        // 2. CSS env()
+        try {
+            const cssData = getSafeAreaFromCSS();
+            results.push(`【CSS env()】`);
+            results.push(`top: ${cssData.top}px`);
+            results.push(`bottom: ${cssData.bottom}px`);
+            results.push(`left: ${cssData.left}px`);
+            results.push(`right: ${cssData.right}px`);
+        } catch (e) {
+            results.push(`【CSS env()】错误: ${e.message}`);
+        }
+        
+        results.push(''); // 空行
+        
+        // 3. 屏幕计算
+        try {
+            const calcData = calculateSafeAreaFromScreen();
+            results.push(`【屏幕计算】`);
+            results.push(`top: ${calcData.top}px`);
+            results.push(`bottom: ${calcData.bottom}px`);
+            results.push(`屏幕: ${window.screen.width}x${window.screen.height}`);
+            results.push(`DPR: ${window.devicePixelRatio}`);
+            results.push(`比例: ${(window.screen.height / window.screen.width).toFixed(2)}`);
+        } catch (e) {
+            results.push(`【屏幕计算】错误: ${e.message}`);
+        }
+        
+        results.push(''); // 空行
+        
+        // 4. localStorage 缓存
+        try {
+            const storage = loadCachedSafeAreaFromStorage();
+            results.push(`【localStorage】`);
+            if (storage) {
+                results.push(`top: ${storage.top}px`);
+                results.push(`bottom: ${storage.bottom}px`);
+            } else {
+                results.push(`无缓存`);
+            }
+        } catch (e) {
+            results.push(`【localStorage】错误: ${e.message}`);
+        }
+        
+        results.push(''); // 空行
+        
+        // 5. 当前使用值
+        results.push(`【当前使用】`);
+        results.push(`top: ${safeAreaData?.top || 0}px`);
+        results.push(`bottom: ${safeAreaData?.bottom || 0}px`);
+        results.push(`内存缓存: ${cachedSafeArea ? '有' : '无'}`);
+        
+        // 显示对话框
+        const message = results.join('\n');
+        if (typeof Lumina !== 'undefined' && Lumina.UI?.showDialog) {
+            Lumina.UI.showDialog(message, 'alert', null, {
+                title: '安全区域数据源测试'
+            });
+        } else {
+            alert(message);
+        }
+        
+        console.log('[SafeArea] 测试数据:\n' + message);
+    }
+
     // 暴露到全局
     window.SafeArea = {
         setup: setupSafeArea,
         apply: applySafeArea,
         toggleImmersive: window.toggleImmersiveSafeArea,
         refresh: window.refreshSafeArea,
-        getData: () => safeAreaData
+        getData: () => safeAreaData,
+        test: testSafeAreaSources // 添加测试方法
     };
+    
+    // 自动运行测试（首次启动时）
+    // setTimeout(testSafeAreaSources, 1000);
 })();

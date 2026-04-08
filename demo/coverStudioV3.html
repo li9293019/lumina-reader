@@ -1849,6 +1849,7 @@ const CoverCore = (function() {
         { code: 'hypercube', name: { 'zh-CN': '超立方投影', 'en': 'Hypercube' }},
         { code: 'spermatozoa', name: { 'zh-CN': '游动细胞', 'en': 'Spermatozoa' }},
         { code: 'genitalTile', name: { 'zh-CN': '几何图腾', 'en': 'Genital Tile' }},
+        { code: 'rectTiling', name: { 'zh-CN': '矩形测试', 'en': 'Rect Test' }},
     ];
 
     const LAYOUTS = [
@@ -5025,85 +5026,178 @@ const CoverCore = (function() {
         },
 
         genitalTile(ctx, w, h, p, density) {
-    const basePath = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
+            const basePath = "M 50 1.454803 C 67.40441 1.454803 70.44456 27.49646 64.06787 29.31016 L 62.98149 29.23087 L 62.98149 65.74032 L 64.25693 65.57968 C 73.36016 65.57968 80.73969 72.95921 80.73969 82.06236 C 80.73969 91.16559 73.36016 98.54512 64.25693 98.54512 C 58.56748 98.54512 53.55126 95.66252 50.58921 91.27803 L 50 90.19244 L 49.41071 91.27803 C 46.44866 95.66252 41.43244 98.54512 35.74299 98.54512 C 26.63976 98.54512 19.26024 91.16559 19.26024 82.06236 C 19.26024 72.95921 26.63976 65.57968 35.74299 65.57968 L 37.01851 65.74032 L 37.01851 29.23087 L 35.93213 29.31016 C 29.55536 27.49646 32.59551 1.454803 50 1.454803 Z";
     
-    const prng = (seed) => {
-        let h = 5381 + seed * 997;
-        h = ((h << 5) + h) + (seed * 137);
-        return (Math.abs(h) % 1000) / 1000;
-    };
-    
-    // 平铺网格计算
-    const baseCount = Math.floor((9 + p[0] * 15) * density);
-    const cols = Math.ceil(Math.sqrt(baseCount * w / h));
-    const rows = Math.ceil(baseCount / cols);
-    const cellW = w / cols;
-    const cellH = h / rows;
-    
-    // 关键修复：基于实际 content 边界计算（非 viewBox）
-    // Path 实际边界：x[19.26, 80.74], y[1.45, 98.54]
-    const contentW = 61.48;  // 80.74 - 19.26
-    const contentH = 97.09;  // 98.54 - 1.45
-    // 旋转 45° 时的最大边界（|w*cos|+|h*sin|）
-    const maxRotatedWidth = (contentW + contentH) / Math.sqrt(2); // ≈ 112.1
-    // 安全缩放：确保任意角度旋转都不溢出，保留 15% 边距
-    const minCellSize = Math.min(cellW, cellH);
-    const fixedScale = (minCellSize * 0.85) / maxRotatedWidth;
-    
-    // 半尺寸（用于居中偏移）
-    const offsetX = -50 * fixedScale;  // viewBox 中心是 50
-    const offsetY = -50 * fixedScale;
-    
-    const isSVG = ctx.elements && Array.isArray(ctx.elements);
-    
-    for (let i = 0; i < cols * rows; i++) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        
-        // 严格网格中心（无抖动，确保几何不重叠）
-        const cx = col * cellW + cellW / 2;
-        const cy = row * cellH + cellH / 2;
-        
-        // 仅角度与透明度变异
-        const rotation = prng(i * 3) * Math.PI * 2;
-        const alpha = 0.15 + prng(i * 5) * 0.25;
-        
-        if (isSVG) {
-            const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
-            // 关键：先平移到中心，再旋转，再缩放到固定尺寸，最后偏移使图案中心对齐
-            const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)}) translate(-50, -50)`;
+            // 精确几何边界（从 path 数据提取的极值）
+            const rawMinX = 19.26024, rawMaxX = 80.73969;  // 宽度 61.479
+            const rawMinY = 1.454803, rawMaxY = 98.54512;  // 高度 97.090
+            const rawWidth = rawMaxX - rawMinX;
+            const rawHeight = rawMaxY - rawMinY;
             
-            let fill = ctx.state.fillStyle;
-            let stroke = ctx.state.strokeStyle;
-            if (fill && fill.id) fill = `url(#${fill.id})`;
-            if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
+            // 关键：计算中心到最远顶点的距离（半对角线）
+            const halfW = rawWidth / 2;   // 30.7395
+            const halfH = rawHeight / 2;  // 48.54516
+            const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH); // ≈57.456
             
-            // 描边宽度反向缩放，保持视觉一致（0.8px 视觉粗细）
-            const strokeWidth = (0.8 / fixedScale).toFixed(2);
+            // 旋转后的轴对齐包围盒（AABB）最大半边长 = maxRadius
+            // 因此直径 = maxRadius * 2 ≈ 114.912
             
-            ctx.elements.push(`<path d="${basePath}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.85).toFixed(3)}" stroke-linejoin="round" stroke-linecap="round"/>`);
+            const prng = (seed) => {
+                let h = 5381 + seed * 997;
+                h = ((h << 5) + h) + (seed * 137);
+                return (Math.abs(h) % 1000) / 1000;
+            };
             
-        } else {
-            ctx.save();
-            // Canvas 变换顺序：平移 -> 旋转 -> 缩放 -> 偏移（使图案中心位于原点）
-            ctx.translate(cx, cy);
-            ctx.rotate(rotation);
-            ctx.scale(fixedScale, fixedScale);
-            ctx.translate(-50, -50);  // viewBox 中心是 50,50
+            // 平铺网格计算（密度控制单元数量）
+            const baseCount = Math.floor((6 + p[0] * 10) * density);
+            const cols = Math.ceil(Math.sqrt(baseCount * w / h));
+            const rows = Math.ceil(baseCount / cols);
             
-            ctx.globalAlpha = alpha;
+            // 关键修正：单元格尺寸必须 >= 旋转后图案的直径 + 安全间隙
+            // 使用 0.6 安全系数（40% 边距），确保即使描边和浮点误差也绝对不重叠
+            const safetyFactor = 0.6; // 图案占据单元格的 60%，两侧各留 20% 间隙
+            const requiredCellSize = (maxRadius * 2) / safetyFactor; // 约 191.5
             
-            const path = new Path2D(basePath);
-            ctx.fill(path);
+            // 动态调整网格：确保单元格不小于所需最小尺寸
+            const actualCols = Math.max(cols, Math.ceil(w / requiredCellSize));
+            const actualRows = Math.max(rows, Math.ceil(h / requiredCellSize));
+            const cellW = w / actualCols;
+            const cellH = h / actualRows;
             
-            ctx.lineWidth = 0.8 / fixedScale;
-            ctx.stroke(path);
+            // 固定缩放：基于最小单元格边长计算，确保旋转任意角度都不溢出
+            const minCellSize = Math.min(cellW, cellH);
+            const fixedScale = (minCellSize * safetyFactor) / (maxRadius * 2);
             
-            ctx.restore();
-        }
-    }
-},
-      
+            const isSVG = ctx.elements && Array.isArray(ctx.elements);
+            
+            for (let i = 0; i < actualCols * actualRows; i++) {
+                const col = i % actualCols;
+                const row = Math.floor(i / actualCols);
+                
+                // 严格网格中心定位
+                const cx = col * cellW + cellW / 2;
+                const cy = row * cellH + cellH / 2;
+                
+                // 仅角度（0°-360°）与透明度（0.15-0.45）变异
+                const rotation = prng(i * 3) * Math.PI * 2;
+                const alpha = 0.15 + prng(i * 5) * 0.30;
+                
+                if (isSVG) {
+                    const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
+                    const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)})`;
+                    
+                    let fill = ctx.state.fillStyle;
+                    let stroke = ctx.state.strokeStyle;
+                    if (fill && fill.id) fill = `url(#${fill.id})`;
+                    if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
+                    
+                    // 反向缩放描边保持视觉一致
+                    const strokeWidth = (1.2 / fixedScale).toFixed(2);
+                    
+                    ctx.elements.push(`<path d="${basePath}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.9).toFixed(3)}" stroke-linejoin="round" stroke-linecap="round"/>`);
+                    
+                } else {
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(rotation);
+                    ctx.scale(fixedScale, fixedScale);
+                    ctx.globalAlpha = alpha;
+                    
+                    const path = new Path2D(basePath);
+                    ctx.fill(path);
+                    
+                    ctx.lineWidth = 1.2 / fixedScale;
+                    ctx.stroke(path);
+                    
+                    ctx.restore();
+                }
+            }
+        },
+
+        rectTiling(ctx, w, h, p, density) {
+            const rectWidth = 30;
+            const rectHeight = 45;
+            const halfW = rectWidth / 2;
+            const halfH = rectHeight / 2;
+            const maxRadius = Math.sqrt(halfW * halfW + halfH * halfH);
+            
+            // 固定缩放（可调整此值控制图案大小）
+            const fixedScale = Math.min(w, h) / 280;
+            // 碰撞距离（中心点最小间距）
+            const minDist = maxRadius * 2 * fixedScale * 1.02; // 2%间隙
+            
+            // 基于 p 数组的随机数生成器
+            let rngState = (p[0] * 1000000000 + p[1] * 1000000 + p[2] * 1000 + p[3] * 10 + density * 100) % 233280;
+            const rng = () => {
+                rngState = (rngState * 9301 + 49297) % 233280;
+                return rngState / 233280;
+            };
+            
+            const placed = [];
+            // 关键修正：大幅提高目标数量，允许填满画布
+            const targetCount = Math.floor((20 + p[4] * 30) * density); // 20-50个基础数量
+            // 允许大量尝试以找到不重叠位置
+            const maxAttempts = targetCount * 300; 
+            
+            let placedCount = 0;
+            let attempts = 0;
+            const isSVG = ctx.elements && Array.isArray(ctx.elements);
+            
+            while (placedCount < targetCount && attempts < maxAttempts) {
+                attempts++;
+                
+                // 关键修正：允许图案部分超出画布（-margin 到 w+margin）
+                // 这样图案可以延伸到画布边缘外，由画布自动裁剪
+                const margin = minDist * 0.5;
+                const cx = -margin + rng() * (w + margin * 2);
+                const cy = -margin + rng() * (h + margin * 2);
+                
+                // 碰撞检测：与所有已放置单元比较
+                let overlapping = false;
+                for (const unit of placed) {
+                    const dx = cx - unit.x;
+                    const dy = cy - unit.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+                
+                if (!overlapping) {
+                    const rotation = rng() * Math.PI * 2;
+                    const alpha = 0.15 + rng() * 0.35;
+                    
+                    placed.push({ x: cx, y: cy });
+                    placedCount++;
+                    
+                    if (isSVG) {
+                        const rotDeg = (rotation * 180 / Math.PI).toFixed(2);
+                        const transform = `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) rotate(${rotDeg}) scale(${fixedScale.toFixed(4)})`;
+                        
+                        let fill = ctx.state.fillStyle;
+                        let stroke = ctx.state.strokeStyle;
+                        if (fill && fill.id) fill = `url(#${fill.id})`;
+                        if (stroke && stroke.id) stroke = `url(#${stroke.id})`;
+                        
+                        const strokeWidth = (1.5 / fixedScale).toFixed(2);
+                        
+                        ctx.elements.push(`<rect x="${-halfW}" y="${-halfH}" width="${rectWidth}" height="${rectHeight}" transform="${transform}" fill="${fill}" fill-opacity="${alpha.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-opacity="${(alpha * 0.8).toFixed(3)}"/>`);
+                    } else {
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rotation);
+                        ctx.scale(fixedScale, fixedScale);
+                        ctx.globalAlpha = alpha;
+                        
+                        ctx.fillRect(-halfW, -halfH, rectWidth, rectHeight);
+                        ctx.lineWidth = 1.5 / fixedScale;
+                        ctx.strokeRect(-halfW, -halfH, rectWidth, rectHeight);
+                        ctx.restore();
+                    }
+                }
+            }
+        },
     };
 
     function calculateTextMetrics(ctx, title, author, availableWidth, availableHeight, scaleFactor, fontStack, layoutType, depth = 0) {
@@ -5624,10 +5718,15 @@ const CoverCore = (function() {
         
         header(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const headerH = Math.floor(h * 0.28);
-            drawPatternArea(ctx, 0, headerH, w, h - headerH, seed, palette, patternId, density);
+            
+            // 下半部分图案
+            drawPatternArea(ctx, 0, headerH, Math.floor(w), Math.floor(h - headerH), seed, palette, patternId, density);
+            
+            // 顶部标题栏背景
             ctx.fillStyle = palette.textBg;
-            ctx.fillRect(0, 0, w, headerH);
-            drawTextBlock(ctx, title, author, 0, 0, w, headerH, scaleFactor, palette.text, fontStack, 'header', 'center'); 
+            ctx.fillRect(0, 0, Math.floor(w), headerH);
+            
+            drawTextBlock(ctx, title, author, 0, 0, Math.floor(w), headerH, scaleFactor, palette.text, fontStack, 'header', 'center');
         },
         
         footer(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
@@ -5687,10 +5786,16 @@ const CoverCore = (function() {
         
         'minimal-top'(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
             const splitY = Math.floor(h * 0.5);
-            drawPatternArea(ctx, 0, splitY, w, h - splitY, seed, palette, patternId, density);
+            
+            // 先绘制下半部分图案（确保整数坐标）
+            drawPatternArea(ctx, 0, splitY, Math.floor(w), Math.floor(h - splitY), seed, palette, patternId, density);
+            
+            // 上半部分白色背景（强制整数避免缝隙）
             ctx.fillStyle = palette.textBg;
-            ctx.fillRect(0, 0, w, splitY);
-            drawTextBlock(ctx, title, author, 0, 0, w, splitY, scaleFactor, palette.text, fontStack, 'minimal-top', 'center');
+            ctx.fillRect(0, 0, Math.floor(w), splitY);
+            
+            // 文字
+            drawTextBlock(ctx, title, author, 0, 0, Math.floor(w), splitY, scaleFactor, palette.text, fontStack, 'minimal-top', 'center');
         },
         
         'minimal-bottom'(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
@@ -5853,27 +5958,39 @@ const CoverCore = (function() {
         },
 
         porthole(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {
+            // 先填充背景
             ctx.fillStyle = palette.textBg;
-            ctx.fillRect(0, 0, w, h);
+            ctx.fillRect(0, 0, Math.floor(w), Math.floor(h));
             
-            const cx = w / 2;
-            const cy = h / 2;
-            const r = Math.min(w, h) * 0.38;
-            const textAreaH = (h - r * 2) / 2;
-            const padding = Math.max(20, 24 * scaleFactor);
+            const cx = Math.floor(w / 2);
+            const cy = Math.floor(h / 2);
+            const r = Math.floor(Math.min(w, h) * 0.38);
+            const textAreaH = Math.floor((h - r * 2) / 2);
             
-            drawTextBlock(ctx, title, '', 0, 0, w, textAreaH + padding, scaleFactor, palette.text, fontStack, 'porthole', 'center');
-            drawTextBlock(ctx, '', author, 0, h - textAreaH - padding, w, textAreaH + padding, scaleFactor, palette.text, fontStack, 'porthole', 'center');
+            // 先绘制上下文字（在裁剪之外）
+            drawTextBlock(ctx, title, '', 0, 0, Math.floor(w), textAreaH + 20, scaleFactor, palette.text, fontStack, 'porthole', 'center');
+            drawTextBlock(ctx, '', author, 0, Math.floor(h - textAreaH - 20), Math.floor(w), textAreaH + 20, scaleFactor, palette.text, fontStack, 'porthole', 'center');
             
+            // 保存状态并创建圆形裁剪区
             ctx.save();
             ctx.beginPath();
             ctx.arc(cx, cy, r, 0, Math.PI * 2);
             ctx.closePath();
             ctx.clip();
             
-            drawPatternArea(ctx, cx - r, cy - r, r * 2, r * 2, seed, palette, patternId, density);
+            // 在圆形区域内绘制图案（强制整数坐标）
+            drawPatternArea(ctx, Math.floor(cx - r), Math.floor(cy - r), Math.floor(r * 2), Math.floor(r * 2), seed, palette, patternId, density);
             
-            ctx.restore();
+            // 关键：手动添加圆形边框（因为clip只影响后续绘制，不影响已有内容）
+            ctx.restore(); // 恢复裁剪前状态
+            
+            // 绘制圆形轮廓线（在restore之后，避免被clip影响）
+            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
         },
 
         museum(ctx, w, h, title, author, scaleFactor, seed, palette, patternId, density, fontStack) {

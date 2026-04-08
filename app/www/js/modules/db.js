@@ -361,8 +361,8 @@ Lumina.DB.CapacitorSQLiteImpl = class {
 
     async init() {
         try {
-            // 动态导入 db-bridge
-            const module = await import('./assets/js/db-bridge.js');
+            // 动态导入 db-bridge（使用绝对路径避免相对路径解析错误）
+            const module = await import('/assets/js/app/db-bridge.js');
             this.dbBridge = module.dbBridge;
             
             // 等待桥接初始化

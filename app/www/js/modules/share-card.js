@@ -39,11 +39,17 @@ Lumina.ShareCard = {
     getBaseWidth() {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        if (vw < 640) return Math.max(320, vw - 40);
-        let w = 600.0;
-        if (vw / w * vh > vh) {
-            w = (vh - 40) / 3 * 2;
+        let w;
+        
+        if (vw < 640) {
+            w = Math.max(320, vw - 40);
+        } else {
+            w = 600.0;
+            if (vw / w * vh > vh) {
+                w = (vh - 40) / 3 * 2;
+            }
         }
+        
         this.EXPORT_CONFIG.baseWidth = w;
         return w;
     },
@@ -97,9 +103,11 @@ Lumina.ShareCard = {
     getLayoutType(text) {
         const isCJK = /[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(text);
         const visualLength = isCJK ? text.length : text.length * 0.6;
-        
-        if (visualLength <= 35) return 'short';   // 短版式：35字符
-        if (visualLength <= 160) return 'medium'; // 中版式：160字符
+        const isMobile = window.innerWidth <= 480;
+        const shortCount = isMobile ? 30 : 35;
+        const longCount = isMobile ? 56 : 100;
+        if (visualLength <= shortCount) return 'short'; 
+        if (visualLength <= longCount) return 'medium';  
         return 'long';
     },
     
@@ -697,8 +705,6 @@ Lumina.ShareCard = {
         
         // 高 DPI 设置
         const dpr = Math.min(Math.max(window.devicePixelRatio || 1, minScale), maxScale);
-
-        Lumina.UI.showDialog(`window.innerWidth:${window.innerWidth} width:${baseWidth}, height:${height}`);
         
         // 创建 Canvas
         const canvas = document.createElement('canvas');

@@ -1290,7 +1290,14 @@ class SVGRenderer {
         const t = this.state.transform;
         const nx = t[0]*x + t[2]*y + t[4];
         const ny = t[1]*x + t[3]*y + t[5];
-        this.currentPath.push(`L ${nx.toFixed(2)} ${ny.toFixed(2)}`);
+        
+        // 防御性：如果路径未开启（没有 M），自动添加 M（Canvas 2D 标准行为）
+        if (!this.isPathOpen) {
+            this.currentPath.push(`M ${nx.toFixed(2)} ${ny.toFixed(2)}`);
+            this.isPathOpen = true;
+        } else {
+            this.currentPath.push(`L ${nx.toFixed(2)} ${ny.toFixed(2)}`);
+        }
     }
 
     arc(x, y, r, start, end, anticlockwise = false) {
@@ -1330,6 +1337,54 @@ class SVGRenderer {
         }
         
         this.currentPath.push(`A ${rx.toFixed(2)} ${ry.toFixed(2)} 0 ${largeArc} ${sweep} ${x2.toFixed(2)} ${y2.toFixed(2)}`);
+    }
+
+    ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle, anticlockwise = false) {
+        const t = this.state.transform;
+        const cx = t[0]*x + t[2]*y + t[4];
+        const cy = t[1]*x + t[3]*y + t[5];
+        
+        // 计算变换后的半径和旋转
+        const scaleX = Math.sqrt(t[0]*t[0] + t[1]*t[1]);
+        const scaleY = Math.sqrt(t[2]*t[2] + t[3]*t[3]);
+        const rx = radiusX * scaleX;
+        const ry = radiusY * scaleY;
+        const matrixRotation = Math.atan2(t[1], t[0]);
+        const totalRotation = matrixRotation + rotation;
+        
+        // 使用4段贝塞尔曲线逼近椭圆（标准算法）
+        const c = 0.5522847498307936; // 4*(sqrt(2)-1)/3
+        
+        // 4个象限的控制点（局部坐标）
+        const segments = [
+            {x: rx, y: 0, cp1x: rx, cp1y: c*ry, cp2x: c*rx, cp2y: ry, ex: 0, ey: ry},
+            {x: 0, y: ry, cp1x: -c*rx, cp1y: ry, cp2x: -rx, cp2y: c*ry, ex: -rx, ey: 0},
+            {x: -rx, y: 0, cp1x: -rx, cp1y: -c*ry, cp2x: -c*rx, cp2y: -ry, ex: 0, ey: -ry},
+            {x: 0, y: -ry, cp1x: c*rx, cp1y: -ry, cp2x: rx, cp2y: -c*ry, ex: rx, ey: 0}
+        ];
+        
+        const rot = (px, py) => ({
+            x: cx + px * Math.cos(totalRotation) - py * Math.sin(totalRotation),
+            y: cy + px * Math.sin(totalRotation) + py * Math.cos(totalRotation)
+        });
+        
+        // 绘制4段曲线形成闭合椭圆
+        segments.forEach((seg, idx) => {
+            const p1 = rot(seg.x, seg.y);
+            const cp1 = rot(seg.cp1x, seg.cp1y);
+            const cp2 = rot(seg.cp2x, seg.cp2y);
+            const p2 = rot(seg.ex, seg.ey);
+            
+            if (idx === 0) {
+                if (!this.isPathOpen) {
+                    this.currentPath.push(`M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`);
+                    this.isPathOpen = true;
+                } else {
+                    this.currentPath.push(`L ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`);
+                }
+            }
+            this.currentPath.push(`C ${cp1.x.toFixed(2)} ${cp1.y.toFixed(2)} ${cp2.x.toFixed(2)} ${cp2.y.toFixed(2)} ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`);
+        });
     }
 
     rect(x, y, w, h) {
@@ -1786,6 +1841,16 @@ const CoverCore = (function() {
         { code: 'sandDune', name: { 'zh-CN': '沙丘波纹', 'en': 'Sand Dunes' }},
         { code: 'knots', name: { 'zh-CN': '拓扑绳结', 'en': 'Topological Knots' }},
         { code: 'fractalTree', name: { 'zh-CN': '自适应分形树', 'en': 'Adaptive Fractal Tree' }},
+        { code: 'sierpinski', name: { 'zh-CN': '谢尔宾斯基', 'en': 'Sierpinski' }},
+{ code: 'koch', name: { 'zh-CN': '科赫雪花', 'en': 'Koch Snowflake' }},
+{ code: 'weave', name: { 'zh-CN': '编织纹理', 'en': 'Weave' }},
+{ code: 'interference', name: { 'zh-CN': '波干涉', 'en': 'Interference' }},
+{ code: 'vine', name: { 'zh-CN': '藤蔓生长', 'en': 'Vine Growth' }},
+{ code: 'feather', name: { 'zh-CN': '羽叶纹理', 'en': 'Feather' }},
+{ code: 'digitalRain', name: { 'zh-CN': '数字雨', 'en': 'Digital Rain' }},
+{ code: 'lattice', name: { 'zh-CN': '中式窗棂', 'en': 'Lattice' }},
+{ code: 'cloud', name: { 'zh-CN': '祥云纹', 'en': 'Auspicious Cloud' }},
+{ code: 'hypercube', name: { 'zh-CN': '超立方投影', 'en': 'Hypercube' }}
     ];
 
     const LAYOUTS = [
@@ -4555,6 +4620,450 @@ const CoverCore = (function() {
             const maxDepth = Math.floor(6 + p[0] * 4 * density);
             drawBranch(startX, startY, initialLength, angle, 0, maxDepth);
         },
+
+        // 1. 谢尔宾斯基三角形分形
+sierpinski(ctx, w, h, p, density) {
+    const levels = Math.floor((4 + p[0] * 3) * density);
+    const margin = w * 0.05;
+    const size = Math.min(w, h) * 0.9;
+    
+    const drawTriangle = (x, y, s, level) => {
+        if (level === 0) {
+            ctx.globalAlpha = 0.15 + p[level % 40] * 0.15;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + s, y);
+            ctx.lineTo(x + s/2, y - s * 0.866);
+            ctx.closePath();
+            ctx.stroke();
+            return;
+        }
+        const half = s / 2;
+        const height = s * 0.866;
+        drawTriangle(x, y, half, level - 1);
+        drawTriangle(x + half, y, half, level - 1);
+        drawTriangle(x + half/2, y - height/2, half, level - 1);
+    };
+    
+    drawTriangle(margin, h - margin, size, levels);
+},
+
+// 2. 科赫雪花曲线
+koch(ctx, w, h, p, density) {
+    const iterations = Math.floor((2 + p[0] * 3) * density);
+    const centerX = w / 2;
+    const centerY = h / 2;
+    const radius = Math.min(w, h) * 0.4;
+    
+    const kochLine = (x1, y1, x2, y2, n) => {
+        if (n === 0) {
+            ctx.lineTo(x2, y2);
+            return;
+        }
+        const dx = (x2 - x1) / 3;
+        const dy = (y2 - y1) / 3;
+        const xA = x1 + dx;
+        const yA = y1 + dy;
+        const xB = x1 + 2*dx;
+        const yB = y1 + 2*dy;
+        
+        const angle = Math.atan2(dy, dx) - Math.PI/3;
+        const len = Math.sqrt(dx*dx + dy*dy);
+        const xC = xA + len * Math.cos(angle);
+        const yC = yA + len * Math.sin(angle);
+        
+        kochLine(x1, y1, xA, yA, n-1);
+        kochLine(xA, yA, xC, yC, n-1);
+        kochLine(xC, yC, xB, yB, n-1);
+        kochLine(xB, yB, x2, y2, n-1);
+    };
+    
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = 1.2;
+    
+    for (let i = 0; i < 3; i++) {
+        const angle = (Math.PI * 2 * i) / 3 - Math.PI/2;
+        const nextAngle = (Math.PI * 2 * (i+1)) / 3 - Math.PI/2;
+        const x1 = centerX + radius * Math.cos(angle);
+        const y1 = centerY + radius * Math.sin(angle);
+        const x2 = centerX + radius * Math.cos(nextAngle);
+        const y2 = centerY + radius * Math.sin(nextAngle);
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        kochLine(x1, y1, x2, y2, iterations);
+        ctx.stroke();
+    }
+},
+
+// 3. 几何编织纹理
+weave(ctx, w, h, p, density) {
+    const threads = Math.floor((15 + p[0] * 10) * density);
+    const spacing = Math.min(w, h) / threads;
+    const offset = spacing * 0.5;
+    
+    ctx.lineWidth = 1.5;
+    
+    for (let i = 0; i < threads; i++) {
+        for (let j = 0; j < threads; j++) {
+            const x = i * spacing + offset;
+            const y = j * spacing + offset;
+            const type = (i + j) % 3;
+            const size = spacing * 0.4;
+            
+            ctx.globalAlpha = 0.2 + p[(i*j)%40] * 0.2;
+            ctx.beginPath();
+            
+            if (type === 0) {
+                ctx.moveTo(x - size, y - size);
+                ctx.lineTo(x + size, y + size);
+            } else if (type === 1) {
+                ctx.moveTo(x + size, y - size);
+                ctx.lineTo(x - size, y + size);
+            } else {
+                ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
+            }
+            ctx.stroke();
+        }
+    }
+},
+
+// 4. 波干涉图案（物理美学）
+interference(ctx, w, h, p, density) {
+    const sources = Math.floor((2 + p[0] * 3) * density);
+    const wavelength = 8 + p[1] * 12;
+    const amplitude = 1;
+    
+    const centers = [];
+    for (let i = 0; i < sources; i++) {
+        centers.push({
+            x: p[i*2 % 40] * w,
+            y: p[(i*2+1) % 40] * h
+        });
+    }
+    
+    ctx.lineWidth = 0.8;
+    
+    for (let x = 0; x < w; x += 2) {
+        for (let y = 0; y < h; y += 2) {
+            let intensity = 0;
+            centers.forEach(center => {
+                const dist = Math.hypot(x - center.x, y - center.y);
+                intensity += Math.sin(dist / wavelength * Math.PI * 2) * amplitude;
+            });
+            
+            const alpha = (intensity + sources) / (2 * sources);
+            if (alpha > 0.6) {
+                ctx.globalAlpha = (alpha - 0.6) * 0.8;
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+    }
+},
+
+// 5. 藤蔓生长（L系统简化）
+vine(ctx, w, h, p, density) {
+    const stems = Math.floor((3 + p[0] * 4) * density);
+    const segments = 12;
+    
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    for (let s = 0; s < stems; s++) {
+        let x = p[s*5 % 40] * w;
+        let y = h;
+        let angle = -Math.PI/2 + (p[(s*5+1)%40] - 0.5) * 0.5;
+        let width = 3;
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        
+        for (let i = 0; i < segments; i++) {
+            angle += (p[(s*5+i*2)%40] - 0.5) * 0.4;
+            const len = 15 + p[(s*5+i*2+1)%40] * 20;
+            x += Math.cos(angle) * len;
+            y += Math.sin(angle) * len;
+            
+            ctx.lineWidth = width * (1 - i/segments);
+            ctx.globalAlpha = 0.3 - (i/segments) * 0.2;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            // 重新开始下一段枝干路径
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            // 绘制叶片
+            if (i > 2 && p[(s*5+i)%40] > 0.7) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                ctx.globalAlpha = 0.25;
+                ctx.beginPath();
+                ctx.ellipse(0, -5, 4, 8, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+                
+                // 关键修复：fill() 后路径仍包含椭圆数据，必须清空并重新定位画笔
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+        }
+    }
+},
+
+// 6. 羽叶纹理
+feather(ctx, w, h, p, density) {
+    const feathers = Math.floor((8 + p[0] * 6) * density);
+    
+    for (let i = 0; i < feathers; i++) {
+        const x = p[i*4 % 40] * w;
+        const y = p[(i*4+1) % 40] * h;
+        const angle = p[(i*4+2) % 40] * Math.PI * 2;
+        const length = 40 + p[(i*4+3) % 40] * 80;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        // 羽轴
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -length/2);
+        ctx.lineTo(0, length/2);
+        ctx.stroke();
+        
+        // 羽枝
+        const barbs = 12;
+        for (let j = 0; j < barbs; j++) {
+            const yPos = -length/2 + (j * length / barbs);
+            const side = j % 2 === 0 ? 1 : -1;
+            const barbLen = 15 * (1 - Math.abs(j - barbs/2) / (barbs/2));
+            
+            ctx.globalAlpha = 0.2;
+            ctx.beginPath();
+            ctx.moveTo(0, yPos);
+            ctx.quadraticCurveTo(
+                side * barbLen * 0.5, yPos + 3,
+                side * barbLen, yPos + 2
+            );
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+},
+
+// 7. 数字雨（赛博朋克）
+digitalRain(ctx, w, h, p, density) {
+    const columns = Math.floor((35 + p[0] * 25) * density);
+    const baseColWidth = w / columns;
+    
+    // 8种字符集，每列随机选择，增加多样性
+    const charSets = [
+        '01',                                               // 二进制
+        '0123456789ABCDEF',                                 // 十六进制
+        'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン', // 片假名
+        'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん', // 平假名
+        '0123456789',                                       // 纯数字
+        '▲▼◆◇○●□■★☆▶◀',                                   // 几何符号
+        'ζξψωθλπσβμτφδε',                                   // 希腊字母
+        'ΣΔΩΦΨΛ∇∂∫∞√',                                      // 数学符号
+    ];
+    
+    for (let i = 0; i < columns; i++) {
+        // 为每列生成独立的参数索引（使用大质数避免周期性）
+        const idx1 = (i * 7 + 3) % 40;   // 字符集选择
+        const idx2 = (i * 13 + 11) % 40; // 长度
+        const idx3 = (i * 17 + 7) % 40;  // 起始位置
+        const idx4 = (i * 23 + 19) % 40; // 速度/间距
+        
+        const x = i * baseColWidth + baseColWidth * 0.1;
+        
+        // 该列使用的字符集（每列不同）
+        const chars = charSets[Math.floor(p[idx1] * charSets.length)];
+        
+        // 该列的独立物理参数
+        const dropLength = Math.floor(3 + p[idx2] * 15);        // 长度 3-18
+        const startY = p[idx3] * h * 1.2 - h * 0.1;           // 起始位置（部分超出画布营造连续感）
+        const spacing = baseColWidth * (0.6 + p[idx4] * 0.6);   // 坠落速度（字符间距）
+        const fontSize = baseColWidth * (0.6 + p[idx1] * 0.5); // 字体大小略有差异
+        
+        ctx.font = `${fontSize}px monospace`;
+        ctx.textBaseline = 'top';
+        
+        for (let j = 0; j < dropLength; j++) {
+            const y = startY + j * spacing;
+            
+            // 跳过画布外的字符
+            if (y < -fontSize || y > h + fontSize) continue;
+            
+            // 字符选择：非线性索引避免对角线模式
+            const charIdx = Math.floor(p[(i * 5 + j * 13 + idx2) % 40] * chars.length);
+            const char = chars[charIdx];
+            
+            // 透明度：头部最亮，尾部淡出
+            let alpha;
+            if (j === 0) {
+                alpha = 1.0;
+            } else if (j === 1) {
+                alpha = 0.8;
+            } else {
+                alpha = 0.6 * (1 - Math.pow(j / dropLength, 0.7));
+            }
+            
+            // 偶尔高亮头部字符（10%概率白色闪烁效果）
+            if (j === 0 && p[(i * 7 + j * 3) % 40] > 0.9) {
+                const originalFill = ctx.fillStyle;
+                ctx.fillStyle = '#ffffff';  // 临时改为白色高亮
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(char, x, y);
+                ctx.fillStyle = originalFill; // 恢复主题色
+            } else {
+                ctx.globalAlpha = alpha * 0.45; // 整体作为背景纹理
+                ctx.fillText(char, x, y);
+            }
+        }
+    }
+},
+
+// 8. 中式窗棂格纹
+lattice(ctx, w, h, p, density) {
+    const cols = Math.floor((4 + p[0] * 4) * density);
+    const rows = Math.floor((6 + p[1] * 4) * density);
+    const cellW = w / cols;
+    const cellH = h / rows;
+    const r = Math.min(cellW, cellH) * 0.15;
+    
+    ctx.lineWidth = 2;
+    
+    for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+            const x = i * cellW;
+            const y = j * cellH;
+            const cx = x + cellW/2;
+            const cy = y + cellH/2;
+            
+            ctx.globalAlpha = 0.35;
+            ctx.strokeRect(x+2, y+2, cellW-4, cellH-4);
+            
+            // 内部花纹
+            const pattern = (i + j) % 4;
+            ctx.beginPath();
+            
+            if (pattern === 0) {
+                // 十字
+                ctx.moveTo(cx, y+5); ctx.lineTo(cx, y+cellH-5);
+                ctx.moveTo(x+5, cy); ctx.lineTo(x+cellW-5, cy);
+            } else if (pattern === 1) {
+                // 菱形
+                ctx.moveTo(cx, y+8); ctx.lineTo(x+cellW-8, cy);
+                ctx.lineTo(cx, y+cellH-8); ctx.lineTo(x+8, cy);
+                ctx.closePath();
+            } else if (pattern === 2) {
+                // 圆
+                ctx.arc(cx, cy, r, 0, Math.PI*2);
+            } else {
+                // 对角线
+                ctx.moveTo(x+5, y+5); ctx.lineTo(x+cellW-5, y+cellH-5);
+                ctx.moveTo(x+cellW-5, y+5); ctx.lineTo(x+5, y+cellH-5);
+            }
+            ctx.stroke();
+        }
+    }
+},
+
+// 9. 祥云纹（传统云纹算法生成）
+cloud(ctx, w, h, p, density) {
+    const clouds = Math.floor((5 + p[0] * 8) * density);
+    
+    for (let i = 0; i < clouds; i++) {
+        const cx = p[i*5 % 40] * w;
+        const cy = p[(i*5+1) % 40] * h;
+        const scale = 20 + p[(i*5+2) % 40] * 40;
+        
+        ctx.globalAlpha = 0.25;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        // 祥云由多个圆弧组成
+        const arcs = [
+            {r: scale, start: 0.2, end: 0.8},
+            {r: scale*0.7, start: 0.9, end: 1.4},
+            {r: scale*0.5, start: 1.5, end: 2.0},
+            {r: scale*0.3, start: 2.1, end: 2.8}
+        ];
+        
+        arcs.forEach(arc => {
+            ctx.arc(cx, cy, arc.r, arc.start * Math.PI, arc.end * Math.PI);
+        });
+        
+        ctx.stroke();
+    }
+},
+
+// 10. 超立方体4D投影
+hypercube(ctx, w, h, p, density) {
+    const cx = w/2, cy = h/2;
+    const size = Math.min(w, h) * 0.25;
+    const angle = p[0] * Math.PI / 4;
+    
+    // 3D立方体顶点
+    const cube = [];
+    for (let i = 0; i < 8; i++) {
+        const x = (i & 1) ? size : -size;
+        const y = (i & 2) ? size : -size;
+        const z = (i & 4) ? size : -size;
+        
+        // 旋转投影
+        const x1 = x * Math.cos(angle) - z * Math.sin(angle);
+        const z1 = x * Math.sin(angle) + z * Math.cos(angle);
+        const y1 = y * Math.cos(angle*0.7) - z1 * Math.sin(angle*0.7);
+        
+        cube.push({
+            x: cx + x1 * (1 + 0.3 * Math.sin(angle)),
+            y: cy + y1 * (1 + 0.3 * Math.sin(angle))
+        });
+    }
+    
+    // 边连接关系
+    const edges = [
+        [0,1], [0,2], [0,4], [1,3], [1,5], [2,3], [2,6],
+        [3,7], [4,5], [4,6], [5,7], [6,7]
+    ];
+    
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 1.5;
+    
+    // 内层立方体（较小）
+    const innerCube = cube.map(v => ({
+        x: cx + (v.x - cx) * 0.6,
+        y: cy + (v.y - cy) * 0.6
+    }));
+    
+    // 绘制连接线
+    edges.forEach(([a, b]) => {
+        ctx.beginPath();
+        ctx.moveTo(cube[a].x, cube[a].y);
+        ctx.lineTo(cube[b].x, cube[b].y);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(innerCube[a].x, innerCube[a].y);
+        ctx.lineTo(innerCube[b].x, innerCube[b].y);
+        ctx.stroke();
+        
+        // 内外连接
+        ctx.globalAlpha = 0.15;
+        ctx.beginPath();
+        ctx.moveTo(cube[a].x, cube[a].y);
+        ctx.lineTo(innerCube[a].x, innerCube[a].y);
+        ctx.stroke();
+        ctx.globalAlpha = 0.3;
+    });
+}
       
     };
 

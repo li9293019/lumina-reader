@@ -121,10 +121,8 @@ Lumina.Converter = {
             }
         } catch (e) {
             // 使用内置降级映射表
-            console.log('[Converter] 使用内置映射表:', e.message);
-            this.s2tMap = this.S2T_FALLBACK;
-            this.t2sMap = this.T2S_FALLBACK;
-            this.dictLoaded = true;
+            console.log('[Converter] 没有找到字典:', e.message);
+            this.dictLoaded = false;
         }
     },
     
@@ -249,19 +247,11 @@ Lumina.Converter = {
             const parsed = this.parseLanguage(metadata.language);
             console.log('[Converter] 解析元数据语言:', metadata.language, '->', parsed?.code);
             
-            if (parsed) {
+            if (parsed && confidence === 100) {
                 // 高置信度（用户手动设置）直接使用
-                if (confidence === 100) {
-                    this.bookLanguage = parsed.code;
-                    this.currentCache.bookLanguage = parsed.code;
-                    console.log('[Converter] 使用手动设置的语言:', parsed.code);
-                    return;
-                }
-                
-                // 自动检测的元数据，如果是中文也直接使用
                 this.bookLanguage = parsed.code;
                 this.currentCache.bookLanguage = parsed.code;
-                console.log('[Converter] 使用元数据自动检测的语言:', parsed.code);
+                console.log('[Converter] 使用手动设置的语言:', parsed.code);
                 return;
             }
         }
@@ -320,22 +310,43 @@ Lumina.Converter = {
      */
     detectBySampling() {
         const items = Lumina.State.app.document?.items;
-        console.log('[Converter] detectBySampling, items数量:', items?.length);
-        
         if (!items?.length) return null;
         
-        // 采样 25%, 50%, 75% 位置
-        const samples = [
-            items[Math.floor(items.length * 0.25)]?.text,
-            items[Math.floor(items.length * 0.5)]?.text,
-            items[Math.floor(items.length * 0.75)]?.text
-        ].filter(Boolean).join('');
+        // 过滤出有效文本段落，累计字数
+        const paragraphs = items
+            .filter(item => item.type === 'paragraph' && item.text?.trim())
+            .map((item, index) => ({
+                text: item.text,
+                index: index,
+                length: item.text.length
+            }));
         
-        console.log('[Converter] 采样文本长度:', samples.length);
+        if (paragraphs.length === 0) return null;
         
-        if (!samples) return null;
+        // 按字数计算采样点（更均匀）
+        const totalChars = paragraphs.reduce((sum, p) => sum + p.length, 0);
+        const targetPositions = [
+            totalChars * 0.2,
+            totalChars * 0.5,
+            totalChars * 0.8
+        ];
         
-        return this.analyzeScript(samples);
+        let currentChars = 0;
+        const samples = [];
+        let paraIdx = 0;
+        
+        for (const target of targetPositions) {
+            while (paraIdx < paragraphs.length && 
+                currentChars + paragraphs[paraIdx].length < target) {
+                currentChars += paragraphs[paraIdx].length;
+                paraIdx++;
+            }
+            if (paragraphs[paraIdx]) {
+                samples.push(paragraphs[paraIdx].text);
+            }
+        }
+        
+        return this.analyzeScript(samples.join(''));
     },
     
     /**
@@ -434,7 +445,7 @@ Lumina.Converter = {
         } else {
             this.isConverting = false;
             this.direction = null;
-            console.log('[Converter] 无需转换: 语言相同');
+            console.log('[Converter] 无需转换: 语言相同或不相关');
         }
         
         // 更新缓存

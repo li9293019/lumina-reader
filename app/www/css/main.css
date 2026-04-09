@@ -51,7 +51,7 @@
 --warnning: #e4707c;
 --valid: #28a745;
 
-/* 控制侧边�?面板顶部定位 */
+/* 控制侧边 面板顶部定位 */
 --header-height: 60px;
 --header-offset: 60px;  
 
@@ -89,7 +89,7 @@ textarea:focus,
     -webkit-tap-highlight-color: auto;
 }
 
-/* 键盘打开时隐藏底部安全距离（APP 环境�?*/
+/* 键盘打开时隐藏底部安全距离（APP 环境 */
 body.keyboard-open {
 --safe-area-bottom: 0px !important;
 }
@@ -114,7 +114,7 @@ body.keyboard-open #contentScroll {
 padding-bottom: 0 !important;
 }
 
-/* 暖调羊皮�?*/
+/* 暖调羊皮 */
 [data-theme="parchment"] {
 --bg-primary: #f7f3e8;
 --bg-secondary: #ede8d8;
@@ -160,7 +160,7 @@ padding-bottom: 0 !important;
 --heat-color: #829e81;
 }
 
-/* 青石灰（冷灰�?*/
+/* 青石灰（冷灰 */
 [data-theme="slate"] {
 --bg-primary: #f8fafc;
 --bg-secondary: #f1f5f9;
@@ -206,7 +206,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #f0f4f8;
 }
 
-/* 薄荷青（冷调护眼�?*/
+/* 薄荷青（冷调护眼 */
 [data-theme="mint"] {
 --bg-primary: #f0fdfa;
 --bg-secondary: #e6f7f5;
@@ -252,7 +252,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #faf0f0;
 }
 
-/* 黑咖啡（暖棕�?*/
+/* 黑咖啡 */
 [data-theme="espresso"] {
 --bg-primary: #2b2622;
 --bg-secondary: #332d28;
@@ -298,7 +298,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #1a1a1a;
 }
 
-/* 墨夜（纯�?AMOLED�?*/
+/* 墨夜 */
 [data-theme="amoled"] {
 --bg-primary: #000000;
 --bg-secondary: #0a0a0a;
@@ -321,7 +321,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #000000;
 }
 
-/* 午夜蓝（冷调深夜�?*/
+/* 午夜蓝（冷调深夜 */
 [data-theme="midnight"] {
 --bg-primary: #1a1f2e;
 --bg-secondary: #161b28;
@@ -344,7 +344,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #1a1f2e;
 }
 
-/* 星云紫（特色暗色�?*/
+/* 星云紫 */
 [data-theme="nebula"] {
 --bg-primary: #1a1c26;
 --bg-secondary: #151720;
@@ -367,7 +367,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #1a1c26;
 }
 
-/* 黄昏暮光（Dusk�?*/
+/* 黄昏暮光 */
 [data-theme="dusk"] {
 --bg-primary: #6b5b73;
 --bg-secondary: #5a4d61;
@@ -390,7 +390,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #4a3f50;
 }
 
-/* 橄榄灰（Olive�?*/
+/* 橄榄灰 */
 [data-theme="olive"] {
 --bg-primary: #7d8471;
 --bg-secondary: #6e7562;
@@ -413,7 +413,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #4a5040;
 }
 
-/* 灰褐（Taupe�? 温暖棕灰�?*/
+/* 灰褐 */
 [data-theme="taupe"] {
 --bg-primary: #8c7c70;
 --bg-secondary: #7d6d61;
@@ -436,7 +436,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #f5f0eb;
 }
 
-/* 稻草（Straw�? 柔和干草�?*/
+/* 稻草 */
 [data-theme="straw"] {
 --bg-primary: #c4b896;
 --bg-secondary: #b8ac8a;
@@ -459,7 +459,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #f0e8d0;
 }
 
-/* 赤陶（Terracotta�?*/
+/* 赤陶 */
 [data-theme="terracotta"] {
 --bg-primary: #c9a090;
 --heat-color: #a37667;
@@ -482,7 +482,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #faf0e8;
 }
 
-/* 藕荷（Mauve�? 烟紫灰调 */
+/* 藕荷  */
 [data-theme="mauve"] {
 --bg-primary: #a090a0;
 --bg-secondary: #908090;
@@ -505,7 +505,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #f5f0f5;
 }
 
-/* 砂石（Sandstone�? 浅银白调 */
+/* 砂石  */
 [data-theme="sandstone"] {
 --bg-primary: #d8dce0;
 --bg-secondary: #c8ccd0;
@@ -528,7 +528,7 @@ padding-bottom: 0 !important;
 --tooltip-text: #f0f4f8;
 }
 
-/* 响应�?*/
+/* 响应 */
 @media (max-width: 1024px) {
 :root {
     --sidebar-width: 280px;
@@ -555,7 +555,7 @@ padding: 0;
 box-sizing: border-box;
 }
 
-/* 输入控件统一字体 - 使用动态字体变�?*/
+/* 输入控件统一字体 - 使用动态字体变 */
 input[type="text"],
 input[type="password"],
 input[type="email"],
@@ -597,7 +597,7 @@ background-color: var(--scrollbar-thumb);
 color: var(--text-primary);
 }
 
-/* 滚动�?*/
+/* 滚动 */
 ::-webkit-scrollbar {
 width: 4px;
 height: 4px;
@@ -1039,7 +1039,7 @@ color: white !important;
 border-left-color: var(--accent-hover);
 }
 
-/* 层级缩进 - 使用CSS变量或固定�?*/
+/* 层级缩进 - 使用CSS变量或固定 */
 .toc-item.level-0 {
 font-weight: 700;
 font-size: 1em;
@@ -1086,7 +1086,7 @@ font-style: italic;
 opacity: 0.9;
 }
 
-/* 中央阅读�?*/
+/* 中央阅读 */
 .reading-area {
 flex: 1;
 display: flex;
@@ -1134,7 +1134,7 @@ box-shadow: var(--shadow);
 transition: all 0.3s;
 }
 
-/* 移动端内容区适配 - 使用变量而非硬覆�?*/
+/* 移动端内容区适配 - 使用变量而非硬覆 */
 @media (max-width: 768px) {
 .content-wrapper {
     box-shadow: none;
@@ -1226,7 +1226,7 @@ text-indent: 2em;
 }
 
 .doc-line.empty-paragraph {
-height: var(--line-height); /* 保持行高一�?*/
+height: var(--line-height); /* 保持行高一 */
 user-select: none; /* 空行不可选，提升体验 */
 }
 
@@ -1251,7 +1251,7 @@ color: var(--text-secondary);
 }
 
 .doc-line.list-item::before {
-content: "�?;
+content: " ;
 position: absolute;
 left: 0.5em;
 color: var(--accent-color);
@@ -1366,7 +1366,7 @@ fill: var(--logo-page-main);
 opacity: 0.95;
 }
 
-/* 萤火虫颜�?- 强调�?*/
+/* 萤火虫颜 - 强调 */
 .firefly-main {
 fill: var(--logo-firefly-core);
 }
@@ -1376,7 +1376,7 @@ fill: var(--logo-firefly-core);
 fill: var(--logo-firefly-glow);
 }
 
-/* 拖尾透明�?*/
+/* 拖尾透明 */
 .firefly-trail-1 {
 opacity: 0.6;
 }
@@ -1647,13 +1647,13 @@ padding: 4px;
 color: var(--text-muted);
 }
 
-/* 热力背景�?- 极简设计 */
+/* 热力背景 - 极简设计 */
 .toc-item {
 position: relative;
 overflow: hidden;
 }
 
-/* 背景条伪元素 - 双维度：宽度=章节长度，透明�?G点热�?*/
+/* 背景条伪元素 - 双维度：宽度=章节长度，透明 G点热 */
 .toc-item::before {
 content: '';
 position: absolute;
@@ -1668,7 +1668,7 @@ pointer-events: none;
 border-radius: 0 6px 6px 0;
 }
 
-/* 深色主题下降低热力图混合比例，避免过于刺�?*/
+/* 深色主题下降低热力图混合比例，避免过于刺 */
 [data-theme="dark"] .toc-item::before,
 [data-theme="midnight"] .toc-item::before,
 [data-theme="amoled"] .toc-item::before {
@@ -1812,7 +1812,7 @@ font-size: 0.9em;
 color: var(--text-secondary);
 }
 
-/* 使用变量控制移动端隐�?*/
+/* 使用变量控制移动端隐 */
 .mobile-hidden {
 display: var(--mobile-hidden-display);
 }
@@ -2086,7 +2086,7 @@ margin-bottom: 16px;
 opacity: 0.5;
 }
 
-/* ==================== 历史记录�?- 悬浮按钮与滑动操�?==================== */
+/* ==================== 历史记录 - 悬浮按钮与滑动操 ==================== */
 
 .history-item {
 padding: 0;
@@ -2192,7 +2192,7 @@ width: 20px;
 height: 20px;
 }
 
-/* 打开按钮 - 使用强调�?*/
+/* 打开按钮 - 使用强调 */
 .history-action-open {
 background: var(--accent-color);
 color: white;
@@ -2216,7 +2216,7 @@ transform: scale(1.08);
 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
-/* 删除按钮 - 使用危险�?*/
+/* 删除按钮 - 使用危险 */
 .history-action-delete {
 background: #DC2626;
 color: white;
@@ -2237,7 +2237,7 @@ background: #3B82F6;
 background: #DC2626;
 }
 
-/* 滑动操作按钮（移动端�?*/
+/* 滑动操作按钮（移动端 */
 .history-item-actions {
 position: absolute;
 top: 0;
@@ -2271,7 +2271,7 @@ right: 0;
 background: var(--swipe-delete-bg);
 }
 
-/* 滑动状态显�?*/
+/* 滑动状态显 */
 .history-item.showing-export .history-actions-left,
 .history-item.showing-delete .history-actions-right,
 .history-item.swiped-right .history-actions-left,
@@ -2279,7 +2279,7 @@ background: var(--swipe-delete-bg);
 opacity: 1;
 }
 
-/* 移动端隐藏悬浮按�?*/
+/* 移动端隐藏悬浮按 */
 @media (hover: none) and (pointer: coarse) {
 .history-hover-actions {
     display: none !important;
@@ -2648,7 +2648,7 @@ border-color: var(--accent-color);
 background: var(--accent-hover);
 }
 
-/* 字体�?- 使用 CSS 变量动态控�?*/
+/* 字体 - 使用 CSS 变量动态控 */
 .font-serif {
 font-family: var(--font-family-dynamic);
 }
@@ -2733,7 +2733,7 @@ padding: 40px;
 color: var(--text-muted);
 }
 
-/* 搜索输入�?*/
+/* 搜索输入 */
 .search-input-wrapper {
 padding: 12px 20px;
 border-bottom: 1px solid var(--border-color);
@@ -2810,7 +2810,7 @@ opacity: 1;
 transform: translateX(-50%) translateY(0);
 }
 
-/* ==================== 数据管理面板样式（优化版�?==================== */
+/* ==================== 数据管理面板样式（优化版 ==================== */
 .panel-overlay {
 position: fixed;
 top: 0;
@@ -2894,7 +2894,7 @@ font-weight: 300;
 color: var(--text-primary);
 }
 
-/* 顶部统计�?*/
+/* 顶部统计 */
 .data-stats-bar {
 display: flex;
 justify-content: space-around;
@@ -2986,10 +2986,10 @@ max-height: calc(85vh - 140px);
     padding-bottom: 16px;
 }
 
-/* 手机全屏模式�?data-grid 高度自适应，不使用固定�?max-height */
+/* 手机全屏模式 data-grid 高度自适应，不使用固定 max-height */
 #dataManagerPanel .data-manager .data-grid {
     max-height: none;
-    /* 减去 header 高度、stats-bar 高度和安全区�?*/
+    /* 减去 header 高度、stats-bar 高度和安全区 */
     height: calc(100vh - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px) - 70px - 60px);
 }
 }
@@ -3169,7 +3169,7 @@ right: 0;
 background: var(--warnning);
 }
 
-/* 移动端隐藏悬浮按�?*/
+/* 移动端隐藏悬浮按 */
 .data-card .cover-overlay {
 display: none !important;
 }
@@ -3218,7 +3218,7 @@ visibility: hidden;
 display: block;
 }
 
-/* 批量导入进度�?*/
+/* 批量导入进度 */
 .toast-progress {
 position: fixed;
 bottom: 100px;
@@ -3293,7 +3293,7 @@ box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 transition: opacity 0.4s ease;
 }
 
-/* 淡出状�?*/
+/* 淡出状 */
 .last-read-marker.interacted {
 background: transparent;
 border-left-color: transparent;
@@ -3315,7 +3315,7 @@ opacity: 0;
 }
 }
 
-/* 存储详情弹窗 - 简约优雅设�?*/
+/* 存储详情弹窗 - 简约优雅设 */
 .storage-modal {
 position: fixed;
 top: 0;
@@ -3512,7 +3512,7 @@ to {
 }
 }
 
-/* ==================== 底部分页导航（简洁版�?==================== */
+/* ==================== 底部分页导航（简洁版 ==================== */
 .pagination-nav {
 margin-top: 2em;
 padding: 2em 0;
@@ -3680,7 +3680,7 @@ flex: 1;
 height: 16px;
 }
 
-/* ==================== 注释与书签样�?==================== */
+/* ==================== 注释与书签样 ==================== */
 /* 阻止浏览器原生选取菜单 */
 #contentWrapper {
 -webkit-user-select: text;
@@ -4053,18 +4053,18 @@ background: var(--bg-tertiary);
 color: var(--text-primary);
 }
 
-/* 书签高亮 - 段落级别背景�?*/
+/* 书签高亮 - 段落级别背景 */
 .has-bookmark {
 position: relative;
 }
 
-/* 注释高亮 - 仅下划线，不设置背景�?*/
+/* 注释高亮 - 仅下划线，不设置背景 */
 .has-annotation {
 border-radius: 2px;
 background: transparent !important;
 }
 
-/* 注释文本高亮 - 使用下划线标�?*/
+/* 注释文本高亮 - 使用下划线标 */
 .annotation-highlight {
 text-decoration: underline;
 text-decoration-thickness: 2px;
@@ -4275,14 +4275,14 @@ opacity: 1;
 transform: translate(-50%, -50%) scale(1);
 }
 
-/* ========== 热力图预设面板样�?========== */
+/* ========== 热力图预设面板样 ========== */
 
 /* 预设列表容器 */
 #heatPresetsList {
     padding: 0 4px;
 }
 
-/* 预设项样�?*/
+/* 预设项样 */
 .heat-preset-item {
     display: flex;
     justify-content: space-between;
@@ -4328,7 +4328,7 @@ transform: translate(-50%, -50%) scale(1);
     flex-shrink: 0;
 }
 
-/* 预设项按�?- 使用 option-btn 相同样式 */
+/* 预设项按 - 使用 option-btn 相同样式 */
 .heat-preset-btn {
     width: 36px !important;
     height: 36px !important;
@@ -4352,7 +4352,7 @@ transform: translate(-50%, -50%) scale(1);
     transform: scale(0.96);
 }
 
-/* 添加新预设区�?*/
+/* 添加新预设区 */
 #heatPresetNameInput,
 #heatPresetAddBtn {
     height: 36px;
@@ -4377,7 +4377,7 @@ transform: translate(-50%, -50%) scale(1);
     margin-bottom: 16px;
 }
 
-/* 添加新预设区�?*/
+/* 添加新预设区 */
 .heat-preset-add-section {
     border-top: 1px solid var(--border-color);
     padding: 16px 4px 4px;
@@ -4387,7 +4387,7 @@ transform: translate(-50%, -50%) scale(1);
     margin-bottom: 10px;
 }
 
-/* 预设输入�?*/
+/* 预设输入 */
 .heat-preset-input-row {
     display: flex;
     gap: 8px;
@@ -4412,7 +4412,7 @@ transform: translate(-50%, -50%) scale(1);
     min-height: 36px;
 }
 
-/* 预设面板对话�?*/
+/* 预设面板对话 */
 #heatMapPresetsDialog .about-body {
     padding: 20px;
 }
@@ -4421,7 +4421,7 @@ transform: translate(-50%, -50%) scale(1);
     max-width: 520px;
 }
 
-/* ==================== 搜索类型标签 - iOS 分段控制器风�?==================== */
+/* ==================== 搜索类型标签 - iOS 分段控制器风 ==================== */
 .search-tabs {
     display: none;  /* 默认隐藏 */
     gap: 2px;

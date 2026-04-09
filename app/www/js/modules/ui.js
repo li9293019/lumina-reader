@@ -8,6 +8,7 @@ Lumina.UI = {
         this.bindEvents();
         this.setupCustomTooltip();
         this.setupRegexRealtimeFeedback();
+        this.regexToolbar.init();
     },
 
     cacheElements() {
@@ -813,6 +814,224 @@ Lumina.UI = {
                 lastScale = 1;
             }
         });
+    },
+
+    // ==================== 正则表达式辅助工具栏 ====================
+    regexToolbar: {
+        currentInput: null,
+        toolbarEl: null,
+        isVisible: false,
+        hideTimer: null, // 用于取消延迟隐藏
+        
+        // 符号布局定义：第一行9个，第二行9个
+        symbols: [
+            // 第一行：元字符 + 结构
+            [
+                { symbol: '^', desc: '行首' },
+                { symbol: '.', desc: '任意字符' },
+                { symbol: '+', desc: '一次或多次' },
+                { symbol: '*', desc: '零次或多次' },
+                { symbol: '-', desc: '连字符' },
+                { symbol: '?', desc: '零次或一次' },
+                { symbol: '()', desc: '捕获组', cursorOffset: 1 },
+                { symbol: '[]', desc: '字符类', cursorOffset: 1 },
+                { symbol: '{}', desc: '量词', cursorOffset: 1 }
+            ],
+            // 第二行：位置 + 宏 + 转义 + 逻辑
+            [
+                { symbol: '$', desc: '行尾' },
+                { symbol: '\\', desc: '转义符' },
+                { symbol: '\\C', desc: '中文数字' },
+                { symbol: '\\Z', desc: '中文字符' },
+                { symbol: '\\A', desc: '字母' },
+                { symbol: '\\R', desc: '罗马数字' },
+                { symbol: '\\s', desc: '空白字符' },
+                { symbol: '\\d', desc: '数字' },
+                { symbol: '|', desc: '或' }
+            ]
+        ],
+
+        init() {
+            // 只在 APP 环境（Capacitor）显示正则工具栏
+            const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+            if (!isApp) return;
+            
+            this.createToolbar();
+            this.bindEvents();
+        },
+
+        createToolbar() {
+            const toolbar = document.createElement('div');
+            toolbar.className = 'regex-toolbar';
+            toolbar.id = 'regexToolbar';
+
+            this.symbols.forEach((row) => {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'regex-toolbar-row';
+
+                row.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.className = 'regex-toolbar-btn';
+                    btn.textContent = item.symbol;
+                    btn.dataset.symbol = item.symbol;
+                    btn.dataset.desc = item.desc;
+                    if (item.cursorOffset !== undefined) {
+                        btn.dataset.cursorOffset = item.cursorOffset;
+                    }
+
+                    btn.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.insertSymbol(item);
+                    });
+
+                    btn.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        btn.classList.add('active');
+                    }, { passive: false });
+
+                    btn.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        btn.classList.remove('active');
+                        this.insertSymbol(item);
+                    });
+
+                    rowEl.appendChild(btn);
+                });
+
+                toolbar.appendChild(rowEl);
+            });
+
+            document.body.appendChild(toolbar);
+            this.toolbarEl = toolbar;
+        },
+
+        bindEvents() {
+            const chapterInput = document.getElementById('chapterRegex');
+            const sectionInput = document.getElementById('sectionRegex');
+
+            [chapterInput, sectionInput].forEach(input => {
+                if (!input) return;
+
+                input.addEventListener('focus', () => {
+                    // 清除可能存在的延迟隐藏定时器
+                    if (this.hideTimer) {
+                        clearTimeout(this.hideTimer);
+                        this.hideTimer = null;
+                    }
+                    this.show(input);
+                });
+
+                input.addEventListener('blur', () => {
+                    this.hideTimer = setTimeout(() => {
+                        if (!this.isClickOnToolbar) this.hide();
+                        this.hideTimer = null;
+                    }, 150);
+                });
+            });
+
+            if (this.toolbarEl) {
+                this.toolbarEl.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.regex-toolbar-btn')) {
+                        this.isClickOnToolbar = true;
+                        return;
+                    }
+                    this.isClickOnToolbar = true;
+                    e.preventDefault();
+                });
+
+                this.toolbarEl.addEventListener('mouseup', () => {
+                    setTimeout(() => { this.isClickOnToolbar = false; }, 100);
+                });
+
+                this.toolbarEl.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.regex-toolbar-btn')) {
+                        this.isClickOnToolbar = true;
+                        return;
+                    }
+                    this.isClickOnToolbar = true;
+                }, { passive: false });
+
+                this.toolbarEl.addEventListener('touchend', () => {
+                    setTimeout(() => { this.isClickOnToolbar = false; }, 100);
+                });
+
+                this.toolbarEl.addEventListener('click', (e) => {
+                    if (e.target.closest('.regex-toolbar-btn')) return;
+                    e.stopPropagation();
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                const clickedInsideToolbar = e.target.closest('.regex-toolbar');
+                const clickedInsideInput = e.target.closest('#chapterRegex') || e.target.closest('#sectionRegex');
+                if (!clickedInsideToolbar && !clickedInsideInput) this.hide();
+            });
+
+            const settingsCloseBtn = document.getElementById('settingsClose');
+            if (settingsCloseBtn) {
+                settingsCloseBtn.addEventListener('click', () => this.hide());
+            }
+        },
+
+        insertSymbol(item) {
+            if (!this.currentInput) return;
+
+            const input = this.currentInput;
+            const symbol = item.symbol;
+            const cursorOffset = item.cursorOffset;
+            const start = input.selectionStart || 0;
+            const end = input.selectionEnd || 0;
+            const value = input.value;
+            const hasSelection = start !== end;
+            const selectedText = value.substring(start, end);
+
+            let newValue, newSelectionStart, newSelectionEnd;
+
+            if (hasSelection && cursorOffset !== undefined) {
+                const openChar = symbol[0];
+                const closeChar = symbol[1];
+                const before = value.substring(0, start);
+                const after = value.substring(end);
+                newValue = before + openChar + selectedText + closeChar + after;
+                newSelectionStart = start + 1;
+                newSelectionEnd = start + 1 + selectedText.length;
+            } else {
+                const before = value.substring(0, start);
+                const after = value.substring(end);
+                newValue = before + symbol + after;
+                const newCursorPos = cursorOffset !== undefined ? start + cursorOffset : start + symbol.length;
+                newSelectionStart = newSelectionEnd = newCursorPos;
+            }
+
+            input.value = newValue;
+            input.selectionStart = newSelectionStart;
+            input.selectionEnd = newSelectionEnd;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            Lumina.UI.updateRegexFeedback(input.id === 'chapterRegex' ? 'chapter' : 'section');
+        },
+
+        show(input) {
+            this.currentInput = input;
+            this.isVisible = true;
+            if (this.toolbarEl) this.toolbarEl.classList.add('visible');
+            const settingsContent = document.querySelector('.settings-content');
+            if (settingsContent) settingsContent.classList.add('with-regex-toolbar');
+        },
+
+        hide() {
+            this.isVisible = false;
+            this.currentInput = null;
+            if (this.toolbarEl) this.toolbarEl.classList.remove('visible');
+            const settingsContent = document.querySelector('.settings-content');
+            if (settingsContent) settingsContent.classList.remove('with-regex-toolbar');
+        }
     },
 
     setupRegexRealtimeFeedback() {

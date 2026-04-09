@@ -1,7 +1,7 @@
 /**
  * Cover Generator - 哈希封面生成器 v2.0
  * 大字报版式(typographic) + 50种图案
- * 基于 coverStudioV2.3.html 核心逻辑提取
+ * 基于demo中 coverStudioV3.html 核心逻辑提取
  */
 
 (function() {
@@ -4097,10 +4097,62 @@
         _cache: new Map(),
         _maxCacheSize: 50,
         
+        // 通过 code 或名称查找图案索引
+        findPatternIndex(code) {
+            if (!code) return -1;
+            const lowerCode = code.toLowerCase();
+            const patterns = CoverCore.PATTERNS;
+            
+            // 精确匹配 code
+            for (let i = 0; i < patterns.length; i++) {
+                if (patterns[i].code === code) return i;
+            }
+            
+            // 忽略大小写匹配 code
+            for (let i = 0; i < patterns.length; i++) {
+                if (patterns[i].code.toLowerCase() === lowerCode) return i;
+            }
+            
+            // 匹配中文名称或英文名称
+            for (let i = 0; i < patterns.length; i++) {
+                const p = patterns[i];
+                if (p.name['zh-CN'] === code) return i;
+                if (p.name['zh-CN'].includes(code)) return i;
+                if (p.name['en'].toLowerCase() === lowerCode) return i;
+            }
+            
+            return -1;
+        },
+        
+        // 获取所有可用的图案列表
+        getAvailablePatterns() {
+            return CoverCore.PATTERNS.map((p, idx) => ({
+                index: idx,
+                code: p.code,
+                name: p.name['zh-CN'],
+                nameEn: p.name['en']
+            }));
+        },
+        
+        // 生成指定图案的封面
+        generateWithPattern(title, author, fontId, pattern) {
+            let patternIdx = -1;
+            if (typeof pattern === 'number') {
+                patternIdx = pattern;
+            } else if (typeof pattern === 'string') {
+                patternIdx = this.findPatternIndex(pattern);
+            }
+            if (patternIdx === -1 || patternIdx >= CoverCore.PATTERNS.length) {
+                console.warn('[CoverGenerator] 未找到图案:', pattern);
+                patternIdx = -1;
+            }
+            return this.generateSVGHTML(title, author, fontId, patternIdx);
+        },
+        
         // 生成 SVG HTML（直接插入 DOM，继承页面字体）
-        generateSVGHTML(title, author, fontId) {
-            // 缓存 key 包含字体信息，切换字体后自动失效
-            const cacheKey = `${title}|${author}|${fontId || 'default'}`;
+        generateSVGHTML(title, author, fontId, patternIndex = -1) {
+            // 缓存 key 包含字体和图案信息
+            const cacheKey = `${title}|${author}|${fontId || 'default'}|${patternIndex}`;
             if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
             
             try {
@@ -4120,6 +4172,7 @@
                     hashMode: true,
                     fontStack: fontStack,
                     asHTML: true,
+                    pattern: patternIndex,
                 });
                 
                 this._cache.set(cacheKey, svgHTML);

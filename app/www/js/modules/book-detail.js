@@ -499,7 +499,12 @@ Lumina.BookDetail = {
         if (bookData.cover) {
             coverContentHTML = `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
         } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-            const svg = Lumina.CoverGenerator.getCoverSVG(bookData);
+            const metadata = bookData.metadata || {};
+            const title = metadata.title || bookData.title || bookData.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+            const author = metadata.author || bookData.author || '';
+            const svg = Lumina.CoverGenerator.generateWithPattern(
+                title, author, null, 'rectTiling'
+            );
             if (svg) {
                 coverContentHTML = svg.replace('<svg', '<svg class="book-detail-cover-img"');
             } else {
@@ -518,9 +523,12 @@ Lumina.BookDetail = {
         if (!panel) return;
         
         let startX = 0;
+        let startY = 0;
         let currentX = 0;
+        let currentY = 0;
         let isDragging = false;
-        const threshold = 80; // 触发阈值
+        const threshold = 120; // 触发阈值（增加以减少误触）
+        const angleThreshold = 30; // 角度阈值，垂直滑动超过此角度不触发
         
         panel.addEventListener('touchstart', (e) => {
             // 在编辑区域禁止滑动切换书籍
@@ -543,12 +551,14 @@ Lumina.BookDetail = {
             }
             
             startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
             isDragging = true;
         }, { passive: true });
         
         panel.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
             currentX = e.touches[0].clientX;
+            currentY = e.touches[0].clientY;
         }, { passive: true });
         
         panel.addEventListener('touchend', () => {
@@ -561,15 +571,25 @@ Lumina.BookDetail = {
             }
             
             const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const absX = Math.abs(deltaX);
+            const absY = Math.abs(deltaY);
             
-            if (Math.abs(deltaX) > threshold) {
-                if (deltaX > 0) {
-                    // 右滑：显示上一本
-                    this.switchBook('prev');
-                } else {
-                    // 左滑：显示下一本
-                    this.switchBook('next');
-                }
+            // 水平距离必须大于阈值
+            if (absX < threshold) return;
+            
+            // 垂直滑动距离过大时，判断为上下滚动，不触发切换
+            // 计算角度：tan(angle) = absY / absX，当 angle > 30° 时视为垂直滑动
+            if (absY > 0 && Math.atan2(absY, absX) * 180 / Math.PI > angleThreshold) {
+                return;
+            }
+            
+            if (deltaX > 0) {
+                // 右滑：显示上一本
+                this.switchBook('prev');
+            } else {
+                // 左滑：显示下一本
+                this.switchBook('next');
             }
         });
     },
@@ -617,7 +637,11 @@ Lumina.BookDetail = {
                 el.cover.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 el.coverWrapper?.classList.remove('no-cover');
             } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-                const generatedCover = Lumina.CoverGenerator.getCoverSVG(data);
+                const bookTitle = metadata.title || data.title || data.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+                const bookAuthor = metadata.author || data.author || '';
+                const generatedCover = Lumina.CoverGenerator.generateWithPattern(
+                    bookTitle, bookAuthor, null, 'rectTiling'
+                );
                 if (generatedCover) {
                     el.cover.innerHTML = generatedCover;
                     el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
@@ -770,7 +794,13 @@ Lumina.BookDetail = {
         if (el.cover && Lumina.CoverGenerator) {
             // 清除缓存，强制重新生成
             Lumina.CoverGenerator.clearCache();
-            const generatedCover = Lumina.CoverGenerator.getCoverSVG(this.currentFile);
+            const file = this.currentFile;
+            const meta = file.metadata || {};
+            const title = meta.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+            const author = meta.author || file.author || '';
+            const generatedCover = Lumina.CoverGenerator.generateWithPattern(
+                title, author, null, 'rectTiling'
+            );
             if (generatedCover) {
                 el.cover.innerHTML = generatedCover;
                 el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');

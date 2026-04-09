@@ -104,7 +104,7 @@ Lumina.init = async () => {
     
     // 初始化简繁转换器（异步，不阻塞）
     if (Lumina.Converter) {
-        console.log('[Init] 正在初始化 Converter...');
+        // console.log('[Init] 正在初始化 Converter...');
         Lumina.Converter.init().catch(e => console.error('[Init] Converter 初始化失败:', e));
     } else {
         console.error('[Init] Lumina.Converter 未定义，检查脚本加载顺序');

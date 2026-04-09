@@ -116,19 +116,25 @@ Lumina.Search = {
     },
 
     // 书库搜索：搜文件名 + 元数据（title/author/tags）
-    // 使用 DataManager.currentStats 的内存数据，确保编辑后实时可见
+    // 【修改】强制双向搜索，无论是否开启转换
     searchLibrary(query) {
         // 强制从 DataManager 获取最新内存数据
         const files = Lumina.DataManager?.currentStats?.files || [];
         const converter = Lumina.Converter;
         const lowerQuery = query.toLowerCase();
         
-        // 准备查询词（双向搜索）
+        // 【修改】强制双向查询词
         const searchTerms = [lowerQuery];
-        if (converter?.isConverting) {
-            const convertedQuery = converter.convert(query).toLowerCase();
-            if (convertedQuery !== lowerQuery) {
-                searchTerms.push(convertedQuery);
+        
+        if (converter?.dictLoaded) {
+            // 简→繁
+            const s2tQuery = this.convertWithDirection(lowerQuery, 's2t');
+            if (s2tQuery !== lowerQuery) searchTerms.push(s2tQuery);
+            
+            // 繁→简
+            const t2sQuery = this.convertWithDirection(lowerQuery, 't2s');
+            if (t2sQuery !== lowerQuery && !searchTerms.includes(t2sQuery)) {
+                searchTerms.push(t2sQuery);
             }
         }
         
@@ -148,6 +154,21 @@ Lumina.Search = {
             // 任一查询词匹配即可
             return searchTerms.some(q => searchableText.includes(q));
         });
+    },
+
+    // 【新增】强制指定方向转换（不依赖全局 direction）
+    convertWithDirection(text, direction) {
+        const converter = Lumina.Converter;
+        if (!converter?.dictLoaded) return text;
+        
+        const map = direction === 's2t' ? converter.s2tMap : converter.t2sMap;
+        if (!map) return text;
+        
+        let result = '';
+        for (const char of text) {
+            result += map[char] || char;
+        }
+        return result;
     },
 
     // 文档内搜索

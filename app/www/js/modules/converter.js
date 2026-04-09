@@ -20,7 +20,7 @@ Lumina.Converter = {
     
     // 初始化
     async init() {
-        console.log('[Converter] init() 开始执行');
+        // console.log('[Converter] init() 开始执行');
         
         // 读取开关设置
         try {
@@ -38,14 +38,14 @@ Lumina.Converter = {
             // 使用默认值
         }
         
-        console.log('[Converter] 初始化完成，UI语言:', this.uiLanguage, '开关状态:', this.enabled);
+        // log('[Converter] 初始化完成，UI语言:', this.uiLanguage, '开关状态:', this.enabled);
         
         // 【关键】先注册事件监听器，再加载字典，避免事件丢失
         this._setupEventListeners();
         
         // 异步加载 OpenCC 字典（不阻塞事件监听）
         this.loadDictionaries().then(() => {
-            console.log('[Converter] 字典加载完成，检查是否有待处理文件');
+            // console.log('[Converter] 字典加载完成，检查是否有待处理文件');
             // 如果字典加载期间有文件已打开，重新检测
             if (Lumina.State.app.currentFile?.fileKey && !this.bookLanguage) {
                 this.onFileOpened(Lumina.State.app.currentFile.fileKey);
@@ -59,7 +59,7 @@ Lumina.Converter = {
     _setupEventListeners() {
         // 监听语言变化
         window.addEventListener('languageChanged', (e) => {
-            console.log('[Converter] 语言变化事件:', e.detail?.language);
+            // console.log('[Converter] 语言变化事件:', e.detail?.language);
             if (e.detail?.language) {
                 this.uiLanguage = e.detail.language;
                 this.onUILanguageChanged();
@@ -70,7 +70,7 @@ Lumina.Converter = {
         window.addEventListener('fileOpened', async (e) => {
             try {
                 const fileKey = e.detail?.fileKey;
-                console.log('[Converter] 收到 fileOpened 事件:', fileKey);
+                // console.log('[Converter] 收到 fileOpened 事件:', fileKey);
                 if (fileKey) {
                     await this.onFileOpened(fileKey);
                 }
@@ -83,7 +83,7 @@ Lumina.Converter = {
         window.addEventListener('fileClosed', (e) => {
             try {
                 const fileKey = e.detail?.fileKey;
-                console.log('[Converter] 收到 fileClosed 事件:', fileKey);
+                // console.log('[Converter] 收到 fileClosed 事件:', fileKey);
                 if (fileKey) {
                     this.onFileClosed(fileKey);
                 }
@@ -92,7 +92,7 @@ Lumina.Converter = {
             }
         });
         
-        console.log('[Converter] 事件监听器已注册');
+        // console.log('[Converter] 事件监听器已注册');
     },
     
     /**
@@ -115,7 +115,7 @@ Lumina.Converter = {
                 this.s2tMap = this.parseDictionary(stText);
                 this.t2sMap = this.parseDictionary(tsText);
                 this.dictLoaded = true;
-                console.log('[Converter] OpenCC 字典加载成功，映射数:', Object.keys(this.s2tMap).length);
+                // console.log('[Converter] OpenCC 字典加载成功，映射数:', Object.keys(this.s2tMap).length);
             } else {
                 throw new Error('字典文件不存在');
             }
@@ -157,7 +157,7 @@ Lumina.Converter = {
     async onFileOpened(fileKey) {
         if (!fileKey) return;
         
-        console.log('[Converter] onFileOpened:', fileKey);
+        // console.log('[Converter] onFileOpened:', fileKey);
         
         // 恢复或创建缓存
         if (this.cache.has(fileKey)) {
@@ -175,7 +175,7 @@ Lumina.Converter = {
         
         // 确保字典已加载
         if (!this.dictLoaded) {
-            console.log('[Converter] 等待字典加载...');
+            // console.log('[Converter] 等待字典加载...');
             await this.loadDictionaries();
         }
         
@@ -185,14 +185,14 @@ Lumina.Converter = {
         // 评估是否需要转换
         this.evaluateConversion();
         
-        console.log('[Converter] 文件打开处理完成:', { 
-            bookLanguage: this.bookLanguage, 
-            isConverting: this.isConverting 
-        });
+        // console.log('[Converter] 文件打开处理完成:', { 
+        //     bookLanguage: this.bookLanguage, 
+        //     isConverting: this.isConverting 
+        // });
         
         // 如果需要转换，触发重新渲染
         if (this.isConverting) {
-            console.log('[Converter] 需要转换，触发重新渲染');
+            // console.log('[Converter] 需要转换，触发重新渲染');
             Lumina.Renderer?.renderCurrentChapter?.();
             Lumina.Renderer?.generateTOC?.();
             Lumina.Renderer?.updateChapterNavInfo?.();
@@ -239,19 +239,19 @@ Lumina.Converter = {
         // 2. 检查元数据中的语言
         const metadata = currentFile.metadata;
         const confidence = metadata?._extracted?.confidence?.language ?? 0;
-        console.log('[Converter] 检测书籍语言，元数据:', metadata?.language, '置信度:', confidence);
+        // console.log('[Converter] 检测书籍语言，元数据:', metadata?.language, '置信度:', confidence);
         
         // 用户手动设置的语言（confidence=100）或自动检测的语言名称都尝试解析
         if (metadata?.language) {
             // 对于中文名称，尝试直接解析
             const parsed = this.parseLanguage(metadata.language);
-            console.log('[Converter] 解析元数据语言:', metadata.language, '->', parsed?.code);
+            // console.log('[Converter] 解析元数据语言:', metadata.language, '->', parsed?.code);
             
             if (parsed && confidence === 100) {
                 // 高置信度（用户手动设置）直接使用
                 this.bookLanguage = parsed.code;
                 this.currentCache.bookLanguage = parsed.code;
-                console.log('[Converter] 使用手动设置的语言:', parsed.code);
+                // console.log('[Converter] 使用手动设置的语言:', parsed.code);
                 return;
             }
         }
@@ -262,7 +262,7 @@ Lumina.Converter = {
         if (this.currentCache) {
             this.currentCache.bookLanguage = detected;
         }
-        console.log('[Converter] 采样检测结果:', detected);
+        // console.log('[Converter] 采样检测结果:', detected);
     },
     
     /**
@@ -272,12 +272,12 @@ Lumina.Converter = {
     parseLanguage(langName) {
         if (!langName) return null;
         
-        console.log('[Converter] parseLanguage 输入:', langName, 'Config.languages:', Lumina.Config?.languages?.length);
+        // console.log('[Converter] parseLanguage 输入:', langName, 'Config.languages:', Lumina.Config?.languages?.length);
         
         // 从 Lumina.Config.languages 查找对应的语言代码
         const langConfig = Lumina.Config?.languages?.find(l => l.name === langName);
         if (langConfig) {
-            console.log('[Converter] 找到语言配置:', langConfig);
+            // console.log('[Converter] 找到语言配置:', langConfig);
             if (langConfig.code === 'zh') {
                 return { code: 'zh-CN', name: langName };
             }
@@ -296,11 +296,11 @@ Lumina.Converter = {
         };
         
         if (nameMap[langName]) {
-            console.log('[Converter] 使用兜底映射:', langName, '->', nameMap[langName]);
+            // console.log('[Converter] 使用兜底映射:', langName, '->', nameMap[langName]);
             return { code: nameMap[langName], name: langName };
         }
         
-        console.log('[Converter] 无法解析语言:', langName);
+        // console.log('[Converter] 无法解析语言:', langName);
         return null;
     },
     
@@ -359,7 +359,7 @@ Lumina.Converter = {
         // 先检查是否包含中文字符
         const hasChinese = /[\u4e00-\u9fa5]/.test(text);
         if (!hasChinese) {
-            console.log('[Converter] 无中文字符，无法确定简繁');
+            // console.log('[Converter] 无中文字符，无法确定简繁');
             return null;
         }
         
@@ -380,7 +380,7 @@ Lumina.Converter = {
             }
         }
         
-        console.log('[Converter] 检测得分:', { scScore, tcScore, totalChecks, sample: text.substring(0, 50) });
+        // console.log('[Converter] 检测得分:', { scScore, tcScore, totalChecks, sample: text.substring(0, 50) });
         
         // 置信度机制：
         // 1. 至少需要3个特征字符才进行判断
@@ -389,7 +389,7 @@ Lumina.Converter = {
         const CONFIDENCE_THRESHOLD = 0.6;
         
         if (totalChecks < MIN_SAMPLES) {
-            console.log(`[Converter] 样本不足(${totalChecks}<${MIN_SAMPLES})，无法确定`);
+            // console.log(`[Converter] 样本不足(${totalChecks}<${MIN_SAMPLES})，无法确定`);
             return null;
         }
         
@@ -397,16 +397,16 @@ Lumina.Converter = {
         const tcRatio = tcScore / totalChecks;
         
         if (scRatio >= CONFIDENCE_THRESHOLD) {
-            console.log(`[Converter] 高置信度判定为简体(${ (scRatio*100).toFixed(1) }%)`);
+            // console.log(`[Converter] 高置信度判定为简体(${ (scRatio*100).toFixed(1) }%)`);
             return 'zh-CN';
         }
         if (tcRatio >= CONFIDENCE_THRESHOLD) {
-            console.log(`[Converter] 高置信度判定为繁体(${ (tcRatio*100).toFixed(1) }%)`);
+            // console.log(`[Converter] 高置信度判定为繁体(${ (tcRatio*100).toFixed(1) }%)`);
             return 'zh-TW';
         }
         
         // 无明显差异，无法确定
-        console.log(`[Converter] 置信度不足(简体${ (scRatio*100).toFixed(1) }%, 繁体${ (tcRatio*100).toFixed(1) }%)`);
+        // console.log(`[Converter] 置信度不足(简体${ (scRatio*100).toFixed(1) }%, 繁体${ (tcRatio*100).toFixed(1) }%)`);
         return null;
     },
     
@@ -414,6 +414,7 @@ Lumina.Converter = {
      * 评估是否需要转换
      */
     evaluateConversion() {
+        if (Lumina.State.app.currentFile.wordCount === 0) return;
         console.log('[Converter] 评估转换:', {
             enabled: this.enabled,
             bookLanguage: this.bookLanguage,
@@ -585,4 +586,4 @@ Lumina.Converter = {
 };
 
 // 模块加载自检
-console.log('[Converter] 模块已加载，对象存在:', !!Lumina.Converter);
+// console.log('[Converter] 模块已加载，对象存在:', !!Lumina.Converter);

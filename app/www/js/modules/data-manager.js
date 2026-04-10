@@ -1187,7 +1187,7 @@ Lumina.DataManager = class {
     
     // 明文导出
     async exportPlain(data) {
-        const _filename = data.metadate?.title || data.fileName.replace(/\.[^/.]+$/, '');
+        const _filename = data.metadata?.title || data.fileName.replace(/\.[^/.]+$/, '');
         const fileName = `Lumina_${_filename}_${new Date().getTime()}.json`;
         
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
@@ -1233,6 +1233,7 @@ Lumina.DataManager = class {
             chapterNumbering: data.chapterNumbering,
             annotations: data.annotations,
             heatMap: data.heatMap,
+            metadata: data.metadata,  // 包含元数据
             lastChapter: data.lastChapter,
             lastScrollIndex: data.lastScrollIndex,
             chapterTitle: data.chapterTitle,
@@ -1301,7 +1302,7 @@ Lumina.DataManager = class {
                 progressDialog.update(progress);
             });
             
-            const _filename = data.metadate?.title || data.fileName.replace(/\.[^/.]+$/, '');
+            const _filename = data.metadata?.title || data.fileName.replace(/\.[^/.]+$/, '');
             const fileName = `Lumina_${_filename}_${new Date().getTime()}.lmn`;
             
             const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
@@ -1851,11 +1852,8 @@ Lumina.DataManager = class {
                 if (data.exportType === 'batch' && Array.isArray(data.books)) {
                     await this.handleBatchImport(data.books);
                 } else if (data.fileName && Array.isArray(data.content)) {
+                    // 单本书籍导入（importDataToDB 内部已处理刷新和提示）
                     await this.importDataToDB(data);
-                    Lumina.UI.showToast(t('importSuccess') || '导入成功');
-                    await this.refreshStats();
-                    await Lumina.DB.loadHistoryFromDB();
-                    this.updateSettingsBar();
                 } else if (data.version && data.reading) {
                     // 配置文件
                     await Lumina.Settings.handleConfigImport(new File([result.data], fileName, { type: 'application/json' }));
@@ -2206,34 +2204,47 @@ Lumina.DataManager = class {
     
     // 将数据导入数据库
     async importDataToDB(data) {
-        const newKey = `${data.fileName}_${Date.now()}`;
-        await Lumina.DB.adapter.saveFile(newKey, {
-            fileName: data.fileName,
-            fileType: data.fileType || 'txt',
-            fileSize: 0,
-            content: data.content,
-            wordCount: data.wordCount || 0,
-            cover: data.cover || null,
-            customRegex: data.customRegex || { chapter: '', section: '' },
-            chapterNumbering: data.chapterNumbering || 'none',
-            annotations: data.annotations || [],
-            heatMap: data.heatMap || null,
-            lastChapter: data.lastChapter || 0,
-            lastScrollIndex: data.lastScrollIndex || 0,
-            chapterTitle: data.chapterTitle || '',
-            lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
-            created_at: data.created_at || data.lastReadTime || Lumina.DB.getLocalTimeString()
-        });
-        await this.refreshStats();
-        await Lumina.DB.loadHistoryFromDB();
-        this.updateSettingsBar();
-        Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
+        try {
+            const newKey = `${data.fileName}_${Date.now()}`;
+            const saveResult = await Lumina.DB.adapter.saveFile(newKey, {
+                fileName: data.fileName,
+                fileType: data.fileType || 'txt',
+                fileSize: data.fileSize || 0,
+                content: data.content,
+                wordCount: data.wordCount || 0,
+                cover: data.cover || null,
+                customRegex: data.customRegex || { chapter: '', section: '' },
+                chapterNumbering: data.chapterNumbering || 'none',
+                annotations: data.annotations || [],
+                heatMap: data.heatMap || null,
+                metadata: data.metadata || null,  // 导入元数据
+                lastChapter: data.lastChapter || 0,
+                lastScrollIndex: data.lastScrollIndex || 0,
+                chapterTitle: data.chapterTitle || '',
+                lastReadTime: data.lastReadTime || Lumina.DB.getLocalTimeString(),
+                created_at: data.created_at || data.lastReadTime || Lumina.DB.getLocalTimeString()
+            });
+            
+            if (!saveResult) {
+                throw new Error('保存到数据库失败');
+            }
+            
+            await this.refreshStats();
+            await Lumina.DB.loadHistoryFromDB();
+            this.updateSettingsBar();
+            Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
+            return true;
+        } catch (err) {
+            console.error('[importDataToDB] 导入失败:', err);
+            throw err;  // 向上抛出，让调用者处理
+        }
     }
     
     // 辅助方法：从解析后的数据导入（用于 Filesystem 读取）
     async importJSONFileFromData(data) {
         try {
-            if (!this.validateHistoryData(data)) {
+            // 统一使用与拖放/直接打开相同的宽松验证：只需要 fileName 和 content 数组
+            if (!(data && typeof data === 'object' && data.fileName && Array.isArray(data.content))) {
                 Lumina.UI.showDialog(Lumina.I18n.t('invalidHistoryFile'));
                 return false;
             }
@@ -2282,7 +2293,8 @@ Lumina.DataManager = class {
         try {
             const text = await file.text();
             const data = JSON.parse(text);
-            if (!this.validateHistoryData(data)) {
+            // 统一使用与拖放/直接打开相同的宽松验证：只需要 fileName 和 content 数组
+            if (!(data && typeof data === 'object' && data.fileName && Array.isArray(data.content))) {
                 Lumina.UI.showDialog(Lumina.I18n.t('invalidHistoryFile'));
                 return false;
             }
@@ -2290,7 +2302,7 @@ Lumina.DataManager = class {
             await Lumina.DB.adapter.saveFile(newKey, {
                 fileName: data.fileName,
                 fileType: data.fileType || 'txt',
-                fileSize: 0,
+                fileSize: data.fileSize || 0,
                 content: data.content,
                 wordCount: data.wordCount || 0,
                 cover: data.cover || null,
@@ -2298,6 +2310,7 @@ Lumina.DataManager = class {
                 chapterNumbering: data.chapterNumbering || 'none',
                 annotations: data.annotations || [],
                 heatMap: data.heatMap || null,
+                metadata: data.metadata || null,  // 导入元数据
                 lastChapter: data.lastChapter || 0,
                 lastScrollIndex: data.lastScrollIndex || 0,
                 chapterTitle: data.chapterTitle || '',

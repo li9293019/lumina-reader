@@ -81,6 +81,8 @@ class DatabaseBridge {
                 custom_regex TEXT,
                 chapter_numbering TEXT DEFAULT 'none',
                 cover_data_url TEXT,
+                heat_map TEXT,
+                metadata TEXT,
                 created_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_last_read ON files(last_read_time);
@@ -88,17 +90,23 @@ class DatabaseBridge {
         `;
         await this.db.execute(baseSchema);
         
-        // 兼容旧数据库：检查并添加 created_at 字段
+        // 兼容旧数据库：检查并添加新字段
+        await this.addColumnIfNotExists('files', 'created_at', 'TEXT');
+        await this.addColumnIfNotExists('files', 'heat_map', 'TEXT');
+        await this.addColumnIfNotExists('files', 'metadata', 'TEXT');
+    }
+
+    async addColumnIfNotExists(table, column, type) {
         try {
             const checkResult = await this.db.query(
-                "SELECT COUNT(*) as cnt FROM pragma_table_info('files') WHERE name='created_at'"
+                `SELECT COUNT(*) as cnt FROM pragma_table_info('${table}') WHERE name='${column}'`
             );
             if (checkResult.values && checkResult.values[0].cnt === 0) {
-                await this.db.run('ALTER TABLE files ADD COLUMN created_at TEXT');
-                console.log('[DB] 已添加 created_at 字段');
+                await this.db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+                console.log(`[DB] 已添加 ${column} 字段`);
             }
         } catch (e) {
-            console.log('[DB] 检查/添加字段失败（可能已存在）:', e);
+            console.log(`[DB] 检查/添加 ${column} 字段失败:`, e);
         }
     }
 
@@ -165,8 +173,8 @@ class DatabaseBridge {
                 INSERT OR REPLACE INTO files (
                     file_key, file_name, file_type, file_size, content_size, content, word_count,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
-                    custom_regex, chapter_numbering, cover_data_url, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
@@ -183,6 +191,8 @@ class DatabaseBridge {
                 JSON.stringify(data.customRegex || data.custom_regex || {}),
                 data.chapterNumbering || data.chapter_numbering || 'none',
                 data.cover || data.cover_data_url || null,
+                data.heatMap ? JSON.stringify(data.heatMap) : null,
+                data.metadata ? JSON.stringify(data.metadata) : null,
                 createdAt
             ];
             await this.db.run(sql, params);
@@ -234,26 +244,40 @@ class DatabaseBridge {
         }
 
         try {
-            // 【优化】不返回 content 和 cover 数据，减少传输
+            // 【优化】不返回 content 和 cover 数据，减少传输，但包含 metadata
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
                     word_count, last_chapter, last_scroll_index, chapter_title, 
-                    last_read_time, chapter_numbering, created_at 
+                    last_read_time, chapter_numbering, created_at, metadata
                 FROM files ORDER BY last_read_time DESC`
             );
-            return (result.values || []).map(row => ({
-                fileKey: row.file_key,
-                fileName: row.file_name,
-                fileType: row.file_type,
-                fileSize: row.file_size,
-                wordCount: row.word_count,
-                lastChapter: row.last_chapter,
-                lastScrollIndex: row.last_scroll_index,
-                chapterTitle: row.chapter_title,
-                lastReadTime: row.last_read_time,
-                chapterNumbering: row.chapter_numbering,
-                created_at: row.created_at
-            }));
+            return (result.values || []).map(row => {
+                const item = {
+                    fileKey: row.file_key,
+                    fileName: row.file_name,
+                    fileType: row.file_type,
+                    fileSize: row.file_size,
+                    wordCount: row.word_count,
+                    lastChapter: row.last_chapter,
+                    lastScrollIndex: row.last_scroll_index,
+                    chapterTitle: row.chapter_title,
+                    lastReadTime: row.last_read_time,
+                    chapterNumbering: row.chapter_numbering,
+                    created_at: row.created_at,
+                    metadata: null
+                };
+                // 解析 metadata JSON
+                if (row.metadata) {
+                    try {
+                        item.metadata = JSON.parse(row.metadata);
+                    } catch (e) {
+                        item.metadata = {};
+                    }
+                } else {
+                    item.metadata = {};
+                }
+                return item;
+            });
         } catch (err) {
             console.error('[DB] 获取列表失败:', err);
             return [];
@@ -289,7 +313,7 @@ class DatabaseBridge {
     // 将数据库行转换为文件对象
     rowToFile(row) {
         try {
-            return {
+            const file = {
                 fileKey: row.file_key,
                 fileName: row.file_name,
                 fileType: row.file_type,
@@ -318,6 +342,23 @@ class DatabaseBridge {
                 chapter_numbering: row.chapter_numbering,
                 cover_data_url: row.cover_data_url
             };
+            // 解析 heatMap
+            if (row.heat_map) {
+                try {
+                    file.heatMap = JSON.parse(row.heat_map);
+                } catch (e) {
+                    file.heatMap = null;
+                }
+            }
+            // 解析 metadata
+            if (row.metadata) {
+                try {
+                    file.metadata = JSON.parse(row.metadata);
+                } catch (e) {
+                    file.metadata = null;
+                }
+            }
+            return file;
         } catch (e) {
             console.error('[DB] 数据转换失败:', e);
             return null;

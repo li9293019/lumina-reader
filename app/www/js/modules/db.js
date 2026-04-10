@@ -266,10 +266,12 @@ Lumina.DB.IndexedDBImpl = class {
             chapterNumbering: file.chapterNumbering || 'none',
             annotations: file.annotations || [],
             heatMap: file.heatMap || null,  // 导出热力图数据
+            metadata: file.metadata || null,  // 导出元数据
             lastChapter: file.lastChapter || 0, 
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || '',
-            lastReadTime: file.lastReadTime
+            lastReadTime: file.lastReadTime,
+            created_at: file.created_at || file.lastReadTime
         }));
         return {
             version: this.DB_VERSION, 
@@ -297,6 +299,7 @@ Lumina.DB.IndexedDBImpl = class {
                     chapterNumbering: book.chapterNumbering || 'none',
                     annotations: book.annotations || [],
                     heatMap: book.heatMap || null,
+                    metadata: book.metadata || null,  // 导入元数据
                     lastChapter: book.lastChapter || 0, chapterTitle: book.chapterTitle || '',
                     lastScrollIndex: book.lastScrollIndex || 0,
                     lastReadTime: book.lastReadTime || Lumina.DB.getLocalTimeString(),
@@ -331,6 +334,7 @@ Lumina.DB.IndexedDBImpl = class {
             appName: 'Lumina Reader', 
             fileName: file.fileName, 
             fileType: file.fileType,
+            fileSize: file.fileSize || 0,  // 导出文件大小
             content: file.content, 
             wordCount: file.wordCount, 
             cover: file.cover || null,
@@ -338,6 +342,7 @@ Lumina.DB.IndexedDBImpl = class {
             chapterNumbering: file.chapterNumbering || 'none',
             annotations: file.annotations || [],
             heatMap: file.heatMap || null,
+            metadata: file.metadata || null,  // 导出元数据
             lastChapter: file.lastChapter || 0,
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || '',
@@ -615,6 +620,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                     annotations: book.annotations || [],
                     cover: book.cover || null,
                     heatMap: book.heatMap || null,
+                    metadata: book.metadata || null,  // 导入元数据
                     lastReadTime: Lumina.DB.getLocalTimeString(),
                     created_at: book.created_at || book.lastReadTime || Lumina.DB.getLocalTimeString()
                 });
@@ -639,6 +645,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             appName: 'Lumina Reader',
             fileName: file.fileName,
             fileType: file.fileType,
+            fileSize: file.fileSize || 0,  // 导出文件大小
             content: file.content,
             wordCount: file.wordCount,
             cover: file.cover || null,
@@ -646,6 +653,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             chapterNumbering: file.chapterNumbering || 'none',
             annotations: file.annotations || [],
             heatMap: file.heatMap || null,
+            metadata: file.metadata || null,  // 导出元数据
             lastChapter: file.lastChapter || 0,
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || '',
@@ -1084,6 +1092,7 @@ Lumina.DB.SQLiteImpl = class {
                     chapterNumbering: book.chapterNumbering || 'none',
                     annotations: book.annotations || [],
                     heatMap: book.heatMap || null,
+                    metadata: book.metadata || null,  // 导入元数据
                     lastChapter: book.lastChapter || 0,
                     lastScrollIndex: book.lastScrollIndex || 0,
                     chapterTitle: book.chapterTitle || '',

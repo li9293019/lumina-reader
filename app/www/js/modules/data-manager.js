@@ -717,14 +717,12 @@ Lumina.DataManager = class {
         let coverHtml;
         if (hasCover) {
             coverHtml = `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
-        } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
-            // 直接插入 SVG 以继承页面字体（APP 环境下可用自定义字体）
+        } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
+            // 使用 Bibliomorph 封面生成器（简洁书籍风格）
             const metadata = file.metadata || {};
             const title = metadata.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
             const author = metadata.author || file.author || '';
-            const generatedCover = Lumina.CoverGenerator.generateWithPattern(
-                title, author, null, 'rectTiling'
-            );
+            const generatedCover = Lumina.BibliomorphCover.generate(title, author);
             if (generatedCover) {
                 // 添加 cover-img 类以应用样式
                 coverHtml = generatedCover.replace('<svg', '<svg class="cover-img"');

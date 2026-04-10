@@ -498,13 +498,11 @@ Lumina.BookDetail = {
         let coverContentHTML = '';
         if (bookData.cover) {
             coverContentHTML = `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
-        } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
+        } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
             const metadata = bookData.metadata || {};
             const title = metadata.title || bookData.title || bookData.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
             const author = metadata.author || bookData.author || '';
-            const svg = Lumina.CoverGenerator.generateWithPattern(
-                title, author, null, 'rectTiling'
-            );
+            const svg = Lumina.BibliomorphCover.generate(title, author);
             if (svg) {
                 coverContentHTML = svg.replace('<svg', '<svg class="book-detail-cover-img"');
             } else {
@@ -636,12 +634,10 @@ Lumina.BookDetail = {
             if (data.cover) {
                 el.cover.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 el.coverWrapper?.classList.remove('no-cover');
-            } else if (Lumina.State.settings.hashCover && Lumina.CoverGenerator) {
+            } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
                 const bookTitle = metadata.title || data.title || data.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
                 const bookAuthor = metadata.author || data.author || '';
-                const generatedCover = Lumina.CoverGenerator.generateWithPattern(
-                    bookTitle, bookAuthor, null, 'rectTiling'
-                );
+                const generatedCover = Lumina.BibliomorphCover.generate(bookTitle, bookAuthor);
                 if (generatedCover) {
                     el.cover.innerHTML = generatedCover;
                     el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
@@ -791,16 +787,12 @@ Lumina.BookDetail = {
         
         const el = this._elements;
         
-        if (el.cover && Lumina.CoverGenerator) {
-            // 清除缓存，强制重新生成
-            Lumina.CoverGenerator.clearCache();
+        if (el.cover && Lumina.BibliomorphCover) {
             const file = this.currentFile;
             const meta = file.metadata || {};
             const title = meta.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
             const author = meta.author || file.author || '';
-            const generatedCover = Lumina.CoverGenerator.generateWithPattern(
-                title, author, null, 'rectTiling'
-            );
+            const generatedCover = Lumina.BibliomorphCover.generate(title, author);
             if (generatedCover) {
                 el.cover.innerHTML = generatedCover;
                 el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');

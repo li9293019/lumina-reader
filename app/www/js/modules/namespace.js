@@ -1,5 +1,5 @@
 // ==================== 根命名空间 ====================
-const Lumina = {
+const Lumina = window.Lumina || {
     // 配置命名空间
     Config: {},
     // 运行时状态
@@ -39,4 +39,7 @@ const Lumina = {
     // 操作分发
     Actions: {}
 };
+
+// 绑定到全局 window 对象
+window.Lumina = Lumina;
 

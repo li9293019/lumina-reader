@@ -4090,7 +4090,8 @@
     })();
 
     // ========== 对外接口 ==========
-    Lumina.CoverGenerator = {
+    // Pattern Warehouse - 图案仓库，供 share-card.js 等使用
+    Lumina.PatternWarehouse = {
         // 暴露类和内部模块供其他模块使用
         SVGRenderer: SVGRenderer,
         CoverCore: CoverCore,

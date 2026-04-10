@@ -134,7 +134,7 @@ Lumina.ShareCard = {
         
         this.usedSeeds.add(seed);
         this.currentSeed = seed;
-        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        const CoverCore = Lumina.PatternWarehouse.CoverCore;
         this.currentPatternId = seed % CoverCore.PATTERNS.length;
         
         const svg = this.renderCard(width, height, layoutType, seed);
@@ -153,7 +153,7 @@ Lumina.ShareCard = {
     },
     
     renderCard(w, h, layoutType, seed) {
-        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        const CoverCore = Lumina.PatternWarehouse.CoverCore;
         const palette = CoverCore.generatePalette(seed, 'auto');
         this.currentPalette = palette;
         
@@ -479,7 +479,7 @@ Lumina.ShareCard = {
     },
     
     renderPatternFull(w, h, palette, seed, intensity = 1) {
-        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        const CoverCore = Lumina.PatternWarehouse.CoverCore;
         const PATTERNS = CoverCore.PATTERNS;
         const PatternDrawers = CoverCore.PatternDrawers;
         const params = CoverCore.extractParams(seed, 40);
@@ -488,7 +488,7 @@ Lumina.ShareCard = {
         const drawer = PatternDrawers[patternCode];
         if (!drawer) return `<rect width="${w}" height="${h}" fill="${palette.bg}"/>`;
         
-        const SVGRenderer = Lumina.CoverGenerator.SVGRenderer;
+        const SVGRenderer = Lumina.PatternWarehouse.SVGRenderer;
         const renderer = new SVGRenderer(w, h);
         
         renderer.fillStyle = palette.bg;
@@ -773,7 +773,7 @@ Lumina.ShareCard = {
      * 绘制图案到指定区域（与 SVG renderPatternFull 完全一致）
      */
     renderPatternArea(ctx, x, y, w, h, palette, seed, intensity = 1) {
-        const CoverCore = Lumina.CoverGenerator.CoverCore;
+        const CoverCore = Lumina.PatternWarehouse.CoverCore;
         const patternCode = CoverCore.PATTERNS[this.currentPatternId]?.code || 'lines';
         const drawer = CoverCore.PatternDrawers[patternCode];
         

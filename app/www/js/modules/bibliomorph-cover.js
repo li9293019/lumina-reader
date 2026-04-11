@@ -947,13 +947,34 @@
                   .replace(/'/g, '&apos;');
     }
 
+    // ==================== 字体工具 ====================
+    
+    function getReaderFont() {
+        // 优先从 State 获取当前字体设置
+        if (window.Lumina?.State?.settings?.font) {
+            const fontId = window.Lumina.State.settings.font;
+            if (window.Lumina?.FontManager?.getFontFamily) {
+                return window.Lumina.FontManager.getFontFamily(fontId);
+            }
+        }
+        // 从 CSS 变量获取
+        const root = document.documentElement;
+        const cssFont = getComputedStyle(root).getPropertyValue('--font-family-dynamic').trim() || 
+                       getComputedStyle(root).getPropertyValue('--reader-font').trim();
+        if (cssFont) return cssFont;
+        // 默认字体
+        return 'Noto Serif SC, serif';
+    }
+    
     // ==================== 主API ====================
 
     function generate(title, author, options) {
         try {
             options = options || {};
-            const titleFont = options.titleFont || 'Noto Serif SC';
-            const authorFont = options.authorFont || 'Noto Sans SC';
+            // 使用阅读器当前字体作为默认值
+            const readerFont = getReaderFont();
+            const titleFont = options.titleFont || readerFont;
+            const authorFont = options.authorFont || readerFont;
             const visualRatio = options.visualRatio || 0.65;
             const letterSpacing = options.letterSpacing || 0.05;
             const lineSpacingMm = options.lineSpacingMm || 3;

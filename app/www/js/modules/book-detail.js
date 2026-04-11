@@ -1325,8 +1325,23 @@ Lumina.BookDetail = {
         
         // 立即刷新详情页封面显示
         const coverEl = document.getElementById('bookDetailCover');
-        if (coverEl) {
-            coverEl.innerHTML = `<img src="${imageData}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+        const coverWrapper = document.getElementById('bookDetailCoverWrapper');
+        
+        if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+            // hashCover 开启：使用 wrapCover 包装（带纹理和书脊效果）
+            const brightness = this.currentFile.coverBrightness || null;
+            const wrapped = Lumina.BibliomorphCover.wrapCover(imageData, { brightness });
+            if (coverEl) {
+                coverEl.innerHTML = wrapped;
+                coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
+                coverWrapper?.classList.remove('no-cover');
+            }
+        } else {
+            // hashCover 关闭：直接显示原图
+            if (coverEl) {
+                coverEl.innerHTML = `<img src="${imageData}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
+                coverWrapper?.classList.remove('no-cover');
+            }
         }
         
         // 刷新书库显示

@@ -119,7 +119,57 @@ Lumina.FontManager = {
     
     async init() {
         await this._loadCustomFonts();
+        // 清理 Documents 目录中的孤儿字体文件（不在 customFonts 列表中的）
+        this._cleanupOrphanFontFiles();
         // console.log('[FontManager] 初始化完成，自定义字体:', this.customFonts.length);
+    },
+    
+    // 清理 Documents 目录中的孤儿字体文件
+    async _cleanupOrphanFontFiles() {
+        if (typeof Capacitor === 'undefined' || !Capacitor.Plugins?.Filesystem) return;
+        
+        const { Filesystem } = Capacitor.Plugins;
+        
+        try {
+            // 读取 Documents/fonts/user/ 目录
+            const result = await Filesystem.readdir({
+                path: this.FONT_DIR,
+                directory: 'DOCUMENTS'
+            });
+            
+            if (!result.files || result.files.length === 0) return;
+            
+            // 获取当前有效的字体文件名集合
+            const validFontFiles = new Set(this.customFonts.map(f => f.storedName));
+            
+            let cleanedCount = 0;
+            
+            for (const file of result.files) {
+                // 只处理 .ttf 和 .otf 文件
+                if (!file.name.endsWith('.ttf') && !file.name.endsWith('.otf')) continue;
+                
+                // 如果不在有效列表中，删除
+                if (!validFontFiles.has(file.name)) {
+                    try {
+                        await Filesystem.deleteFile({
+                            path: `${this.FONT_DIR}/${file.name}`,
+                            directory: 'DOCUMENTS'
+                        });
+                        cleanedCount++;
+                        console.log('[FontManager] 清理孤儿字体文件:', file.name);
+                    } catch (e) {
+                        // 忽略删除失败
+                    }
+                }
+            }
+            
+            if (cleanedCount > 0) {
+                console.log(`[FontManager] 共清理 ${cleanedCount} 个孤儿字体文件`);
+            }
+        } catch (e) {
+            // 目录可能不存在或读取失败，静默处理
+            console.log('[FontManager] 清理孤儿字体文件检查失败:', e.message);
+        }
     },
     
     // 获取所有可用字体

@@ -400,7 +400,40 @@ Lumina.Settings = {
     },
     
     // APP 环境：显示文件选择器
-    showAppFilePicker() {
+    async showAppFilePicker() {
+        // 优先使用 FilePicker 插件（可以获取真实路径，支持大文件分块读取）
+        if (Capacitor?.Plugins?.FilePicker && Lumina.LargeFileReader?.isAvailable?.()) {
+            try {
+                const result = await Capacitor.Plugins.FilePicker.pickFiles({
+                    types: ['application/json', 'application/octet-stream'],
+                    multiple: false
+                });
+                
+                const pickedFile = result.files?.[0];
+                if (!pickedFile) return;
+                
+                // 检查文件扩展名
+                const fileName = pickedFile.name || '';
+                const isLmn = fileName.toLowerCase().endsWith('.lmn');
+                const isJson = fileName.toLowerCase().endsWith('.json');
+                
+                if (!isLmn && !isJson) {
+                    Lumina.UI.showToast(Lumina.I18n.t('configInvalidFileType') || '请选择 .json 或 .lmn 文件');
+                    return;
+                }
+                
+                // 使用 LargeFileReader 分块读取大文件
+                await this.handleConfigImportFromPath(pickedFile, isLmn);
+                return;
+                
+            } catch (err) {
+                if (err.message?.includes('cancel')) return; // 用户取消
+                console.warn('[Settings] FilePicker 失败，回退到标准方式:', err);
+                // 回退到标准方式
+            }
+        }
+        
+        // 标准方式：使用 HTML input（适合小文件）
         const input = document.createElement('input');
         input.type = 'file';
         // APP 环境使用通用 MIME 类型，因为 Android 不认识 .lmn 扩展名
@@ -495,6 +528,178 @@ Lumina.Settings = {
                 Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${result.error}`);
             }
         } catch (err) {
+            Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${err.message}`);
+        }
+    },
+    
+    // APP端：从文件路径导入配置（使用 LargeFileReader 分块读取，防OOM）
+    async handleConfigImportFromPath(pickedFile, isEncrypted) {
+        const fileName = pickedFile.name;
+        const filePath = pickedFile.path; // 可能是 content:// URI 或相对路径
+        const t = Lumina.I18n?.t || ((k) => k);
+        
+        console.log('[Settings] 从路径导入配置:', fileName, '路径:', filePath);
+        
+        // 显示进度对话框
+        const progressDialog = Lumina.ExportUtils?.showProgressDialog?.(
+            t('importProgress') || '导入进度'
+        ) || { update: () => {}, close: () => {}, updateStep: () => {} };
+        
+        const tempPath = `temp/import_${Date.now()}_${fileName}`;
+        
+        try {
+            // 步骤1：将文件从外部位置拷贝到APP私有目录（分块处理避免OOM）
+            progressDialog.updateStep(1, 5, t('preparingFile') || '准备文件...');
+            progressDialog.update(10);
+            
+            const { Filesystem } = Capacitor.Plugins;
+            
+            // 创建临时目录
+            try {
+                await Filesystem.mkdir({
+                    path: 'temp',
+                    directory: 'DOCUMENTS',
+                    recursive: true
+                });
+            } catch (e) { /* 目录已存在 */ }
+            
+            // 小文件（< 5MB）：直接拷贝
+            // 大文件：需要特殊处理，但目前 Capacitor 不支持流式拷贝
+            // 作为折中方案，我们读取 FilePicker 返回的数据并分块写入
+            if (pickedFile.data) {
+                // FilePicker 可能返回 base64 数据
+                const base64Data = pickedFile.data;
+                const dataSize = base64Data.length * 0.75; // 估算原始大小
+                
+                progressDialog.updateStep(2, 5, t('writingTempFile') || '写入临时文件...');
+                progressDialog.update(20);
+                
+                // 分块写入（避免内存问题）
+                const chunkSize = 512 * 1024; // 512KB base64
+                const totalChunks = Math.ceil(base64Data.length / chunkSize);
+                
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * chunkSize;
+                    const end = Math.min(start + chunkSize, base64Data.length);
+                    const chunk = base64Data.substring(start, end);
+                    
+                    if (i === 0) {
+                        await Filesystem.writeFile({
+                            path: tempPath,
+                            directory: 'DOCUMENTS',
+                            data: chunk
+                        });
+                    } else {
+                        await Filesystem.appendFile({
+                            path: tempPath,
+                            directory: 'DOCUMENTS',
+                            data: chunk
+                        });
+                    }
+                    
+                    const percent = 20 + Math.round(((i + 1) / totalChunks) * 30);
+                    progressDialog.update(percent);
+                }
+            } else if (filePath) {
+                // 尝试直接拷贝（如果 FilePicker 提供了可用路径）
+                progressDialog.updateStep(2, 5, t('copyingFile') || '复制文件...');
+                progressDialog.update(20);
+                try {
+                    await Filesystem.copy({
+                        from: filePath,
+                        to: tempPath,
+                        directory: 'DOCUMENTS',
+                        toDirectory: 'DOCUMENTS'
+                    });
+                } catch (copyErr) {
+                    console.warn('[Settings] 直接拷贝失败，尝试读取数据:', copyErr);
+                    // 如果拷贝失败，回退到标准方式（可能导致OOM）
+                    throw new Error(t('fileAccessError') || '无法访问文件路径，请使用标准导入方式');
+                }
+            } else {
+                throw new Error(t('fileDataError') || '无法获取文件数据');
+            }
+            
+            progressDialog.updateStep(3, 5, t('readingFile') || '读取文件...');
+            progressDialog.update(50);
+            
+            // 步骤2：使用 LargeFileReader 分块读取文件（避免OOM）
+            const fileData = await Lumina.LargeFileReader.readFile(
+                tempPath,
+                'DOCUMENTS',
+                (currentBytes, totalBytes, percent) => {
+                    const overallPercent = 50 + Math.round(percent * 0.2);
+                    progressDialog.update(overallPercent);
+                }
+            );
+            
+            progressDialog.updateStep(4, 5, isEncrypted ? (t('decryptingFile') || '解密文件...') : (t('parsingConfig') || '解析配置...'));
+            progressDialog.update(75);
+            
+            let importData;
+            
+            if (isEncrypted) {
+                // LMN 文件：数据已经是二进制，直接使用
+                importData = fileData;
+            } else {
+                // JSON 文件：解码为文本
+                importData = new TextDecoder('utf-8').decode(fileData);
+            }
+            
+            progressDialog.updateStep(5, 5, t('restoringFonts') || '恢复字体...');
+            progressDialog.update(85);
+            
+            // 步骤3：导入配置（字体恢复可能需要较长时间）
+            const result = await Lumina.ConfigManager.import(importData, isEncrypted);
+            
+            // 清理临时文件
+            try {
+                await Filesystem.deleteFile({
+                    path: tempPath,
+                    directory: 'DOCUMENTS'
+                });
+            } catch (e) {}
+            
+            progressDialog.close();
+            
+            if (result.success) {
+                // 重新加载并应用配置
+                Lumina.Settings.load();
+                await Lumina.Settings.apply();
+                
+                // 更新热力图预设内存状态
+                if (Lumina.HeatMap) {
+                    Lumina.HeatMap.loadPresets();
+                }
+                
+                // 刷新 Azure TTS UI
+                if (Lumina.Plugin.AzureTTS) {
+                    Lumina.Plugin.AzureTTS.refreshUI();
+                    if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
+                        Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
+                    }
+                }
+                
+                // 重新加载 PDF 密码预设 UI
+                Lumina.Settings.reloadPasswordPresetUI();
+                
+                Lumina.I18n.updateUI();
+                Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess') || '配置导入成功');
+            } else {
+                Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${result.error}`);
+            }
+            
+        } catch (err) {
+            // 清理临时文件
+            try {
+                await Capacitor.Plugins.Filesystem.deleteFile({
+                    path: tempPath,
+                    directory: 'DOCUMENTS'
+                });
+            } catch (e) {}
+            
+            progressDialog.close();
+            console.error('[Settings] 从路径导入失败:', err);
             Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${err.message}`);
         }
     },

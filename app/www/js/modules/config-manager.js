@@ -260,7 +260,7 @@ Lumina.ConfigManager = {
     },
     
     // 从配置中的字体数据恢复（重装后无需文件权限）
-    async _restoreFontsFromConfig(customFonts, fontsData) {
+    async _restoreFontsFromConfig(customFonts, fontsData, onProgress = null) {
         // Web 端（PC）：字体数据不存在，直接从 IndexedDB 加载
         if (!fontsData || fontsData.length === 0) {
             console.log('[ConfigManager] Web 端导入：从 IndexedDB 加载字体');
@@ -282,15 +282,47 @@ Lumina.ConfigManager = {
             return;
         }
         
+        const t = Lumina.I18n?.t || ((k) => k);
+        console.log('[ConfigManager] 开始恢复字体，共', fontsData.length, '个');
         let restoredCount = 0;
+        const totalFonts = fontsData.length;
         
-        for (const fontData of fontsData) {
+        for (let i = 0; i < totalFonts; i++) {
+            const fontData = fontsData[i];
             try {
-                // 解码 base64 并保存到私有目录
+                console.log('[ConfigManager] 恢复字体:', fontData.name, '数据长度:', fontData.data?.length || 0);
+                
+                // 报告进度
+                if (onProgress) {
+                    onProgress(i + 1, totalFonts, fontData.name);
+                }
+                
+                if (!fontData.data) {
+                    console.warn('[ConfigManager] 字体数据为空:', fontData.name);
+                    continue;
+                }
+                
+                // 解码 base64（一次性解码，但使用高效的循环）
                 const binary = atob(fontData.data);
                 const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
+                
+                // 使用循环展开优化大数组复制
+                const len = binary.length;
+                let j = 0;
+                // 每次处理 8 个字符
+                for (; j < len - 7; j += 8) {
+                    bytes[j] = binary.charCodeAt(j);
+                    bytes[j+1] = binary.charCodeAt(j+1);
+                    bytes[j+2] = binary.charCodeAt(j+2);
+                    bytes[j+3] = binary.charCodeAt(j+3);
+                    bytes[j+4] = binary.charCodeAt(j+4);
+                    bytes[j+5] = binary.charCodeAt(j+5);
+                    bytes[j+6] = binary.charCodeAt(j+6);
+                    bytes[j+7] = binary.charCodeAt(j+7);
+                }
+                // 处理剩余字符
+                for (; j < len; j++) {
+                    bytes[j] = binary.charCodeAt(j);
                 }
                 
                 await Lumina.FontManager._saveFontFile(fontData.storedName, bytes.buffer);
@@ -315,10 +347,10 @@ Lumina.ConfigManager = {
         await Lumina.FontManager._saveCustomFonts();
         
         if (restoredCount > 0) {
-            Lumina.UI.showToast(`成功恢复 ${restoredCount} 个自定义字体`);
+            Lumina.UI.showToast(t('fontRestoreSuccess', restoredCount, totalFonts) || `成功恢复 ${restoredCount} 个自定义字体`);
         }
         
-        console.log('[ConfigManager] 字体恢复完成:', restoredCount, '/', fontsData.length);
+        console.log('[ConfigManager] 字体恢复完成:', restoredCount, '/', totalFonts);
     },
     
     // 从 Documents 目录恢复字体（APP 端导入 PC 端配置时使用）
@@ -652,6 +684,8 @@ Lumina.ConfigManager = {
             reader.readAsText(file);
         });
     },
+    
+
     
     // base64 解码为 Uint8Array
     base64ToUint8Array(base64) {

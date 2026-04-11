@@ -20,6 +20,7 @@ import com.getcapacitor.PluginCall;
 import com.lumina.reader.BuildConfig;
 import com.lumina.reader.plugins.TTSBackgroundPlugin;
 import com.lumina.reader.plugins.TTSEnhancedPlugin;
+import com.lumina.reader.plugins.LargeFilePlugin;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -76,6 +77,7 @@ public class MainActivity extends BridgeActivity {
         
         registerPlugin(TTSBackgroundPlugin.class);
         registerPlugin(TTSEnhancedPlugin.class);
+        registerPlugin(LargeFilePlugin.class);
         
         // 检查是否是从其他应用（如TG）启动的，如果是，确保我们在自己的任务中
         if (handleExternalIntent()) {

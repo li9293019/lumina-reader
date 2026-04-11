@@ -238,6 +238,164 @@ Lumina.FileOpener = {
     }
 };
 
+// ==================== 大文件分块读取器 ====================
+// 解决 Capacitor Bridge OOM 问题，用于配置导入等场景
+
+Lumina.LargeFileReader = {
+    // Capacitor Plugin 引用
+    _plugin: null,
+    
+    /**
+     * 获取插件实例
+     */
+    _getPlugin() {
+        if (!this._plugin) {
+            this._plugin = Capacitor?.Plugins?.LargeFile;
+        }
+        return this._plugin;
+    },
+    
+    /**
+     * 检查是否可用
+     */
+    isAvailable() {
+        return !!this._getPlugin();
+    },
+    
+    /**
+     * 获取文件信息
+     * @param {string} path - 相对路径（如 'LuminaReader/config.json'）
+     * @param {string} directory - 目录类型（默认 'DOCUMENTS'）
+     * @returns {Promise<{fileSize: number, totalChunks: number, chunkSize: number}>}
+     */
+    async getFileInfo(path, directory = 'DOCUMENTS') {
+        const plugin = this._getPlugin();
+        if (!plugin) {
+            throw new Error('LargeFile plugin not available');
+        }
+        
+        const result = await plugin.getFileInfo({ path, directory });
+        return {
+            fileSize: result.fileSize,
+            totalChunks: result.totalChunks,
+            chunkSize: result.chunkSize,
+            path: result.path
+        };
+    },
+    
+    /**
+     * 读取整个文件（分块自动处理）
+     * @param {string} path - 文件路径
+     * @param {string} directory - 目录类型
+     * @param {Function} onProgress - 进度回调 (currentBytes, totalBytes, percent)
+     * @returns {Promise<Uint8Array>} 文件数据
+     */
+    async readFile(path, directory = 'DOCUMENTS', onProgress = null) {
+        // 1. 获取文件信息
+        const info = await this.getFileInfo(path, directory);
+        console.log('[LargeFileReader] 读取文件:', path, '大小:', info.fileSize, '块数:', info.totalChunks);
+        
+        // 小文件（< 1MB）直接用标准API读取，更快
+        if (info.fileSize < 1024 * 1024) {
+            const { Filesystem } = Capacitor.Plugins;
+            const result = await Filesystem.readFile({ path, directory });
+            const data = typeof result.data === 'string' 
+                ? new TextEncoder().encode(result.data)
+                : new Uint8Array(result.data);
+            if (onProgress) onProgress(info.fileSize, info.fileSize, 100);
+            return data;
+        }
+        
+        // 2. 分块读取
+        const chunks = [];
+        const batchSize = 10; // 每次读取10个块
+        let currentChunk = 0;
+        
+        while (currentChunk < info.totalChunks) {
+            const result = await this._getPlugin().readChunks({
+                path,
+                directory,
+                startChunk: currentChunk,
+                chunkCount: Math.min(batchSize, info.totalChunks - currentChunk)
+            });
+            
+            // 解码并存储
+            for (const chunk of result.chunks) {
+                const bytes = this._base64ToUint8Array(chunk.data);
+                chunks.push(bytes);
+            }
+            
+            currentChunk += result.chunksRead;
+            
+            // 进度回调
+            if (onProgress) {
+                const currentBytes = chunks.reduce((sum, c) => sum + c.length, 0);
+                const percent = Math.round((currentBytes / info.fileSize) * 100);
+                onProgress(currentBytes, info.fileSize, percent);
+            }
+            
+            // 让出时间片，避免阻塞UI
+            if (result.hasMore) {
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+        
+        // 3. 合并所有块
+        console.log('[LargeFileReader] 合并', chunks.length, '个块');
+        const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
+        const result = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+        
+        return result;
+    },
+    
+    /**
+     * 读取并解析JSON文件
+     * @param {string} path - 文件路径
+     * @param {string} directory - 目录类型
+     * @param {Function} onProgress - 进度回调
+     * @returns {Promise<Object>} 解析后的JSON对象
+     */
+    async readJsonFile(path, directory = 'DOCUMENTS', onProgress = null) {
+        const data = await this.readFile(path, directory, onProgress);
+        const text = new TextDecoder('utf-8').decode(data);
+        return JSON.parse(text);
+    },
+    
+    /**
+     * Base64 解码
+     */
+    _base64ToUint8Array(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    },
+    
+    /**
+     * 删除临时文件
+     */
+    async deleteFile(path, directory = 'DOCUMENTS') {
+        const plugin = this._getPlugin();
+        if (!plugin) return false;
+        
+        try {
+            await plugin.deleteFile({ path, directory });
+            return true;
+        } catch (e) {
+            console.warn('[LargeFileReader] 删除文件失败:', e);
+            return false;
+        }
+    }
+};
+
 // 自动初始化（如果 Lumina 已就绪）
 if (typeof Lumina !== 'undefined' && Lumina.State?.app?.dbReady) {
     Lumina.FileOpener.tryInit();

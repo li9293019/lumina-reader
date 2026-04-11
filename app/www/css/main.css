@@ -2468,7 +2468,7 @@ margin-bottom: 12px;
 display: flex;
 align-items: center;
 justify-content: space-between;
-margin-bottom: 4px;
+margin-bottom: 8px;
 font-size: 14px;
 }
 
@@ -2487,7 +2487,7 @@ font-size: 13px;
 }
 
 .about-link-external:hover {
-text-decoration: underline;
+opacity: 0.8;
 }
 
 .about-support-desc {

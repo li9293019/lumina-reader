@@ -1741,7 +1741,6 @@ display: flex;
 align-items: center;
 justify-content: space-between;
 padding: 12px 0;
-cursor: pointer;
 }
 
 .toggle-label {
@@ -1758,6 +1757,7 @@ border-radius: 12px;
 position: relative;
 transition: background 0.3s;
 flex-shrink: 0;
+cursor: pointer;
 }
 
 .toggle-track.active {

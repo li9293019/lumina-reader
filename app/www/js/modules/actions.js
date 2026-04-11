@@ -449,7 +449,7 @@ Lumina.Actions = {
             // 配置文件特征：有 version 字段，有 reading 配置节，没有书籍数据特征
             const hasVersion = data && typeof data.version === 'number';
             const hasReadingSection = data && data.reading && typeof data.reading === 'object';
-            const hasBooksData = data && (data.exportType === 'batch' || (data.fileName && Array.isArray(data.content)));
+            const hasBooksData = data && (data.exportType === 'batch' || data.exportType === 'single' || (data.fileName && Array.isArray(data.content)));
             const isConfigData = hasVersion && hasReadingSection && !hasBooksData;
             
             if (isConfigData) {
@@ -482,8 +482,11 @@ Lumina.Actions = {
             } else if (data.exportType === 'batch' && Array.isArray(data.books)) {
                 // 批量书籍导入
                 await Lumina.DataManager.handleBatchImport(data.books);
+            } else if (data.exportType === 'single' && Array.isArray(data.books) && data.books.length === 1) {
+                // 单本书籍导入（新格式）
+                await Lumina.DataManager.importDataToDB(data.books[0]);
             } else if (data.fileName && Array.isArray(data.content)) {
-                // 单本书籍导入
+                // 单本书籍导入（旧格式，兼容）
                 await Lumina.DataManager.importDataToDB(data);
             } else {
                 throw new Error('无效的文件格式');

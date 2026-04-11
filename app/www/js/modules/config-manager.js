@@ -102,6 +102,7 @@ Lumina.ConfigManager = {
             // ========== 6. 导出设置 ==========
             export: {
                 encrypted: false,
+                includeFonts: false,  // 是否包含字体备份
             },
             
             // ========== 7. 书库设置 ==========
@@ -230,81 +231,32 @@ Lumina.ConfigManager = {
     },
     
     // ========== 导出配置（备份） ==========
-    async export(encrypt = false) {
+    async export(encrypt = false, includeFonts = false, onProgress = null) {
         const config = this.load();
         
-        // 如果有自定义字体，打包字体文件数据（仅 APP 端，用于重装后恢复）
-        // PC 端不打包，因为 Web 端 IndexedDB 会保留，且 LocalStorage 配额有限
-        if (config.customFonts?.length > 0 && typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-            const fontsData = await this._packCustomFonts(config.customFonts);
-            if (fontsData.length > 0) {
-                config.customFontsData = fontsData;
-            }
-        }
+        // 使用 ExportUtils 进行导出
+        const result = await Lumina.ExportUtils.exportConfig(config, {
+            fileName: `Lumina_Config_${Date.now()}.json`,
+            encrypted: encrypt,
+            password: encrypt ? await this._requestPassword('set') : null,
+            includeFonts,
+            onProgress
+        });
         
-        if (encrypt) {
-            // 使用 Lumina 专用 .lmn 格式加密
-            const password = await this._requestPassword('set');
-            if (password === null) return null; // 用户取消
-            
-            console.log('[ConfigManager] 导出加密配置，密码长度:', password.length, '使用默认密钥:', password.length === 0);
-            
-            try {
-                const encrypted = await Lumina.Crypto.encrypt(config, password);
-                console.log('[ConfigManager] 加密成功，数据长度:', encrypted.byteLength || encrypted.length);
-                return encrypted;
-            } catch (e) {
-                console.error('[ConfigManager] 加密失败:', e);
-                return null;
-            }
+        if (result.success) {
+            return encrypt ? result.fileName : JSON.stringify(config, null, 2);
         }
-        
-        return JSON.stringify(config, null, 2);
+        return null;
     },
     
     // 打包自定义字体文件为 base64（用于配置导出）
-    async _packCustomFonts(customFonts) {
-        const fontsData = [];
-        
-        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-            const { Filesystem } = Capacitor.Plugins;
-            
-            for (const font of customFonts) {
-                try {
-                    // 优先从私有目录读取
-                    let result = null;
-                    try {
-                        result = await Filesystem.readFile({
-                            path: `fonts/user/${font.storedName}`,
-                            directory: 'DATA'
-                        });
-                    } catch {
-                        // 私有目录没有，尝试 Documents
-                        try {
-                            result = await Filesystem.readFile({
-                                path: `fonts/user/${font.storedName}`,
-                                directory: 'DOCUMENTS'
-                            });
-                        } catch {}
-                    }
-                    
-                    if (result?.data) {
-                        fontsData.push({
-                            id: font.id,
-                            name: font.name,
-                            fileName: font.fileName,
-                            storedName: font.storedName,
-                            data: typeof result.data === 'string' ? result.data : await this._arrayBufferToBase64(result.data)
-                        });
-                        console.log('[ConfigManager] 打包字体:', font.name);
-                    }
-                } catch (e) {
-                    console.warn('[ConfigManager] 打包字体失败:', font.name, e);
-                }
-            }
+    // 已迁移到 ExportUtils.packCustomFonts，此处保留包装方法以兼容旧代码
+    async _packCustomFonts(customFonts, onProgress = null) {
+        if (Lumina.ExportUtils) {
+            return await Lumina.ExportUtils.packCustomFonts(customFonts, onProgress);
         }
-        
-        return fontsData;
+        // 降级：返回空数组
+        return [];
     },
     
     // 从配置中的字体数据恢复（重装后无需文件权限）
@@ -605,78 +557,57 @@ Lumina.ConfigManager = {
     },
     
     // ========== 下载配置文件 ==========
-    async download(filename = 'lumina-config.json', encrypt = false) {
-        let data = await this.export(encrypt);
-        if (!data) return;
-        
+    async download(filename = 'lumina-config.json', encrypt = false, includeFonts = false) {
         const ext = encrypt ? '.lmn' : '.json';
         const fullFilename = filename.endsWith(ext) ? filename : `${filename}${ext}`;
         
-        // 统一格式：LMN 文件使用 base64 编码，JSON 文件使用纯文本
-        // 这样 WEB 和 APP 导出的文件内容完全一致
-        let fileContent;
-        let mimeType;
-        
+        // 先获取密码（如果需要），避免密码对话框和进度对话框冲突
+        let password = null;
         if (encrypt) {
-            // LMN 格式：统一转为 base64 字符串
-            const arrayBuffer = data instanceof ArrayBuffer ? data : data.buffer;
-            const bytes = new Uint8Array(arrayBuffer);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            fileContent = btoa(binary);
-            mimeType = 'text/plain'; // base64 是文本格式
-        } else {
-            // JSON 格式：直接文本
-            fileContent = typeof data === 'string' ? data : JSON.stringify(data);
-            mimeType = 'application/json';
+            password = await this._requestPassword('set');
+            if (password === null) return; // 用户取消
         }
         
-        // APP 环境：使用 Filesystem 插件保存到 documents/LuminaReader
-        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
-        if (isApp && Capacitor.Plugins?.Filesystem) {
-            const { Filesystem } = Capacitor.Plugins;
-            try {
-                // 创建目录
-                try {
-                    await Filesystem.mkdir({
-                        path: 'LuminaReader',
-                        directory: 'DOCUMENTS',
-                        recursive: true
-                    });
-                } catch (e) { /* 目录已存在 */ }
-                
-                // 写入文件（统一使用 utf8 编码写入文本）
-                await Filesystem.writeFile({
-                    path: `LuminaReader/${fullFilename}`,
-                    data: fileContent,
-                    directory: 'DOCUMENTS',
-                    encoding: 'utf8'
-                });
-                
-                Lumina.UI?.showToast?.(`已导出到: Documents/LuminaReader/${fullFilename}`);
+        // 显示进度对话框（如果包含字体）
+        let progressDialog = null;
+        if (includeFonts && Lumina.ExportUtils) {
+            progressDialog = Lumina.ExportUtils.showProgressDialog(
+                Lumina.I18n?.t?.('exportingConfig') || '正在导出配置...'
+            );
+        }
+        
+        try {
+            // 使用 ExportUtils 导出（已包含 APP 和 Web 端处理）
+            const result = await Lumina.ExportUtils.exportConfig(
+                this.load(),
+                {
+                    fileName: fullFilename,
+                    encrypted: encrypt,
+                    password,
+                    includeFonts,
+                    onProgress: progressDialog ? (percent, info) => {
+                        if (info) {
+                            progressDialog.updateStep(info.step, info.total, info.stepName);
+                        }
+                        progressDialog.update(percent);
+                    } : null
+                }
+            );
+            
+            if (progressDialog) progressDialog.close();
+            
+            if (result.success) {
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    Lumina.UI?.showToast?.(`已导出到: Documents/LuminaReader/${result.fileName}`);
+                }
                 this.set('meta.lastBackup', Date.now());
-                return;
-            } catch (err) {
-                console.error('[ConfigManager] APP 导出失败:', err);
-                // 降级到浏览器下载
             }
+        } catch (err) {
+            if (progressDialog) progressDialog.close();
+            console.error('[ConfigManager] 导出失败:', err);
+            Lumina.UI?.showToast?.('导出失败: ' + err.message);
         }
-        
-        // Web 环境：使用浏览器下载（统一使用 Blob 导出文本内容）
-        const blob = new Blob([fileContent], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fullFilename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // 更新备份时间
-        this.set('meta.lastBackup', Date.now());
     },
     
     // ========== 从文件导入 ==========

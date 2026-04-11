@@ -28,11 +28,13 @@ Lumina.ShareCard = {
     // 获取当前阅读器字体
     getReaderFont() {
         // 从 CSS 变量或 State 获取当前字体
-        const root = document.documentElement;
-        const fontFamily = getComputedStyle(root).getPropertyValue('--font-family-dynamic').trim() || 
-                          getComputedStyle(root).getPropertyValue('--reader-font').trim() ||
-                          'system-ui, -apple-system, sans-serif';
-        return fontFamily;
+        // const root = document.documentElement;
+        // const fontFamily = getComputedStyle(root).getPropertyValue('--font-family-dynamic').trim() || 
+        //                   getComputedStyle(root).getPropertyValue('--reader-font').trim() ||
+        //                   'system-ui, -apple-system, sans-serif';
+        // return fontFamily;
+        // 字体版权风险考虑，使用无风险字体
+        return 'LXGW Neo Zhi Song, sans-serif';
     },
     
     // 响应式基础宽度

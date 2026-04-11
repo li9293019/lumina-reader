@@ -19,6 +19,7 @@ Lumina.Settings = {
             paginationMaxWords: config.pagination.maxWords,
             paginationImageWords: config.pagination.imageWords,
             encryptedExport: config.export.encrypted,
+            includeFonts: config.export?.includeFonts ?? false,
             hashCover: config.library?.hashCover ?? true,
             pdfExtractImages: config.pdf.extractImages,
             pdfPasswordPreset: config.pdf.passwordPreset.enabled,
@@ -72,6 +73,7 @@ Lumina.Settings = {
         });
         
         Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
+        Lumina.ConfigManager.set('export.includeFonts', settings.includeFonts);
         Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
         Lumina.ConfigManager.set('pdf.extractImages', settings.pdfExtractImages);
         Lumina.ConfigManager.set('pdf.passwordPreset', {
@@ -171,6 +173,13 @@ Lumina.Settings = {
 
         const encryptedExportToggle = document.getElementById('encryptedExportToggle');
         if (encryptedExportToggle) encryptedExportToggle.checked = settings.encryptedExport;
+
+        const includeFontsToggle = document.getElementById('configIncludeFontsToggle');
+        if (includeFontsToggle) {
+            // 同步配置状态到 toggle
+            const includeFonts = settings.includeFonts || false;
+            includeFontsToggle.classList.toggle('active', includeFonts);
+        }
 
         const sidebarVisible = settings.sidebarVisible && Lumina.State.app.document.items.length;
         Lumina.DOM.sidebarLeft.classList.toggle('visible', sidebarVisible);
@@ -496,6 +505,7 @@ Lumina.Settings = {
         const importBtn = document.getElementById('configImportBtn');
         const importFile = document.getElementById('configImportFile');
         const encryptedToggle = document.getElementById('configEncryptToggle');
+        const includeFontsToggle = document.getElementById('configIncludeFontsToggle');
         
         // 初始化加密开关 toggle
         if (encryptedToggle) {
@@ -510,9 +520,31 @@ Lumina.Settings = {
             });
         }
         
+        // 初始化字体备份开关 toggle（仅 APP 端显示）
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        if (includeFontsToggle) {
+            if (!isApp) {
+                // Web 端隐藏字体备份开关
+                includeFontsToggle.closest('.toggle-switch').style.display = 'none';
+            } else {
+                includeFontsToggle.addEventListener('click', () => {
+                    const isActive = includeFontsToggle.classList.contains('active');
+                    if (isActive) {
+                        includeFontsToggle.classList.remove('active');
+                    } else {
+                        includeFontsToggle.classList.add('active');
+                    }
+                    // 保存状态到配置
+                    Lumina.State.settings.includeFonts = !isActive;
+                    Lumina.ConfigManager.set('export.includeFonts', !isActive);
+                });
+            }
+        }
+        
         if (exportBtn) {
             exportBtn.addEventListener('click', async () => {
                 const encrypted = encryptedToggle?.classList.contains('active') || false;
+                const includeFonts = includeFontsToggle?.classList.contains('active') || false;
                 // 生成带日期时间的文件名（使用本地时间）
                 const now = new Date();
                 const year = now.getFullYear();
@@ -523,7 +555,7 @@ Lumina.Settings = {
                 const second = String(now.getSeconds()).padStart(2, '0');
                 const dateStr = `${year}${month}${day}_${hour}${minute}${second}`;
                 const filename = `lumina-config_${dateStr}`;
-                await Lumina.ConfigManager.download(filename, encrypted);
+                await Lumina.ConfigManager.download(filename, encrypted, includeFonts);
             });
         }
         

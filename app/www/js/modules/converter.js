@@ -97,33 +97,54 @@ Lumina.Converter = {
     
     /**
      * 加载 OpenCC 字典文件
+     * 通过 script 标签预加载的全局变量获取（兼容 file:// 协议）
      */
     async loadDictionaries() {
+        // 直接使用全局变量（通过 script 标签加载的 JS 文件）
+        if (window.OpenCC_ST && window.OpenCC_TS) {
+            this.s2tMap = window.OpenCC_ST;
+            this.t2sMap = window.OpenCC_TS;
+            this.dictLoaded = true;
+            // console.log('[Converter] OpenCC 字典加载成功，映射数:', Object.keys(this.s2tMap).length);
+            return;
+        }
+        
+        // 等待一小段时间，处理可能的加载顺序问题
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (window.OpenCC_ST && window.OpenCC_TS) {
+            this.s2tMap = window.OpenCC_ST;
+            this.t2sMap = window.OpenCC_TS;
+            this.dictLoaded = true;
+            return;
+        }
+        
+        // 兜底：尝试 fetch（HTTP/HTTPS 模式下）
         try {
-            // 尝试加载字典文件
-            const [stResponse, tsResponse] = await Promise.all([
-                fetch('./assets/js/lib/opencc/STCharacters.txt').catch(() => null),
-                fetch('./assets/js/lib/opencc/TSCharacters.txt').catch(() => null)
-            ]);
-            
-            if (stResponse?.ok && tsResponse?.ok) {
-                const [stText, tsText] = await Promise.all([
-                    stResponse.text(),
-                    tsResponse.text()
+            if (location.protocol !== 'file:') {
+                const [stResponse, tsResponse] = await Promise.all([
+                    fetch('./assets/js/lib/opencc/STCharacters.txt').catch(() => null),
+                    fetch('./assets/js/lib/opencc/TSCharacters.txt').catch(() => null)
                 ]);
                 
-                this.s2tMap = this.parseDictionary(stText);
-                this.t2sMap = this.parseDictionary(tsText);
-                this.dictLoaded = true;
-                // console.log('[Converter] OpenCC 字典加载成功，映射数:', Object.keys(this.s2tMap).length);
-            } else {
-                throw new Error('字典文件不存在');
+                if (stResponse?.ok && tsResponse?.ok) {
+                    const [stText, tsText] = await Promise.all([
+                        stResponse.text(),
+                        tsResponse.text()
+                    ]);
+                    
+                    this.s2tMap = this.parseDictionary(stText);
+                    this.t2sMap = this.parseDictionary(tsText);
+                    this.dictLoaded = true;
+                    return;
+                }
             }
         } catch (e) {
-            // 使用内置降级映射表
-            console.log('[Converter] 没有找到字典:', e.message);
-            this.dictLoaded = false;
+            // console.log('[Converter] fetch 加载失败:', e.message);
         }
+        
+        console.warn('[Converter] 字典加载失败，使用内联简化字典');
+        this.dictLoaded = false;
     },
     
     /**

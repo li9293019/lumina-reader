@@ -727,7 +727,6 @@ Lumina.FontManagerDialog = {
                 <div class="font-manager-empty">
                     <svg class="icon" style="width:48px;height:48px;opacity:0.3"><use href="#icon-font"/></svg>
                     <div class="empty-title">${t('fontManagerEmpty') || '暂无自定义字体'}</div>
-                    <div class="empty-desc">${t('fontManagerEmptyHint') || '点击下方按钮添加字体文件'}</div>
                 </div>`;
             return;
         }

@@ -181,15 +181,20 @@ Lumina.Search = {
             return [];
         }
 
-        // 准备查询词（双向搜索）
+        // 【修复】强制双向搜索，无论是否开启转换
         const converter = Lumina.Converter;
-        const searchTerms = [query.toLowerCase()];
+        const lowerQuery = query.toLowerCase();
+        const searchTerms = [lowerQuery];
         
-        if (converter?.isConverting) {
-            // 用户输入的是 UI 语言，需要转换为书籍语言去搜索原文
-            const bookLangQuery = converter.convert(query);
-            if (bookLangQuery !== query) {
-                searchTerms.push(bookLangQuery.toLowerCase());
+        if (converter?.dictLoaded) {
+            // 简→繁
+            const s2tQuery = this.convertWithDirection(lowerQuery, 's2t');
+            if (s2tQuery !== lowerQuery) searchTerms.push(s2tQuery);
+            
+            // 繁→简
+            const t2sQuery = this.convertWithDirection(lowerQuery, 't2s');
+            if (t2sQuery !== lowerQuery && !searchTerms.includes(t2sQuery)) {
+                searchTerms.push(t2sQuery);
             }
         }
 
@@ -304,16 +309,35 @@ Lumina.Search = {
                 text = converter.convert(text);
             }
             
-            // 高亮用的查询词也需要转换为 UI 语言
-            let highlightQuery = query;
-            if (converter?.isConverting) {
-                highlightQuery = converter.convert(query);
-            }
-            const lowerHighlightQuery = highlightQuery.toLowerCase();
+            // 【修复】高亮用的查询词：双向准备，确保能匹配不同语言的内容
+            let highlightQuery = query.toLowerCase();
+            let highlightQueryAlt = null;
             
-            const matchIndex = text.toLowerCase().indexOf(lowerHighlightQuery);
+            if (converter?.dictLoaded) {
+                // 准备 UI 语言版本的查询词
+                if (converter?.isConverting) {
+                    highlightQuery = converter.convert(highlightQuery);
+                }
+                // 准备另一种字体的查询词（用于未开启转换时的双向高亮）
+                const s2t = this.convertWithDirection(query.toLowerCase(), 's2t');
+                const t2s = this.convertWithDirection(query.toLowerCase(), 't2s');
+                if (s2t !== query.toLowerCase()) highlightQueryAlt = s2t;
+                if (t2s !== query.toLowerCase() && t2s !== highlightQueryAlt) highlightQueryAlt = t2s;
+            }
+            
+            // 【修复】高亮匹配：尝试主查询词和备选查询词
+            let matchIndex = text.toLowerCase().indexOf(highlightQuery);
+            let matchedQuery = highlightQuery;
+            
+            // 主查询词未匹配，尝试备选查询词
+            if (matchIndex < 0 && highlightQueryAlt) {
+                matchIndex = text.toLowerCase().indexOf(highlightQueryAlt);
+                if (matchIndex >= 0) matchedQuery = highlightQueryAlt;
+            }
+            
+            const lowerHighlightQuery = matchedQuery.toLowerCase();
             const start = Math.max(0, matchIndex - 30);
-            const end = Math.min(text.length, highlightQuery.length + 30);
+            const end = Math.min(text.length, matchedQuery.length + 30);
             let context = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
             context = context.replace(new RegExp(`(${Lumina.Utils.escapeRegex(lowerHighlightQuery)})`, 'gi'), '<span class="search-result-match">$1</span>');
 
@@ -371,11 +395,24 @@ Lumina.Search = {
     renderLibraryResults(files, query) {
         const converter = Lumina.Converter;
         
-        // 高亮用的查询词需要是 UI 语言
-        let highlightQuery = query.toLowerCase();
-        if (converter?.isConverting) {
-            highlightQuery = converter.convert(query).toLowerCase();
+        // 【修复】高亮用的查询词：双向准备，确保能匹配不同语言的书名
+        const rawQuery = query.toLowerCase();
+        let highlightQuery = rawQuery;
+        let highlightQueryAlt = null;  // 备选查询词（另一种字体）
+        
+        if (converter?.dictLoaded) {
+            // 准备 UI 语言版本的查询词
+            if (converter?.isConverting) {
+                highlightQuery = converter.convert(rawQuery);
+            }
+            // 准备另一种字体的查询词（用于未开启转换时的双向高亮）
+            const s2t = this.convertWithDirection(rawQuery, 's2t');
+            const t2s = this.convertWithDirection(rawQuery, 't2s');
+            if (s2t !== rawQuery) highlightQueryAlt = s2t;
+            if (t2s !== rawQuery && t2s !== highlightQueryAlt) highlightQueryAlt = t2s;
         }
+        highlightQuery = highlightQuery.toLowerCase();
+        if (highlightQueryAlt) highlightQueryAlt = highlightQueryAlt.toLowerCase();
 
         document.getElementById('aggregateSearch').innerHTML = files.map((file, idx) => {
             const timeAgo = Lumina.Utils.formatTimeAgo(file.lastReadTime);
@@ -388,13 +425,21 @@ Lumina.Search = {
             }
             displayName = Lumina.Utils.escapeHtml(displayName);
             
-            // 高亮匹配（使用 UI 语言的查询词）
-            const matchIndex = displayName.toLowerCase().indexOf(highlightQuery);
+            // 【修复】高亮匹配：尝试主查询词和备选查询词
+            let matchIndex = displayName.toLowerCase().indexOf(highlightQuery);
+            let matchedQuery = highlightQuery;
+            
+            // 主查询词未匹配，尝试备选查询词
+            if (matchIndex < 0 && highlightQueryAlt) {
+                matchIndex = displayName.toLowerCase().indexOf(highlightQueryAlt);
+                if (matchIndex >= 0) matchedQuery = highlightQueryAlt;
+            }
+            
             let highlightedName = displayName;
             if (matchIndex >= 0) {
                 const before = displayName.substring(0, matchIndex);
-                const match = displayName.substring(matchIndex, matchIndex + highlightQuery.length);
-                const after = displayName.substring(matchIndex + highlightQuery.length);
+                const match = displayName.substring(matchIndex, matchIndex + matchedQuery.length);
+                const after = displayName.substring(matchIndex + matchedQuery.length);
                 highlightedName = `${before}<span class="search-result-match">${match}</span>${after}`;
             }
 

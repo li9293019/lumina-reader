@@ -2662,6 +2662,35 @@ transform: translateY(-1px);
 transform: scale(0.98);
 }
 
+/* 字体管理器按钮 loading 状态 */
+.font-manager-footer .btn-primary.loading {
+opacity: 0.7;
+cursor: not-allowed;
+position: relative;
+pointer-events: none;
+}
+
+.font-manager-footer .btn-primary.loading::after {
+content: '';
+width: 16px;
+height: 16px;
+border: 2px solid transparent;
+border-top-color: currentColor;
+border-radius: 50%;
+animation: spin 0.8s linear infinite;
+margin-left: 8px;
+}
+
+.font-manager-footer .btn-primary:disabled {
+opacity: 0.6;
+cursor: not-allowed;
+pointer-events: none;
+}
+
+@keyframes spin {
+to { transform: rotate(360deg); }
+}
+
 /* 文件浏览器面板 - 需要显示在 dataManagerPanel (z-index 250) 之上 */
 #fileBrowserPanel {
 z-index: 260;
@@ -2935,10 +2964,11 @@ border-radius: 24px;
 font-size: 0.9em;
 line-height: 1.2em;
 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-z-index: 9999;
+z-index: 99999;
 opacity: 0;
 transition: all 0.3s ease;
 pointer-events: none;
+max-width: 75vw;
 }
 
 .toast.show {

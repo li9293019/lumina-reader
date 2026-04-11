@@ -26,12 +26,15 @@ Lumina.LegalPage = {
             closeBtn.addEventListener('click', () => this.hide());
         }
         
-        // 同意复选框
+        // 同意复选框（自定义 div）
         const checkbox = document.getElementById('legalAgreeCheck');
         if (checkbox) {
-            checkbox.addEventListener('change', (e) => {
+            checkbox.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const isChecked = checkbox.classList.toggle('checked');
                 const btn = document.getElementById('legalAcceptBtn');
-                if (btn) btn.disabled = !e.target.checked;
+                if (btn) btn.disabled = !isChecked;
             });
         }
         
@@ -136,10 +139,14 @@ Lumina.LegalPage = {
         if (this.mode === 'first-run') {
             footer.classList.add('first-run');
             footer.innerHTML = `
-                <label class="legal-checkbox">
-                    <input type="checkbox" id="legalAgreeCheck">
+                <div class="legal-checkbox-wrapper" id="legalAgreeCheck">
+                    <div class="legal-checkbox-box">
+                        <svg class="legal-checkbox-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
                     <span>${t('legalAgreeLabel') || '我已阅读并同意以上协议'}</span>
-                </label>
+                </div>
                 <button class="btn-secondary" id="legalDeclineBtn">${t('declineExit') || '不同意'}</button>
                 <button class="btn-primary" id="legalAcceptBtn" disabled>${t('startUsing') || '同意并继续'}</button>
             `;
@@ -204,14 +211,68 @@ Lumina.LegalPage = {
     },
     
     // 不同意并退出
-    onDecline() {
-        // 调用原生退出（如果可用）
-        if (typeof window.Capacitor !== 'undefined' && window.Capacitor.Plugins?.App) {
-            window.Capacitor.Plugins.App.exitApp();
+    async onDecline() {
+        const t = Lumina.I18n?.t || ((k) => k);
+        const isApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.();
+        
+        console.log('[LegalPage] onDecline clicked, isApp:', isApp);
+        
+        // 显示友好提示（容错处理）
+        try {
+            if (Lumina.UI?.showToast) {
+                Lumina.UI.showToast(t('declineExitMessage') || '感谢理解，期待再次相见', 2000);
+            }
+        } catch (e) {
+            console.log('[LegalPage] Toast 提示:', t('declineExitMessage') || '感谢理解，期待再次相见');
+        }
+        
+        // 稍作停顿后退出
+        await new Promise(r => setTimeout(r, 1500));
+        
+        if (isApp) {
+            // APP 环境：调用原生退出
+            try {
+                // 方法1: 尝试使用 App 插件
+                const { App } = window.Capacitor.Plugins;
+                if (App?.exitApp) {
+                    console.log('[LegalPage] 调用 App.exitApp()');
+                    await App.exitApp();
+                    return;
+                }
+            } catch (e) {
+                console.warn('[LegalPage] App.exitApp() 失败:', e);
+            }
+            
+            // 方法2: 使用自定义 JS 接口退出
+            try {
+                console.log('[LegalPage] 尝试使用 ExitAppInterface 退出');
+                if (window.ExitAppInterface?.exitApp) {
+                    window.ExitAppInterface.exitApp();
+                } else {
+                    // 如果都不奏效，显示提示让用户手动退出
+                    Lumina.UI?.showToast?.('请手动关闭应用', 3000);
+                }
+            } catch (e) {
+                console.error('[LegalPage] 备用退出方法也失败:', e);
+            }
         } else {
-            // Web 环境：显示提示
-            const t = Lumina.I18n?.t || ((k) => k);
-            alert(t('mustAgreeToUse') || '您需要同意协议才能使用本应用');
+            // Web 环境：尝试关闭窗口
+            try {
+                window.close();
+                // 如果无法关闭（大多数现代浏览器会阻止），显示备用提示
+                setTimeout(() => {
+                    if (!window.closed) {
+                        document.body.innerHTML = `
+                            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f8f9fa;color:#212529;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:40px;">
+                                <h2 style="margin-bottom:16px;font-weight:400;">${t('thanksForUnderstanding') || '感谢理解'}</h2>
+                                <p style="color:#6c757d;">${t('closePageManually') || '请手动关闭此页面'}</p>
+                            </div>
+                        `;
+                    }
+                }, 500);
+            } catch (e) {
+                console.error('[LegalPage] 关闭窗口失败:', e);
+            }
         }
     }
 };

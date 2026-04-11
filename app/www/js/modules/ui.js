@@ -1327,9 +1327,46 @@ Lumina.UI = {
     },
 
     showToast(message, duration = 2000) {
-        Lumina.DOM.toast.textContent = message;
-        Lumina.DOM.toast.classList.add('show');
-        setTimeout(() => Lumina.DOM.toast.classList.remove('show'), duration);
+        // 容错处理：如果 toast 元素不存在，创建临时 toast
+        let toast = Lumina.DOM?.toast;
+        if (!toast) {
+            toast = document.getElementById('toast');
+            if (!toast) {
+                // 创建临时 toast
+                toast = document.createElement('div');
+                toast.id = 'temp-toast';
+                toast.className = 'toast';
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 80px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: var(--tooltip-bg, rgba(33, 37, 41, 0.95));
+                    color: var(--tooltip-text, #fff);
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    z-index: 99999;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(toast);
+                // 强制重绘
+                toast.offsetHeight;
+            }
+        }
+        toast.textContent = message;
+        toast.classList.add('show');
+        if (toast.style) toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.classList.remove('show');
+            if (toast.style) toast.style.opacity = '0';
+            // 如果是临时 toast，清理掉
+            if (toast.id === 'temp-toast') {
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, duration);
     },
 
     updateActiveButtons() {

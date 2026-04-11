@@ -172,6 +172,12 @@
     color: var(--text-primary);
 }
 
+/* strong 样式：确保在 CSS 变量未定义时也有正确的加粗效果 */
+.legal-content strong {
+    font-weight: 600;
+    color: var(--text-primary, #212529);
+}
+
 /* 隐藏内容中的大标题（Tab已显示） */
 .legal-content h1 {
     display: none;
@@ -197,7 +203,7 @@
     gap: 12px;
 }
 
-.legal-footer.first-run .legal-checkbox {
+.legal-footer.first-run .legal-checkbox-wrapper {
     width: 100%;
     order: -1;
 }
@@ -208,7 +214,8 @@
     min-width: 0;
 }
 
-.legal-checkbox {
+/* 自定义 Checkbox 样式 */
+.legal-checkbox-wrapper {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -216,13 +223,42 @@
     font-size: 14px;
     color: var(--text-primary);
     cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    background: transparent;
 }
 
-.legal-checkbox input[type="checkbox"] {
+.legal-checkbox-wrapper:active {
+    opacity: 0.8;
+}
+
+.legal-checkbox-box {
     width: 20px;
     height: 20px;
-    margin: 0;
-    accent-color: var(--accent-color);
+    border: 2px solid var(--text-secondary, #6c757d);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: transparent;
+}
+
+.legal-checkbox-check {
+    width: 14px;
+    height: 14px;
+    color: white;
+    opacity: 0;
+}
+
+/* 选中状态 */
+.legal-checkbox-wrapper.checked .legal-checkbox-box {
+    background: var(--accent-color, #495057);
+    border-color: var(--accent-color, #495057);
+}
+
+.legal-checkbox-wrapper.checked .legal-checkbox-check {
+    opacity: 1;
 }
 
 .legal-footer .btn-primary {

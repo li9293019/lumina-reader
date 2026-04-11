@@ -4,6 +4,7 @@ Lumina.init = async () => {
     // 首次启动：检查用户协议同意状态
     if (!Lumina.ConfigManager?.get('meta.hasAgreedToTerms_v1')) {
         console.log('[Init] 首次启动，等待用户同意协议...');
+        
         await new Promise((resolve) => {
             // 等待协议页面模块加载完成
             const checkAndShow = () => {
@@ -100,9 +101,7 @@ Lumina.init = async () => {
         Lumina.Renderer.renderHistoryFromDB(history);
     }
 
-    Lumina.Font.preloadCritical();
-    
-    // 初始化字体管理器
+    // 初始化字体管理器（字体已在 init 开头预加载）
     await Lumina.FontManager.init();
     
     // 初始化配置管理器（首次使用会自动迁移旧配置）

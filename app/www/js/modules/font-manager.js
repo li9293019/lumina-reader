@@ -370,7 +370,39 @@ Lumina.FontManager = {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.ttf,.otf';
-            input.onchange = (e) => resolve(e.target.files?.[0] || null);
+            
+            // 处理用户选择文件
+            input.onchange = (e) => {
+                cleanup();
+                resolve(e.target.files?.[0] || null);
+            };
+            
+            // 处理用户取消（通过窗口重新获得焦点来判断）
+            let isCancelled = false;
+            const handleFocus = () => {
+                // 延迟检查，因为 onchange 可能在 focus 之后触发
+                setTimeout(() => {
+                    if (!input.files?.length && !isCancelled) {
+                        isCancelled = true;
+                        cleanup();
+                        resolve(null);
+                    }
+                }, 300);
+            };
+            
+            const cleanup = () => {
+                window.removeEventListener('focus', handleFocus);
+                clearTimeout(timeoutId);
+            };
+            
+            // 超时保护（5分钟）
+            const timeoutId = setTimeout(() => {
+                isCancelled = true;
+                cleanup();
+                resolve(null);
+            }, 5 * 60 * 1000);
+            
+            window.addEventListener('focus', handleFocus, { once: true });
             input.click();
         });
     },
@@ -691,6 +723,7 @@ Lumina.FontManager = {
 Lumina.FontManagerDialog = {
     panel: null,
     listContainer: null,
+    _isAdding: false,
     
     init() {
         this.panel = document.getElementById('fontManagerDialog');
@@ -714,6 +747,13 @@ Lumina.FontManagerDialog = {
     close() {
         this.panel?.classList.remove('active');
         Lumina.Settings?.renderFontButtons?.();
+        // 重置添加状态（防止异常情况下按钮被永久禁用）
+        if (this._isAdding) {
+            this._isAdding = false;
+            const btn = document.getElementById('fontManagerAddBtn');
+            btn?.classList.remove('loading');
+            if (btn) btn.disabled = false;
+        }
     },
     
     render() {
@@ -752,13 +792,24 @@ Lumina.FontManagerDialog = {
     },
     
     async _onAdd() {
+        // 防止并发导入
+        if (this._isAdding) {
+            Lumina.UI.showToast(Lumina.I18n?.t?.('fontAddingInProgress') || '正在导入字体，请稍候...');
+            return;
+        }
+        
         const btn = document.getElementById('fontManagerAddBtn');
+        this._isAdding = true;
         btn?.classList.add('loading');
+        btn && (btn.disabled = true);
+        
         try {
             const font = await Lumina.FontManager.addFont();
             if (font) this.render();
         } finally {
+            this._isAdding = false;
             btn?.classList.remove('loading');
+            btn && (btn.disabled = false);
         }
     },
     

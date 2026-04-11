@@ -11,6 +11,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.webkit.WebView;
+import android.webkit.JavascriptInterface;
 
 import androidx.activity.OnBackPressedCallback;
 
@@ -111,6 +112,27 @@ public class MainActivity extends BridgeActivity {
         
         // 注册返回按钮处理器（AndroidX 推荐方式）
         registerBackPressedHandler();
+        
+        // 添加 JS 接口支持退出应用
+        bridge.getWebView().addJavascriptInterface(new ExitAppInterface(), "ExitAppInterface");
+    }
+    
+    /**
+     * JS 接口：退出应用
+     */
+    public class ExitAppInterface {
+        @JavascriptInterface
+        public void exitApp() {
+            runOnUiThread(() -> {
+                Log.d(TAG, "JS 请求退出应用");
+                if (bridge != null && bridge.getWebView() != null) {
+                    bridge.getWebView().removeAllViews();
+                    bridge.getWebView().destroy();
+                }
+                finishAndRemoveTask();
+                System.exit(0);
+            });
+        }
     }
     
     /**

@@ -113,7 +113,7 @@ Lumina.LegalPage = {
         // 映射到协议数据键
         // 繁体中文可能是 'zh-TW' 或 'zh1'（i18n模块中繁体的key）
         if (settingsLang === 'zh-TW' || settingsLang === 'zh-Hant' || settingsLang === 'zh1') {
-            console.log('[LegalPage] 使用繁体中文');
+            // console.log('[LegalPage] 使用繁体中文');
             return 'zh-Hant';
         }
         if (settingsLang === 'en') return 'en';

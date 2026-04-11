@@ -108,6 +108,9 @@ class SimpleMarkdownParser:
 class HtmlGenerator:
     """HTML 生成器 - 纯结构，无样式"""
     
+    def __init__(self, parser=None):
+        self.parser = parser
+    
     def generate(self, items, lang='zh'):
         body_parts = []
         
@@ -129,13 +132,17 @@ class HtmlGenerator:
             elif item_type == 'list':
                 body_parts.append("    <ul>")
                 for li in item['items']:
-                    body_parts.append(f"        <li>{html.escape(li)}</li>")
+                    # 处理列表项中的行内格式
+                    li_text = self.parser.parse_inline(li) if self.parser else html.escape(li)
+                    body_parts.append(f"        <li>{li_text}</li>")
                 body_parts.append("    </ul>")
             
             elif item_type == 'orderedList':
                 body_parts.append("    <ol>")
                 for li in item['items']:
-                    body_parts.append(f"        <li>{html.escape(li)}</li>")
+                    # 处理列表项中的行内格式
+                    li_text = self.parser.parse_inline(li) if self.parser else html.escape(li)
+                    body_parts.append(f"        <li>{li_text}</li>")
                 body_parts.append("    </ol>")
         
         body = '\n'.join(body_parts)
@@ -156,7 +163,7 @@ class HtmlGenerator:
 def convert_md_to_html(md_path):
     """转换单个 MD 文件为 HTML"""
     parser = SimpleMarkdownParser()
-    generator = HtmlGenerator()
+    generator = HtmlGenerator(parser)
     
     # 读取 MD 文件
     with open(md_path, 'r', encoding='utf-8') as f:

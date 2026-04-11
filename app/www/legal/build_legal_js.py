@@ -11,6 +11,7 @@
 import os
 import re
 import json
+import html
 from datetime import datetime
 
 class SimpleMarkdownParser:
@@ -77,7 +78,7 @@ class SimpleMarkdownParser:
         return text
 
 
-def render_to_html(items):
+def render_to_html(items, parser):
     """将解析后的 items 渲染为 HTML 字符串"""
     parts = []
     
@@ -85,22 +86,26 @@ def render_to_html(items):
         item_type = item['type']
         
         if item_type == 'h1':
-            parts.append(f"<h1>{escape_js_string(item['text'])}</h1>")
+            parts.append(f"<h1>{html.escape(item['text'])}</h1>")
         elif item_type == 'h2':
-            parts.append(f"<h2>{escape_js_string(item['text'])}</h2>")
+            parts.append(f"<h2>{html.escape(item['text'])}</h2>")
         elif item_type == 'h3':
-            parts.append(f"<h3>{escape_js_string(item['text'])}</h3>")
+            parts.append(f"<h3>{html.escape(item['text'])}</h3>")
         elif item_type == 'paragraph':
             parts.append(f"<p>{item['text']}</p>")
         elif item_type == 'list':
             parts.append("<ul>")
             for li in item['items']:
-                parts.append(f"<li>{escape_js_string(li)}</li>")
+                # 处理列表项中的行内格式
+                li_text = parser.parse_inline(li)
+                parts.append(f"<li>{li_text}</li>")
             parts.append("</ul>")
         elif item_type == 'orderedList':
             parts.append("<ol>")
             for li in item['items']:
-                parts.append(f"<li>{escape_js_string(li)}</li>")
+                # 处理列表项中的行内格式
+                li_text = parser.parse_inline(li)
+                parts.append(f"<li>{li_text}</li>")
             parts.append("</ol>")
     
     return ''.join(parts)
@@ -145,7 +150,7 @@ def main():
                     md_content = f.read()
                 
                 items = parser.parse(md_content)
-                html_content = render_to_html(items)
+                html_content = render_to_html(items, parser)
                 legal_data[lang][doc_type] = html_content
                 print(f"[OK] 已处理: {md_path}")
             except Exception as e:

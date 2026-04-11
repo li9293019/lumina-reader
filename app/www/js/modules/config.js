@@ -1,5 +1,14 @@
 // ==================== 1. 配置与常量 ====================
 
+// 应用版本信息
+Lumina.Config.version = {
+    major: 2,
+    minor: 1,
+    patch: 0,
+    build: '2025.01.15',
+    toString() { return `${this.major}.${this.minor}.${this.patch}`; }
+};
+
 // 支持的语言列表（界面显示用）
 Lumina.Config.languages = [
     { code: 'zh', name: '简体中文' },

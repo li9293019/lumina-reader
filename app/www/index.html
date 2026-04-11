@@ -95,6 +95,7 @@
 <script src="./js/modules/font-manager.js"></script>
 <script src="./js/modules/legal-content.js"></script>
 <script src="./js/modules/legal-page.js"></script>
+<script src="./js/modules/about.js"></script>
 <script src="./js/modules/ui.js"></script>
 <!-- 操作事务 -->
 <script src="./js/modules/actions.js"></script>
@@ -188,6 +189,8 @@
 <symbol id="icon-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="1 20 1 14 7 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="icon-font" viewBox="0 0 24 24"><path d="M4 7V4h16v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20h6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="icon-add" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="icon-external-link" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="14" x2="21" y2="3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </defs>
 </svg>
 
@@ -812,6 +815,7 @@
             <div class="about-content">
                 <div class="about-header">
                     <span class="about-title" data-i18n="appName"></span>
+                    <span class="about-version" id="aboutVersion">v2.1.0</span>
                     <button class="btn-icon" id="closeAbout" data-i18n-tooltip="close">
                         <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
                     </button>
@@ -844,7 +848,8 @@
                     <p class="mobile-hidden"><kbd>S</kbd> <span data-i18n="shortcutSettings"></span></p>
                     <p class="mobile-hidden"><kbd>Esc</kbd> <span data-i18n="shortcutClose"></span></p>
 
-                    <h3 data-i18n="legalInfo">法律信息</h3>
+                    <!-- 协议与政策 -->
+                    <h3 data-i18n="legalInfo">协议与政策</h3>
                     <div class="about-links">
                         <button class="about-link" onclick="Lumina.LegalPage.show('about-entry', 'terms')">
                             <span data-i18n="termsTab">用户协议</span>
@@ -853,6 +858,80 @@
                         <button class="about-link" onclick="Lumina.LegalPage.show('about-entry', 'privacy')">
                             <span data-i18n="privacyTab">隐私政策</span>
                             <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-right"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- 开源致谢 -->
+                    <h3 data-i18n="aboutOpensource">开源致谢</h3>
+                    <p class="about-section-desc" data-i18n="aboutOpensourceDesc">本项目使用以下开源软件</p>
+                    <div class="about-opensource">
+                        <a href="https://github.com/mozilla/pdf.js" target="_blank" class="about-link about-link-external">
+                            <span>PDF.js <small>— PDF 文档解析</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/Stuk/jszip" target="_blank" class="about-link about-link-external">
+                            <span>JSZip <small>— ZIP 文件处理</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/dolanmiu/docx" target="_blank" class="about-link about-link-external">
+                            <span>docx.js <small>— Word 文档解析</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/PrismJS/prism" target="_blank" class="about-link about-link-external">
+                            <span>Prism.js <small>— 代码语法高亮</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/BYVoid/OpenCC" target="_blank" class="about-link about-link-external">
+                            <span>OpenCC <small>— 简繁中文转换</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/zh-lx/pinyin-pro" target="_blank" class="about-link about-link-external">
+                            <span>pinyin-pro <small>— 拼音转换</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/alexeyten/descript" target="_blank" class="about-link about-link-external">
+                            <span>encoding.js <small>— 文本编码处理</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                    </div>
+
+                    <!-- 字体致谢 -->
+                    <h3 data-i18n="aboutFonts">字体致谢</h3>
+                    <p class="about-section-desc" data-i18n="aboutFontsDesc">内置字体均为免费商用字体</p>
+                    <div class="about-opensource">
+                        <a href="https://github.com/lxgw/LxgwNeoZhiSong" target="_blank" class="about-link about-link-external">
+                            <span>霞鹜新致宋 <small>— LXGW Neo Zhi Song</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/lxgw/LxgwNeoXiHei" target="_blank" class="about-link about-link-external">
+                            <span>霞鹜新细黑 <small>— LXGW Neo XiHei</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                        <a href="https://github.com/lxgw/LxgwWenKai" target="_blank" class="about-link about-link-external">
+                            <span>霞鹜文楷 <small>— LXGW WenKai</small></span>
+                            <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                        </a>
+                    </div>
+
+                    <!-- 作者与支持 -->
+                    <h3 data-i18n="aboutSupport">支持</h3>
+                    <div class="about-author">
+                        <div class="about-author-header">
+                            <div class="about-author-info">
+                                <span data-i18n="aboutAuthor">作者</span>
+                                <a href="https://github.com/JLinMr" target="_blank" class="about-link-external">
+                                    <span data-i18n="aboutViewOnGithub">在 GitHub 上查看</span>
+                                    <svg class="icon" style="width: 14px; height: 14px;"><use href="#icon-external-link"/></svg>
+                                </a>
+                            </div>
+                            <div class="about-update-info">
+                                <span data-i18n="aboutLastUpdate">最后更新</span>: <span id="aboutLastUpdate">2025.01.15</span>
+                            </div>
+                        </div>
+                        <p class="about-support-desc" data-i18n="aboutSupportDesc">喜欢流萤？请我喝杯咖啡 ☕</p>
+                        <button class="about-sponsor-btn" onclick="Lumina.About.openSponsor()">
+                            <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-heart"/></svg>
+                            <span data-i18n="aboutSponsor">打赏支持</span>
                         </button>
                     </div>
                 </div>

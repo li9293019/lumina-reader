@@ -2423,6 +2423,110 @@ color: var(--accent-color);
 border-bottom: none;
 }
 
+/* 关于面板 - 版本号 */
+.about-version {
+font-size: 13px;
+color: var(--text-secondary);
+margin-left: 8px;
+margin-right: auto;
+}
+
+/* 关于面板 - 章节描述文字 */
+.about-section-desc {
+font-size: 13px;
+color: var(--text-secondary);
+margin: -8px 0 8px 0;
+}
+
+/* 开源致谢列表 */
+.about-opensource {
+display: flex;
+flex-direction: column;
+gap: 4px;
+margin-bottom: 16px;
+}
+
+.about-opensource .about-link small {
+color: var(--text-secondary);
+font-size: 12px;
+margin-left: 4px;
+}
+
+/* 作者区域 */
+.about-author {
+background: var(--bg-secondary);
+border-radius: 12px;
+padding: 16px;
+margin-top: 8px;
+}
+
+.about-author-header {
+margin-bottom: 12px;
+}
+
+.about-author-info {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 4px;
+font-size: 14px;
+}
+
+.about-update-info {
+font-size: 12px;
+color: var(--text-secondary);
+}
+
+.about-link-external {
+display: inline-flex;
+align-items: center;
+gap: 4px;
+color: var(--accent-color);
+text-decoration: none;
+font-size: 13px;
+}
+
+.about-link-external:hover {
+text-decoration: underline;
+}
+
+.about-support-desc {
+font-size: 13px;
+color: var(--text-secondary);
+margin-bottom: 12px;
+}
+
+/* 打赏按钮 */
+.about-sponsor-btn {
+width: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+padding: 12px;
+background: linear-gradient(135deg, var(--accent-color), var(--accent-color));
+color: white;
+border: none;
+border-radius: 10px;
+font-size: 15px;
+font-weight: 500;
+cursor: pointer;
+transition: opacity 0.2s, transform 0.1s;
+font-family: inherit;
+}
+
+.about-sponsor-btn:hover {
+opacity: 0.9;
+}
+
+.about-sponsor-btn:active {
+transform: scale(0.98);
+}
+
+.about-sponsor-btn .icon {
+fill: currentColor;
+}
+
 /* ==================== 文件浏览器面板 ==================== */
 #fileBrowserPanel {
 z-index: 260;

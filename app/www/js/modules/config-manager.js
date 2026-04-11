@@ -10,6 +10,36 @@ Lumina.ConfigManager = {
     // 当前配置版本（用于迁移）
     CURRENT_VERSION: 1,
     
+    // 检测系统语言
+    detectSystemLanguage() {
+        // 获取系统语言（Web 环境）
+        const sysLang = navigator.language || navigator.languages?.[0] || 'zh';
+        
+        // 映射到应用支持的语言
+        const langLower = sysLang.toLowerCase();
+        
+        // 繁体中文：zh-TW, zh-HK, zh-MO, zh-Hant
+        if (langLower.startsWith('zh-hant') || 
+            langLower === 'zh-tw' || 
+            langLower === 'zh-hk' || 
+            langLower === 'zh-mo') {
+            return 'zh1';  // 繁体中文
+        }
+        
+        // 简体中文：zh-CN, zh-SG 或其他 zh- 变体
+        if (langLower.startsWith('zh')) {
+            return 'zh';  // 简体中文
+        }
+        
+        // 英文
+        if (langLower.startsWith('en')) {
+            return 'en';
+        }
+        
+        // 默认简体中文
+        return 'zh';
+    },
+    
     // 默认配置结构
     getDefaultConfig() {
         return {
@@ -18,7 +48,7 @@ Lumina.ConfigManager = {
             
             // ========== 1. 核心阅读设置 ==========
             reading: {
-                language: 'zh',
+                language: this.detectSystemLanguage(),
                 theme: 'light',
                 font: 'serif',
                 indent: false,

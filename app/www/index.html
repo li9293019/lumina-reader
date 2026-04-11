@@ -50,6 +50,7 @@
 <link rel="stylesheet" href="./css/main.css">
 <link rel="stylesheet" href="./css/book-detail.css">
 <link rel="stylesheet" href="./css/share-card.css">
+<link rel="stylesheet" href="./css/legal.css">
 
 <!-- 核心应用模块 -->
 <script src="./js/modules/namespace.js"></script>
@@ -92,6 +93,8 @@
 <script src="./js/modules/book-detail.js"></script>
 <script src="./js/modules/settings.js"></script>
 <script src="./js/modules/font-manager.js"></script>
+<script src="./js/modules/legal-content.js"></script>
+<script src="./js/modules/legal-page.js"></script>
 <script src="./js/modules/ui.js"></script>
 <!-- 操作事务 -->
 <script src="./js/modules/actions.js"></script>
@@ -840,6 +843,18 @@
                     <p class="mobile-hidden"><kbd>B</kbd> <span data-i18n="shortcutLibrary"></span></p>
                     <p class="mobile-hidden"><kbd>S</kbd> <span data-i18n="shortcutSettings"></span></p>
                     <p class="mobile-hidden"><kbd>Esc</kbd> <span data-i18n="shortcutClose"></span></p>
+
+                    <h3 data-i18n="legalInfo">法律信息</h3>
+                    <div class="about-links">
+                        <button class="about-link" onclick="Lumina.LegalPage.show('about-entry', 'terms')">
+                            <span data-i18n="termsTab">用户协议</span>
+                            <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-right"/></svg>
+                        </button>
+                        <button class="about-link" onclick="Lumina.LegalPage.show('about-entry', 'privacy')">
+                            <span data-i18n="privacyTab">隐私政策</span>
+                            <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-right"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1383,6 +1398,31 @@
                     <span data-i18n="importFromSystem">从其他位置选择</span>
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- 法律协议页面（首次启动 + 关于入口） -->
+<div class="legal-page" id="legalPage" style="display:none">
+    <div class="legal-card">
+        <div class="legal-header">
+            <h2 data-i18n="legalPageTitle">欢迎使用流萤阅读器</h2>
+            <button class="close-btn" id="legalCloseBtn" data-i18n-tooltip="关闭">
+                <svg class="icon" style="width: 20px; height: 20px;"><use href="#icon-close"/></svg>
+            </button>
+        </div>
+        
+        <div class="legal-tabs">
+            <button class="legal-tab active" data-tab="terms" data-i18n="termsTab">用户协议</button>
+            <button class="legal-tab" data-tab="privacy" data-i18n="privacyTab">隐私政策</button>
+        </div>
+        
+        <div class="legal-content" id="legalContent">
+            <!-- Markdown 内容渲染区域 -->
+        </div>
+        
+        <div class="legal-footer" id="legalFooter">
+            <!-- 动态内容：首次启动显示复选框和按钮，关于入口显示返回按钮 -->
         </div>
     </div>
 </div>

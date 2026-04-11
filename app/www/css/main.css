@@ -2391,6 +2391,38 @@ font-family: var(--font-mono);
 font-size: 0.9em;
 }
 
+/* 关于面板 - 法律信息链接 */
+.about-links {
+display: flex;
+flex-direction: column;
+gap: 8px;
+margin-top: 8px;
+}
+
+.about-link {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 10px 0;
+background: none;
+border: none;
+border-bottom: 1px solid var(--border-color);
+color: var(--text-primary);
+font-size: 14px;
+font-family: var(--font-family-dynamic, inherit);
+cursor: pointer;
+text-align: left;
+transition: color 0.2s;
+}
+
+.about-link:hover {
+color: var(--accent-color);
+}
+
+.about-link:last-child {
+border-bottom: none;
+}
+
 /* ==================== 文件浏览器面板 ==================== */
 #fileBrowserPanel {
 z-index: 260;

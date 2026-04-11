@@ -1,6 +1,26 @@
 // ==================== 20. 初始化入口 ====================
 
 Lumina.init = async () => {
+    // 首次启动：检查用户协议同意状态
+    if (!Lumina.ConfigManager?.get('meta.hasAgreedToTerms_v1')) {
+        console.log('[Init] 首次启动，等待用户同意协议...');
+        await new Promise((resolve) => {
+            // 等待协议页面模块加载完成
+            const checkAndShow = () => {
+                if (Lumina.LegalPage) {
+                    Lumina.LegalPage.show('first-run');
+                    window.addEventListener('legalTermsAccepted', () => {
+                        resolve();
+                    }, { once: true });
+                } else {
+                    setTimeout(checkAndShow, 50);
+                }
+            };
+            checkAndShow();
+        });
+        console.log('[Init] 用户已同意协议，继续初始化...');
+    }
+    
     Lumina.Settings.load();
     Lumina.State.app.dbReady = false;
 
@@ -1004,6 +1024,19 @@ Lumina.BackButtonHandler = {
         // 优先级1: 关闭分享卡片（临时覆盖层，最高优先级）
         if (Lumina.ShareCard?.overlay) {
             Lumina.ShareCard.close();
+            return true;
+        }
+        
+        // 优先级1.5: 关闭法律协议页面 (z-index 9999)
+        const legalPage = document.getElementById('legalPage');
+        if (legalPage?.style.display === 'flex') {
+            // 如果是关于入口模式，可以关闭
+            if (Lumina.LegalPage?.mode === 'about-entry') {
+                Lumina.LegalPage.hide();
+                return true;
+            }
+            // 如果是首次启动模式，不能关闭，提示必须同意
+            Lumina.UI.showToast(Lumina.I18n.t('mustAgreeToUse') || '您需要同意协议才能使用本应用');
             return true;
         }
         

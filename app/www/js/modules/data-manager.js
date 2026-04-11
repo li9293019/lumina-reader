@@ -1193,7 +1193,12 @@ Lumina.DataManager = class {
             );
             
             if (result.success) {
-                Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${result.fileName}`);
+                } else {
+                    Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
+                }
             }
         } catch (err) {
             console.error('[Export] 导出失败:', err);
@@ -1318,7 +1323,12 @@ Lumina.DataManager = class {
             });
             
             if (result.success) {
-                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    Lumina.UI.showToast(`已导出 ${batchData.totalBooks} 本书到: Documents/LuminaReader/${result.fileName}`);
+                } else {
+                    Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+                }
             }
         } catch (err) {
             console.error('[Export] 导出失败:', err);
@@ -1349,7 +1359,12 @@ Lumina.DataManager = class {
             progressDialog.close();
             
             if (result.success) {
-                Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    Lumina.UI.showToast(`已导出 ${batchData.totalBooks} 本书到: Documents/LuminaReader/${result.fileName}`);
+                } else {
+                    Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
+                }
             }
         } catch (err) {
             progressDialog.close();

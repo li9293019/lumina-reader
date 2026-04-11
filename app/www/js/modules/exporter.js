@@ -1264,7 +1264,12 @@ Lumina.Exporter = {
                     try {
                         const base64data = reader.result.split(',')[1];
                         await window.FileExporter.saveBinary(base64data, `${fileTitle}.docx`);
-                        Lumina.UI.showToast(Lumina.I18n.t('docxExportSuccess'));
+                        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                        if (isApp) {
+                            Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${fileTitle}.docx`);
+                        } else {
+                            Lumina.UI.showToast(Lumina.I18n.t('docxExportSuccess'));
+                        }
                     } catch (e) {
                         console.error('DOCX 导出失败:', e);
                         Lumina.UI.showToast(Lumina.I18n.t('docxExportFailed', e.message));
@@ -1296,7 +1301,12 @@ Lumina.Exporter = {
         if (window.FileExporter) {
             try {
                 await window.FileExporter.saveFile(content, fileName, mimeType);
-                Lumina.UI.showToast('导出成功: ' + fileName);
+                const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+                if (isApp) {
+                    Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${fileName}`);
+                } else {
+                    Lumina.UI.showToast('导出成功: ' + fileName);
+                }
             } catch (e) {
                 console.error('导出失败:', e);
                 Lumina.UI.showToast('导出失败: ' + e.message);

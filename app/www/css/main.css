@@ -2969,6 +2969,9 @@ opacity: 0;
 transition: all 0.3s ease;
 pointer-events: none;
 max-width: 75vw;
+word-break: break-all;
+word-wrap: break-word;
+overflow-wrap: break-word;
 }
 
 .toast.show {

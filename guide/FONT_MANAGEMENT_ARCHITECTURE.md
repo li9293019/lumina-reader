@@ -1,7 +1,7 @@
 # 流萤阅读器字体管理系统技术架构
 
-> 版本：v1.0  
-> 日期：2026-04-02  
+> 版本：v1.1  
+> 日期：2026-04-10  
 > 适用范围：APP (Android) + Web 双平台
 
 ---
@@ -13,11 +13,12 @@
 3. [核心模块详解](#3-核心模块详解)
 4. [平台适配策略](#4-平台适配策略)
 5. [存储与持久化](#5-存储与持久化)
-6. [性能优化](#6-性能优化)
-7. [安全考虑](#7-安全考虑)
-8. [配置与迁移](#8-配置与迁移)
-9. [故障排查指南](#9-故障排查指南)
-10. [后续迭代建议](#10-后续迭代建议)
+6. **【重要】并发控制机制（v1.1 新增）**
+7. [性能优化](#7-性能优化)
+8. [安全考虑](#8-安全考虑)
+9. [配置与迁移](#9-配置与迁移)
+10. [故障排查指南](#10-故障排查指南)
+11. [后续迭代建议](#11-后续迭代建议)
 
 ---
 
@@ -31,17 +32,20 @@
 - 支持 TTF/OTF 格式字体导入
 - 自动提取字体元数据（名称、家族名）
 - 双平台存储：APP (Capacitor Filesystem) / Web (IndexedDB)
+- **双目录存储（APP）：** 私有目录 + Documents 目录（用于导出携带）
 - 实时预览和切换
 - 配置持久化和跨设备迁移
+- **防并发导入（v1.1 新增）**
 
 ### 1.2 约束条件
 
 | 项目 | 限制 | 说明 |
 |------|------|------|
 | 单字体大小 | ≤ 30MB | 防止内存溢出和存储占用 |
-| 字体数量上限 | 3 个 | 控制存储空间和性能 |
-| 支持格式 | TTF, OTF | 通过文件扩展名和 Magic Number 验证 |
+| 字体数量上限 | 无硬性限制（建议 ≤10） | UI 显示考虑 |
+| 支持格式 | TTF, OTF | 通过文件扩展名验证 |
 | 命名空间 | `cf_{timestamp}` | 自定义字体 ID 前缀 |
+| 并发导入 | ❌ 禁止 | 同一时间只能导入一个字体 |
 
 ---
 
@@ -58,17 +62,24 @@
 │  ├── 字体管理对话框 (FontManagerDialog)                      │
 │  └── 自定义字体指示器 (custom-font-indicator)                │
 ├─────────────────────────────────────────────────────────────┤
+│  对话框层 (FontManagerDialog)                                │
+│  ├── _isAdding 并发锁                                        │
+│  ├── loading 视觉状态                                        │
+│  └── disabled 按钮状态                                       │
+├─────────────────────────────────────────────────────────────┤
 │  核心层 (FontManager)                                        │
 │  ├── 字体列表管理 (customFonts[])                            │
 │  ├── 文件持久化 (_saveFontFile / _deleteFontFile)            │
-│  ├── CSS 生成与加载 (_generateFontCSS / loadFont)            │
+│  ├── Documents 备份 (_saveFontFileToDocuments)               │
+│  ├── CSS 生成与加载 (_injectFontCSS / loadFont)              │
 │  └── 配置同步 (_saveCustomFonts / _loadCustomFonts)          │
 ├─────────────────────────────────────────────────────────────┤
 │  解析层 (FontParser)                                         │
 │  └── TTF/OTF Name Table 解析 (extractFontName)               │
 ├─────────────────────────────────────────────────────────────┤
 │  存储层                                                      │
-│  ├── APP: Capacitor Filesystem (Documents/fonts/user/)       │
+│  ├── APP 私有: DATA/fonts/user/ (运行时读取)                 │
+│  ├── APP 文档: DOCUMENTS/fonts/user/ (导出备份)              │
 │  └── Web: IndexedDB (LuminaFonts DB)                         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -76,17 +87,22 @@
 ### 2.2 数据流
 
 ```
-用户选择字体文件
+用户点击"添加字体"
+    ↓
+【并发检查】_isAdding === true ? 显示"正在导入，请稍候..." : 继续
     ↓
 FontParser.extractFontName() → 提取字体家族名
     ↓
-_saveFontFile() → 持久化到存储层
+_saveFontFile() → 保存到 DATA/fonts/user/ (运行时)
+_saveFontFileToDocuments() → 保存到 DOCUMENTS/fonts/user/ (备份)
     ↓
-_generateFontCSS() → 生成 @font-face CSS
+_injectFontCSS() → 生成 @font-face CSS
     ↓
 loadFont() → 动态加载 CSS 到页面
     ↓
 Settings.apply() → 应用字体到阅读视图
+    ↓
+【状态重置】_isAdding = false, loading = false
 ```
 
 ---
@@ -102,418 +118,369 @@ Settings.apply() → 应用字体到阅读视图
 ```javascript
 {
     STORAGE_KEY: 'customFonts',      // ConfigManager 存储键
-    FONT_DIR: 'fonts/user',          // APP 端存储目录
+    FONT_DIR: 'fonts/user',          // APP 端存储目录（同时用于 DATA 和 DOCUMENTS）
     customFonts: [],                 // 运行时字体列表
     loadedFonts: new Set(),          // 已加载字体缓存
-    MAX_FONT_SIZE: 30 * 1024 * 1024, // 30MB 限制
-    MAX_FONT_COUNT: 3                // 最多 3 个自定义字体
+    MAX_FONT_SIZE: 30 * 1024 * 1024 // 30MB 限制
 }
 ```
 
-#### 3.1.2 字体数据结构
+#### 3.1.2 双目录存储（APP 端关键设计）
+
+**为什么需要双目录？**
+
+| 目录 | Capacitor Directory | 用途 | 权限 |
+|------|---------------------|------|------|
+| 私有目录 | `DATA` | APP 运行时读取字体 | 完全私有，外部不可见 |
+| 文档目录 | `DOCUMENTS` | 导出配置时携带字体 | 用户可见，可分享 |
+
+**代码实现：**
 
 ```javascript
-{
-    id: 'cf_mnhlddxr',           // 唯一标识 (cf_ + base36 时间戳)
-    name: '方正聚珍新仿简体',     // 从字体文件解析的显示名
-    family: '方正聚珍新仿简体',   // CSS font-family 值
-    fileName: 'original.ttf',    // 原始文件名
-    storedName: 'cf_mnhlddxr.ttf', // 存储文件名
-    size: 4812345,               // 文件大小 (bytes)
-    addedAt: 1712054400000,      // 添加时间戳
-    isBuiltIn: false             // 区分内置/自定义字体
+// 保存到私有目录（用于 APP 内使用）
+async _saveFontFile(fileName, arrayBuffer) {
+    const { Filesystem } = Capacitor.Plugins;
+    await Filesystem.writeFile({
+        path: `${this.FONT_DIR}/${fileName}`,
+        data: base64,
+        directory: 'DATA'  // 私有目录
+    });
+}
+
+// 保存到 Documents 目录（用于导出配置时恢复）
+async _saveFontFileToDocuments(fileName, arrayBuffer) {
+    const { Filesystem } = Capacitor.Plugins;
+    await Filesystem.writeFile({
+        path: `${this.FONT_DIR}/${fileName}`,
+        data: base64,
+        directory: 'DOCUMENTS'  // 公共目录
+    });
 }
 ```
 
-#### 3.1.3 核心方法
+### 3.2 FontManagerDialog 并发控制（v1.1 重要更新）
 
-| 方法 | 说明 | 触发场景 |
-|------|------|----------|
-| `init()` | 初始化，加载已保存字体列表 | APP 启动时 |
-| `addFont()` | 添加新字体 | 用户点击"添加字体" |
-| `removeFont(id)` | 删除字体 | 用户点击删除按钮 |
-| `loadFont(id)` | 加载字体 CSS | 设置应用、阅读器初始化 |
-| `getFontFamily(id)` | 获取字体家族名 | 渲染文本时 |
+**问题场景：** 用户快速连续点击"添加字体"按钮，选择多个大字体文件，可能导致内存溢出或导入状态混乱。
 
-### 3.2 FontParser 字体解析
-
-**实现方式：** 轻量级 TTF/OTF Name Table 解析器
-
-#### 3.2.1 解析逻辑
-
-```
-1. 读取文件头 (sfntVersion)
-   - 0x00010000 → TrueType
-   - 0x4F54544F ('OTTO') → OpenType CFF
-   - 0x74727565 ('true') → TrueType Apple
-
-2. 定位 name table
-   - 遍历 Table Directory 找到 tag 为 'name' 的表
-
-3. 提取 nameID = 1 (Font Family)
-   - 优先 platformID=3 (Windows), encodingID=1 (Unicode), languageID=0x0804 (zh-CN)
-   - 备选 platformID=1 (Mac), languageID=0 (English)
-```
-
-#### 3.2.2 容错机制
-
-- 解析失败 → 使用原始文件名（去除扩展名）
-- 空 name table → fallback 到文件名
-- 编码问题 → 尝试多种编码解码
-
-### 3.3 CSS 生成与加载
-
-#### 3.3.1 APP 端 (Capacitor)
+**解决方案：**
 
 ```javascript
-// 生成 CSS 内容
-const fontUrl = Capacitor.convertFileSrc(`${this.FONT_DIR}/${fileName}`);
-const css = `@font-face{font-family:'${safeFontName}';src:url('${fontUrl}') format('truetype');font-display:swap}`;
-
-// 写入文件
-await Filesystem.writeFile({
-    path: `${this.FONT_DIR}/${fontId}.css`,
-    data: css,
-    directory: 'DOCUMENTS',
-    encoding: 'utf8'
-});
-
-// 加载时
-const fileUrl = Capacitor.convertFileSrc(cssStat.uri);
-await this._loadCSS(fileUrl);
+Lumina.FontManagerDialog = {
+    _isAdding: false,  // 并发锁
+    
+    async _onAdd() {
+        // 1. 并发检查
+        if (this._isAdding) {
+            Lumina.UI.showToast('正在导入字体，请稍候...');
+            return;
+        }
+        
+        const btn = document.getElementById('fontManagerAddBtn');
+        
+        // 2. 上锁 + UI 状态
+        this._isAdding = true;
+        btn?.classList.add('loading');
+        btn && (btn.disabled = true);
+        
+        try {
+            // 3. 执行导入
+            const font = await Lumina.FontManager.addFont();
+            if (font) this.render();
+        } finally {
+            // 4. 解锁 + 恢复 UI
+            this._isAdding = false;
+            btn?.classList.remove('loading');
+            btn && (btn.disabled = false);
+        }
+    },
+    
+    close() {
+        // 安全机制：关闭对话框时强制重置状态
+        if (this._isAdding) {
+            this._isAdding = false;
+            const btn = document.getElementById('fontManagerAddBtn');
+            btn?.classList.remove('loading');
+            if (btn) btn.disabled = false;
+        }
+    }
+}
 ```
 
-**关键点：** 必须使用 `convertFileSrc()` 将文件路径转换为 WebView 可访问的 URL (`https://localhost/_capacitor_file_/...`)
+**CSS 配合：**
 
-#### 3.3.2 Web 端 (Browser)
+```css
+/* loading 状态 */
+.font-manager-footer .btn-primary.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
-```javascript
-// 从 IndexedDB 读取字体数据
-const result = await store.get(fileName);
-const blob = new Blob([result.data], { type: 'font/ttf' });
-const blobUrl = URL.createObjectURL(blob);
-
-// 创建 style 标签
-const css = `@font-face{font-family:'${safeFontName}';src:url('${blobUrl}') format('truetype');font-display:swap}`;
-const style = document.createElement('style');
-style.id = `font-style-${fontId}`;
-style.textContent = css;
-document.head.appendChild(style);
+/* disabled 状态 */
+.font-manager-footer .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 ```
-
-**内存管理：** 删除字体时需调用 `URL.revokeObjectURL()` 释放 Blob URL
 
 ---
 
 ## 4. 平台适配策略
 
-### 4.1 平台检测
-
-```javascript
-const isApp = typeof Capacitor !== 'undefined' && 
-              Capacitor.Plugins?.Filesystem;
-```
-
-### 4.2 APP 端实现细节
+### 4.1 APP 端实现细节
 
 **存储路径：**
-- 字体文件：`/storage/emulated/0/Documents/fonts/user/{fontId}.ttf`
-- CSS 文件：`/storage/emulated/0/Documents/fonts/user/{fontId}.css`
+- 私有目录：`/data/user/0/com.lumina.reader/files/fonts/user/{fontId}.ttf`
+- Documents：`/storage/emulated/0/Documents/fonts/user/{fontId}.ttf`
+- CSS 内联：直接读取 base64 嵌入 style 标签（避免路径权限问题）
 
-**文件选择：**
-- 使用 `@capacitor/filesystem` 的 `pickFiles` 方法
-- 类型限制：`['font/ttf', 'font/otf']`
-- 注意：Android 系统文件选择器不支持设置默认目录
+**CSS 加载方式（v1.1 重要变更）：**
 
-**权限要求：**
-```xml
-<!-- AndroidManifest.xml -->
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-    android:maxSdkVersion="32" />
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" 
-    android:minSdkVersion="33" />
-```
+旧方案：生成 .css 文件，通过 `convertFileSrc()` 加载  
+新方案：直接读取字体文件为 base64，内联到 style 标签
 
-### 4.3 Web 端实现细节
-
-**IndexedDB 结构：**
 ```javascript
-{
-    dbName: 'LuminaFonts',
-    version: 1,
-    storeName: 'fonts',
-    keyPath: 'fileName'
+async _injectFontCSS(font) {
+    const { Filesystem } = Capacitor.Plugins;
+    const result = await Filesystem.readFile({
+        path: `${this.FONT_DIR}/${font.storedName}`,
+        directory: 'DATA'
+    });
+    
+    const base64Data = result.data;
+    const fontUrl = `data:font/ttf;base64,${base64Data}`;
+    const css = `@font-face{font-family:'${safeFontName}';src:url('${fontUrl}') format('truetype');font-display:swap}`;
+    
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
 }
 ```
 
-**存储限制：**
-- 受浏览器配额限制（通常可用空间较大）
-- 需处理 `QuotaExceededError`
+**优势：**
+- 避免 Android 文件权限变更影响
+- 重装 APP 后无需担心文件路径失效
+- 导出配置时可从 Documents 目录读取字体数据
 
 ---
 
-## 5. 存储与持久化
+## 6. 【重要】并发控制机制（v1.1 新增）
 
-### 5.1 配置持久化
+### 6.1 问题背景
 
-字体元数据通过 `ConfigManager` 存储：
+在字体导入过程中，用户可能：
+1. 多次点击"添加字体"按钮
+2. 同时选择多个字体文件
+3. 在导入过程中关闭对话框
+
+这些问题可能导致：
+- 内存溢出（同时加载多个大字体）
+- UI 状态错乱（loading 状态未清除）
+- 按钮永久禁用（异常时未重置状态）
+
+### 6.2 解决方案
+
+**三管齐下：**
+
+1. **状态锁 (`_isAdding`)** - 防止并发执行
+2. **UI 反馈 (loading + disabled)** - 视觉提示用户
+3. **安全重置 (close 方法)** - 防止异常状态残留
+
+### 6.3 代码模板
 
 ```javascript
-// 保存
-await Lumina.ConfigManager.set('customFonts', this.customFonts);
-
-// 加载
-const data = Lumina.ConfigManager.get('customFonts');
-```
-
-**导出/导入：** 自定义字体配置会随 `config.lmn` 一起导出，但**字体二进制文件不会**（设备特定）。
-
-### 5.2 跨设备迁移限制
-
-| 项目 | 是否可迁移 | 说明 |
-|------|-----------|------|
-| 字体元数据 | ✅ 是 | 包含在配置文件中 |
-| 字体文件 | ❌ 否 | 存储路径设备特定 |
-| 当前选中字体 | ✅ 是 | 配置的一部分 |
-
-**迁移后处理：** 导入配置后，若自定义字体文件不存在，系统会静默跳过，用户需重新添加字体。
-
----
-
-## 6. 性能优化
-
-### 6.1 大文件处理
-
-**Base64 编码优化（APP 端）：**
-```javascript
-// 分块处理避免堆栈溢出
-const chunkSize = 65536; // 64KB
-let binary = '';
-for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk);
-}
-const base64 = btoa(binary);
-```
-
-### 6.2 字体加载优化
-
-- `font-display: swap`：避免 FOIT（Flash of Invisible Text）
-- 预加载：设置面板打开时预加载所有自定义字体 CSS
-- 缓存：已加载字体记录在 `loadedFonts` Set 中，避免重复加载
-
-### 6.3 存储优化
-
-- 限制数量：最多 3 个字体
-- 限制大小：单文件 30MB
-- 自动清理：删除字体时同步删除存储文件和 CSS
-
----
-
-## 7. 安全考虑
-
-### 7.1 输入验证
-
-1. **文件类型验证**
-   - 扩展名检查：`.ttf`, `.otf`
-   - MIME 类型：`font/ttf`, `font/otf`, `application/x-font-ttf`
-   - Magic Number：TTF (`0x00010000` 或 `0x74727565`), OTF (`0x4F54544F`)
-
-2. **文件大小验证**
-   ```javascript
-   if (file.size > 30 * 1024 * 1024) {
-       Lumina.UI.showToast('字体文件过大（最大 30MB）');
-       return null;
-   }
-   ```
-
-3. **字体名转义**
-   ```javascript
-   const safeFontName = fontName.replace(/['"\\]/g, '\\$&');
-   ```
-
-### 7.2 存储安全
-
-- 文件名使用随机 ID，避免覆盖
-- 不执行字体文件内容，仅作为二进制数据存储
-- CSS URL 使用引号包裹，防止注入
-
----
-
-## 8. 配置与迁移
-
-### 8.1 配置结构
-
-```json
-{
-    "customFonts": [
-        {
-            "id": "cf_mnhlddxr",
-            "name": "方正聚珍新仿简体",
-            "family": "方正聚珍新仿简体",
-            "fileName": "方正聚珍新仿.ttf",
-            "storedName": "cf_mnhlddxr.ttf",
-            "size": 4812345,
-            "addedAt": 1712054400000,
-            "isBuiltIn": false
+class ConcurrentOperation {
+    constructor() {
+        this._isProcessing = false;
+    }
+    
+    async execute(operation, btnElement) {
+        if (this._isProcessing) {
+            Lumina.UI.showToast('操作进行中，请稍候...');
+            return;
         }
-    ],
-    "reading": {
-        "font": "cf_mnhlddxr"
+        
+        this._isProcessing = true;
+        this._setUILoading(btnElement, true);
+        
+        try {
+            return await operation();
+        } finally {
+            this._isProcessing = false;
+            this._setUILoading(btnElement, false);
+        }
+    }
+    
+    _setUILoading(btn, loading) {
+        btn?.classList.toggle('loading', loading);
+        if (btn) btn.disabled = loading;
+    }
+    
+    // 安全重置
+    emergencyReset(btn) {
+        this._isProcessing = false;
+        this._setUILoading(btn, false);
     }
 }
 ```
 
-### 8.2 版本兼容
+---
 
-- **v1.0 之前**：无自定义字体功能
-- **v1.0+**：支持自定义字体
-- **向前兼容**：旧版本导入含自定义字体的配置时，会忽略不存在的字体，回退到内置字体
+## 7. 性能优化
+
+### 7.1 Base64 编码优化
+
+**分块处理避免堆栈溢出（大字体文件）：**
+
+```javascript
+async _arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 65536; // 64KB
+    let binary = '';
+    
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    
+    return btoa(binary);
+}
+```
+
+### 7.2 字体加载优化
+
+- `font-display: swap`：避免 FOIT
+- 预加载：设置面板打开时预加载所有自定义字体 CSS
+- 缓存：已加载字体记录在 `loadedFonts` Set 中
 
 ---
 
-## 9. 故障排查指南
+## 9. 配置与迁移
 
-### 9.1 字体加载失败
+### 9.1 字体与配置导出（v1.1 重要特性）
 
-**症状：** 选择字体后显示为系统默认字体
+**场景：** 用户导出配置到另一台设备，期望字体也能恢复。
 
-**排查步骤：**
-1. 检查控制台是否有 CSS 404 错误
-2. 确认 `convertFileSrc()` 正确转换了路径
-3. 验证字体文件是否存在于 `Documents/fonts/user/`
-4. 检查 CSS 内容是否正确（可手动访问 `{fontId}.css` 文件）
+**实现：**
 
-### 9.2 字体名解析错误
+```javascript
+// 导出配置时，将字体文件转为 base64
+async _exportFontsWithConfig(includeFonts) {
+    if (!includeFonts) return null;
+    
+    const fontsData = [];
+    for (const font of this.customFonts) {
+        // 从 Documents 目录读取（私有目录在重装后无法访问）
+        const result = await Filesystem.readFile({
+            path: `${this.FONT_DIR}/${font.storedName}`,
+            directory: 'DOCUMENTS'
+        });
+        
+        fontsData.push({
+            name: font.name,
+            storedName: font.storedName,
+            data: result.data  // base64
+        });
+    }
+    return fontsData;
+}
 
-**症状：** 字体显示为文件名而非实际字体名
+// 导入配置时，恢复字体文件
+async _restoreFontsFromConfig(customFonts, fontsData, onProgress) {
+    let restoredCount = 0;
+    
+    for (const fontData of fontsData) {
+        // base64 转 Uint8Array
+        const binary = atob(fontData.data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        
+        // 保存到两个目录
+        await this._saveFontFile(fontData.storedName, bytes.buffer);
+        await this._saveFontFileToDocuments(fontData.storedName, bytes.buffer);
+        
+        onProgress?.(++restoredCount, fontsData.length, fontData.name);
+    }
+}
+```
+
+---
+
+## 10. 故障排查指南
+
+### 10.1 字体导入按钮卡住（loading 状态不消失）
+
+**症状：** 点击"添加字体"后按钮一直转圈，无法再次点击。
+
+**原因：** 导入过程中发生异常，finally 块未执行。
+
+**解决：** 关闭并重新打开字体管理对话框（close 方法会强制重置状态）。
+
+**预防：** 确保所有代码路径都有 try-finally 包裹。
+
+### 10.2 导出配置到新设备后字体丢失
+
+**症状：** 新设备上字体列表显示正常，但实际渲染为系统字体。
 
 **原因：**
-- TTF name table 使用非标准编码
-- 字体文件损坏
-
-**解决：** 使用文件名作为 fallback，不影响功能
-
-### 9.3 存储空间不足
-
-**症状：** 添加字体时提示失败
+1. 导出时未勾选"包含字体文件"选项
+2. Documents 目录中的字体文件被用户手动删除
 
 **排查：**
-- APP：检查 `Documents/fonts/user/` 目录权限
-- Web：检查浏览器存储配额 `navigator.storage.estimate()`
+```javascript
+// 检查字体文件是否存在（私有目录）
+const exists = await FontManager._checkFontFileExists(font.storedName);
+console.log('字体文件存在:', exists);
+```
 
-### 9.4 跨设备迁移后字体丢失
+**解决：** 重新导入字体文件，或确保导出配置时包含字体数据。
 
-**症状：** 新设备上字体列表显示为空白或灰色
+### 10.3 大字体文件导入失败（> 20MB）
 
-**原因：** 字体二进制文件未随配置一起导出
+**症状：** 选择大字体文件后 APP 闪退或无响应。
 
-**解决：** 在新设备上重新导入字体文件
+**原因：** ArrayBuffer 转 Base64 时堆栈溢出。
+
+**解决：** 已修复（使用分块转换），如仍有问题请检查 `_arrayBufferToBase64` 方法是否使用分块逻辑。
 
 ---
 
-## 10. 后续迭代建议
+## 11. 后续迭代建议
 
-### 10.1 短期优化（v1.1）
+### 11.1 短期优化（v1.2）
 
-1. **字体预览**
-   - 在字体按钮上显示字体预览（Abc 样例）
-   - 实现方式：使用 `FontFace.load()` API
+1. **字体导入进度条**
+   - 大字体文件（> 10MB）显示读取进度
+   - 技术方案：`FileReader` 的 `progress` 事件
 
-2. **字体排序**
+2. **字体去重**
+   - 导入前检查字体文件 hash，避免重复导入相同字体
+
+3. **字体排序**
    - 支持拖拽排序自定义字体
-   - 影响设置面板中的显示顺序
 
-3. **搜索过滤**
-   - 字体管理对话框支持搜索字体名
-
-### 10.2 中期功能（v1.2）
+### 11.2 中期功能（v1.3）
 
 1. **字体子集化**
-   - 导入时自动子集化（基于常用字表）
-   - 减少存储占用和加载时间
-   - 技术方案：集成 `subset-font` 或类似库
+   - 导入时自动子集化，减少存储占用
 
 2. **云同步**
    - 将字体文件同步到云端
-   - 跨设备自动下载字体
-   - 需考虑存储成本和带宽
 
-3. **字体推荐**
-   - 内置字体商店/推荐列表
-   - 一键下载热门开源字体（如霞鹜文楷、思源宋体）
-
-### 10.3 长期规划（v2.0）
+### 11.3 长期规划（v2.0）
 
 1. **Web Font 支持**
    - 支持在线字体 URL
-   - Google Fonts / 阿里巴巴普惠体 等
-
-2. **字体组合**
-   - 支持为不同语言指定不同字体
-   - 如：中文用"思源宋体"，英文用"Times New Roman"
-
-3. **高级排版**
-   - 字间距、行间距精细调整
-   - OpenType 特性支持（ligatures, old-style figures 等）
-
----
-
-## 附录 A：API 参考
-
-### FontManager 公共方法
-
-```typescript
-interface FontManager {
-    init(): Promise<void>;
-    addFont(): Promise<FontInfo | null>;
-    removeFont(fontId: string): Promise<boolean>;
-    loadFont(fontId: string): Promise<void>;
-    getFontFamily(fontId: string): string;
-    getAllFonts(): FontInfo[];
-    customFonts: FontInfo[];
-}
-
-interface FontInfo {
-    id: string;
-    name: string;
-    family: string;
-    fileName: string;
-    storedName: string;
-    size: number;
-    addedAt: number;
-    isBuiltIn: boolean;
-}
-```
-
-### 内置字体配置
-
-```javascript
-builtInFonts: {
-    serif: { id: 'serif', name: '宋体', family: '"LXGW Neo Zhi Song", ...', cssUrl: './assets/fonts/LXGWNeoZhiSong.css' },
-    sans: { id: 'sans', name: '黑体', family: '"LXGW Neo XiHei", ...', cssUrl: './assets/fonts/LXGWNeoXiHei.css' },
-    kai: { id: 'kai', name: '楷体', family: '"LXGW WenKai", ...', cssUrl: './assets/fonts/lxgwwenkai.css' },
-    mono: { id: 'mono', name: '等宽', family: '"JetBrains Mono", ...', cssUrl: null }
-}
-```
-
----
-
-## 附录 B：相关文件清单
-
-| 文件路径 | 说明 |
-|----------|------|
-| `app/www/js/modules/font-manager.js` | 字体管理器核心 |
-| `app/www/js/modules/settings.js` | 设置面板集成 |
-| `app/www/index.html` | UI 结构定义 |
-| `app/www/css/main.css` | 样式定义 |
-| `app/android/app/src/main/AndroidManifest.xml` | Android 权限配置 |
 
 ---
 
 **文档维护记录：**
 
-- 2026-04-02: 初始版本，基于自定义字体功能实现
+- 2026-04-02: 初始版本 v1.0
+- 2026-04-10: v1.1 更新 - 添加并发控制机制、双目录存储设计、Documents 导出支持
 
 ---
 

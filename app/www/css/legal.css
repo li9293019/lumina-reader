@@ -1,30 +1,44 @@
 /* ==================== 法律协议页面样式 ==================== */
 
-/* 基础容器 */
+/* 基础容器 - 改为弹窗遮罩形式 */
 .legal-page {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: var(--bg-primary);
+    background: var(--overlay-bg);
     display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
     font-family: var(--font-family-dynamic, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
-/* APP端安全距离 */
-.legal-page.app-safe-area .legal-header {
-    padding-top: max(12px, var(--safe-area-top, 0px));
-}
-
-.legal-page.app-safe-area .legal-footer {
-    padding-bottom: max(16px, calc(16px + var(--safe-area-bottom, 0px)));
-}
-
-/* 卡片容器 */
+/* 卡片容器 - 圆角弹窗 */
 .legal-card {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    width: 100%;
+    max-width: 480px;
+    max-height: calc(100vh - 40px);
     background: var(--bg-primary);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+/* APP端安全距离 */
+.legal-page.app-safe-area .legal-card {
+    margin-top: var(--safe-area-top, 0px);
+    margin-bottom: var(--safe-area-bottom, 0px);
+    max-height: calc(100vh - 40px - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
+}
+
+.legal-page.app-safe-area .legal-header {
+    padding-top: 16px;
+}
+
+.legal-page.app-safe-area .legal-footer {
+    padding-bottom: 16px;
 }
 
 /* 顶部标题 - 参考 about-header */
@@ -164,6 +178,11 @@
     font-weight: 600;
 }
 
+/* 隐藏内容中的大标题（Tab已显示） */
+.legal-content h1 {
+    display: none;
+}
+
 /* 底部操作栏 - 参考 book-detail-footer */
 .legal-footer {
     padding: 12px 16px;
@@ -261,37 +280,14 @@
     color: var(--error-color, #e74c3c);
 }
 
-/* ========== WEB端：about-panel 样式 ========== */
+/* ========== WEB端：更大屏幕 ========== */
 @media (min-width: 769px) {
-    /* 遮罩层背景 */
-    .legal-page {
-        background: var(--overlay-bg);
-        align-items: center;
-        justify-content: center;
-        padding: 40px 20px;
-    }
-    
-    /* WEB端不需要APP安全距离 */
-    .legal-page.app-safe-area .legal-header {
-        padding-top: 12px;
-    }
-    
-    .legal-page.app-safe-area .legal-footer {
-        padding-bottom: 24px;
-    }
-    
-    /* 居中卡片 - 类似 about-content */
     .legal-card {
-        width: 90%;
         max-width: 600px;
-        max-height: 80vh;
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        overflow: hidden;
     }
     
     .legal-header {
-        padding-top: 12px;
+        padding-top: 20px;
     }
     
     .legal-footer {
@@ -301,6 +297,20 @@
 
 /* ========== 小屏幕适配 ========== */
 @media (max-width: 768px) {
+    .legal-page {
+        padding: 16px;
+    }
+    
+    .legal-card {
+        max-width: 100%;
+        max-height: calc(100vh - 32px);
+        border-radius: 12px;
+    }
+    
+    .legal-page.app-safe-area .legal-card {
+        max-height: calc(100vh - 32px - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
+    }
+    
     .legal-content {
         padding: 16px 20px;
     }
@@ -308,6 +318,7 @@
     .legal-header {
         padding-left: 16px;
         padding-right: 8px;
+        padding-top: 12px;
     }
     
     .legal-tab {

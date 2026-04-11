@@ -1042,11 +1042,104 @@
         }
     }
 
+    // ==================== 封面亮度检测（异步，供导入/保存时调用）====================
+    
+    async function detectCoverBrightness(coverUrl) {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const SAMPLE_SIZE = 50;
+            canvas.width = SAMPLE_SIZE;
+            canvas.height = SAMPLE_SIZE;
+            
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = () => {
+                try {
+                    ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+                    const imageData = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+                    const data = imageData.data;
+                    
+                    let totalBrightness = 0;
+                    let sampleCount = 0;
+                    
+                    for (let i = 0; i < data.length; i += 16) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
+                        totalBrightness += brightness;
+                        sampleCount++;
+                    }
+                    
+                    const avgBrightness = totalBrightness / sampleCount;
+                    resolve(avgBrightness < 128 ? 'dark' : 'light');
+                } catch (e) {
+                    resolve('dark');
+                }
+            };
+            
+            img.onerror = () => resolve('dark');
+            setTimeout(() => resolve('dark'), 2000);
+            img.src = coverUrl;
+        });
+    }
+    
+    // ==================== 封面包装（同步渲染）====================
+    
+    let wrapIdCounter = 0;
+    
+    function wrapCover(coverUrl, options) {
+        options = options || {};
+        const width = options.width || 140;
+        const height = options.height || 200;
+        const isDark = options.brightness !== 'light';
+        
+        const idSuffix = wrapIdCounter++;
+        const spineId = `wrapSpine-${idSuffix}`;
+        const noiseId = `wrapNoise-${idSuffix}`;
+        
+        const c = isDark ? '255,255,255' : '0,0,0';
+        const spineStops = isDark ? [
+            { offset: '0%', color: `rgba(${c},0.90)` },
+            { offset: '2%', color: `rgba(${c},0.90)` },
+            { offset: '5%', color: `rgba(${c},0.12)` },
+            { offset: '25%', color: `rgba(${c},0.55)` },
+            { offset: '45%', color: `rgba(${c},0.50)` },
+            { offset: '65%', color: `rgba(${c},0.20)` },
+            { offset: '85%', color: `rgba(${c},0.06)` },
+            { offset: '100%', color: `rgba(${c},0)` }
+        ] : [
+            { offset: '0%', color: `rgba(${c},0.3)` },
+            { offset: '2%', color: `rgba(${c},0.05)` },
+            { offset: '5%', color: `rgba(${c},0.06)` },
+            { offset: '25%', color: `rgba(${c},0.08)` },
+            { offset: '45%', color: `rgba(${c},0.12)` },
+            { offset: '65%', color: `rgba(${c},0.1)` },
+            { offset: '85%', color: `rgba(${c},0.03)` },
+            { offset: '100%', color: `rgba(${c},0)` }
+        ];
+        const spineStopsHtml = spineStops.map(s => 
+            `<stop offset="${s.offset}" stop-color="${s.color}"/>`
+        ).join('');
+        
+        const noiseFilter = isDark 
+            ? `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0"/></filter>`
+            : `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/><feColorMatrix type="matrix" values="0 0 0 0 0.4 0 0 0 0 0.4 0 0 0 0 0.4 0 0 0 0.04 0"/></filter>`;
+        
+        const spineBlendMode = isDark ? 'overlay' : 'multiply';
+        const noiseBlendMode = isDark ? 'overlay' : 'multiply';
+        
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="${spineId}" x1="0%" y1="0%" x2="100%" y2="0%">${spineStopsHtml}</linearGradient>${noiseFilter}</defs><image href="${coverUrl}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode:${noiseBlendMode};opacity:0.6"/><rect x="0" y="0" width="12" height="${height}" fill="url(#${spineId})" style="mix-blend-mode:${spineBlendMode}"/></svg>`;
+    }
+    
     // 导出模块
     const BibliomorphCover = {
         generate: generate,
+        wrapCover: wrapCover,
+        detectCoverBrightness: detectCoverBrightness,
         generateGradient: generateHashGradient,
-        // 保留供其他模块使用的工具函数
         utils: {
             djb2: djb2,
             mulberry32: mulberry32,

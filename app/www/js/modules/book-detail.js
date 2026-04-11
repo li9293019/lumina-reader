@@ -496,7 +496,12 @@ Lumina.BookDetail = {
         
         // 生成封面内容 HTML
         let coverContentHTML = '';
-        if (bookData.cover) {
+        if (bookData.cover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+            // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
+            const brightness = bookData.metadata?.coverBrightness || null;
+            const wrapped = Lumina.BibliomorphCover.wrapCover(bookData.cover, { brightness });
+            coverContentHTML = wrapped.replace('<svg', '<svg class="book-detail-cover-img"');
+        } else if (bookData.cover) {
             coverContentHTML = `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
         } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
             const metadata = bookData.metadata || {};
@@ -631,7 +636,14 @@ Lumina.BookDetail = {
         
         // 封面
         if (el.cover) {
-            if (data.cover) {
+            if (data.cover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+                // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
+                const brightness = metadata.coverBrightness || null;
+                const wrapped = Lumina.BibliomorphCover.wrapCover(data.cover, { brightness });
+                el.cover.innerHTML = wrapped;
+                el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
+                el.coverWrapper?.classList.remove('no-cover');
+            } else if (data.cover) {
                 el.cover.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 el.coverWrapper?.classList.remove('no-cover');
             } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
@@ -1289,13 +1301,26 @@ Lumina.BookDetail = {
         
         const fileKey = this.currentFile.fileKey;
         
+        // 检测封面亮度
+        if (Lumina.BibliomorphCover?.detectCoverBrightness) {
+            try {
+                const brightness = await Lumina.BibliomorphCover.detectCoverBrightness(imageData);
+                this.currentFile.coverBrightness = brightness;
+                if (!this.currentFile.metadata) this.currentFile.metadata = {};
+                this.currentFile.metadata.coverBrightness = brightness;
+            } catch (e) {
+                // 忽略检测失败，不设置 brightness（使用默认暗色兜底）
+            }
+        }
+        
         // 更新当前文件数据
         this.currentFile.cover = imageData;
         
         // 保存到数据库
         await Lumina.DB.adapter.saveFile(fileKey, {
             ...this.currentFile,
-            cover: imageData
+            cover: imageData,
+            metadata: this.currentFile.metadata
         });
         
         // 立即刷新详情页封面显示
@@ -1396,23 +1421,47 @@ Lumina.BookDetail = {
         Lumina.UI.showDialog(Lumina.I18n.t('confirmClear') || '确定要清除封面吗？', 'confirm', async (confirmed) => {
             if (!confirmed) return;
             
-            // 更新当前文件数据
+            // 更新当前文件数据（清除封面和亮度元数据）
             this.currentFile.cover = null;
+            this.currentFile.coverBrightness = null;
+            if (this.currentFile.metadata) {
+                this.currentFile.metadata.coverBrightness = null;
+            }
             
             // 保存到数据库
             await Lumina.DB.adapter.saveFile(fileKey, {
                 ...this.currentFile,
-                cover: null
+                cover: null,
+                metadata: this.currentFile.metadata
             });
             
-            // 立即刷新详情页封面显示为占位符
+            // 如果 hashCover 开启，自动生成 Bibliomorph 封面
             const coverEl = document.getElementById('bookDetailCover');
             const coverWrapper = document.getElementById('bookDetailCoverWrapper');
-            if (coverEl) {
-                coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
-            }
-            if (coverWrapper) {
-                coverWrapper.classList.add('no-cover');
+            
+            if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
+                const metadata = this.currentFile.metadata || {};
+                const title = metadata.title || this.currentFile.title || this.currentFile.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+                const author = metadata.author || this.currentFile.author || '';
+                const generatedCover = Lumina.BibliomorphCover.generate(title, author);
+                
+                if (generatedCover && coverEl) {
+                    coverEl.innerHTML = generatedCover;
+                    coverEl.querySelector('svg')?.classList.add('book-detail-cover-img');
+                    coverWrapper?.classList.remove('no-cover');
+                } else if (coverEl) {
+                    // 生成失败显示占位符
+                    coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                    coverWrapper?.classList.add('no-cover');
+                }
+            } else {
+                // hashCover 关闭，显示占位符
+                if (coverEl) {
+                    coverEl.innerHTML = '<div class="book-detail-cover-placeholder"><svg><use href="#icon-book"/></svg></div>';
+                }
+                if (coverWrapper) {
+                    coverWrapper.classList.add('no-cover');
+                }
             }
             
             // 刷新书库显示

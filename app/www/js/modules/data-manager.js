@@ -715,7 +715,12 @@ Lumina.DataManager = class {
         const fileName = Lumina.Utils.escapeHtml(file.metadata?.title || file.fileName.replace(/\.[^/.]+$/, ''));
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
         let coverHtml;
-        if (hasCover) {
+        if (hasCover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+            // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
+            const brightness = file.metadata?.coverBrightness || null;
+            const wrapped = Lumina.BibliomorphCover.wrapCover(file.cover, { brightness });
+            coverHtml = wrapped.replace('<svg', '<svg class="cover-img"');
+        } else if (hasCover) {
             coverHtml = `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
         } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
             // 使用 Bibliomorph 封面生成器（简洁书籍风格）
@@ -2470,6 +2475,8 @@ Lumina.DB.HistoryDataBuilder = {
             language: metadata?.language || existingMeta.language || '',
             description: metadata?.description || existingMeta.description || '',
             tags: metadata?.tags?.length > 0 ? metadata.tags : (existingMeta.tags || []),
+            // 保存封面亮度（dark/light）用于书脊渲染
+            coverBrightness: state.currentFile.coverBrightness || existingMeta.coverBrightness || null,
             // 保存提取置信度信息（调试用）
             _extracted: metadata ? {
                 confidence: metadata.confidence,

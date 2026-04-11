@@ -134,7 +134,15 @@ Lumina.Actions = {
                     // EPUB 解析（ZIP 格式，轻量级提取 HTML 内容）
                     result = await Lumina.Parser.parseEPUB(arrayBuffer);
                     // EPUB 可能有 metadata 中定义的封面
-                    if (result.coverImage) cover = result.coverImage;
+                    if (result.coverImage) {
+                        cover = result.coverImage;
+                        // 异步检测亮度存入 metadata（不阻塞）
+                        if (Lumina.BibliomorphCover?.detectCoverBrightness) {
+                            Lumina.BibliomorphCover.detectCoverBrightness(cover).then(brightness => {
+                                Lumina.State.app.currentFile.coverBrightness = brightness;
+                            }).catch(() => {});
+                        }
+                    }
                     // EPUB 可能包含书名和作者元数据
                     if (result.epubMetadata?.title) {
                         Lumina.State.app.currentFile.epubMetadata = result.epubMetadata;
@@ -168,7 +176,15 @@ Lumina.Actions = {
                     }
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
-                if (firstImage) cover = firstImage.data;
+                if (firstImage) {
+                    cover = firstImage.data;
+                    // 异步检测亮度存入 metadata（不阻塞）
+                    if (Lumina.BibliomorphCover?.detectCoverBrightness) {
+                        Lumina.BibliomorphCover.detectCoverBrightness(cover).then(brightness => {
+                            Lumina.State.app.currentFile.coverBrightness = brightness;
+                        }).catch(() => {});
+                    }
+                }
             } else {
                 const { text, originalEncoding } = await Lumina.Parser.EncodingManager.processFile(file);
                 Lumina.State.app.currentFile.rawContent = text;

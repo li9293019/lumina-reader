@@ -18,11 +18,11 @@
         width: 176,           // B5宽度 (mm)
         height: 250,          // B5高度 (mm)
         scale: 3,             // 渲染精度
-        maxVerticalPerCol: 9, // 竖排每列最大字数
+        maxVerticalPerCol: 8, // 竖排每列最大字数
         maxVerticalCols: 3,   // 竖排最大列数
         minOrphanUnits: 3,    // 最小孤儿字避免
         maxHorizontalLines: 6,// 横排最大行数
-        maxHorizontalChars: 8,// 横排每行最大字符
+        maxHorizontalChars: 7,// 横排每行最大字符
         maxCJKForVertical: 24 // 触发竖排的最大CJK字数
     };
 
@@ -413,18 +413,24 @@
         const { width: zoneW, height: zoneH } = zone;
         const wordCount = words.length;
         
-        // 修复：计算最长单词的字符数，用于预估宽度
+        // 计算最长单词的字符数，用于预估宽度
         const maxCharCount = Math.max(...words.map(w => w.text.length));
         const maxWord = words.find(w => w.text.length === maxCharCount);
         
-        // 保守估算：每个大写字母约 0.7em 宽，小写约 0.55em
-        const estimatedCharWidth = 0.65; 
+        // 检测是否全为大写（长单词通常全大写）
+        const isAllUpperCase = words.every(w => w.text === w.text.toUpperCase());
+        
+        // 动态估算字符宽度：全大写单词更宽
+        const estimatedCharWidth = isAllUpperCase ? 0.75 : 0.65;
         const maxEstimatedWidth = maxCharCount * estimatedCharWidth;
         
+        // 放宽边距：从 15% 改为 8%，允许字体更大
+        const marginRatio = isAllUpperCase ? 0.92 : 0.85;
+        
         // 初始字号取 min(高度限制, 宽度限制)
-        const sizeByHeight = zoneH / (wordCount * 1.3);
-        const sizeByWidth = (zoneW * 0.85) / maxEstimatedWidth; // 留 15% 边距
-        let fontSize = Math.min(sizeByHeight, sizeByWidth, zoneW / 2);
+        const sizeByHeight = zoneH / (wordCount * 1.2); // 从 1.3 放宽到 1.2
+        const sizeByWidth = (zoneW * marginRatio) / maxEstimatedWidth;
+        let fontSize = Math.min(sizeByHeight, sizeByWidth, zoneW / 1.8); // 从 /2 放宽到 /1.8
         
         // 辅助函数：测量文本宽度
         function measureWord(text, size) {
@@ -438,17 +444,21 @@
         let bestLayout = null;
         let bestError = Infinity;
         
-        for (let iter = 0; iter < 35; iter++) { // 增加迭代次数至35
+        // 长单词提高目标视觉比例（从 0.65 提升到 0.75），允许更大字号
+        const targetRatio = (wordCount === 1 && maxCharCount >= 8) ? 0.78 : visualRatio;
+        
+        for (let iter = 0; iter < 35; iter++) {
             const lineHeight = fontSize + lineSpacingMm;
             const colWidths = words.map(w => measureWord(w.text, fontSize));
             const actualWidth = Math.max(...colWidths);
             const actualHeight = wordCount * fontSize + (wordCount - 1) * (lineHeight - fontSize);
             
-            const withinBounds = actualWidth <= zoneW * 0.9 && actualHeight <= zoneH * 0.95;
+            // 放宽边界限制：允许占用 95% 宽度和 98% 高度
+            const withinBounds = actualWidth <= zoneW * 0.95 && actualHeight <= zoneH * 0.98;
             
             if (withinBounds) {
                 const ratio = (actualWidth * actualHeight) / (zoneW * zoneH);
-                const error = Math.abs(ratio - visualRatio);
+                const error = Math.abs(ratio - targetRatio);
                 if (error < bestError) {
                     bestError = error;
                     bestLayout = {
@@ -466,28 +476,28 @@
                 if (error < 0.03) break;
             }
             
-            // 修复：根据溢出方向动态调整，加速收敛
-            if (actualWidth > zoneW * 0.9 || actualHeight > zoneH * 0.95) {
+            // 根据溢出方向动态调整，加速收敛
+            if (actualWidth > zoneW * 0.95 || actualHeight > zoneH * 0.98) {
                 // 超出边界，激进缩小（按超出比例）
-                const widthRatio = actualWidth / (zoneW * 0.9);
-                const heightRatio = actualHeight / (zoneH * 0.95);
-                const shrinkFactor = 0.9 / Math.max(widthRatio, heightRatio, 1.1);
-                fontSize *= Math.max(0.85, shrinkFactor); // 不低于 0.85 倍，避免震荡
+                const widthRatio = actualWidth / (zoneW * 0.95);
+                const heightRatio = actualHeight / (zoneH * 0.98);
+                const shrinkFactor = 0.92 / Math.max(widthRatio, heightRatio, 1.05);
+                fontSize *= Math.max(0.88, shrinkFactor); // 不低于 0.88 倍，避免震荡
             } else {
                 // 未超出，按视觉比例微调
                 const currentRatio = (actualWidth * actualHeight) / (zoneW * zoneH);
-                fontSize *= (currentRatio < visualRatio) ? 1.02 : 0.98;
+                fontSize *= (currentRatio < targetRatio) ? 1.025 : 0.975;
             }
             
-            fontSize = Math.max(8, Math.min(fontSize, zoneH / 2)); // 下限设为8mm
+            fontSize = Math.max(10, Math.min(fontSize, zoneH / 1.5)); // 下限设为10mm，上限放宽
         }
         
-        // 修复：改进 fallback，确保绝对安全
+        // 改进 fallback，确保绝对安全
         if (!bestLayout) {
             const safeFontSize = Math.min(
-                zoneH / (wordCount * 2.0),              // 更保守的高度
-                zoneW * 0.8 / maxEstimatedWidth,        // 确保最长单词能放入
-                zoneW / 3                               // 硬上限
+                zoneH / (wordCount * 1.5),              // 放宽高度限制
+                zoneW * 0.9 / maxEstimatedWidth,        // 放宽宽度限制
+                zoneW / 2                               // 放宽硬上限
             );
             const safeLineHeight = safeFontSize + lineSpacingMm;
             const safeColWidths = words.map(w => measureWord(w.text, safeFontSize));
@@ -975,16 +985,16 @@
             const readerFont = getReaderFont();
             const titleFont = options.titleFont || readerFont;
             const authorFont = options.authorFont || readerFont;
-            const visualRatio = options.visualRatio || 0.65;
+            const visualRatio = options.visualRatio || 0.75;
             const letterSpacing = options.letterSpacing || 0.05;
             const lineSpacingMm = options.lineSpacingMm || 3;
-            const bodyRatio = options.bodyRatio || 0.75;
-            const titleMaxWidth = options.titleMaxWidth || 0.70;
+            const bodyRatio = options.bodyRatio || 0.8;
+            const titleMaxWidth = options.titleMaxWidth || 0.80;
             const titleMaxHeight = options.titleMaxHeight || 0.80;
             const authorMaxWidth = options.authorMaxWidth || 0.60;
             const authorMaxHeight = options.authorMaxHeight || 0.90;
-            const sectionGap = options.sectionGap || 2;
-            const bleed = options.bleed || 3;
+            const sectionGap = options.sectionGap || 1;
+            const bleed = options.bleed || 5;
             
             // 使用固定B5尺寸，SVG会自适应缩放
             const width = CONFIG.width;

@@ -1075,14 +1075,7 @@ Lumina.BackButtonHandler = {
             return true;
         }
         
-        // 优先级2: 关闭文件浏览器面板 (z-index 260)
-        const fileBrowserPanel = document.getElementById('fileBrowserPanel');
-        if (fileBrowserPanel?.classList.contains('active')) {
-            fileBrowserPanel.classList.remove('active');
-            return true;
-        }
-        
-        // 优先级3: 关闭书库面板 (z-index 250)
+        // 优先级2: 关闭书库面板 (z-index 250)
         const dataManagerPanel = document.getElementById('dataManagerPanel');
         if (dataManagerPanel?.classList.contains('active')) {
             Lumina.DataManager.close();

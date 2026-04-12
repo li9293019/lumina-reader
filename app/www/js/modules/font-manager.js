@@ -124,7 +124,7 @@ Lumina.FontManager = {
         // console.log('[FontManager] 初始化完成，自定义字体:', this.customFonts.length);
     },
     
-    // 清理 Documents 目录中的孤儿字体文件
+    // 清理 Documents 目录中的历史遗留字体文件（旧版本会在 Documents 备份字体，新版本不再需要）
     async _cleanupOrphanFontFiles() {
         if (typeof Capacitor === 'undefined' || !Capacitor.Plugins?.Filesystem) return;
         
@@ -347,10 +347,8 @@ Lumina.FontManager = {
             const fontId = `cf_${Date.now().toString(36)}`;
             const storedName = `${fontId}.ttf`;
             
-            // 保存到私有目录（用于 APP 内使用）
+            // 保存到私有目录
             await this._saveFontFile(storedName, arrayBuffer);
-            // 同时保存到 Documents（用于导出配置时恢复）
-            await this._saveFontFileToDocuments(storedName, arrayBuffer);
             
             const fontInfo = {
                 id: fontId,
@@ -405,13 +403,34 @@ Lumina.FontManager = {
     
     async _pickFontFile() {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.FilePicker) {
+            console.log('[FontManager] APP 端打开文件选择器');
+            
+            // 使用 Promise.race 添加超时保护（某些 Android 版本取消时不 resolve）
+            const TIMEOUT_MS = 8000; // 8秒超时
+            
             try {
-                const result = await Capacitor.Plugins.FilePicker.pickFiles({
-                    types: ['font/ttf', 'font/otf'],
-                    multiple: false
-                });
-                return result.files?.[0];
-            } catch {
+                const result = await Promise.race([
+                    Capacitor.Plugins.FilePicker.pickFiles({
+                        types: ['font/ttf', 'font/otf'],
+                        multiple: false
+                    }),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('FilePicker timeout')), TIMEOUT_MS)
+                    )
+                ]);
+                
+                console.log('[FontManager] 文件选择器返回:', result ? '有结果' : '无结果');
+                
+                // 用户取消时，result 可能为 undefined 或 files 为空数组
+                if (!result || !result.files || result.files.length === 0) {
+                    console.log('[FontManager] 用户取消选择或结果为空');
+                    return null;
+                }
+                console.log('[FontManager] 用户选择了文件:', result.files[0]?.name);
+                return result.files[0];
+            } catch (e) {
+                // 用户取消选择器或超时时，静默返回 null
+                console.log('[FontManager] 文件选择取消、失败或超时:', e?.message || '未知错误');
                 return null;
             }
         }
@@ -517,40 +536,6 @@ Lumina.FontManager = {
         }
     },
     
-    // 同时保存到 Documents 目录（用于导出配置时携带字体）
-    async _saveFontFileToDocuments(fileName, arrayBuffer) {
-        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-            const { Filesystem } = Capacitor.Plugins;
-            
-            try {
-                await Filesystem.mkdir({
-                    path: this.FONT_DIR,
-                    directory: 'DOCUMENTS',
-                    recursive: true
-                });
-            } catch {}
-            
-            const bytes = new Uint8Array(arrayBuffer);
-            const chunkSize = 65536;
-            let binary = '';
-            for (let i = 0; i < bytes.length; i += chunkSize) {
-                const chunk = bytes.subarray(i, i + chunkSize);
-                binary += String.fromCharCode.apply(null, chunk);
-            }
-            const base64 = btoa(binary);
-            
-            try {
-                await Filesystem.writeFile({
-                    path: `${this.FONT_DIR}/${fileName}`,
-                    data: base64,
-                    directory: 'DOCUMENTS'
-                });
-            } catch (e) {
-                console.warn('[FontManager] 保存到 Documents 失败:', e);
-            }
-        }
-    },
-    
     async _generateFontCSS(fontId, fontName, fileName) {
         // 转义字体名称中的特殊字符，用于 CSS font-family
         const safeFontName = fontName.replace(/['"\\]/g, '\\$&');
@@ -567,7 +552,7 @@ Lumina.FontManager = {
                 try {
                     fontStat = await Filesystem.stat({
                         path: `${this.FONT_DIR}/${fileName}`,
-                        directory: 'DOCUMENTS'
+                        directory: 'DATA'
                     });
                     break;
                 } catch (e) {
@@ -585,7 +570,7 @@ Lumina.FontManager = {
             await Filesystem.writeFile({
                 path: `${this.FONT_DIR}/${fontId}.css`,
                 data: css,
-                directory: 'DOCUMENTS',
+                directory: 'DATA',
                 encoding: 'utf8'
             });
         }
@@ -748,21 +733,7 @@ Lumina.FontManager = {
         }
     },
     
-    // 检查 Documents 目录中是否有备份字体（用于导入配置时恢复）
-    async _checkFontBackupExists(fileName) {
-        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-            try {
-                await Capacitor.Plugins.Filesystem.stat({
-                    path: `${this.FONT_DIR}/${fileName}`,
-                    directory: 'DOCUMENTS'
-                });
-                return true;
-            } catch {
-                return false;
-            }
-        }
-        return false;
-    },
+
     
     async _saveCustomFonts() {
         Lumina.ConfigManager.set(this.STORAGE_KEY, this.customFonts);
@@ -774,6 +745,7 @@ Lumina.FontManagerDialog = {
     panel: null,
     listContainer: null,
     _isAdding: false,
+    _isWaitingFilePicker: false, // 标记是否正在等待文件选择器
     
     init() {
         this.panel = document.getElementById('fontManagerDialog');
@@ -798,12 +770,7 @@ Lumina.FontManagerDialog = {
         this.panel?.classList.remove('active');
         Lumina.Settings?.renderFontButtons?.();
         // 重置添加状态（防止异常情况下按钮被永久禁用）
-        if (this._isAdding) {
-            this._isAdding = false;
-            const btn = document.getElementById('fontManagerAddBtn');
-            btn?.classList.remove('loading');
-            if (btn) btn.disabled = false;
-        }
+        this._resetAddingState();
     },
     
     render() {
@@ -850,17 +817,58 @@ Lumina.FontManagerDialog = {
         
         const btn = document.getElementById('fontManagerAddBtn');
         this._isAdding = true;
+        this._isWaitingFilePicker = true; // 标记正在等待文件选择器
         btn?.classList.add('loading');
         btn && (btn.disabled = true);
+        
+        // 安全机制1：监听 APP 从后台返回（文件选择器关闭时触发）
+        // 使用 focus + visibilitychange 双重检测，提高可靠性
+        let hasReturned = false;
+        const handleAppReturn = () => {
+            if (hasReturned || !this._isWaitingFilePicker) return;
+            hasReturned = true;
+            console.log('[FontManagerDialog] APP 返回前台，恢复按钮状态');
+            this._resetAddingState();
+        };
+        
+        // 延迟添加监听，确保是文件选择器打开后才监听
+        setTimeout(() => {
+            if (!this._isWaitingFilePicker) return;
+            window.addEventListener('focus', handleAppReturn, { once: true });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') handleAppReturn();
+            }, { once: true });
+        }, 500);
+        
+        // 安全机制2：超时保护（即使 Promise 永久挂起，10秒后强制恢复）
+        const SAFETY_TIMEOUT = 10000;
+        const safetyTimer = setTimeout(() => {
+            if (this._isAdding) {
+                console.warn('[FontManagerDialog] 安全超时触发，强制重置按钮状态');
+                hasReturned = true;
+                this._resetAddingState();
+                Lumina.UI.showToast('操作超时，请重试');
+            }
+        }, SAFETY_TIMEOUT);
         
         try {
             const font = await Lumina.FontManager.addFont();
             if (font) this.render();
         } finally {
-            this._isAdding = false;
-            btn?.classList.remove('loading');
-            btn && (btn.disabled = false);
+            clearTimeout(safetyTimer);
+            window.removeEventListener('focus', handleAppReturn);
+            hasReturned = true; // 标记已完成，防止监听重复触发
+            this._resetAddingState();
         }
+    },
+    
+    // 重置添加状态（抽离为独立方法方便复用）
+    _resetAddingState() {
+        this._isAdding = false;
+        this._isWaitingFilePicker = false;
+        const btn = document.getElementById('fontManagerAddBtn');
+        btn?.classList.remove('loading');
+        if (btn) btn.disabled = false;
     },
     
     async _onDelete(fontId) {

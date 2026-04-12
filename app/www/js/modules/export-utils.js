@@ -506,22 +506,11 @@ Lumina.ExportUtils = {
         for (let i = 0; i < totalFonts; i++) {
             const font = customFonts[i];
             try {
-                // 优先从私有目录读取
-                let result = null;
-                try {
-                    result = await Filesystem.readFile({
-                        path: `fonts/user/${font.storedName}`,
-                        directory: 'DATA'
-                    });
-                } catch {
-                    // 私有目录没有，尝试 Documents
-                    try {
-                        result = await Filesystem.readFile({
-                            path: `fonts/user/${font.storedName}`,
-                            directory: 'DOCUMENTS'
-                        });
-                    } catch {}
-                }
+                // 从私有目录读取字体文件
+                const result = await Filesystem.readFile({
+                    path: `fonts/user/${font.storedName}`,
+                    directory: 'DATA'
+                });
                 
                 if (result?.data) {
                     const fontData = {

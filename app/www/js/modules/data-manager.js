@@ -812,17 +812,22 @@ Lumina.DataManager = class {
             }
             
             // 移动端长按支持（用于进入多选模式）
-            let longPressTimer = null;
-            let isLongPress = false;
+            // 将定时器存储在 card 元素上，方便滑动手势处理时清除
             const LONG_PRESS_DELAY = 500; // 毫秒
             
             const startLongPress = (e) => {
                 // 只在移动端或触摸设备上生效
                 if (!isMobile && e.type !== 'touchstart') return;
                 
-                isLongPress = false;
-                longPressTimer = setTimeout(() => {
-                    isLongPress = true;
+                // 清除之前的定时器
+                if (card._longPressTimer) {
+                    clearTimeout(card._longPressTimer);
+                    card._longPressTimer = null;
+                }
+                
+                card._longPressTimer = setTimeout(() => {
+                    card._longPressTimer = null;
+                    
                     // 阻止后续的click事件
                     if (e.type === 'touchstart') {
                         card.dataset.longPressTriggered = 'true';
@@ -840,9 +845,9 @@ Lumina.DataManager = class {
             };
             
             const cancelLongPress = () => {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
+                if (card._longPressTimer) {
+                    clearTimeout(card._longPressTimer);
+                    card._longPressTimer = null;
                 }
             };
             
@@ -991,6 +996,13 @@ Lumina.DataManager = class {
                     e.preventDefault();
                     e.stopPropagation();
                     content.style.transform = '';
+                    
+                    // 关键：清除长按定时器，防止误触多选模式
+                    // 由于 stopPropagation 阻止了事件冒泡，card 上的 touchend 不会触发
+                    if (card._longPressTimer) {
+                        clearTimeout(card._longPressTimer);
+                        card._longPressTimer = null;
+                    }
                     
                     // 检查点击的是否是封面区域
                     const touch = e.changedTouches[0];
@@ -1189,12 +1201,19 @@ Lumina.DataManager = class {
             const timestamp = new Date().getTime();
             const fileName = `Lumina_${bookName}_${timestamp}`;
             
+            // 如果需要加密，先获取密码
+            let password = null;
+            if (Lumina.State.settings.encryptedExport) {
+                password = await this.showPasswordDialog();
+                if (password === null) return; // 用户取消，不执行导出
+            }
+            
             const result = await Lumina.ExportUtils.exportBooks(
                 { books: [data], totalBooks: 1, exportType: 'single', exportDate: Lumina.DB.getLocalTimeString() },
                 {
                     fileName,
                     encrypted: Lumina.State.settings.encryptedExport,
-                    password: Lumina.State.settings.encryptedExport ? await this.showPasswordDialog() : null
+                    password
                 }
             );
             

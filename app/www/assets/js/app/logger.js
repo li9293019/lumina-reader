@@ -317,7 +317,18 @@ const logger = {
         // 拦截 console.error
         const originalError = console.error;
         console.error = (...args) => {
-            originalError.apply(console, args);
+            // 先将对象序列化为可读的字符串，避免显示 [object Object]
+            const formattedArgs = args.map(a => {
+                if (typeof a === 'object' && a !== null && !(a instanceof Error)) {
+                    try {
+                        return JSON.stringify(a);
+                    } catch {
+                        return String(a);
+                    }
+                }
+                return a;
+            });
+            originalError.apply(console, formattedArgs);
             if (this.initialized) {
                 const message = args.map(a => this.stringify(a)).join(' ');
                 this.write('error', 'Console', message);

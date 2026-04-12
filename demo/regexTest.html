@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RegEx · Flag 高亮测试器</title>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --surface: #ffffff;
+            --border: #d1d1d6;
+            --text: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent: #d4a374;
+            --accent-light: rgba(212, 163, 116, 0.15);
+            --match-bg: rgba(212, 163, 116, 0.25);
+            --error: #dc2626;
+            --success: #34c759;
+            --font-mono: "SF Mono", Monaco, Consolas, monospace;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d0d0d;
+                --surface: #1c1c1e;
+                --border: #38383a;
+                --text: #f5f5f7;
+                --text-secondary: #8e8e93;
+                --match-bg: rgba(212, 163, 116, 0.35);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Regex 输入区 */
+        .regex-box {
+            background: var(--surface);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #regexInput {
+            width: 100%;
+            min-height: 200px;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 15px;
+            border: none;
+            outline: none;
+            resize: vertical;
+            background: transparent;
+            color: var(--text);
+        }
+
+        /* Flags 区域 - 关键改进 */
+        .flags-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.02);
+            border-top: 1px solid var(--border);
+        }
+
+        .flags-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 4px;
+        }
+
+        .flag-item {
+            position: relative;
+        }
+
+        .flag-item input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Flag 按钮默认态 */
+        .flag-item label {
+            display: block;
+            padding: 2px 6px;
+            text-align: center;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .flag-item label:hover {
+            background: rgba(0,0,0,0.05);
+            color: var(--text);
+        }
+
+        /* 关键：Flag 激活态高亮 */
+        .flag-item input:checked + label {
+            background: var(--accent);
+            color: white;
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 2px 8px rgba(212, 163, 116, 0.4);
+            font-weight: 600;
+            transform: translateY(-1px);
+        }
+
+        /* 自动同步模式指示器 */
+        .sync-indicator {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--text-secondary);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .sync-indicator.active {
+            opacity: 1;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* 编辑器 */
+        .editor-wrap {
+            position: relative;
+            background: var(--surface);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            min-height: 360px;
+        }
+
+        .editor-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            border: none;
+            outline: none;
+        }
+
+        #highlightLayer {
+            pointer-events: none;
+            color: transparent;
+            z-index: 1;
+        }
+
+        #testInput {
+            z-index: 2;
+            background: transparent;
+            color: var(--text);
+            caret-color: var(--accent);
+            resize: none;
+        }
+
+        .match {
+            background: var(--match-bg);
+            border-radius: 3px;
+            box-shadow: 0 0 0 1.5px var(--accent);
+        }
+
+        /* 结果区 */
+        .results {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            min-height: 60px;
+        }
+
+        .result-item {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .match-text {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .match-pos {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .empty {
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 20px;
+        }
+
+        .error {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="regex-box">
+        <textarea id="regexInput" placeholder="输入正则，支持 /pattern/gmi 格式..." spellcheck="false"></textarea>
+        
+        <div class="flags-bar">
+            <span class="flags-label">Flags</span>
+            
+            <div class="flag-item">
+                <input type="checkbox" id="fG"><label for="fG">g</label>
+            </div>
+            <div class="flag-item">
+                <input type="checkbox" id="fI"><label for="fI">i</label>
+            </div>
+            <div class="flag-item">
+                <input type="checkbox" id="fM"><label for="fM">m</label>
+            </div>
+            <div class="flag-item">
+                <input type="checkbox" id="fS"><label for="fS">s</label>
+            </div>
+            <div class="flag-item">
+                <input type="checkbox" id="fU"><label for="fU">u</label>
+            </div>
+            <div class="flag-item">
+                <input type="checkbox" id="fY"><label for="fY">y</label>
+            </div>
+
+            <span class="sync-indicator" id="syncIndicator">● 自动同步</span>
+        </div>
+    </div>
+
+    <div class="editor-wrap">
+        <div id="highlightLayer" class="editor-layer"></div>
+        <textarea id="testInput" class="editor-layer" placeholder="测试文本..." spellcheck="false">test@example.com
+TEST@EXAMPLE.COM
+hello world</textarea>
+    </div>
+
+    <div class="results" id="results">
+        <div class="empty">等待输入正则...</div>
+    </div>
+
+    <script>
+        const regexInput = document.getElementById('regexInput');
+        const testInput = document.getElementById('testInput');
+        const highlightLayer = document.getElementById('highlightLayer');
+        const results = document.getElementById('results');
+        const syncIndicator = document.getElementById('syncIndicator');
+        
+        const flagsMap = {
+            g: document.getElementById('fG'),
+            i: document.getElementById('fI'),
+            m: document.getElementById('fM'),
+            s: document.getElementById('fS'),
+            u: document.getElementById('fU'),
+            y: document.getElementById('fY')
+        };
+
+        function parseInput(value) {
+            // 匹配 /pattern/flags 格式，支持 pattern 内含 \/
+            const match = value.match(/^\/([\s\S]*?)\/([gimsuy]*)$/);
+            if (match) {
+                return { pattern: match[1], flags: match[2], isFull: true };
+            }
+            return { pattern: value, flags: null, isFull: false };
+        }
+
+        function updateFlagsUI(flags, isAutoSync) {
+            // 更新每个 flag 的 checked 状态（这就是"高亮"的核心）
+            Object.keys(flagsMap).forEach(key => {
+                flagsMap[key].checked = flags.includes(key);
+            });
+            
+            // 显示同步指示器
+            if (isAutoSync) {
+                syncIndicator.classList.add('active');
+            } else {
+                syncIndicator.classList.remove('active');
+            }
+        }
+
+        function getFlags() {
+            return Object.keys(flagsMap)
+                .filter(k => flagsMap[k].checked)
+                .join('');
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/[&<>"']/g, c => 
+                ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+            );
+        }
+
+        function testRegex() {
+            const val = regexInput.value;
+            const text = testInput.value;
+            
+            if (!val) {
+                results.innerHTML = '<div class="empty">等待输入正则...</div>';
+                highlightLayer.innerHTML = '';
+                syncIndicator.classList.remove('active');
+                return;
+            }
+
+            const parsed = parseInput(val);
+            
+            // 关键逻辑：如果是 /.../flags 格式，自动同步并高亮对应 flags
+            if (parsed.isFull) {
+                updateFlagsUI(parsed.flags, true);
+            } else {
+                syncIndicator.classList.remove('active');
+            }
+            
+            const flags = parsed.isFull ? parsed.flags : getFlags();
+
+            try {
+                const regex = new RegExp(parsed.pattern, flags);
+                
+                // 执行匹配...
+                let matches = [];
+                if (flags.includes('g')) {
+                    let m, i = 0;
+                    while ((m = regex.exec(text)) !== null && i < 100) {
+                        matches.push({ text: m[0], index: m.index });
+                        if (m.index === regex.lastIndex) regex.lastIndex++;
+                        i++;
+                    }
+                } else {
+                    const m = regex.exec(text);
+                    if (m) matches.push({ text: m[0], index: m.index });
+                }
+
+                // 渲染高亮
+                let html = escapeHtml(text);
+                // 从后往前替换
+                for (let i = matches.length - 1; i >= 0; i--) {
+                    const m = matches[i];
+                    const before = html.slice(0, m.index);
+                    const after = html.slice(m.index + m.text.length);
+                    html = before + `<span class="match">${escapeHtml(m.text)}</span>` + after;
+                }
+                highlightLayer.innerHTML = html;
+
+                // 渲染结果
+                if (matches.length === 0) {
+                    results.innerHTML = '<div class="empty">无匹配 (flags: ' + (flags || '无') + ')</div>';
+                } else {
+                    results.innerHTML = matches.map((m, i) => `
+                        <div class="result-item">
+                            <span class="match-text">${escapeHtml(m.text)}</span>
+                            <span class="match-pos">pos:${m.index}</span>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (e) {
+                results.innerHTML = `<div class="error">错误: ${escapeHtml(e.message)}</div>`;
+                highlightLayer.innerHTML = escapeHtml(text);
+            }
+        }
+
+        // 监听 Flag 手动变更（会触发重新测试，但如果是 full format 模式，会重新解析 textarea）
+        Object.values(flagsMap).forEach(cb => {
+            cb.addEventListener('change', () => {
+                // 如果是 full format 模式，用户手动改 flag 应该同步回 textarea
+                const val = regexInput.value;
+                if (val.match(/^\/[\s\S]*?\/[gimsuy]*$/)) {
+                    const newFlags = getFlags();
+                    regexInput.value = val.replace(/\/[gimsuy]*$/, '/' + newFlags);
+                }
+                testRegex();
+            });
+        });
+
+        regexInput.addEventListener('input', () => testRegex());
+        testInput.addEventListener('input', () => testRegex());
+        
+        // 同步滚动
+        testInput.addEventListener('scroll', () => {
+            highlightLayer.scrollTop = testInput.scrollTop;
+        });
+
+        // 初始化示例：演示 /.../i 会自动高亮 i 按钮
+        regexInput.value = '/test/i';
+        testRegex();
+    </script>
+</body>
+</html>

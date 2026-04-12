@@ -212,11 +212,11 @@ Lumina.FontManager = {
             let fontData;
             
             if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-                // APP 环境：读取字体文件
+                // APP 环境：读取字体文件（从私有目录 DATA）
                 const { Filesystem } = Capacitor.Plugins;
                 const result = await Filesystem.readFile({
                     path: `${this.FONT_DIR}/${font.storedName}`,
-                    directory: 'DOCUMENTS'
+                    directory: 'DATA'
                 });
                 fontData = result.data;
             } else {
@@ -613,14 +613,22 @@ Lumina.FontManager = {
     
     async _deleteFontFile(fileName) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
-            // 删除私有目录中的文件
+            // 删除私有目录中的字体文件
             try {
                 await Capacitor.Plugins.Filesystem.deleteFile({
                     path: `${this.FONT_DIR}/${fileName}`,
                     directory: 'DATA'
                 });
             } catch {}
-            // 删除 Documents 中的备份
+            // 删除对应的 CSS 文件
+            try {
+                const fontId = fileName.replace(/\.(ttf|otf)$/i, '');
+                await Capacitor.Plugins.Filesystem.deleteFile({
+                    path: `${this.FONT_DIR}/${fontId}.css`,
+                    directory: 'DATA'
+                });
+            } catch {}
+            // 清理旧版本可能存在的 Documents 备份
             try {
                 await Capacitor.Plugins.Filesystem.deleteFile({
                     path: `${this.FONT_DIR}/${fileName}`,
@@ -644,10 +652,11 @@ Lumina.FontManager = {
     
     async _deleteFontCSS(fontId) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem) {
+            // CSS 文件保存在 DATA 目录
             try {
                 await Capacitor.Plugins.Filesystem.deleteFile({
                     path: `${this.FONT_DIR}/${fontId}.css`,
-                    directory: 'DOCUMENTS'
+                    directory: 'DATA'
                 });
             } catch {}
         } else {

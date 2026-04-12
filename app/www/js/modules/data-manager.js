@@ -680,10 +680,14 @@ Lumina.DataManager = class {
         const barEl = document.getElementById('settingsStorageBar');
         const infoBarEl = document.querySelector('.storage-info-bar');
         
-        // 【验证】显示当前存储统计信息
-        const impl = Lumina.DB.adapter.impl;
-        const hasSQLite = impl && (impl.dbBridge?.sqlite || impl.sqlite);
-        console.log('[DataManager] 书库统计:', { totalFiles, maxFiles, storage: hasSQLite ? 'SQLite' : 'IndexedDB' });
+        // 书库统计信息（调试时使用 Logger.debug 查看）
+        if (window.Logger) {
+            const impl = Lumina.DB.adapter.impl;
+            const storageType = impl?.dbBridge?.sqlite ? 'SQLite-APP' : 
+                               impl?.localCache ? 'SQLite-Web' : 
+                               impl?.db ? 'IndexedDB' : 'Unknown';
+            window.Logger.debug('DataManager', '书库统计更新', { totalFiles, maxFiles, storage: storageType });
+        }
         
         // SQLite 模式（无上限）隐藏进度条区域，IndexedDB 模式（50本上限）显示
         const isUnlimited = maxFiles === '∞' || typeof maxFiles !== 'number';
@@ -1305,7 +1309,7 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            console.error('[Export] Error:', err);
+            window.Logger?.error('Export', '批量导出失败', { error: err.message });
             Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
         } finally {
             btn.classList.remove('loading');
@@ -1329,7 +1333,7 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            console.error('[Export] Error:', err);
+            window.Logger?.error('Export', '批量导出失败', { error: err.message });
             Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
         }
     }
@@ -2012,7 +2016,7 @@ Lumina.DataManager = class {
             Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
             return true;
         } catch (err) {
-            console.error('[importDataToDB] 导入失败:', err);
+            window.Logger?.error('Import', '导入数据到数据库失败', { error: err.message });
             throw err;  // 向上抛出，让调用者处理
         }
     }
@@ -2030,7 +2034,7 @@ Lumina.DataManager = class {
             Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
             return true;
         } catch (err) {
-            console.error('[Import] Error:', err);
+            window.Logger?.error('Import', '批量导入失败', { error: err.message });
             Lumina.UI.showDialog(Lumina.I18n.t('importFailed'));
             return false;
         }

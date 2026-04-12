@@ -369,7 +369,7 @@ Lumina.FontManager = {
             return fontInfo;
             
         } catch (err) {
-            console.error('[FontManager] 添加字体失败:', err);
+            window.Logger?.error('FontManager', '添加字体失败', { error: err.message });
             Lumina.UI.showToast('字体安装失败');
             return null;
         }

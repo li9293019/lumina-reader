@@ -87,7 +87,7 @@ Lumina.CacheManager = {
             if (contentEl) contentEl.style.display = 'block';
             
         } catch (e) {
-            console.error('[CacheManager] 加载统计失败:', e);
+            window.Logger?.error('CacheManager', '加载统计失败', { error: e.message });
             if (loadingEl) {
                 loadingEl.innerHTML = `<p class="cache-error">${Lumina.I18n.t('cacheManagerLoadError')}: ${e.message}</p>`;
             }

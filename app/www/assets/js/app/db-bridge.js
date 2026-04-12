@@ -264,11 +264,11 @@ class DatabaseBridge {
         }
 
         try {
-            // 【优化】不返回 content 和 cover 数据，减少传输，但包含 metadata
+            // 返回 cover 数据用于书库封面渲染
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
                     word_count, last_chapter, last_scroll_index, chapter_title, 
-                    last_read_time, chapter_numbering, created_at, metadata
+                    last_read_time, chapter_numbering, created_at, metadata, cover_data_url
                 FROM files ORDER BY last_read_time DESC`
             );
             return (result.values || []).map(row => {
@@ -284,6 +284,7 @@ class DatabaseBridge {
                     lastReadTime: row.last_read_time,
                     chapterNumbering: row.chapter_numbering,
                     created_at: row.created_at,
+                    cover: row.cover_data_url,  // 添加封面数据
                     metadata: null
                 };
                 // 解析 metadata JSON

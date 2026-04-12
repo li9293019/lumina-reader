@@ -383,12 +383,23 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
     let styleDefs = {};
     const images = {}, relsMap = {};
 
-    const imageFiles = Object.keys(zip.files).filter(name => name.startsWith('word/media/') && /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(name));
+    // 兼容大小写路径（某些 DOCX 使用 Word/Media/）
+    const allFiles = Object.keys(zip.files);
+    const imageFiles = allFiles.filter(name => 
+        /^word\/media\//i.test(name) && 
+        /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(name)
+    );
+
     for (const imgPath of imageFiles) {
-        const imgData = await zip.file(imgPath).async('base64');
-        const ext = imgPath.split('.').pop().toLowerCase();
-        const mimeType = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml' }[ext] || 'image/png';
-        images[imgPath] = `data:${mimeType};base64,${imgData}`;
+        try {
+            const imgData = await zip.file(imgPath).async('base64');
+            const ext = imgPath.split('.').pop().toLowerCase();
+            const mimeType = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml' }[ext] || 'image/png';
+            images[imgPath] = `data:${mimeType};base64,${imgData}`;
+
+        } catch (e) {
+            console.error('[DOCX] 加载图片失败:', imgPath, e.message);
+        }
     }
 
     try {
@@ -481,6 +492,7 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
         }
     });
 
+    const imageItems = results.filter(r => r.type === 'image');
     return { items: results, type: 'docx', docxMetadata };
 };
 

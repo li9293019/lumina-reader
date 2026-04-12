@@ -176,6 +176,7 @@ Lumina.Actions = {
                     }
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
+
                 if (firstImage) {
                     cover = firstImage.data;
                     // 异步检测亮度存入 metadata（不阻塞）
@@ -232,6 +233,7 @@ Lumina.Actions = {
             Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = 
                 saveMode === 'text-only' ? (Lumina.I18n.t('savingText') || '正在保存文本...') : (Lumina.I18n.t('saving') || '正在保存...');
             
+
             const saveResult = await Lumina.DB.saveHistory(file.name, fileType, wordCount, cover, true, saveMode);
             
             // 保存完成，隐藏 loading

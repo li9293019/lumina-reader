@@ -2147,6 +2147,7 @@ Lumina.DB.HistoryDataBuilder = {
             chapterNumbering: Lumina.State.settings.chapterNumbering,
             annotations: [],
             cover: overrides.cover || null,
+
             heatMap: state.currentFile.heatMap, // 保存热力图数据（未设置时为 undefined，便于合并逻辑判断）
             metadata: _metadata // 新增：书籍元数据
         };
@@ -2270,6 +2271,7 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
     
     await Lumina.DB.adapter.saveFile(fileKey, data);
     await Lumina.DB.loadHistoryFromDB();
+
 
     if (Lumina.State.app.dbReady) {
         if (window.dataManager && window.dataManager.refreshStats) {

@@ -142,7 +142,7 @@ Lumina.DB.IndexedDBImpl = class {
                 };
             });
         } catch (e) { 
-            window.Logger?.error('IndexedDB', '数据库操作异常', { error: e.message });
+            window.logger?.error('IndexedDB', '数据库操作异常', { error: e.message });
             return false; 
         }
     }
@@ -370,7 +370,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             this.dbBridge = window.dbBridge;
             
             if (!this.dbBridge) {
-                window.Logger?.error('CapacitorSQLite', 'dbBridge 未找到，降级到 IndexedDB');
+                window.logger?.error('CapacitorSQLite', 'dbBridge 未找到，降级到 IndexedDB');
                 this.isReady = false;
                 return false;
             }
@@ -384,7 +384,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             this.backgroundRefresh();
             return true;
         } catch (e) {
-            window.Logger?.error('CapacitorSQLite', '初始化失败', { error: e.message });
+            window.logger?.error('CapacitorSQLite', '初始化失败', { error: e.message });
             this.isReady = false;
             return false;
         }
@@ -480,7 +480,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             }
             return result;
         } catch (error) {
-            window.Logger?.error('CapacitorSQLite', '获取文件失败', { fileKey, error: error.message });
+            window.logger?.error('CapacitorSQLite', '获取文件失败', { fileKey, error: error.message });
             throw error;
         }
     }
@@ -536,7 +536,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             }
             return result.success;
         } catch (error) {
-            window.Logger?.error('CapacitorSQLite', '保存文件失败', { error: error.message });
+            window.logger?.error('CapacitorSQLite', '保存文件失败', { error: error.message });
             return false;
         }
     }
@@ -551,7 +551,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             }
             return result;
         } catch (error) {
-            window.Logger?.error('CapacitorSQLite', '删除文件失败', { error: error.message });
+            window.logger?.error('CapacitorSQLite', '删除文件失败', { error: error.message });
             return { success: false };
         }
     }
@@ -813,7 +813,7 @@ Lumina.DB.SQLiteImpl = class {
                         await this.localCache.saveFile(fileKey, remote);
                     }
                 } catch (e) {
-            window.Logger?.warn('SQLite', '本地缓存保存失败', { error: e.message });
+            window.logger?.warn('SQLite', '本地缓存保存失败', { error: e.message });
                 }
             }, 500); // 延迟500ms，确保 saveFile 先完成
         }
@@ -908,7 +908,7 @@ Lumina.DB.SQLiteImpl = class {
             }
             return result;
         } catch (error) {
-            window.Logger?.error('SQLite', '获取文件失败', { fileKey, error: error.message });
+            window.logger?.error('SQLite', '获取文件失败', { fileKey, error: error.message });
             throw error;
         }
     }
@@ -1001,7 +1001,7 @@ Lumina.DB.SQLiteImpl = class {
                     try {
                         await this.localCache.saveFile(fileKey, mergedData);
                     } catch (e) {
-                        window.Logger?.warn('SQLite', '本地缓存更新失败', { error: e.message });
+                        window.logger?.warn('SQLite', '本地缓存更新失败', { error: e.message });
                     }
                 }
             }

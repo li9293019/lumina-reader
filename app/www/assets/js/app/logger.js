@@ -3,15 +3,15 @@
  * 自动收集重要日志和报错，存储到 APP 目录，方便定期分析
  */
 
-const Logger = {
+const logger = {
     // 配置
     config: {
         enabled: true,
-        logDir: 'logs',           // 日志目录（在 DATA 目录下）
-        maxFiles: 7,              // 保留最近 7 天日志
-        maxFileSize: 5 * 1024 * 1024, // 单个文件最大 5MB
-        consoleOutput: true,      // 同时输出到控制台
-        logLevel: 'info'          // 最低记录级别: debug < info < warn < error
+        logDir: 'LuminaReader/logs',  // 日志目录（在 Documents 目录下，方便查看）
+        maxFiles: 7,                   // 保留最近 7 天日志
+        maxFileSize: 5 * 1024 * 1024,  // 单个文件最大 5MB
+        consoleOutput: true,           // 同时输出到控制台
+        logLevel: 'info'               // 最低记录级别: debug < info < warn < error
     },
     
     // 级别权重
@@ -34,6 +34,13 @@ const Logger = {
                         Capacitor.isNativePlatform?.() &&
                         Capacitor.Plugins?.Filesystem;
         
+        console.log('[Logger] 初始化检查:', { 
+            hasCapacitor: typeof Capacitor !== 'undefined',
+            isNativePlatform: Capacitor?.isNativePlatform?.(),
+            hasFilesystem: !!Capacitor?.Plugins?.Filesystem,
+            isNative: this.isNative
+        });
+        
         if (!this.isNative) {
             console.log('[Logger] Web 环境，跳过文件日志');
             this.initialized = true;
@@ -47,24 +54,47 @@ const Logger = {
             try {
                 await Filesystem.mkdir({
                     path: this.config.logDir,
-                    directory: 'DATA',
+                    directory: 'DOCUMENTS',
                     recursive: true
                 });
+                console.log('[Logger] 日志目录创建成功:', this.config.logDir);
             } catch (e) {
-                // 目录可能已存在
+                // 目录可能已存在，尝试读取目录验证
+                try {
+                    const result = await Filesystem.readdir({
+                        path: this.config.logDir,
+                        directory: 'DOCUMENTS'
+                    });
+                    console.log('[Logger] 日志目录已存在，文件数:', result.files?.length || 0);
+                } catch (readdirErr) {
+                    console.error('[Logger] 目录创建失败且无法读取:', e.message, readdirErr.message);
+                }
+            }
+            
+            // 设置当前日志文件
+            this.currentFile = this.getLogFileName();
+            
+            // 先测试写入一个空文件
+            try {
+                await Filesystem.writeFile({
+                    path: this.currentFile,
+                    data: '',
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                console.log('[Logger] 测试文件创建成功:', this.currentFile);
+            } catch (writeErr) {
+                console.error('[Logger] 测试文件创建失败:', writeErr.message);
             }
             
             // 清理旧日志
             await this.cleanupOldLogs();
             
-            // 设置当前日志文件
-            this.currentFile = this.getLogFileName();
-            
             // 监听全局错误
             this.setupErrorHandlers();
             
             this.initialized = true;
-            this.info('Logger', '文件日志系统初始化完成', { logFile: this.currentFile });
+            console.log('[Logger] 初始化完成，当前日志文件:', this.currentFile);
             
         } catch (e) {
             console.error('[Logger] 初始化失败:', e);
@@ -89,7 +119,7 @@ const Logger = {
             const { Filesystem } = Capacitor.Plugins;
             const result = await Filesystem.readdir({
                 path: this.config.logDir,
-                directory: 'DATA'
+                directory: 'DOCUMENTS'
             });
             
             if (!result.files || result.files.length <= this.config.maxFiles) return;
@@ -105,7 +135,7 @@ const Logger = {
                 try {
                     await Filesystem.deleteFile({
                         path: `${this.config.logDir}/${file.name}`,
-                        directory: 'DATA'
+                        directory: 'DOCUMENTS'
                     });
                 } catch (e) {
                     // 忽略删除失败
@@ -160,6 +190,36 @@ const Logger = {
             if (this.initialized) {
                 const message = args.map(a => this.stringify(a)).join(' ');
                 this.write('warn', 'Console', message);
+            }
+        };
+        
+        // 拦截 console.log
+        const originalLog = console.log;
+        console.log = (...args) => {
+            originalLog.apply(console, args);
+            if (this.initialized) {
+                const message = args.map(a => this.stringify(a)).join(' ');
+                this.write('info', 'Console', message);
+            }
+        };
+        
+        // 拦截 console.info
+        const originalInfo = console.info;
+        console.info = (...args) => {
+            originalInfo.apply(console, args);
+            if (this.initialized) {
+                const message = args.map(a => this.stringify(a)).join(' ');
+                this.write('info', 'Console', message);
+            }
+        };
+        
+        // 拦截 console.debug
+        const originalDebug = console.debug;
+        console.debug = (...args) => {
+            originalDebug.apply(console, args);
+            if (this.initialized) {
+                const message = args.map(a => this.stringify(a)).join(' ');
+                this.write('debug', 'Console', message);
             }
         };
     },
@@ -234,7 +294,7 @@ const Logger = {
                 await Filesystem.appendFile({
                     path: this.currentFile,
                     data: content,
-                    directory: 'DATA',
+                    directory: 'DOCUMENTS',
                     encoding: 'utf8'
                 });
             } catch (e) {
@@ -242,7 +302,7 @@ const Logger = {
                 await Filesystem.writeFile({
                     path: this.currentFile,
                     data: content,
-                    directory: 'DATA',
+                    directory: 'DOCUMENTS',
                     encoding: 'utf8'
                 });
             }
@@ -291,7 +351,7 @@ const Logger = {
             const { Filesystem } = Capacitor.Plugins;
             const result = await Filesystem.readdir({
                 path: this.config.logDir,
-                directory: 'DATA'
+                directory: 'DOCUMENTS'
             });
             
             return result.files
@@ -312,7 +372,7 @@ const Logger = {
             const { Filesystem } = Capacitor.Plugins;
             const result = await Filesystem.readFile({
                 path: `${this.config.logDir}/${filename}`,
-                directory: 'DATA',
+                directory: 'DOCUMENTS',
                 encoding: 'utf8'
             });
             return result.data;
@@ -362,5 +422,5 @@ const Logger = {
 };
 
 // 全局导出
-window.Logger = Logger;
-console.log('[Logger] 日志系统已加载');
+window.logger = logger;
+console.log('[logger] 日志系统已加载');

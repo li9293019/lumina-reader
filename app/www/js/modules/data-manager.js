@@ -662,12 +662,12 @@ Lumina.DataManager = class {
         const infoBarEl = document.querySelector('.storage-info-bar');
         
         // 书库统计信息（调试时使用 Logger.debug 查看）
-        if (window.Logger) {
+        if (window.logger) {
             const impl = Lumina.DB.adapter.impl;
             const storageType = impl?.dbBridge?.sqlite ? 'SQLite-APP' : 
                                impl?.localCache ? 'SQLite-Web' : 
                                impl?.db ? 'IndexedDB' : 'Unknown';
-            window.Logger.debug('DataManager', '书库统计更新', { totalFiles, maxFiles, storage: storageType });
+            window.logger.debug('DataManager', '书库统计更新', { totalFiles, maxFiles, storage: storageType });
         }
         
         // SQLite 模式（无上限）隐藏进度条区域，IndexedDB 模式（50本上限）显示
@@ -1290,7 +1290,7 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            window.Logger?.error('Export', '批量导出失败', { error: err.message });
+            window.logger?.error('Export', '批量导出失败', { error: err.message });
             Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
         } finally {
             btn.classList.remove('loading');
@@ -1314,7 +1314,7 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            window.Logger?.error('Export', '批量导出失败', { error: err.message });
+            window.logger?.error('Export', '批量导出失败', { error: err.message });
             Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
         }
     }
@@ -1866,7 +1866,7 @@ Lumina.DataManager = class {
             Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
             return true;
         } catch (err) {
-            window.Logger?.error('Import', '导入数据到数据库失败', { error: err.message });
+            window.logger?.error('Import', '导入数据到数据库失败', { error: err.message });
             throw err;  // 向上抛出，让调用者处理
         }
     }
@@ -1884,7 +1884,7 @@ Lumina.DataManager = class {
             Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
             return true;
         } catch (err) {
-            window.Logger?.error('Import', '批量导入失败', { error: err.message });
+            window.logger?.error('Import', '批量导入失败', { error: err.message });
             Lumina.UI.showDialog(Lumina.I18n.t('importFailed'));
             return false;
         }

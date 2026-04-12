@@ -436,23 +436,23 @@ Lumina.Converter = {
      */
     evaluateConversion() {
         if (Lumina.State.app.currentFile.wordCount === 0) return;
-        console.log('[Converter] 评估转换:', {
-            enabled: this.enabled,
-            bookLanguage: this.bookLanguage,
-            uiLanguage: this.uiLanguage
-        });
+        // console.log('[Converter] 评估转换:', {
+        //     enabled: this.enabled,
+        //     bookLanguage: this.bookLanguage,
+        //     uiLanguage: this.uiLanguage
+        // });
         
         if (!this.enabled) {
             this.isConverting = false;
             this.direction = null;
-            console.log('[Converter] 不转换: 开关关闭');
+            // console.log('[Converter] 不转换: 开关关闭');
             return;
         }
         
         if (!this.bookLanguage) {
             this.isConverting = false;
             this.direction = null;
-            console.log('[Converter] 不转换: 无法确定书籍语言');
+            // console.log('[Converter] 不转换: 无法确定书籍语言');
             return;
         }
         
@@ -463,11 +463,11 @@ Lumina.Converter = {
         if (uiIsTrad !== bookIsTrad) {
             this.isConverting = true;
             this.direction = bookIsTrad ? 't2s' : 's2t';
-            console.log('[Converter] 需要转换:', this.direction);
+            // console.log('[Converter] 需要转换:', this.direction);
         } else {
             this.isConverting = false;
             this.direction = null;
-            console.log('[Converter] 无需转换: 语言相同或不相关');
+            // console.log('[Converter] 无需转换: 语言相同或不相关');
         }
         
         // 更新缓存

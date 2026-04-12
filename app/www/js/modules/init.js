@@ -78,14 +78,20 @@ Lumina.init = async () => {
             Lumina.State.app.dbReady = ready;
         }
         
-        // 使用 Logger 记录关键初始化信息
-        if (window.Logger) {
-            const impl = Lumina.DB.adapter.impl;
-            const hasSQLite = impl && (impl.dbBridge?.sqlite || impl.localCache);
-            const implType = hasSQLite ? (impl.dbBridge?.sqlite ? 'SQLite-APP' : 'SQLite-Web') : 
-                             impl?.db ? 'IndexedDB' : 'Unknown';
-            
-            window.Logger.info('Init', '存储后端初始化完成', { 
+        // 先初始化文件日志系统（APP 环境）
+        if (isCapacitor && window.logger) {
+            await window.logger.init();
+        }
+        
+        // 获取存储实现类型
+        const impl = Lumina.DB.adapter?.impl;
+        const hasSQLite = impl && (impl.dbBridge?.sqlite || impl.localCache);
+        const implType = hasSQLite ? (impl.dbBridge?.sqlite ? 'SQLite-APP' : 'SQLite-Web') : 
+                         impl?.db ? 'IndexedDB' : 'Unknown';
+        
+        // 使用 logger 记录关键初始化信息（现在 logger 已经初始化了）
+        if (window.logger?.initialized) {
+            window.logger.info('Init', '存储后端初始化完成', { 
                 mode: actualMode, 
                 storage: implType, 
                 ready: Lumina.State.app.dbReady,
@@ -93,16 +99,12 @@ Lumina.init = async () => {
             });
             
             if (isCapacitor && actualMode !== 'capacitor') {
-                window.Logger.error('Init', 'APP环境存储模式异常', { expected: 'capacitor', actual: actualMode });
+                window.logger.error('Init', 'APP环境存储模式异常', { expected: 'capacitor', actual: actualMode });
             } else if (isCapacitor && !hasSQLite) {
-                window.Logger.error('Init', 'APP环境未使用原生 SQLite');
+                window.logger.error('Init', 'APP环境未使用原生 SQLite');
             }
-        }
-        
-        // 初始化文件日志系统（APP 环境）
-        if (isCapacitor && window.Logger) {
-            await window.Logger.init();
-            window.Logger.info('Init', '应用启动完成', { 
+            
+            window.logger.info('Init', '应用启动完成', { 
                 mode: actualMode, 
                 storage: implType,
                 dbReady: Lumina.State.app.dbReady 

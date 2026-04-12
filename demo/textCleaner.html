@@ -1,0 +1,2705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-i18n="app.title">文本清洁工作站</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b8db8' stroke-width='2'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='9' y1='15' x2='15' y2='15'/%3E%3C/svg%3E">
+    <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        :root {
+            --bg-primary: #0a0a0c;
+            --bg-secondary: #202027;
+            --bg-tertiary: #39393b;
+            --bg-elevated: #25252d;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9090a0;
+            --text-muted: #606070;
+            --accent: #5b8db8;
+            --accent-hover: #7aa8d0;
+            --accent-secondary: #8b7bb8;
+            --border: #2a2a35;
+            --border-light: #353545;
+            --shadow: rgba(0,0,0,0.4);
+            --font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+            --radius: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            --success: #5b8db8;
+            --warning: #d4a373;
+            --danger: #b85c5c;
+            --replaced: #8b7bb8;
+            --deleted: #3d2a2a;
+            --deleted-text: #d4a3a3;
+            --replaced-bg: #2a2a3d;
+            --active-line: rgba(91, 141, 184, 0.15);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f7f5f2;
+            --bg-secondary: #f5f3f0;
+            --bg-tertiary: #f0ede8;
+            --bg-elevated: #e8e5e0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --accent: #4a6fa5;
+            --accent-hover: #3d5f8f;
+            --accent-secondary: #6b5b95;
+            --border: #e0ddd5;
+            --border-light: #d0ccc0;
+            --shadow: rgba(0,0,0,0.05);
+            
+            --success: #4a6fa5;
+            --warning: #b8956a;
+            --danger: #a05050;
+            --replaced: #6b5b95;
+            --deleted: #f5e6e6;
+            --deleted-text: #8b4545;
+            --replaced-bg: #f0ebf5;
+            --active-line: rgba(74, 111, 165, 0.1);
+        }
+
+        body {
+            font-family: var(--font-serif);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header - 简化，移除stats */
+        header {
+            height: 56px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            white-space: nowrap;
+            color: var(--text-primary);
+        }
+
+        .brand svg {
+            width: 22px;
+            height: 22px;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lang-switch {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-right: 12px;
+            padding: 3px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .lang-btn {
+            padding: 4px 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: var(--transition);
+            font-family: var(--font-mono);
+        }
+
+        .lang-btn.active {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px var(--shadow);
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--bg-elevated);
+            transform: translateY(-1px);
+        }
+
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            height: auto;
+            min-height: 56px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex-shrink: 0;
+        }
+
+        .toolbar::-webkit-scrollbar { display: none; }
+
+        .btn {
+            height: 36px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition);
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-family: var(--font-serif);
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-elevated);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            color: white;
+        }
+
+        .btn-success {
+            background: transparent;
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .btn-success:hover {
+            background: rgba(91, 141, 184, 0.1);
+        }
+
+        .btn-export {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-light);
+        }
+
+        .btn-export:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 8px;
+            border-left: 1px solid var(--border);
+        }
+
+        .toolbar-group:first-child {
+            border-left: none;
+            padding-left: 0;
+        }
+
+        /* Main Layout */
+        .main-container {
+            height: calc(100vh - 112px);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: var(--border);
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+                height: calc(100vh - 108px);
+            }
+            
+            header {
+                height: 52px;
+                padding: 0 16px;
+            }
+            
+            .brand { font-size: 15px; }
+            
+            .toolbar {
+                min-height: 52px;
+                padding: 8px 16px;
+                gap: 8px;
+            }
+            
+            .btn {
+                height: 34px;
+                padding: 0 12px;
+                font-size: 12px;
+            }
+
+            .toolbar-group {
+                padding: 0 4px;
+            }
+        }
+
+        .pane {
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pane-header {
+            height: 44px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        /* Stats in pane-header */
+        .pane-stats {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .pane-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pane-stat::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .pane-stat:nth-child(2)::before { background: var(--accent-secondary); }
+        .pane-stat:nth-child(3)::before { background: var(--warning); }
+
+        .pane-title {
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+        }
+
+        .pane-title svg {
+            color: var(--accent);
+        }
+
+        /* Editor */
+        .editor-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: var(--bg-primary);
+        }
+
+        #inputArea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.8;
+            background: transparent;
+            color: var(--text-primary);
+            resize: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            tab-size: 4;
+        }
+
+        @media (max-width: 768px) {
+            #inputArea {
+                padding: 12px;
+                font-size: 13px;
+                line-height: 1.7;
+            }
+        }
+
+        /* Output */
+        .output-viewer {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.8;
+            -webkit-overflow-scrolling: touch;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        @media (max-width: 768px) {
+            .output-viewer {
+                font-size: 13px;
+                line-height: 1.7;
+            }
+        }
+
+        .line {
+            display: flex;
+            align-items: flex-start;
+            padding: 3px 16px;
+            min-height: 28px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+            scroll-margin-top: 44px; /* 考虑header高度 */
+            position: relative;
+        }
+
+        .line:hover { 
+            background: var(--bg-tertiary); 
+        }
+
+        .line.active {
+            background: var(--active-line) !important;
+            border-left-color: var(--accent);
+        }
+
+        /* Chapter levels */
+        .line.level-1 { background: rgba(91, 141, 184, 0.08); border-left-color: var(--accent); }
+        .line.level-1 .line-content { font-size: 16px; font-weight: 700; color: var(--accent); font-family: var(--font-serif); }
+
+        .line.level-2 { background: rgba(139, 123, 184, 0.06); border-left-color: var(--accent-secondary); }
+        .line.level-2 .line-content { font-size: 15px; font-weight: 600; color: var(--accent-secondary); font-family: var(--font-serif); }
+
+        .line.level-3 { background: rgba(212, 163, 115, 0.06); border-left-color: var(--warning); }
+        .line.level-3 .line-content { font-size: 14px; font-weight: 600; color: var(--warning); }
+
+        .line.level-4 { background: rgba(184, 92, 92, 0.05); border-left-color: var(--danger); }
+        .line.level-4 .line-content { font-size: 14px; font-weight: 600; color: var(--danger); }
+
+        .line.level-5 { background: rgba(91, 141, 184, 0.04); border-left-color: var(--accent); }
+        .line.level-5 .line-content { font-size: 13px; font-weight: 500; color: var(--accent); }
+
+        .line.level-6 { background: rgba(96, 96, 112, 0.04); border-left-color: var(--text-muted); }
+        .line.level-6 .line-content { font-size: 13px; font-weight: 500; color: var(--text-muted); font-style: italic; }
+
+        /* Replaced and Deleted */
+        .line.replaced {
+            background: var(--replaced-bg);
+            border-left-color: var(--replaced);
+        }
+
+        .line.replaced .line-content {
+            color: var(--text-primary);
+        }
+
+        .line.replaced::after {
+            content: attr(data-reason-label);
+            margin-left: 8px;
+            font-size: 11px;
+            color: var(--replaced);
+            opacity: 0.8;
+            font-family: var(--font-mono);
+        }
+
+        .line.deleted {
+            background: var(--deleted);
+            border-left-color: var(--danger);
+            opacity: 0.7;
+        }
+
+        .line.deleted .line-content {
+            text-decoration: line-through;
+            color: var(--deleted-text);
+            opacity: 0.8;
+        }
+
+        .line.deleted::after {
+            content: attr(data-reason-label);
+            margin-left: 8px;
+            font-size: 11px;
+            color: var(--danger);
+            opacity: 0.8;
+            font-family: var(--font-mono);
+        }
+
+        .line.hidden { display: none; }
+
+        .line-num {
+            width: 46px;
+            text-align: right;
+            padding-right: 12px;
+            color: var(--text-muted);
+            font-size: 11px;
+            user-select: none;
+            flex-shrink: 0;
+            padding-top: 2px;
+            font-family: var(--font-mono);
+        }
+
+        .line-content {
+            flex: 1;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text-primary);
+        }
+
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .filter-tab {
+            padding: 4px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: var(--transition);
+            white-space: nowrap;
+            font-family: var(--font-mono);
+        }
+
+        .filter-tab:hover { 
+            color: var(--text-primary); 
+            background: var(--bg-elevated);
+        }
+
+        .filter-tab.active {
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            box-shadow: 0 1px 3px var(--shadow);
+        }
+
+        .filter-tab .count {
+            margin-left: 6px;
+            padding: 1px 6px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .filter-tab.active .count {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            position: absolute;
+            inset: 0;
+            background: rgba(91, 141, 184, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
+        .drop-zone.dragover { opacity: 1; pointer-events: all; }
+        .drop-zone svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.9; }
+
+        /* Processing */
+        .processing {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: var(--text-primary);
+        }
+
+        .processing.visible { display: flex; }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .modal-overlay.visible { display: flex; }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .modal-overlay { padding: 0; }
+            .modal {
+                max-width: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+                height: 100vh;
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            background: var(--bg-tertiary);
+        }
+
+        .modal-title { 
+            font-size: 16px; 
+            font-weight: 600; 
+            color: var(--text-primary);
+            font-family: var(--font-serif);
+        }
+
+        .modal-body { 
+            flex: 1; 
+            overflow: auto; 
+            padding: 20px; 
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+            background: var(--bg-tertiary);
+        }
+
+        .section { margin-bottom: 24px; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+        }
+
+        .form-group { margin-bottom: 16px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        textarea.form-control {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: var(--transition);
+        }
+
+        textarea.form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(91, 141, 184, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+        }
+
+        .checkbox-item:hover { 
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+        }
+
+        .checkbox-item input { 
+            width: 18px; 
+            height: 18px; 
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        /* Rule Items */
+        .rule-list { display: flex; flex-direction: column; gap: 12px; }
+        .rule-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            transition: var(--transition);
+        }
+
+        .rule-item:hover {
+            border-color: var(--border-light);
+        }
+
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .rule-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .rule-name {
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-primary);
+        }
+
+        .rule-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            flex-shrink: 0;
+            font-family: var(--font-mono);
+        }
+
+        .badge-level-1 { background: rgba(91, 141, 184, 0.2); color: var(--accent); }
+        .badge-level-2 { background: rgba(139, 123, 184, 0.2); color: var(--accent-secondary); }
+        .badge-level-3 { background: rgba(212, 163, 115, 0.2); color: var(--warning); }
+        .badge-level-4 { background: rgba(184, 92, 92, 0.2); color: var(--danger); }
+        .badge-level-5 { background: rgba(91, 141, 184, 0.15); color: var(--accent); }
+        .badge-level-6 { background: rgba(96, 96, 112, 0.2); color: var(--text-muted); }
+
+        .rule-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            background: var(--bg-secondary);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.4;
+            border: 1px solid var(--border);
+        }
+
+        .rule-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+        .btn-danger { 
+            color: var(--danger); 
+            border-color: var(--danger); 
+            background: transparent;
+        }
+        .btn-danger:hover { 
+            background: rgba(184, 92, 92, 0.1); 
+            color: var(--danger);
+        }
+
+        /* Empty State */
+        .empty-state {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .empty-state svg { 
+            width: 48px; 
+            height: 48px; 
+            margin-bottom: 16px; 
+            opacity: 0.3;
+            color: var(--accent);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 3000;
+            white-space: nowrap;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 768px) {
+            .toast {
+                bottom: 16px;
+                font-size: 13px;
+                padding: 10px 20px;
+            }
+        }
+
+        /* Filename Dialog */
+        .filename-dialog {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 400px;
+            max-width: 90vw;
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .filename-dialog {
+                min-width: auto;
+                width: 90vw;
+                padding: 20px;
+            }
+        }
+
+        .filename-dialog-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-family: var(--font-serif);
+        }
+
+        .filename-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 20px;
+            font-family: var(--font-mono);
+            transition: var(--transition);
+        }
+
+        .filename-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(91, 141, 184, 0.1);
+        }
+
+        .filename-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { 
+            background: var(--border-light); 
+            border-radius: 4px; 
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Tooltip */
+        [data-tooltip] { position: relative; }
+
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            padding: 6px 10px;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s;
+            z-index: 10000;
+            font-weight: 500;
+            margin-top: 4px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        [data-tooltip]:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(8px);
+        }
+
+        @media (max-width: 768px) {
+            [data-tooltip]::after { display: none; }
+        }
+
+        /* Settings actions */
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Replace Report */
+        .replace-report {
+            background: var(--replaced-bg);
+            border-left: 3px solid var(--replaced);
+            padding: 12px;
+            margin: 12px 16px;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .replace-report-title {
+            font-weight: 600;
+            color: var(--replaced);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .view-replaced-btn {
+            padding: 4px 12px;
+            background: var(--replaced);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0.9;
+            font-family: var(--font-mono);
+        }
+
+        .view-replaced-btn:hover { opacity: 1; }
+
+        #inputMirror {
+            position: absolute;
+            top: 0;
+            left: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: -1;
+            /* 以下样式必须和 #inputArea 完全一致 */
+            width: 100%;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: none;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 768px) {
+            #inputMirror {
+                padding: 12px;
+                font-size: 13px;
+                line-height: 1.7;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span data-i18n="app.title">文本清洁工作站</span>
+        </div>
+        
+        <div class="header-actions">
+            <div class="lang-switch">
+                <button class="lang-btn active" onclick="switchLang('zh')" data-lang="zh">中文</button>
+                <button class="lang-btn" onclick="switchLang('en')" data-lang="en">EN</button>
+            </div>
+            
+            <button class="icon-btn" onclick="toggleTheme()" data-tooltip="切换主题">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+            <button class="icon-btn" onclick="openSettings()" data-tooltip="参数设置">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+            <button class="icon-btn" onclick="openHelp()" data-tooltip="使用帮助">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="btn" onclick="pasteText()" data-tooltip="从剪贴板粘贴">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+                <span data-i18n="btn.paste">粘贴</span>
+            </button>
+            <button class="btn" onclick="openFile()" data-tooltip="打开文本文件">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span data-i18n="btn.open">打开</span>
+            </button>
+            <input type="file" id="fileInput" style="display: none;" accept=".txt,.md,.html,.htm">
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-primary" onclick="analyzeText()" data-tooltip="自动识别广告关键词">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span data-i18n="btn.analyze">智能分析</span>
+            </button>
+            
+            <button class="btn btn-primary" onclick="processText()" data-tooltip="Ctrl+Enter 快捷键">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span data-i18n="btn.clean">对比清洁</span>
+            </button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-export" onclick="prepareExport('txt')" data-tooltip="导出为TXT">
+                <!-- File with T -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M12 12h4M12 12v8M12 12H8" stroke-width="2.5"></path>
+                </svg>
+                <span data-i18n="btn.exportTxt">导出TXT</span>
+            </button>
+            <button class="btn btn-export" onclick="prepareExport('docx')" data-tooltip="导出为DOCX">
+                <!-- File with W -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M8 12l2 8 2-6 2 6 2-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <span data-i18n="btn.exportDocx">导出DOCX</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <div class="pane">
+            <div class="pane-header">
+                <span class="pane-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="4 17 10 11 4 5"></polyline>
+                        <line x1="12" y1="19" x2="20" y2="19"></line>
+                    </svg>
+                    <span data-i18n="pane.input">原始文本</span>
+                </span>
+                <div class="pane-stats" id="paneStats">
+                    <div class="pane-stat">
+                        <span data-i18n="stats.chars">字符</span>: <span id="statChars">0</span>
+                    </div>
+                    <div class="pane-stat">
+                        <span data-i18n="stats.lines">行数</span>: <span id="statLines">0</span>
+                    </div>
+                    <div class="pane-stat">
+                        <span data-i18n="stats.cursor">行列</span>: <span id="statCursor">1:1</span>
+                    </div>
+                </div>
+            </div>
+            <div class="editor-container">
+                <textarea id="inputArea" data-i18n-placeholder="placeholder.input" spellcheck="false"></textarea>
+                <pre id="inputMirror" aria-hidden="true"></pre>
+            </div>
+            <div class="drop-zone" id="dropZone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <h3 data-i18n="drop.title">释放以上传文件</h3>
+            </div>
+        </div>
+
+        <div class="pane">
+            <div class="pane-header">
+                <span class="pane-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span data-i18n="pane.output">对比预览</span>
+                </span>
+                <div class="filter-tabs" id="filterTabs" style="display: none;">
+                    <button class="filter-tab active" onclick="filterView('all')">
+                        <span data-i18n="filter.all">全部</span><span class="count" id="tabAll">0</span>
+                    </button>
+                    <button class="filter-tab" onclick="filterView('kept')">
+                        <span data-i18n="filter.kept">保留</span><span class="count" id="tabKept">0</span>
+                    </button>
+                    <button class="filter-tab" onclick="filterView('replaced')">
+                        <span data-i18n="filter.replaced">替换</span><span class="count" id="tabReplaced">0</span>
+                    </button>
+                    <button class="filter-tab" onclick="filterView('deleted')">
+                        <span data-i18n="filter.deleted">删除</span><span class="count" id="tabDeleted">0</span>
+                    </button>
+                </div>
+            </div>
+            <div class="output-viewer" id="outputViewer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <div data-i18n="empty.ready">准备就绪</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="processing" id="processing">
+        <div class="spinner"></div>
+        <div data-i18n="processing">正在处理...</div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" data-i18n="modal.settings.title">参数设置</div>
+                <button class="icon-btn" onclick="closeModal('settingsModal')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Import/Export Settings -->
+                <div class="section">
+                    <div class="section-title" data-i18n="settings.config.title">配置管理</div>
+                    <div class="settings-actions">
+                        <button class="btn" onclick="exportSettings()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span data-i18n="settings.config.export">导出配置</span>
+                        </button>
+                        <button class="btn" onclick="importSettings()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span data-i18n="settings.config.import">导入配置</span>
+                        </button>
+                        <input type="file" id="settingsFileInput" style="display: none;" accept=".json" onchange="handleSettingsImport(event)">
+                    </div>
+                </div>
+
+                <!-- Basic Cleaning -->
+                <div class="section">
+                    <div class="section-title" data-i18n="settings.basic">基础清理</div>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="optTrim" checked>
+                            <label for="optTrim" data-i18n="settings.trim">去除行首行尾空格</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="optEmpty" checked>
+                            <label for="optEmpty" data-i18n="settings.empty">压缩连续空行</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="optPunctuation">
+                            <label for="optPunctuation" data-i18n="settings.punctuation">英文标点转中文标点</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="optQuotes">
+                            <label for="optQuotes" data-i18n="settings.quotes">引号规整（自动识别中英文成对引号）</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Replace Rules -->
+                <div class="section">
+                    <div class="section-title" data-i18n="settings.replace.title">智能替换规则（正则）</div>
+                    <div id="replaceRules" class="rule-list"></div>
+                    <button class="btn btn-sm" onclick="addReplaceRule()" style="margin-top: 12px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span data-i18n="settings.replace.add">添加替换规则</span>
+                    </button>
+                </div>
+
+                <!-- Chapter Title Rules -->
+                <div class="section">
+                    <div class="section-title" data-i18n="settings.chapter.title">章节标题样式规则（1-6级）</div>
+                    <div id="chapterRules" class="rule-list"></div>
+                    <button class="btn btn-sm" onclick="addChapterRule()" style="margin-top: 12px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span data-i18n="settings.chapter.add">添加章节规则</span>
+                    </button>
+                </div>
+
+                <!-- Garbage/Ad Rules -->
+                <div class="section">
+                    <div class="section-title" data-i18n="settings.filter.title">乱码与广告过滤</div>
+                    <div class="form-group">
+                        <div class="form-label" data-i18n="settings.filter.garbage">乱码检测正则（匹配则删除整行）</div>
+                        <textarea class="form-control" id="garbagePattern" rows="2">^[^\u4e00-\u9fa5a-zA-Z0-9\s]{10,}$</textarea>
+                        <div class="form-hint" data-i18n="settings.filter.garbage.hint">默认：连续10个以上非中文非英文非数字字符</div>
+                    </div>
+                    <div class="form-group" style="margin-top: 16px;">
+                        <div class="form-label" data-i18n="settings.filter.ads">广告关键词（每行一个，忽略全角半角）</div>
+                        <textarea class="form-control" id="adKeywords" rows="4"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('settingsModal')" data-i18n="btn.cancel">取消</button>
+                <button class="btn btn-primary" onclick="saveSettings()" data-i18n="btn.save">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Modal -->
+    <div class="modal-overlay" id="analysisModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" data-i18n="modal.analysis.title">智能分析结果</div>
+                <button class="icon-btn" onclick="closeModal('analysisModal')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="section">
+                    <div class="section-title" data-i18n="modal.analysis.ads">疑似广告信息</div>
+                    <textarea class="form-control" id="analysisResult" style="min-height: 200px;"></textarea>
+                    <div class="form-hint" data-i18n="modal.analysis.hint">这些关键词将被用于过滤，您可以直接编辑后点击"应用并清洁"</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('analysisModal')" data-i18n="btn.cancel">取消</button>
+                <button class="btn btn-primary" onclick="applyAnalysis()" data-i18n="btn.apply">应用并清洁</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" data-i18n="modal.help.title">使用帮助</div>
+                <button class="icon-btn" onclick="closeModal('helpModal')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="helpContent"></div>
+        </div>
+    </div>
+
+    <!-- Filename Dialog -->
+    <div class="modal-overlay" id="filenameModal">
+        <div class="filename-dialog">
+            <div class="filename-dialog-title" data-i18n="modal.filename.title">导出文件</div>
+            <div class="form-label" data-i18n="modal.filename.label">文件名</div>
+            <input type="text" class="filename-input" id="filenameInput" placeholder="请输入文件名">
+            <div class="filename-hint" data-i18n="modal.filename.hint">默认取自第一行非空内容，不含扩展名</div>
+            <div class="dialog-buttons">
+                <button class="btn" onclick="closeModal('filenameModal')" data-i18n="btn.cancel">取消</button>
+                <button class="btn btn-primary" onclick="confirmExport()" data-i18n="btn.confirm">确认导出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Multi-field Input Dialog -->
+    <div class="modal-overlay" id="inputDialog">
+        <div class="filename-dialog">
+            <div class="input-dialog-title" id="dialogTitle" style="font-size: 16px; font-weight: 600; margin-bottom: 20px; color: var(--text-primary);">输入</div>
+            <div id="dialogFields"></div>
+            <div class="dialog-buttons" style="margin-top: 20px;">
+                <button class="btn" onclick="closeInputDialog()" data-i18n="btn.cancel">取消</button>
+                <button class="btn btn-primary" onclick="confirmInputDialog()" data-i18n="btn.confirm">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ==========================================
+         * I18N SYSTEM - 补全缺失的翻译键
+         * ==========================================
+         */
+        const i18nData = {
+            zh: {
+                'app.title': '文本清洁工作站',
+                'btn.paste': '粘贴', 'btn.open': '打开', 'btn.analyze': '智能分析',
+                'btn.clean': '对比清洁', 'btn.exportTxt': '导出TXT', 'btn.exportDocx': '导出DOCX',
+                'btn.cancel': '取消', 'btn.save': '保存设置', 'btn.apply': '应用并清洁', 
+                'btn.confirm': '确认', 'btn.edit': '编辑', 'btn.delete': '删除', 'btn.view': '查看',
+                'pane.input': '原始文本', 'pane.output': '对比预览',
+                'placeholder.input': '在此粘贴文本，或拖放文件到此处...',
+                'drop.title': '释放以上传文件',
+                'filter.all': '全部', 'filter.kept': '保留', 'filter.replaced': '替换', 'filter.deleted': '删除',
+                'empty.ready': '准备就绪', 'processing': '正在处理...',
+                'modal.settings.title': '参数设置', 'modal.analysis.title': '智能分析结果',
+                'modal.help.title': '使用帮助', 'modal.filename.title': '导出文件',
+                'modal.filename.label': '文件名', 'modal.filename.hint': '默认取自第一行非空内容，不含扩展名',
+                'settings.basic': '基础清理', 'settings.trim': '去除行首行尾空格',
+                'settings.empty': '压缩连续空行', 'settings.punctuation': '英文标点转中文标点',
+                'settings.quotes': '引号规整（自动识别中英文成对引号）',
+                'settings.config.title': '配置管理',
+                'settings.config.export': '导出配置',
+                'settings.config.import': '导入配置',
+                'settings.replace.title': '智能替换规则（正则）',
+                'settings.replace.add': '添加替换规则',
+                'settings.replace.name': '规则名称',
+                'settings.replace.pattern': '正则表达式',
+                'settings.replace.replacement': '替换为（\\n表示换行）',
+                'settings.chapter.title': '章节标题样式规则（1-6级）',
+                'settings.chapter.add': '添加章节规则',
+                'settings.chapter.name': '规则名称',
+                'settings.chapter.pattern': '正则表达式',
+                'settings.chapter.level': '级别',
+                'settings.filter.title': '乱码与广告过滤',
+                'settings.filter.garbage': '乱码检测正则（匹配则删除整行）',
+                'settings.filter.garbage.hint': '默认：连续10个以上非中文非英文非数字字符',
+                'settings.filter.ads': '广告关键词（每行一个，忽略全角半角）',
+                'modal.analysis.ads': '疑似广告信息',
+                'modal.analysis.hint': '这些关键词将被用于过滤，您可以直接编辑后点击"应用并清洁"',
+                'rule.find': '查找', 'rule.replace': '替换', 'rule.match': '匹配',
+                'stats.chars': '字符', 'stats.lines': '行数', 'stats.cursor': '行列',
+                'reason.consecutive_empty': '连续空行', 
+                'reason.replaced': '已替换', 
+                'reason.ad': '广告',
+                'reason.garbage': '乱码',
+                'report.replaced': '已替换'
+            },
+            en: {
+                'app.title': 'Text Cleaner',
+                'btn.paste': 'Paste', 'btn.open': 'Open', 'btn.analyze': 'Analyze',
+                'btn.clean': 'Clean', 'btn.exportTxt': 'Export TXT', 'btn.exportDocx': 'Export DOCX',
+                'btn.cancel': 'Cancel', 'btn.save': 'Save', 'btn.apply': 'Apply & Clean', 
+                'btn.confirm': 'Confirm', 'btn.edit': 'Edit', 'btn.delete': 'Delete', 'btn.view': 'View',
+                'pane.input': 'Source', 'pane.output': 'Preview',
+                'placeholder.input': 'Paste text here or drop a file...',
+                'drop.title': 'Drop file to upload',
+                'filter.all': 'All', 'filter.kept': 'Kept', 'filter.replaced': 'Replaced', 'filter.deleted': 'Deleted',
+                'empty.ready': 'Ready', 'processing': 'Processing...',
+                'modal.settings.title': 'Settings', 'modal.analysis.title': 'Analysis Result',
+                'modal.help.title': 'Help', 'modal.filename.title': 'Export File',
+                'modal.filename.label': 'Filename', 'modal.filename.hint': 'Default from first non-empty line',
+                'settings.basic': 'Basic Cleaning', 'settings.trim': 'Trim whitespace',
+                'settings.empty': 'Compress empty lines', 'settings.punctuation': 'Punctuation CN',
+                'settings.quotes': 'Normalize Quotes',
+                'settings.config.title': 'Configuration',
+                'settings.config.export': 'Export Settings',
+                'settings.config.import': 'Import Settings',
+                'settings.replace.title': 'Smart Replace Rules (Regex)',
+                'settings.replace.add': 'Add Replace Rule',
+                'settings.replace.name': 'Rule Name',
+                'settings.replace.pattern': 'Regex Pattern',
+                'settings.replace.replacement': 'Replace with (\\n for newline)',
+                'settings.chapter.title': 'Chapter Title Rules (Level 1-6)',
+                'settings.chapter.add': 'Add Chapter Rule',
+                'settings.chapter.name': 'Rule Name',
+                'settings.chapter.pattern': 'Regex Pattern',
+                'settings.chapter.level': 'Level',
+                'settings.filter.title': 'Garbage & Ad Filter',
+                'settings.filter.garbage': 'Garbage Detection Regex (delete line if match)',
+                'settings.filter.garbage.hint': 'Default: 10+ consecutive non-CN/EN/num chars',
+                'settings.filter.ads': 'Ad Keywords (one per line, ignore width)',
+                'modal.analysis.ads': 'Potential Ads Detected',
+                'modal.analysis.hint': 'Edit and click "Apply & Clean" to use these keywords',
+                'rule.find': 'Find', 'rule.replace': 'Replace', 'rule.match': 'Match',
+                'stats.chars': 'Chars', 'stats.lines': 'Lines', 'stats.cursor': 'Cursor',
+                'reason.consecutive_empty': 'Consecutive Empty',
+                'reason.replaced': 'Replaced', 
+                'reason.ad': 'Ad',
+                'reason.garbage': 'Garbage',
+                'report.replaced': 'Replaced'
+            }
+        };
+
+        let currentLang = 'zh';
+        let currentExportFormat = null;
+        let lastProcessedLines = []; // 保存上次处理结果用于语言切换刷新
+
+        function switchLang(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+            updateUI();
+            renderReplaceRules();
+            renderChapterRules();
+            // 如果有处理结果，重新渲染以更新语言标签
+            if (processedLines.length > 0) {
+                renderOutput();
+            }
+        }
+
+        function t(key) {
+            return i18nData[currentLang][key] || key;
+        }
+
+        function updateUI() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (key === 'placeholder.input') {
+                    el.placeholder = t(key);
+                } else if (!el.hasAttribute('data-i18n-keep')) {
+                    // 保留特殊标记的元素内容
+                    el.textContent = t(key);
+                }
+            });
+            renderHelp();
+        }
+
+        function renderHelp() {
+            const content = {
+                zh: `
+                    <div class="section"><div class="section-title">工作流程</div>
+                    <p style="line-height: 1.8; color: var(--text-secondary);">
+                    1. <strong>粘贴或打开</strong>文本文件<br>
+                    2. 点击<strong>智能分析</strong>自动识别广告关键词<br>
+                    3. 点击<strong>对比清洁</strong>查看处理结果<br>
+                    4. 点击右侧<strong>保留/替换/删除</strong>标签筛选查看<br>
+                    5. 点击<strong>导出</strong>下载纯净版文本</p></div>
+                    <div class="section"><div class="section-title">新增功能</div>
+                    <p style="line-height: 1.8; color: var(--text-secondary);">
+                    • <strong>引号规整</strong>：自动识别中英文引号，确保成对出现<br>
+                    • <strong>标点转换</strong>：英文标点转为中文全角标点<br>
+                    • <strong>替换标记</strong>：被替换的行会特殊标记，可单独查看</p></div>
+                    <div class="section"><div class="section-title">配置管理</div>
+                    <p style="line-height: 1.8; color: var(--text-secondary);">
+                    • 点击<strong>导出配置</strong>可将所有规则保存为JSON文件<br>
+                    • 点击<strong>导入配置</strong>可加载之前保存的规则</p></div>`,
+                en: `<div class="section"><div class="section-title">Workflow</div>
+                    <p style="line-height: 1.8; color: var(--text-secondary);">
+                    1. <strong>Paste or open</strong> a text file<br>
+                    2. Click <strong>Analyze</strong> to detect ads<br>
+                    3. Click <strong>Clean</strong> to preview<br>
+                    4. Use <strong>Kept/Replaced/Deleted</strong> tabs to filter<br>
+                    5. Click <strong>Export</strong> to download</p></div>`
+            };
+            document.getElementById('helpContent').innerHTML = content[currentLang];
+        }
+
+        /**
+         * ==========================================
+         * THEME SYSTEM
+         * ==========================================
+         */
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        /**
+         * ==========================================
+         * STATE & CONFIG
+         * ==========================================
+         */
+        let processedLines = [];
+        let currentFilter = 'all';
+        let replaceReport = [];
+
+        let replaceRules = [
+            { id: 1, name: '章节标题格式化', pattern: '^(第[一二三四五六七八九十百千万\\d]+章)\\s*(.+)$', replacement: '$1 $2', enabled: false },
+            { id: 2, name: '去除P站下载器信息', pattern: '^((https://www\\.pixiv)|(第\\d+章)|(更新日期:\\s)|(#)|(\\-{5}\\s\\S+\\s\\-{5}))[^\\s]*$', replacement: '', enabled: false }
+        ];
+
+        let chapterRules = [
+            { id: 1, name: '第一章 标题', pattern: '^(第[一二三四五六七八九十百千万\\d]+章)[\\s　]*(.+)$', level: 1, enabled: true },
+            { id: 2, name: '第1节 标题', pattern: '^(第[一二三四五六七八九十百千万\\d]+节)[\\s　]*(.+)$', level: 2, enabled: true },
+            { id: 3, name: '数字序号', pattern: '^(\\s*[一二三四五六七八九十百千万IXVCDMLixv\\d]+)[、：:]?[\\s　]*$', level: 2, enabled: true },
+        ];
+
+        let garbagePattern = '^[^\\u4e00-\\u9fa5a-zA-Z0-9\\s]{10,}$';
+
+        const builtInAdPatterns = [
+            'xiaoshuotxt', '小说天堂', 'txt小说',  '小说网', 'txt下载', '手机阅读', '电子书下载'
+        ];
+
+        /**
+         * ==========================================
+         * STATS UPDATE
+         * ==========================================
+         */
+        const inputArea = document.getElementById('inputArea');
+        const statChars = document.getElementById('statChars');
+        const statLines = document.getElementById('statLines');
+        const statCursor = document.getElementById('statCursor');
+
+        function updateStats() {
+            const text = inputArea.value;
+            statChars.textContent = text.length.toLocaleString();
+            statLines.textContent = text.split('\n').length.toLocaleString();
+        }
+
+        function updateCursorPos() {
+            const pos = inputArea.selectionStart;
+            const textBefore = inputArea.value.substring(0, pos);
+            const lines = textBefore.split('\n');
+            const currentLine = lines.length;
+            const currentCol = lines[lines.length - 1].length + 1;
+            statCursor.textContent = `${currentLine}:${currentCol}`;
+        }
+
+        // 同步镜像内容用于精确测量
+        function syncMirror() {
+            const mirror = document.getElementById('inputMirror');
+            const text = inputArea.value;
+            // 转义HTML，保留换行和空格
+            mirror.textContent = text;
+            // 同步宽度（因为textarea可能有滚动条）
+            mirror.style.width = inputArea.clientWidth + 'px';
+        }
+
+        // 在input和resize时同步
+        inputArea.addEventListener('input', syncMirror);
+        window.addEventListener('resize', syncMirror);
+        // 初始化一次
+        setTimeout(syncMirror, 0);
+
+        inputArea.addEventListener('input', updateStats);
+        inputArea.addEventListener('click', updateCursorPos);
+        inputArea.addEventListener('keyup', updateCursorPos);
+        inputArea.addEventListener('scroll', updateCursorPos);
+
+        /**
+         * ==========================================
+         * PUNCTUATION & QUOTES UTILITIES
+         * ==========================================
+         */
+        // 英文标点转中文标点映射
+        const punctuationMap = {
+            ',': '，', '.': '。', '!': '！', '?': '？', ':': '：', ';': '；',
+            '(': '（', ')': '）', '[': '【', ']': '】', '{': '｛', '}': '｝',
+            '<': '《', '>': '》', '/': '／', '\\': '＼', '|': '｜', '@': '＠',
+            '#': '＃', '$': '＄', '%': '％', '^': '＾', '&': '＆', '*': '＊',
+            '_': '＿', '+': '＋', '=': '＝', '~': '～', '`': '｀'
+        };
+
+        function convertPunctuation(text) {
+            return text.split('').map(char => punctuationMap[char] || char).join('');
+        }
+
+        // 引号规整：处理各种错误配对情况
+        function normalizeQuotes(text) {
+            const hasChinese = /[\u4e00-\u9fa5]/.test(text);
+            
+            if (!hasChinese) {
+                // 英文环境：中文引号全部转为英文
+                return text.replace(/[“”]/g, '"')
+                        .replace(/[‘’]/g, "'")
+                        .replace(/[「」『』]/g, '"');
+            }
+            
+            // 中文环境：逐行、逐类型处理，只修复配对错误
+            return text.split('\n').map(line => {
+                // 1. 英文引号先转为中文（统一）
+                let result = line.replace(/"/g, '“').replace(/'/g, '‘');
+                
+                // 2. 分别修复各类引号的配对（互不干扰）
+                result = fixQuotePair(result, '“', '”');  // 双引号
+                result = fixQuotePair(result, '‘', '’');  // 单引号
+                result = fixQuotePair(result, '「', '」'); // 方头括号
+                result = fixQuotePair(result, '『', '』'); // 六角括号
+                
+                return result;
+            }).join('\n');
+        }
+
+        function fixQuotePair(text, left, right) {
+            let chars = text.split('');
+            let positions = [];
+            
+            // 找出该类型所有引号的位置
+            for (let i = 0; i < chars.length; i++) {
+                if (chars[i] === left || chars[i] === right) {
+                    positions.push(i);
+                }
+            }
+            
+            // 少于2个不处理（避免强制补全错误）
+            if (positions.length < 2) return text;
+            
+            // 成对检查：0,2,4...位置应为左引号，1,3,5...应为右引号
+            for (let i = 0; i < positions.length; i++) {
+                const pos = positions[i];
+                const shouldBeLeft = (i % 2 === 0);
+                const correctChar = shouldBeLeft ? left : right;
+                
+                if (chars[pos] !== correctChar) {
+                    chars[pos] = correctChar;
+                }
+            }
+            
+            return chars.join('');
+        }
+
+        /**
+         * ==========================================
+         * AD DETECTION - 改进的模糊匹配
+         * ==========================================
+         */
+        // 规范化文本用于广告检测（移除所有空白和标点，转为小写）
+        function normalizeForAdDetection(text) {
+            return toHalfWidth(text)
+                .replace(/[\s\p{P}\p{S}]/gu, '') // 移除所有空白和标点符号
+                .toLowerCase();
+        }
+
+        function containsAdKeyword(text, keywords) {
+            const normalizedText = normalizeForAdDetection(text);
+            
+            for (let keyword of keywords) {
+                const normalizedKeyword = normalizeForAdDetection(keyword);
+                if (normalizedKeyword.length > 0 && normalizedText.includes(normalizedKeyword)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * ==========================================
+         * SETTINGS IMPORT/EXPORT
+         * ==========================================
+         */
+        function exportSettings() {
+            const settings = {
+                version: '1.1',
+                timestamp: new Date().toISOString(),
+                replaceRules: replaceRules,
+                chapterRules: chapterRules,
+                garbagePattern: garbagePattern,
+                adKeywords: document.getElementById('adKeywords')?.value || builtInAdPatterns.join('\n'),
+                basicOptions: {
+                    trim: document.getElementById('optTrim')?.checked ?? true,
+                    empty: document.getElementById('optEmpty')?.checked ?? false,
+                    punctuation: document.getElementById('optPunctuation')?.checked ?? false,
+                    quotes: document.getElementById('optQuotes')?.checked ?? false
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `text-cleaner-config-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast(t('settings.config.export') + ' OK');
+        }
+
+        function importSettings() {
+            document.getElementById('settingsFileInput').click();
+        }
+
+        function handleSettingsImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const settings = JSON.parse(e.target.result);
+                    
+                    if (!settings.replaceRules || !settings.chapterRules) {
+                        throw new Error('Invalid config format');
+                    }
+                    
+                    replaceRules = settings.replaceRules || [];
+                    chapterRules = settings.chapterRules || [];
+                    garbagePattern = settings.garbagePattern || '^[^\\u4e00-\\u9fa5a-zA-Z0-9\\s]{10,}$';
+                    
+                    if (settings.adKeywords) {
+                        document.getElementById('adKeywords').value = settings.adKeywords;
+                    }
+                    
+                    if (settings.basicOptions) {
+                        document.getElementById('optTrim').checked = settings.basicOptions.trim ?? true;
+                        document.getElementById('optEmpty').checked = settings.basicOptions.empty ?? false;
+                        document.getElementById('optPunctuation').checked = settings.basicOptions.punctuation ?? false;
+                        document.getElementById('optQuotes').checked = settings.basicOptions.quotes ?? false;
+                    }
+                    
+                    renderReplaceRules();
+                    renderChapterRules();
+                    document.getElementById('garbagePattern').value = garbagePattern;
+                    
+                    showToast(t('settings.config.import') + ' OK');
+                } catch (err) {
+                    showToast('Import failed: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        /**
+         * ==========================================
+         * UTILITIES
+         * ==========================================
+         */
+        function toHalfWidth(str) {
+            return str.replace(/[\uff01-\uff5e]/g, ch => 
+                String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+            ).replace(/\u3000/g, ' ');
+        }
+
+        function normalize(str) {
+            return toHalfWidth(str.toLowerCase());
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function showProcessing() {
+            document.getElementById('processing').classList.add('visible');
+        }
+
+        function hideProcessing() {
+            document.getElementById('processing').classList.remove('visible');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        /**
+         * ==========================================
+         * MODAL & DIALOG MANAGEMENT
+         * ==========================================
+         */
+        function openSettings() {
+            renderReplaceRules();
+            renderChapterRules();
+            document.getElementById('garbagePattern').value = garbagePattern;
+            document.getElementById('adKeywords').value = builtInAdPatterns.join('\n');
+            document.getElementById('settingsModal').classList.add('visible');
+        }
+
+        function openHelp() {
+            document.getElementById('helpModal').classList.add('visible');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('visible');
+        }
+
+        let dialogCallback = null;
+        let dialogFields = [];
+
+        function showMultiInputDialog(title, fields, callback) {
+            dialogFields = fields;
+            dialogCallback = callback;
+            document.getElementById('dialogTitle').textContent = title;
+            
+            const container = document.getElementById('dialogFields');
+            container.innerHTML = fields.map((f, i) => `
+                <div class="input-dialog-field" style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">${f.label}</label>
+                    ${f.type === 'select' 
+                        ? `<select id="field_${i}" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 14px; font-family: inherit;">${f.options.map(o => `<option value="${o.value}" ${o.value == f.value ? 'selected' : ''}>${o.label}</option>`).join('')}</select>`
+                        : `<input type="${f.type || 'text'}" id="field_${i}" placeholder="${f.placeholder || ''}" value="${f.value || ''}" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 14px; font-family: inherit;">`
+                    }
+                </div>
+            `).join('');
+            
+            document.getElementById('inputDialog').classList.add('visible');
+        }
+
+        function closeInputDialog() {
+            document.getElementById('inputDialog').classList.remove('visible');
+            dialogCallback = null;
+        }
+
+        function confirmInputDialog() {
+            const values = dialogFields.map((_, i) => {
+                const el = document.getElementById(`field_${i}`);
+                return el ? el.value : '';
+            });
+            if (dialogCallback) dialogCallback(values);
+            closeInputDialog();
+        }
+
+        /**
+         * ==========================================
+         * EXPORT WITH FILENAME
+         * ==========================================
+         */
+        function getDefaultFilename() {
+            const text = inputArea.value;
+            if (!text.trim()) return 'cleaned';
+            
+            const firstLine = text.split('\n').find(line => line.trim()) || '';
+            // 去除所有空白字符，取前10个字符
+            const cleaned = firstLine.replace(/\s/g, '').substring(0, 10);
+            return cleaned || 'cleaned';
+        }
+
+        function prepareExport(format) {
+            if (processedLines.length === 0) {
+                showToast(currentLang === 'zh' ? '请先执行对比清洁' : 'Please clean first');
+                return;
+            }
+            
+            currentExportFormat = format;
+            const defaultName = getDefaultFilename();
+            document.getElementById('filenameInput').value = defaultName;
+            document.getElementById('filenameModal').classList.add('visible');
+        }
+
+        async function confirmExport() {
+            let filename = document.getElementById('filenameInput').value.trim();
+            if (!filename) filename = 'cleaned';
+            
+            closeModal('filenameModal');
+            showProcessing();
+
+            const cleanLines = processedLines.filter(l => !l.deleted);
+
+            if (currentExportFormat === 'txt') {
+                const content = cleanLines.map(l => l.content).join('\n');
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                downloadBlob(blob, filename + '.txt');
+                showToast('TXT exported');
+            } else if (currentExportFormat === 'docx') {
+                await exportAsDocx(cleanLines, filename);
+            }
+
+            hideProcessing();
+        }
+
+        /**
+         * ==========================================
+         * RULE MANAGEMENT
+         * ==========================================
+         */
+        function renderReplaceRules() {
+            const container = document.getElementById('replaceRules');
+            container.innerHTML = replaceRules.map(rule => `
+                <div class="rule-item">
+                    <div class="rule-header">
+                        <div class="rule-meta">
+                            <input type="checkbox" ${rule.enabled ? 'checked' : ''} 
+                                   onchange="toggleReplaceRule(${rule.id})">
+                            <span class="rule-name">${escapeHtml(rule.name)}</span>
+                        </div>
+                        <div class="rule-actions">
+                            <button class="btn btn-sm" onclick="editReplaceRule(${rule.id})">${t('btn.edit')}</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteReplaceRule(${rule.id})">${t('btn.delete')}</button>
+                        </div>
+                    </div>
+                    <div class="rule-desc">${t('rule.find')}: ${escapeHtml(rule.pattern)}\n${t('rule.replace')}: ${escapeHtml(rule.replacement)}</div>
+                </div>
+            `).join('');
+        }
+
+        function addReplaceRule() {
+            showMultiInputDialog(t('settings.replace.add'), [
+                { label: t('settings.replace.name'), placeholder: '例如：章节标题格式化', value: '' },
+                { label: t('settings.replace.pattern'), placeholder: '^(第\\d+章)\\s*(.+)$', value: '' },
+                { label: t('settings.replace.replacement'), placeholder: '$1 $2', value: '' }
+            ], (values) => {
+                if (!values[0] || !values[1]) return;
+                replaceRules.push({
+                    id: Date.now(),
+                    name: values[0],
+                    pattern: values[1],
+                    replacement: values[2].replace(/\\n/g, '\n'),
+                    enabled: true
+                });
+                renderReplaceRules();
+            });
+        }
+
+        function editReplaceRule(id) {
+            const rule = replaceRules.find(r => r.id === id);
+            if (!rule) return;
+            
+            showMultiInputDialog(t('btn.edit') + ' - ' + t('settings.replace.title'), [
+                { label: t('settings.replace.name'), value: rule.name },
+                { label: t('settings.replace.pattern'), value: rule.pattern },
+                { label: t('settings.replace.replacement'), value: rule.replacement.replace(/\n/g, '\\n') }
+            ], (values) => {
+                if (!values[0] || !values[1]) return;
+                rule.name = values[0];
+                rule.pattern = values[1];
+                rule.replacement = values[2].replace(/\\n/g, '\n');
+                renderReplaceRules();
+            });
+        }
+
+        function toggleReplaceRule(id) {
+            const rule = replaceRules.find(r => r.id === id);
+            if (rule) rule.enabled = !rule.enabled;
+        }
+
+        function deleteReplaceRule(id) {
+            replaceRules = replaceRules.filter(r => r.id !== id);
+            renderReplaceRules();
+        }
+
+        function renderChapterRules() {
+            const container = document.getElementById('chapterRules');
+            container.innerHTML = chapterRules.map(rule => `
+                <div class="rule-item">
+                    <div class="rule-header">
+                        <div class="rule-meta">
+                            <input type="checkbox" ${rule.enabled ? 'checked' : ''} 
+                                   onchange="toggleChapterRule(${rule.id})">
+                            <span class="rule-name">${escapeHtml(rule.name)}</span>
+                            <span class="rule-badge badge-level-${rule.level}">Lv${rule.level}</span>
+                        </div>
+                        <div class="rule-actions">
+                            <button class="btn btn-sm" onclick="editChapterRule(${rule.id})">${t('btn.edit')}</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteChapterRule(${rule.id})">${t('btn.delete')}</button>
+                        </div>
+                    </div>
+                    <div class="rule-desc">${t('rule.match')}: ${escapeHtml(rule.pattern)}</div>
+                </div>
+            `).join('');
+        }
+
+        function addChapterRule() {
+            showMultiInputDialog(t('settings.chapter.add'), [
+                { label: t('settings.chapter.name'), placeholder: '例如：第X章 标题', value: '' },
+                { label: t('settings.chapter.pattern'), placeholder: '^(第[一二三四五六七八九十百千万\\d]+章)[\\s　]*(.+)$', value: '' },
+                { label: t('settings.chapter.level'), type: 'select', options: [
+                    { value: '1', label: 'Level 1' },
+                    { value: '2', label: 'Level 2' },
+                    { value: '3', label: 'Level 3' },
+                    { value: '4', label: 'Level 4' },
+                    { value: '5', label: 'Level 5' },
+                    { value: '6', label: 'Level 6' }
+                ], value: '1' }
+            ], (values) => {
+                if (!values[0] || !values[1]) return;
+                chapterRules.push({
+                    id: Date.now(),
+                    name: values[0],
+                    pattern: values[1],
+                    level: parseInt(values[2]),
+                    enabled: true
+                });
+                renderChapterRules();
+            });
+        }
+
+        function editChapterRule(id) {
+            const rule = chapterRules.find(r => r.id === id);
+            if (!rule) return;
+            
+            showMultiInputDialog(t('btn.edit') + ' - ' + t('settings.chapter.title'), [
+                { label: t('settings.chapter.name'), value: rule.name },
+                { label: t('settings.chapter.pattern'), value: rule.pattern },
+                { label: t('settings.chapter.level'), type: 'select', options: [
+                    { value: '1', label: 'Level 1' },
+                    { value: '2', label: 'Level 2' },
+                    { value: '3', label: 'Level 3' },
+                    { value: '4', label: 'Level 4' },
+                    { value: '5', label: 'Level 5' },
+                    { value: '6', label: 'Level 6' }
+                ], value: rule.level.toString() }
+            ], (values) => {
+                if (!values[0] || !values[1]) return;
+                rule.name = values[0];
+                rule.pattern = values[1];
+                rule.level = parseInt(values[2]);
+                renderChapterRules();
+            });
+        }
+
+        function toggleChapterRule(id) {
+            const rule = chapterRules.find(r => r.id === id);
+            if (rule) rule.enabled = !rule.enabled;
+        }
+
+        function deleteChapterRule(id) {
+            chapterRules = chapterRules.filter(r => r.id !== id);
+            renderChapterRules();
+        }
+
+        function saveSettings() {
+            garbagePattern = document.getElementById('garbagePattern').value;
+            closeModal('settingsModal');
+            showToast(t('btn.save') + ' OK');
+        }
+
+        /**
+         * ==========================================
+         * FILE OPERATIONS
+         * ==========================================
+         */
+        const dropZone = document.getElementById('dropZone');
+
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            if (e.target === dropZone) dropZone.classList.remove('dragover');
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            showProcessing();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                inputArea.value = e.target.result;
+                updateStats();
+                hideProcessing();
+                showToast(`${t('btn.open')}: ${file.name}`);
+            };
+            reader.readAsText(file);
+        }
+
+        function openFile() {
+            document.getElementById('fileInput').click();
+        }
+
+        function pasteText() {
+            navigator.clipboard.readText().then(text => {
+                inputArea.value = text;
+                updateStats();
+                showToast(t('btn.paste') + ' OK');
+            }).catch(() => showToast('Clipboard access denied'));
+        }
+
+        /**
+         * ==========================================
+         * ANALYSIS & PROCESSING
+         * ==========================================
+         */
+        function analyzeText() {
+            const text = inputArea.value;
+            if (!text.trim()) {
+                showToast(currentLang === 'zh' ? '请先输入文本' : 'Please input text first');
+                return;
+            }
+
+            const lines = text.split('\n');
+            const potentialAds = new Set();
+            
+            lines.forEach(line => {
+                if (/www|http|\.com|\.net|\.org/i.test(line)) {
+                    if (/[＿\/\\｜。．Ａ-Ｚａ-ｚ]/.test(line)) {
+                        const matches = line.match(/[a-zA-Z0-9]+[\.＿][a-zA-Z0-9]+/g);
+                        if (matches) matches.forEach(m => potentialAds.add(toHalfWidth(m)));
+                    }
+                }
+                if (/小说|txt|TXT/.test(line) && /[\/\\_｜]/.test(line)) {
+                    potentialAds.add(toHalfWidth(line.substring(0, 30)));
+                }
+            });
+
+            const allPatterns = [...new Set([...builtInAdPatterns, ...potentialAds])];
+            document.getElementById('analysisResult').value = allPatterns.join('\n');
+            document.getElementById('analysisModal').classList.add('visible');
+        }
+
+        function applyAnalysis() {
+            const keywords = document.getElementById('analysisResult').value;
+            document.getElementById('adKeywords').value = keywords;
+            closeModal('analysisModal');
+            processText();
+        }
+
+        async function processText() {
+            const text = inputArea.value;
+            if (!text.trim()) {
+                showToast(currentLang === 'zh' ? '请先输入文本' : 'Please input text first');
+                return;
+            }
+
+            const lines = text.split('\n');
+            showProcessing();
+
+            const adKeywords = (document.getElementById('adKeywords')?.value || builtInAdPatterns.join('\n'))
+                              .split('\n').map(k => k.trim()).filter(k => k);
+            
+            const options = {
+                trim: document.getElementById('optTrim')?.checked ?? true,
+                empty: document.getElementById('optEmpty')?.checked ?? false,
+                punctuation: document.getElementById('optPunctuation')?.checked ?? false,
+                quotes: document.getElementById('optQuotes')?.checked ?? false,
+                replace: replaceRules.filter(r => r.enabled),
+                chapters: chapterRules.filter(r => r.enabled),
+                garbageRegex: garbagePattern ? new RegExp(garbagePattern) : null
+            };
+
+            processedLines = [];
+            replaceReport = [];
+            let lastWasEmpty = false;
+            let replaceId = 0;
+
+            const batchSize = 100;
+            for (let i = 0; i < lines.length; i += batchSize) {
+                await new Promise(resolve => {
+                    setTimeout(() => {
+                        const batch = lines.slice(i, i + batchSize);
+                        batch.forEach((line, idx) => {
+                            const globalIdx = i + idx;
+                            const result = processLine(line, adKeywords, options, lastWasEmpty, globalIdx);
+                            
+                            if (!result.deleted && result.content === '') {
+                                lastWasEmpty = true;
+                            } else if (!result.deleted) {
+                                lastWasEmpty = false;
+                            }
+                            
+                            processedLines.push({
+                                index: globalIdx + 1,
+                                original: line,
+                                content: result.content,
+                                deleted: result.deleted,
+                                replaced: result.replaced,
+                                replaceInfo: result.replaceInfo,
+                                reason: result.reason,
+                                chapterLevel: result.chapterLevel
+                            });
+
+                            if (result.replaced && result.replaceInfo) {
+                                replaceReport.push({
+                                    line: globalIdx + 1,
+                                    ...result.replaceInfo
+                                });
+                            }
+                        });
+                        resolve();
+                    }, 0);
+                });
+            }
+
+            // 保存结果用于语言切换刷新
+            lastProcessedLines = JSON.parse(JSON.stringify(processedLines));
+            
+            hideProcessing();
+            renderOutput();
+            showToast(t('btn.clean') + ' OK');
+        }
+
+        function processLine(line, adKeywords, options, lastWasEmpty, lineIndex) {
+            let content = line;
+            let deleted = false;
+            let reason = '';
+            let chapterLevel = null;
+            let replaced = false;
+            let replaceInfo = null;
+            let originalContent = line;
+
+            // 1. 广告检测（最先进行，避免对广告内容进行后续处理）
+            if (containsAdKeyword(content, adKeywords)) {
+                return { content, deleted: true, reason: 'ad', chapterLevel, replaced: false };
+            }
+
+            // 2. Garbage detection
+            if (options.garbageRegex && content !== '') {
+                try {
+                    if (options.garbageRegex.test(content)) {
+                        return { content, deleted: true, reason: 'garbage', chapterLevel, replaced: false };
+                    }
+                } catch (e) {}
+            }
+
+            // 3. 标点转换（引号规整之前）
+            if (options.punctuation) {
+                const converted = convertPunctuation(content);
+                if (converted !== content) {
+                    content = converted;
+                    replaced = true;
+                    replaceInfo = { type: 'punctuation', desc: '标点转换' };
+                }
+            }
+
+            // 4. 引号规整（在标点转换之后）
+            if (options.quotes) {
+                const normalized = normalizeQuotes(content);
+                if (normalized !== content) {
+                    content = normalized;
+                    replaced = true;
+                    replaceInfo = { type: 'quotes', desc: '引号规整' };
+                }
+            }
+
+            // 5. Smart replace
+            if (options.replace.length > 0) {
+                for (let rule of options.replace) {
+                    try {
+                        const regex = new RegExp(rule.pattern, 'g');
+                        if (regex.test(content)) {
+                            const newContent = content.replace(regex, rule.replacement);
+                            if (newContent !== content) {
+                                content = newContent;
+                                replaced = true;
+                                replaceInfo = { type: 'regex', rule: rule.name, desc: `规则: ${rule.name}` };
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            // 6. Chapter detection
+            if (options.chapters.length > 0) {
+                const sortedChapters = [...options.chapters].sort((a, b) => b.level - a.level);
+                for (let rule of sortedChapters) {
+                    try {
+                        const regex = new RegExp(rule.pattern);
+                        if (regex.test(content)) {
+                            chapterLevel = rule.level;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            // 7. Trim
+            if (options.trim) {
+                content = content.trim();
+            }
+
+            // 8. Empty lines
+            if (options.empty && content === '') {
+                if (lastWasEmpty) {
+                    return { content: '', deleted: true, reason: 'consecutive_empty', chapterLevel, replaced: false };
+                }
+            }
+
+            return { 
+                content, 
+                deleted, 
+                reason, 
+                chapterLevel, 
+                replaced, 
+                replaceInfo 
+            };
+        }
+
+        function renderOutput() {
+            const viewer = document.getElementById('outputViewer');
+            const tabs = document.getElementById('filterTabs');
+            
+            tabs.style.display = 'flex';
+            
+            // 替换报告区域
+            let reportHtml = '';
+            if (replaceReport.length > 0) {
+                reportHtml = `
+                    <div class="replace-report">
+                        <div class="replace-report-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            ${t('report.replaced')} (${replaceReport.length})
+                            <button class="view-replaced-btn" onclick="filterView('replaced')">${t('btn.view')}</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let html = reportHtml + '<div class="line-container">';
+            processedLines.forEach((line, idx) => {
+                let className = 'line';
+                if (line.deleted) className += ' deleted';
+                if (line.replaced) className += ' replaced';
+                if (line.chapterLevel && line.chapterLevel >= 1 && line.chapterLevel <= 6) {
+                    className += ` level-${line.chapterLevel}`;
+                }
+                
+                const displayContent = escapeHtml(line.content) || ' ';
+                // 使用data属性存储多语言key和参数，而不是直接存储文本
+                const reasonKey = line.deleted ? `reason.${line.reason}` : (line.replaced ? 'reason.replaced' : '');
+                const reasonLabel = line.deleted ? t(`reason.${line.reason}`) : (line.replaced ? t('reason.replaced') : '');
+                
+                html += `
+                    <div class="${className}" 
+                         data-idx="${idx}" 
+                         data-status="${line.deleted ? 'deleted' : (line.replaced ? 'replaced' : 'kept')}" 
+                         data-reason-key="${reasonKey}"
+                         data-reason-label="${escapeHtml(reasonLabel)}"
+                         onclick="syncToInput(${line.index})">
+                        <span class="line-num">${line.index}</span>
+                        <span class="line-content">${displayContent}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            viewer.innerHTML = html;
+            
+            const total = processedLines.length;
+            const deleted = processedLines.filter(l => l.deleted).length;
+            const replaced = processedLines.filter(l => l.replaced && !l.deleted).length;
+            const kept = total - deleted - replaced;
+            
+            document.getElementById('tabAll').textContent = total;
+            document.getElementById('tabKept').textContent = kept;
+            document.getElementById('tabReplaced').textContent = replaced;
+            document.getElementById('tabDeleted').textContent = deleted;
+            
+            applyFilter(currentFilter || 'all');
+        }
+
+        // 从清理文本同步到原始文本（改进版）
+        function syncToInput(lineNum) {
+            // 1. 高亮右侧对应行
+            document.querySelectorAll('.line').forEach(l => l.classList.remove('active'));
+            const targetLine = document.querySelector(`.line[data-idx="${lineNum - 1}"]`);
+            if (targetLine) {
+                targetLine.classList.add('active');
+                targetLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // 2. 确保镜像已同步
+            syncMirror();
+            const mirror = document.getElementById('inputMirror');
+            
+            // 3. 计算目标行在mirror中的位置
+            const lines = inputArea.value.split('\n');
+            const targetIndex = Math.min(lineNum - 1, lines.length - 1);
+            
+            // 构建临时range来测量位置
+            let charCount = 0;
+            for (let i = 0; i < targetIndex; i++) {
+                charCount += lines[i].length + 1; // +1 for \n
+            }
+            
+            // 在mirror中创建range获取精确像素位置
+            const range = document.createRange();
+            const textNode = mirror.firstChild;
+            if (textNode) {
+                range.setStart(textNode, charCount);
+                range.setEnd(textNode, Math.min(charCount + lines[targetIndex]?.length || 0, textNode.length));
+                
+                const rect = range.getBoundingClientRect();
+                const mirrorRect = mirror.getBoundingClientRect();
+                const relativeTop = rect.top - mirrorRect.top;
+                
+                // 4. 设置textarea滚动位置（居中）
+                const lineHeight = rect.height || 25;
+                inputArea.scrollTop = relativeTop - inputArea.clientHeight / 2 + lineHeight / 2;
+                
+                // 5. 设置光标位置（不聚焦以避免页面跳动，或延迟聚焦）
+                const cursorPos = charCount;
+                inputArea.setSelectionRange(cursorPos, cursorPos);
+                
+                // 可选：临时高亮效果（让用户明确看到对应位置）
+                inputArea.style.background = 'rgba(91, 141, 184, 0.05)';
+                setTimeout(() => {
+                    inputArea.style.background = 'transparent';
+                }, 300);
+            }
+        }
+
+        // 从原始文本同步到清理文本（改进版）
+        inputArea.addEventListener('click', () => {
+            updateCursorPos();
+            const cursorPos = inputArea.selectionStart;
+            const textBeforeCursor = inputArea.value.substring(0, cursorPos);
+            const lineNum = textBeforeCursor.split('\n').length;
+            
+            // 清除之前的高亮
+            document.querySelectorAll('.line').forEach(l => l.classList.remove('active'));
+            
+            // 高亮对应的行（转换为0-based索引）
+            const targetLine = document.querySelector(`.line[data-idx="${lineNum - 1}"]`);
+            if (targetLine) {
+                targetLine.classList.add('active');
+                targetLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        function filterView(type) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.closest('.filter-tab')?.classList.add('active');
+            applyFilter(type);
+        }
+
+        function applyFilter(type) {
+            const lines = document.querySelectorAll('.line');
+            lines.forEach(line => {
+                const status = line.dataset.status;
+                line.classList.toggle('hidden', 
+                    type === 'kept' ? (status === 'deleted' || status === 'replaced') : 
+                    type === 'replaced' ? status !== 'replaced' :
+                    type === 'deleted' ? status !== 'deleted' : false
+                );
+            });
+        }
+
+        /**
+         * ==========================================
+         * EXPORT
+         * ==========================================
+         */
+        async function exportAsDocx(lines, filename) {
+            try {
+                const { Document, Paragraph, TextRun, HeadingLevel, Packer } = docx;
+                
+                const children = [];
+                
+                lines.forEach(line => {
+                    const text = line.content;
+                    const level = parseInt(line.chapterLevel) || 0;
+                    
+                    if (level === 1) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 }
+                        }));
+                    } else if (level === 2) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_2,
+                            spacing: { before: 300, after: 150 }
+                        }));
+                    } else if (level === 3) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_3,
+                            spacing: { before: 240, after: 120 }
+                        }));
+                    } else if (level === 4) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_4,
+                            spacing: { before: 200, after: 100 }
+                        }));
+                    } else if (level === 5) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_5,
+                            spacing: { before: 160, after: 80 }
+                        }));
+                    } else if (level === 6) {
+                        children.push(new Paragraph({
+                            text: text,
+                            heading: HeadingLevel.HEADING_6,
+                            spacing: { before: 120, after: 60 }
+                        }));
+                    } else {
+                        children.push(new Paragraph({
+                            children: [new TextRun({ text: text || '' })],
+                            spacing: { after: 120 }
+                        }));
+                    }
+                });
+
+                const doc = new Document({
+                    sections: [{
+                        properties: {},
+                        children: children
+                    }]
+                });
+
+                const blob = await Packer.toBlob(doc);
+                downloadBlob(blob, filename + '.docx');
+                showToast('DOCX exported');
+            } catch (error) {
+                console.error('DOCX export error:', error);
+                showToast('Export failed');
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /**
+         * ==========================================
+         * INIT
+         * ==========================================
+         */
+        function init() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+
+            updateUI();
+            updateStats();
+
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) overlay.classList.remove('visible');
+                });
+            });
+
+            document.addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    processText();
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

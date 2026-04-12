@@ -98,7 +98,7 @@ Lumina.Search = {
             this.documentResults = docResults;
             this.libraryResults = libResults;
         } catch (err) {
-            window.Logger?.error('Search', '搜索失败', { error: err.message });
+            window.logger?.error('Search', '搜索失败', { error: err.message });
             this.documentResults = [];
             this.libraryResults = [];
         }

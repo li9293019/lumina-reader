@@ -561,7 +561,12 @@ Lumina.Settings = {
                     directory: 'DOCUMENTS',
                     recursive: true
                 });
-            } catch (e) { /* 目录已存在 */ }
+            } catch (e) { 
+                // 忽略"目录已存在"错误
+                if (!e.message?.includes('already exists')) {
+                    console.warn('[Settings] 创建临时目录失败:', e.message);
+                }
+            }
             
             // 小文件（< 5MB）：直接拷贝
             // 大文件：需要特殊处理，但目前 Capacitor 不支持流式拷贝

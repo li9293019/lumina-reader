@@ -506,7 +506,12 @@ Lumina.FontManager = {
                     directory: 'DATA',
                     recursive: true
                 });
-            } catch {}
+            } catch (e) {
+                // 忽略"目录已存在"错误
+                if (!e.message?.includes('already exists')) {
+                    console.warn('[FontManager] 创建字体目录失败:', e.message);
+                }
+            }
             
             // 分块转换 ArrayBuffer 为 Base64，避免堆栈溢出
             const bytes = new Uint8Array(arrayBuffer);

@@ -294,7 +294,12 @@ Lumina.ExportUtils = {
             });
             return true;
         } catch (e) {
-            // 目录已存在或创建失败
+            // 忽略"目录已存在"错误
+            if (e.message?.includes('already exists')) {
+                return true;
+            }
+            // 其他错误也视为成功（目录可能已存在）
+            console.warn('[ExportUtils] 创建导出目录失败:', e.message);
             return true;
         }
     },

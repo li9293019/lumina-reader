@@ -71,23 +71,45 @@ const logger = {
                 }
             }
             
-            // 设置当前日志文件
-            this.currentFile = this.getLogFileName();
+            // 尝试使用默认文件名
+            const defaultFile = this.getLogFileName();
+            let success = await this._tryCreateLogFile(defaultFile);
             
-            // 先测试写入一个空文件
-            try {
-                await Filesystem.writeFile({
-                    path: this.currentFile,
-                    data: '',
-                    directory: 'DOCUMENTS',
-                    encoding: 'utf8'
-                });
-                console.log('[Logger] 测试文件创建成功:', this.currentFile);
-            } catch (writeErr) {
-                console.error('[Logger] 测试文件创建失败:', writeErr.message);
+            if (success) {
+                this.currentFile = defaultFile;
+                console.log('[Logger] 使用默认日志文件:', this.currentFile);
+            } else {
+                // 默认文件名不可用，查找今天已有的可写文件（可能是之前创建的）
+                console.warn('[Logger] 默认文件名不可用，查找今天已有的日志文件');
+                
+                const todayFile = await this._findWritableTodayFile();
+                if (todayFile) {
+                    this.currentFile = todayFile;
+                    console.log('[Logger] 复用今天已有的日志文件:', this.currentFile);
+                } else {
+                    // 没有可用文件，创建新的
+                    console.log('[Logger] 没有找到可用文件，创建新的');
+                    for (let i = 0; i < 10; i++) {
+                        const suffix = Math.random().toString(36).substring(2, 8);
+                        const newFile = this.getLogFileName(suffix);
+                        success = await this._tryCreateLogFile(newFile);
+                        
+                        if (success) {
+                            this.currentFile = newFile;
+                            console.log('[Logger] 创建新日志文件:', this.currentFile);
+                            break;
+                        }
+                    }
+                    
+                    if (!success) {
+                        console.error('[Logger] 无法创建日志文件，禁用文件日志');
+                        this.initialized = false;
+                        return;
+                    }
+                }
             }
             
-            // 清理旧日志
+            // 清理旧日志（保留最近7天）
             await this.cleanupOldLogs();
             
             // 监听全局错误
@@ -103,12 +125,109 @@ const logger = {
     },
     
     /**
-     * 获取日志文件名（按天）
+     * 获取日志文件名（按天，本地时间）
      */
-    getLogFileName() {
+    getLogFileName(suffix = '') {
         const now = new Date();
-        const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        return `${this.config.logDir}/app_${date}.log`;
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
+        return suffix 
+            ? `${this.config.logDir}/app_${date}_${suffix}.log`
+            : `${this.config.logDir}/app_${date}.log`;
+    },
+    
+    /**
+     * 查找今天已有的可写日志文件
+     * 用于APP重启后复用之前创建的带后缀文件
+     * @returns {string|null} 可写文件路径或null
+     */
+    async _findWritableTodayFile() {
+        try {
+            const { Filesystem } = Capacitor.Plugins;
+            const result = await Filesystem.readdir({
+                path: this.config.logDir,
+                directory: 'DOCUMENTS'
+            });
+            
+            if (!result.files || result.files.length === 0) return null;
+            
+            // 获取今天日期前缀
+            const todayPrefix = this.getLogFileName().split('/').pop().replace('.log', '');
+            
+            // 筛选今天的文件（app_2026-04-12.log 或 app_2026-04-12_xxx.log）
+            for (const file of result.files) {
+                if (!file.name.endsWith('.log')) continue;
+                if (!file.name.startsWith(todayPrefix)) continue;
+                
+                const filePath = `${this.config.logDir}/${file.name}`;
+                
+                // 测试是否可写（追加空内容）
+                try {
+                    await Filesystem.appendFile({
+                        path: filePath,
+                        data: '',
+                        directory: 'DOCUMENTS',
+                        encoding: 'utf8'
+                    });
+                    // 可写，返回此文件
+                    return filePath;
+                } catch (e) {
+                    // 不可写，继续检查下一个
+                    continue;
+                }
+            }
+            
+            return null;
+        } catch (e) {
+            return null;
+        }
+    },
+    
+    /**
+     * 尝试创建/使用日志文件
+     * @param {string} filePath - 文件路径
+     * @returns {boolean} 是否成功
+     */
+    async _tryCreateLogFile(filePath) {
+        const { Filesystem } = Capacitor.Plugins;
+        
+        // 先检查文件是否存在
+        let fileExists = false;
+        let fileSize = 0;
+        try {
+            const stat = await Filesystem.stat({
+                path: filePath,
+                directory: 'DOCUMENTS'
+            });
+            fileExists = true;
+            fileSize = stat.size || 0;
+        } catch (e) {
+            fileExists = false;
+        }
+        
+        if (fileExists) {
+            // 文件存在，直接使用（不测试写入，避免触发权限检查）
+            // 真正写入时如果失败会切换到新文件
+            console.log('[Logger] 使用现有日志文件:', filePath, '大小:', fileSize);
+            return true;
+        }
+        
+        // 文件不存在，尝试创建
+        try {
+            await Filesystem.writeFile({
+                path: filePath,
+                data: `[${new Date().toLocaleString()}] [INFO] [Logger] 日志系统初始化\n`,
+                directory: 'DOCUMENTS',
+                encoding: 'utf8'
+            });
+            console.log('[Logger] 创建新日志文件:', filePath);
+            return true;
+        } catch (e) {
+            console.warn('[Logger] 创建文件失败:', e.message);
+            return false;
+        }
     },
     
     /**
@@ -244,13 +363,22 @@ const logger = {
         if (!this.initialized || !this.isNative) return;
         if (this.levels[level] < this.levels[this.config.logLevel]) return;
         
-        const timestamp = new Date().toISOString();
+        // 使用本地时间格式：YYYY-MM-DD HH:mm:ss
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
         const logLine = this.formatLog(timestamp, level, tag, message, extra);
         
         // 检查是否需要切换文件（跨天了）
-        const newFile = this.getLogFileName();
-        if (newFile !== this.currentFile) {
-            this.currentFile = newFile;
+        // 从 currentFile 中提取日期部分，与今天比较
+        const todayFile = this.getLogFileName();
+        const currentFileDate = this.currentFile.match(/app_(\d{4}-\d{2}-\d{2})/)?.[1];
+        const todayDate = todayFile.match(/app_(\d{4}-\d{2}-\d{2})/)?.[1];
+        
+        if (currentFileDate !== todayDate) {
+            // 跨天了，创建新文件（保留后缀）
+            const suffix = this.currentFile.includes('_') ? 
+                this.currentFile.split('_').pop().replace('.log', '') : '';
+            this.currentFile = suffix ? this.getLogFileName(suffix) : todayFile;
             await this.cleanupOldLogs();
         }
         
@@ -290,6 +418,7 @@ const logger = {
             const content = batch.join('');
             
             // 追加到文件
+            let success = false;
             try {
                 await Filesystem.appendFile({
                     path: this.currentFile,
@@ -297,22 +426,59 @@ const logger = {
                     directory: 'DOCUMENTS',
                     encoding: 'utf8'
                 });
+                success = true;
             } catch (e) {
-                // 文件可能不存在，尝试创建
-                await Filesystem.writeFile({
-                    path: this.currentFile,
-                    data: content,
-                    directory: 'DOCUMENTS',
-                    encoding: 'utf8'
-                });
+                // 追加失败，尝试删除并重建
+                try {
+                    await Filesystem.deleteFile({
+                        path: this.currentFile,
+                        directory: 'DOCUMENTS'
+                    });
+                } catch (deleteErr) {
+                    // 删除失败忽略
+                }
+                
+                // 尝试重新创建
+                try {
+                    await Filesystem.writeFile({
+                        path: this.currentFile,
+                        data: content,
+                        directory: 'DOCUMENTS',
+                        encoding: 'utf8'
+                    });
+                    success = true;
+                } catch (writeErr) {
+                    // 重建也失败，需要切换文件
+                    success = false;
+                }
+            }
+            
+            // 如果写入失败，切换到新文件
+            if (!success) {
+                console.error('[Logger] 写入失败，切换到新文件');
+                const suffix = Math.random().toString(36).substring(2, 8);
+                this.currentFile = this.getLogFileName(suffix);
+                
+                // 尝试写入新文件
+                try {
+                    await Filesystem.writeFile({
+                        path: this.currentFile,
+                        data: content,
+                        directory: 'DOCUMENTS',
+                        encoding: 'utf8'
+                    });
+                    console.log('[Logger] 已切换到新文件:', this.currentFile);
+                } catch (e2) {
+                    console.error('[Logger] 新文件也失败，丢弃日志:', e2.message);
+                }
             }
         } catch (e) {
-            console.error('[Logger] 写入失败:', e);
+            console.error('[Logger] 写入异常:', e);
         } finally {
             this.writing = false;
             // 如果队列还有数据，继续处理
             if (this.writeQueue.length > 0) {
-                setTimeout(() => this.processQueue(), 10);
+                setTimeout(() => this.processQueue(), 100);
             }
         }
     },

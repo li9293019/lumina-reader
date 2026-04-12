@@ -80,6 +80,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TTSEnhancedPlugin.class);
         registerPlugin(LargeFilePlugin.class);
         
+        // Capacitor 社区插件自动注册，无需手动注册
+        
         // 检查是否是从其他应用（如TG）启动的，如果是，确保我们在自己的任务中
         if (handleExternalIntent()) {
             return; // 已经重新启动到新任务，结束当前实例

@@ -676,9 +676,28 @@ Lumina.DataManager = class {
     updateSettingsBar() {
         const { totalFiles, maxFiles } = this.currentStats;
         const countEl = document.getElementById('settingsStorageCount');
+        const maxEl = document.getElementById('settingsMaxCount');
         const barEl = document.getElementById('settingsStorageBar');
+        const infoBarEl = document.querySelector('.storage-info-bar');
+        
+        // 【验证】显示当前存储统计信息
+        const impl = Lumina.DB.adapter.impl;
+        const hasSQLite = impl && (impl.dbBridge?.sqlite || impl.sqlite);
+        console.log('[DataManager] 书库统计:', { totalFiles, maxFiles, storage: hasSQLite ? 'SQLite' : 'IndexedDB' });
+        
+        // SQLite 模式（无上限）隐藏进度条区域，IndexedDB 模式（50本上限）显示
+        const isUnlimited = maxFiles === '∞' || typeof maxFiles !== 'number';
+        if (infoBarEl) {
+            infoBarEl.style.display = isUnlimited ? 'none' : 'block';
+        }
+        
         if (countEl) countEl.textContent = totalFiles;
-        if (barEl) barEl.style.width = Math.min((totalFiles / maxFiles) * 100, 100) + '%';
+        if (maxEl) maxEl.textContent = maxFiles;
+        // IndexedDB 模式显示进度条
+        if (barEl && !isUnlimited) {
+            const progress = Math.min((totalFiles / maxFiles) * 100, 100);
+            barEl.style.width = progress + '%';
+        }
     }
 
     renderGrid() {

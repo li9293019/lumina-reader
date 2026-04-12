@@ -79,6 +79,22 @@ Lumina.init = async () => {
         }
         
         console.log('[Init] 实际存储模式:', actualMode, '就绪:', Lumina.State.app.dbReady);
+        
+        // 【验证】显示实际使用的数据库实现类（通过功能检测，避免类名被压缩）
+        const impl = Lumina.DB.adapter.impl;
+        const hasSQLiteMethods = impl && (impl.dbBridge?.sqlite || impl.sqlite);
+        const implType = hasSQLiteMethods ? 'SQLite (Capacitor)' : 
+                         impl?.db ? 'IndexedDB' : 'Unknown';
+        console.log('[Init] 数据库实现:', implType);
+        
+        // 如果是APP环境但没用SQLite，报警告
+        if (isCapacitor && actualMode !== 'capacitor') {
+            console.warn('[Init] ⚠️ 警告: APP环境但存储模式不是 capacitor! 当前:', actualMode);
+        } else if (isCapacitor && !hasSQLiteMethods) {
+            console.warn('[Init] ⚠️ 警告: APP环境但未使用原生 SQLite!');
+        } else if (isCapacitor) {
+            console.log('[Init] ✅ APP环境使用原生 SQLite 正常');
+        }
     } catch (e) {
         console.error('Storage init error:', e);
         Lumina.State.app.dbReady = false;

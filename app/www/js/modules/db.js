@@ -366,9 +366,14 @@ Lumina.DB.CapacitorSQLiteImpl = class {
 
     async init() {
         try {
-            // 动态导入 db-bridge（使用绝对路径避免相对路径解析错误）
-            const module = await import('/assets/js/app/db-bridge.js');
-            this.dbBridge = module.dbBridge;
+            // 获取 db-bridge（全局实例，由 index.html 中 <script> 标签加载）
+            this.dbBridge = window.dbBridge;
+            
+            if (!this.dbBridge) {
+                console.error('[CapacitorSQLite] dbBridge 未找到，请确保 db-bridge.js 已加载');
+                this.isReady = false;
+                return false;
+            }
             
             // 等待桥接初始化
             if (!this.dbBridge.initialized) {
@@ -459,7 +464,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             totalFiles: stats.totalFiles,
             totalSize: stats.totalSize, // 保持为数字
             imageCount: 0,
-            maxFiles: '∞'
+            maxFiles: '∞' // APP 端无上限
         };
     }
 

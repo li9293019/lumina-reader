@@ -31,27 +31,47 @@ class DatabaseBridge {
         }
 
         try {
-            // 动态加载 SQLite 模块（通过全局变量）
-            if (typeof CapacitorSQLite === 'undefined') {
-                console.warn('[DB] CapacitorSQLite 未找到，使用内存模式');
+            // 获取 Capacitor SQLite 插件（通过 Capacitor.Plugins）
+            const sqlitePlugin = Capacitor?.Plugins?.CapacitorSQLite;
+            if (!sqlitePlugin) {
+                console.warn('[DB] CapacitorSQLite 插件未找到，使用内存模式');
+                console.warn('[DB] 可用插件:', Object.keys(Capacitor?.Plugins || {}));
                 this.mockMode = true;
                 this.initialized = true;
                 return;
             }
             
-            const sqlitePlugin = CapacitorSQLite;
-            this.sqlite = new SQLiteConnection(sqlitePlugin);
-
-            this.db = await this.sqlite.createConnection(
-                'lumina_reader',
-                false,
-                'no-encryption',
-                1,
-                false
-            );
-
-            await this.db.open();
+            console.log('[DB] CapacitorSQLite 插件已找到');
+            this.sqlite = sqlitePlugin;
+            
+            // 使用插件原生方法创建数据库连接
+            await this.sqlite.createConnection({
+                database: 'lumina_reader',
+                encrypted: false,
+                mode: 'no-encryption',
+                version: 1
+            });
+            
+            await this.sqlite.open({ database: 'lumina_reader' });
             console.log('[DB] SQLite 数据库已打开');
+            
+            // 创建 db 适配器，保持与原 SQLiteConnection 相同的 API
+            const DB_NAME = 'lumina_reader';
+            this.db = {
+                execute: async (statements) => {
+                    return this.sqlite.execute({ database: DB_NAME, statements });
+                },
+                query: async (statement, values = []) => {
+                    const result = await this.sqlite.query({ database: DB_NAME, statement, values });
+                    return { values: result.values || [] };
+                },
+                run: async (statement, values = []) => {
+                    return this.sqlite.run({ database: DB_NAME, statement, values });
+                },
+                close: async () => {
+                    return this.sqlite.closeConnection({ database: DB_NAME });
+                }
+            };
 
             await this.createTables();
             this.initialized = true;
@@ -374,5 +394,7 @@ class DatabaseBridge {
 }
 
 // 创建全局实例
-window.DatabaseBridge = new DatabaseBridge();
+const dbBridge = new DatabaseBridge();
+window.dbBridge = dbBridge;
+window.DatabaseBridge = dbBridge;
 console.log('[DB Bridge] 数据库桥接模块已加载，APP 环境:', DB_isNative);

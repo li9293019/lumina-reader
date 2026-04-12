@@ -153,15 +153,21 @@ const logger = {
             
             if (!result.files || result.files.length === 0) return null;
             
-            // 获取今天日期前缀
-            const todayPrefix = this.getLogFileName().split('/').pop().replace('.log', '');
+            // 获取今天日期前缀 app_2026-04-12
+            const defaultFileName = this.getLogFileName().split('/').pop();
+            const todayPrefix = defaultFileName.replace('.log', '');
             
-            // 筛选今天的文件（app_2026-04-12.log 或 app_2026-04-12_xxx.log）
+            // 筛选今天的文件（app_2026-04-12_xxx.log）
             for (const file of result.files) {
-                if (!file.name.endsWith('.log')) continue;
-                if (!file.name.startsWith(todayPrefix)) continue;
+                const fileName = file.name || file;
                 
-                const filePath = `${this.config.logDir}/${file.name}`;
+                if (!fileName.endsWith('.log')) continue;
+                if (!fileName.startsWith(todayPrefix)) continue;
+                
+                const filePath = `${this.config.logDir}/${fileName}`;
+                
+                // 跳过默认文件名（不带后缀的），因为已知它不可写
+                if (fileName === defaultFileName) continue;
                 
                 // 测试是否可写（追加空内容）
                 try {
@@ -171,10 +177,9 @@ const logger = {
                         directory: 'DOCUMENTS',
                         encoding: 'utf8'
                     });
-                    // 可写，返回此文件
+                    console.log('[Logger] 复用今天日志文件:', fileName);
                     return filePath;
                 } catch (e) {
-                    // 不可写，继续检查下一个
                     continue;
                 }
             }
@@ -186,9 +191,9 @@ const logger = {
     },
     
     /**
-     * 尝试创建/使用日志文件
+     * 尝试创建/验证日志文件
      * @param {string} filePath - 文件路径
-     * @returns {boolean} 是否成功
+     * @returns {boolean} 是否成功（文件可写）
      */
     async _tryCreateLogFile(filePath) {
         const { Filesystem } = Capacitor.Plugins;
@@ -208,10 +213,20 @@ const logger = {
         }
         
         if (fileExists) {
-            // 文件存在，直接使用（不测试写入，避免触发权限检查）
-            // 真正写入时如果失败会切换到新文件
-            console.log('[Logger] 使用现有日志文件:', filePath, '大小:', fileSize);
-            return true;
+            // 文件存在，测试是否可写（关键！）
+            try {
+                await Filesystem.appendFile({
+                    path: filePath,
+                    data: '',
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                console.log('[Logger] 现有文件可写:', filePath, '大小:', fileSize);
+                return true;
+            } catch (e) {
+                console.warn('[Logger] 现有文件不可写:', filePath, e.message);
+                return false;
+            }
         }
         
         // 文件不存在，尝试创建

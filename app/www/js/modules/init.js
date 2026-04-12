@@ -1,6 +1,9 @@
 // ==================== 20. 初始化入口 ====================
 
 Lumina.init = async () => {
+    const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+    console.log(`[Init] ${isCapacitor ? 'APP' : 'Web'} 启动...`);
+    
     // 首次启动：检查用户协议同意状态
     if (!Lumina.ConfigManager?.get('meta.hasAgreedToTerms_v1')) {
         console.log('[Init] 首次启动，等待用户同意协议...');
@@ -34,7 +37,6 @@ Lumina.init = async () => {
     Lumina.DB.adapter = new Lumina.DB.StorageAdapter();
 
     // 检测运行环境：Capacitor > Web SQLite > IndexedDB
-    const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
     let STORAGE_BACKEND = isCapacitor ? 'capacitor' : (location.href.startsWith('http') ? 'sqlite' : 'indexeddb');
     let isFallback = false;
     let actualMode = 'indexeddb';

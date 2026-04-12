@@ -193,7 +193,7 @@ Lumina.FileOpener = {
     /**
      * 处理文件
      */
-    async _processFile(file) {
+    async _processFile(file) {    
         Lumina.UI?.showLoading?.(Lumina.I18n?.t?.('fileParsing') || 'Parsing...');
         
         try {
@@ -209,7 +209,7 @@ Lumina.FileOpener = {
             
             Lumina.UI?.hideLoading?.();
             Lumina.UI?.showToast?.(Lumina.I18n?.t?.('fileOpened', file.name) || ('Opened: ' + file.name));
-            console.log('[FileOpener] 完成:', file.name);
+            console.log('[FileOpener] 完成:', file.name, '大小:', file.size);
         } catch (err) {
             Lumina.UI?.hideLoading?.();
             // 即使失败也重置记录，允许重试

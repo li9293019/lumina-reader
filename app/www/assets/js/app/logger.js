@@ -288,6 +288,13 @@ const logger = {
      * 设置全局错误监听
      */
     setupErrorHandlers() {
+        // 防止重复设置
+        if (window.__logger_handlers_installed__) {
+            console.log('[Logger] 错误处理程序已安装，跳过');
+            return;
+        }
+        window.__logger_handlers_installed__ = true;
+        
         // 捕获未处理的 Promise 错误
         window.addEventListener('unhandledrejection', (event) => {
             this.error('UnhandledRejection', '未处理的 Promise 错误', {
@@ -356,6 +363,72 @@ const logger = {
                 this.write('debug', 'Console', message);
             }
         };
+        
+        // 监听 APP 生命周期事件（Capacitor 环境）
+        this._setupAppLifecycleListeners();
+    },
+    
+    /**
+     * 设置 APP 生命周期监听
+     */
+    _setupAppLifecycleListeners() {
+        // 页面即将卸载（APP 被关闭或切换）
+        window.addEventListener('beforeunload', () => {
+            console.log('[Logger] APP 即将退出');
+            // 同步写入最后一条日志
+            if (this.initialized && this.isNative && this.writeQueue.length > 0) {
+                this._flushSync();
+            }
+        });
+        
+        // APP 切换到后台（visibilitychange 更可靠）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                console.log('[Logger] APP 进入后台');
+            } else if (document.visibilityState === 'visible') {
+                console.log('[Logger] APP 回到前台');
+            }
+        });
+        
+        // Capacitor App 插件（如果可用）
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.App) {
+            const { App } = Capacitor.Plugins;
+            
+            // APP 被暂停（进入后台）
+            App.addListener('pause', () => {
+                console.log('[Logger] APP 暂停（进入后台）');
+            });
+            
+            // APP 被恢复（回到前台）
+            App.addListener('resume', () => {
+                console.log('[Logger] APP 恢复（回到前台）');
+            });
+            
+            // APP 即将终止
+            App.addListener('appStateChange', (state) => {
+                if (!state.isActive) {
+                    console.log('[Logger] APP 状态变为非活跃');
+                }
+            });
+        }
+    },
+    
+    /**
+     * 同步刷新日志队列（用于页面卸载前）
+     */
+    _flushSync() {
+        try {
+            const content = this.writeQueue.join('');
+            this.writeQueue = [];
+            
+            // 使用同步 XHR 发送日志（仅作为后备）
+            // 实际文件写入是异步的，这里只能尽力而为
+            if (content && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+                navigator.sendBeacon('data:text/plain,' + encodeURIComponent(content));
+            }
+        } catch (e) {
+            // 忽略刷新失败
+        }
     },
     
     /**

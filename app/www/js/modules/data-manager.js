@@ -987,7 +987,9 @@ Lumina.DataManager = class {
                 content.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
                 
                 if (isClick) {
-                    // 确认是点击
+                    // 确认是点击，阻止默认行为防止触发 click 事件
+                    e.preventDefault();
+                    e.stopPropagation();
                     content.style.transform = '';
                     
                     // 检查点击的是否是封面区域
@@ -2323,6 +2325,8 @@ Lumina.DB.loadHistoryFromDB = async () => {
 Lumina.HistoryActions = {
     // 打开文件
     async openFile(fileKey) {
+        console.log('[openFile] 正在打开:', fileKey);
+        
         const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
         
         if (isSQLite) {
@@ -2334,7 +2338,6 @@ Lumina.HistoryActions = {
             let fileData;
             
             if (isSQLite) {
-                console.log('[History] 调用 getFileSmart 打开:', fileKey);
                 fileData = await Lumina.DB.adapter.getFileSmart(fileKey);
             } else {
                 fileData = await Lumina.DB.adapter.getFile(fileKey);

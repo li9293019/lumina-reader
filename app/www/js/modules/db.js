@@ -610,7 +610,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
     }
 
     async importBatch(books, onProgress) {
-        const results = {success: 0, failed: 0, errors: []};
+        const results = { success: 0, failed: 0, errors: [] };
         for (let i = 0; i < books.length; i++) {
             const book = books[i];
             try {
@@ -632,17 +632,16 @@ Lumina.DB.CapacitorSQLiteImpl = class {
                     annotations: book.annotations || [],
                     cover: book.cover || null,
                     heatMap: book.heatMap || null,
-                    metadata: book.metadata || null,  // 导入元数据
+                    metadata: book.metadata || null,
                     lastReadTime: Lumina.DB.getLocalTimeString(),
                     created_at: book.created_at || book.lastReadTime || Lumina.DB.getLocalTimeString()
                 });
                 results.success++;
-                if (onProgress) onProgress(i + 1, books.length, true);
-            } catch (e) {
+            } catch (err) {
                 results.failed++;
-                results.errors.push(`${book.fileName}: ${e.message}`);
-                if (onProgress) onProgress(i + 1, books.length, false);
+                results.errors.push({ book: book.fileName, error: err.message });
             }
+            if (onProgress) onProgress(i + 1, books.length, results.success);
         }
         return results;
     }

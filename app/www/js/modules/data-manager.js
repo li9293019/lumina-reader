@@ -1342,10 +1342,19 @@ Lumina.DataManager = class {
     
     // 明文批量导出 - 使用 ExportUtils
     async batchExportPlain(batchData) {
+        const progressDialog = Lumina.ExportUtils.showProgressDialog(
+            Lumina.I18n.t('exporting') || '正在导出...'
+        );
+        
         try {
             const result = await Lumina.ExportUtils.exportBooks(batchData, {
-                encrypted: false
+                encrypted: false,
+                onProgress: (progress) => {
+                    progressDialog.update(progress * 100);
+                }
             });
+            
+            progressDialog.close();
             
             if (result.success) {
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
@@ -1356,6 +1365,7 @@ Lumina.DataManager = class {
                 }
             }
         } catch (err) {
+            progressDialog.close();
             console.error('[Export] 导出失败:', err);
             Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
         }
@@ -1538,6 +1548,12 @@ Lumina.DataManager = class {
         Lumina.Settings.load();
         await Lumina.Settings.apply();
         if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
+        if (Lumina.Plugin.AzureTTS) {
+            Lumina.Plugin.AzureTTS.refreshUI();
+            if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
+                Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
+            }
+        }
         if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
         Lumina.I18n.updateUI();
         Lumina.UI.showToast(t('configImportSuccess') || '配置导入成功');

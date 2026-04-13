@@ -157,6 +157,12 @@ Object.assign(Lumina.Plugin.AzureTTS, {
         
         // 更新缓存 UI
         this.updateCacheUI();
+        
+        // 如果设置对话框当前打开，实时刷新对话框内容
+        const dialog = document.getElementById('azureTtsDialog');
+        if (dialog?.classList.contains('active')) {
+            this.loadDialogValues();
+        }
     },
 
     bindToggleUI() {

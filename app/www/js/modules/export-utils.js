@@ -104,6 +104,31 @@ Lumina.ExportUtils = {
             encoding: 'utf8'
         });
         
+        const MAX_CHUNK = 256 * 1024; // 单次写入最大 256KB，防止 JS Bridge 崩溃
+        
+        // 安全追加辅助函数：确保每次传给 Filesystem 的数据不超过 MAX_CHUNK
+        const safeAppend = async (text) => {
+            if (text.length <= MAX_CHUNK) {
+                await Filesystem.appendFile({
+                    path: filePath,
+                    data: text,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+                return;
+            }
+            // 超大字符串按字符分块
+            for (let offset = 0; offset < text.length; offset += MAX_CHUNK) {
+                const chunk = text.substring(offset, offset + MAX_CHUNK);
+                await Filesystem.appendFile({
+                    path: filePath,
+                    data: chunk,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+            }
+        };
+        
         // 分块写入每本书
         for (let i = 0; i < totalBooks; i++) {
             const book = books[i];
@@ -118,12 +143,7 @@ Lumina.ExportUtils = {
             }
             bookJson += '\n';
             
-            await Filesystem.appendFile({
-                path: filePath,
-                data: bookJson,
-                directory: 'DOCUMENTS',
-                encoding: 'utf8'
-            });
+            await safeAppend(bookJson);
             
             if (onProgress) {
                 onProgress((i + 1) / totalBooks);
@@ -143,60 +163,32 @@ Lumina.ExportUtils = {
     async writeConfigInChunks(filePath, config, onProgress = null) {
         const { Filesystem } = Capacitor.Plugins;
         
-        // 如果数据不大，直接写入
-        const estimatedSize = this.estimateDataSize(config);
-        if (estimatedSize < 512 * 1024) { // < 512KB 直接写入
-            await Filesystem.writeFile({
-                path: filePath,
-                data: JSON.stringify(config, null, 2),
-                directory: 'DOCUMENTS',
-                encoding: 'utf8'
-            });
-            if (onProgress) onProgress(1);
-            return;
-        }
+        const jsonContent = JSON.stringify(config, null, 2);
+        const chunkSize = 256 * 1024; // 256KB 文本块，防止 JS Bridge 崩溃
         
-        // 大配置分块写入（主要是包含字体数据时）
-        const keys = Object.keys(config);
-        const totalKeys = keys.length;
-        
-        // 写入开头
-        await Filesystem.writeFile({
-            path: filePath,
-            data: '{\n',
-            directory: 'DOCUMENTS',
-            encoding: 'utf8'
-        });
-        
-        for (let i = 0; i < totalKeys; i++) {
-            const key = keys[i];
-            const value = config[key];
-            let chunk = `  "${key}": ${JSON.stringify(value, null, 2).split('\n').join('\n  ')}`;
+        for (let offset = 0; offset < jsonContent.length; offset += chunkSize) {
+            const chunk = jsonContent.substring(offset, offset + chunkSize);
             
-            if (i < totalKeys - 1) {
-                chunk += ',';
+            if (offset === 0) {
+                await Filesystem.writeFile({
+                    path: filePath,
+                    data: chunk,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
+            } else {
+                await Filesystem.appendFile({
+                    path: filePath,
+                    data: chunk,
+                    directory: 'DOCUMENTS',
+                    encoding: 'utf8'
+                });
             }
-            chunk += '\n';
-            
-            await Filesystem.appendFile({
-                path: filePath,
-                data: chunk,
-                directory: 'DOCUMENTS',
-                encoding: 'utf8'
-            });
             
             if (onProgress) {
-                onProgress((i + 1) / totalKeys);
+                onProgress(Math.min(1, (offset + chunkSize) / jsonContent.length));
             }
         }
-        
-        // 写入结尾
-        await Filesystem.appendFile({
-            path: filePath,
-            data: '}',
-            directory: 'DOCUMENTS',
-            encoding: 'utf8'
-        });
     },
 
     // APP 端：分块写入加密文件

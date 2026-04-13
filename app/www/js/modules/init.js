@@ -448,6 +448,16 @@ Lumina.HeatMap = {
         }
     },
     
+    // 从配置加载（供配置导入后调用）
+    loadFromConfig() {
+        this.loadPresets();
+        // 如果预设面板当前是打开状态，实时重绘列表
+        const dialog = document.getElementById('heatMapPresetsDialog');
+        if (dialog?.classList.contains('active')) {
+            this.renderPresetsList();
+        }
+    },
+    
     // 保存预设（到 ConfigManager）
     savePresets() {
         try {

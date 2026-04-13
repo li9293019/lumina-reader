@@ -2139,6 +2139,7 @@ Lumina.DB.HistoryDataBuilder = {
             fileSize: state.currentFile.handle?.size || 0,
             ...(includeContent && { content: processedContent }),
             wordCount: state.currentFile.wordCount,
+            totalItems: state.currentFile.totalItems || state.document?.items?.length || 0,  // 总段落数，用于精确计算阅读进度
             lastChapter: state.currentChapterIndex,
             lastScrollIndex: Lumina.Renderer.getCurrentVisibleIndex(),
             chapterTitle: currentChapter ? (currentChapter.isPreface ? Lumina.I18n.t('preface') : currentChapter.title) : '',
@@ -2195,6 +2196,12 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                 const heatMapValue = Lumina.State.app.currentFile.heatMap !== undefined 
                     ? Lumina.State.app.currentFile.heatMap 
                     : (existing.heatMap || null);
+                // 增量保存时，如果缺少 totalItems，从当前内容补充
+                let totalItems = existing.totalItems;
+                if (!totalItems && state.document?.items?.length > 0) {
+                    totalItems = state.document.items.length;
+                }
+                
                 const patchData = {
                     ...existing,
                     lastChapter: Lumina.State.app.currentChapterIndex,
@@ -2206,7 +2213,8 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                         chapter: Lumina.State.settings.chapterRegex, 
                         section: Lumina.State.settings.sectionRegex 
                     },
-                    heatMap: heatMapValue
+                    heatMap: heatMapValue,
+                    ...(totalItems && { totalItems })  // 只有计算出值时才更新
                 };
                 await Lumina.DB.adapter.saveFile(fileKey, patchData);
                 await Lumina.DB.loadHistoryFromDB();

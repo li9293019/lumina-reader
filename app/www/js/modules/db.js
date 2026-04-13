@@ -119,6 +119,7 @@ Lumina.DB.IndexedDBImpl = class {
                 contentSize: contentSize,
                 content: mergedData.content,
                 wordCount: mergedData.wordCount,
+                totalItems: mergedData.totalItems || 0,  // 总段落数，用于精确计算阅读进度
                 lastChapter: mergedData.lastChapter || 0,
                 lastScrollIndex: mergedData.lastScrollIndex || 0,
                 chapterTitle: mergedData.chapterTitle || '',
@@ -260,6 +261,7 @@ Lumina.DB.IndexedDBImpl = class {
             fileType: file.fileType,
             fileSize: file.fileSize, 
             wordCount: file.wordCount, 
+            totalItems: file.totalItems || 0,  // 总段落数，用于精确计算阅读进度
             content: file.content,
             cover: file.cover || null, 
             customRegex: file.customRegex || { chapter: '', section: '' },

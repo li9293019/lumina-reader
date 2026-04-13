@@ -82,9 +82,28 @@
     justify-content: space-between;
     padding: 12px 16px;
     padding-top: max(12px, var(--safe-area-top));
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: none;
     background: var(--bg-primary);
     flex-shrink: 0;
+    position: relative;
+}
+
+/* 阅读进度条 */
+.book-detail-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
+.book-detail-progress-fill {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 4px var(--accent-color);  /* 添加发光效果增强可见性 */
 }
 
 .book-detail-title {
@@ -581,6 +600,12 @@ html, body {
     line-height: 30px;
     height: 30px;
     cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    padding: 0 16px;
+    box-sizing: border-box;
     padding: 0 8px;
     border-radius: 6px;
     transition: background 0.2s;
@@ -631,6 +656,10 @@ html, body {
     height: 22px;
     line-height: 22px;
     box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 
 .book-detail-author-name:hover {

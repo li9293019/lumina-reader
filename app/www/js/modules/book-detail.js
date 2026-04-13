@@ -752,6 +752,37 @@ Lumina.BookDetail = {
             el.fileName.textContent = data.fileName || 'NA';
         }
         
+        // 文件大小
+        const fileSizeEl = document.getElementById('bookDetailFileSize');
+        if (fileSizeEl) {
+            fileSizeEl.textContent = data.fileSize ? Lumina.Utils.formatFileSize(data.fileSize) : '--';
+        }
+        
+        // 字数统计
+        const wordCountEl = document.getElementById('bookDetailWordCount');
+        if (wordCountEl) {
+            const wordCount = data.wordCount || 0;
+            wordCountEl.textContent = wordCount > 0 
+                ? `${Lumina.Utils.formatWordCount(wordCount)} ${Lumina.I18n.t('words')}` 
+                : '--';
+        }
+        
+        // 预计阅读时间
+        const estimatedTimeEl = document.getElementById('bookDetailEstimatedTime');
+        if (estimatedTimeEl) {
+            const wordCount = data.wordCount || 0;
+            if (wordCount > 0) {
+                const readSpeed = Lumina.State.settings.language === 'zh' ? 300 : 200;
+                const minutes = Math.ceil(wordCount / readSpeed);
+                estimatedTimeEl.textContent = Lumina.Utils.formatReadTime(minutes);
+            } else {
+                estimatedTimeEl.textContent = '--';
+            }
+        }
+        
+        // 阅读进度条
+        this.updateProgressBar(data);
+        
         // 简介
         if (el.description) {
             const description = metadata.description || '';
@@ -1560,5 +1591,24 @@ Lumina.BookDetail = {
         } else {
             console.error('[BookDetail] DataManager 未初始化');
         }
+    },
+    
+    // 计算并更新阅读进度条
+    updateProgressBar(data) {
+        const progressFill = document.getElementById('bookDetailProgressFill');
+        if (!progressFill) return;
+        
+        const percent = this.calculateReadingProgress(data);
+        progressFill.style.width = `${percent}%`;
+    },
+    
+    // 计算阅读进度百分比
+    // 基于总段落数 totalItems 和当前位置 lastScrollIndex 计算
+    calculateReadingProgress(data) {
+        if (!data || !data.totalItems || data.totalItems === 0) return 0;
+        if (data.lastScrollIndex === undefined || data.lastScrollIndex === null) return 0;
+        
+        const progress = Math.min(100, Math.round((data.lastScrollIndex / data.totalItems) * 100));
+        return progress;
     }
 };

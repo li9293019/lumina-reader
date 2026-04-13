@@ -196,8 +196,10 @@ Lumina.Actions = {
             }
 
             wordCount = Lumina.Utils.calculateWordCount(result.items);
+            const totalItems = result.items?.length || 0;  // 总段落数，用于精确计算阅读进度
             Lumina.State.app.document = result;
             Lumina.State.app.currentFile.wordCount = wordCount;
+            Lumina.State.app.currentFile.totalItems = totalItems;
             Lumina.State.app.currentFile.name = file.name;
             Lumina.State.app.currentFile.file = file;
 

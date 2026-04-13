@@ -94,6 +94,7 @@ class DatabaseBridge {
                 content_size INTEGER DEFAULT 0,
                 content TEXT,
                 word_count INTEGER DEFAULT 0,
+                total_items INTEGER DEFAULT 0,
                 last_chapter INTEGER DEFAULT 0,
                 last_scroll_index INTEGER DEFAULT 0,
                 chapter_title TEXT,
@@ -114,6 +115,7 @@ class DatabaseBridge {
         await this.addColumnIfNotExists('files', 'created_at', 'TEXT');
         await this.addColumnIfNotExists('files', 'heat_map', 'TEXT');
         await this.addColumnIfNotExists('files', 'metadata', 'TEXT');
+        await this.addColumnIfNotExists('files', 'total_items', 'INTEGER DEFAULT 0');
     }
 
     async addColumnIfNotExists(table, column, type) {
@@ -191,10 +193,10 @@ class DatabaseBridge {
 
             const sql = `
                 INSERT OR REPLACE INTO files (
-                    file_key, file_name, file_type, file_size, content_size, content, word_count,
+                    file_key, file_name, file_type, file_size, content_size, content, word_count, total_items,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
                     custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
@@ -204,6 +206,7 @@ class DatabaseBridge {
                 contentSize,
                 contentJson,
                 data.wordCount || data.word_count || 0,
+                data.totalItems || data.total_items || 0,  // 总段落数，用于精确计算阅读进度
                 data.lastChapter || data.last_chapter || 0,
                 data.lastScrollIndex || data.last_scroll_index || 0,
                 data.chapterTitle || data.chapter_title || '',
@@ -266,7 +269,7 @@ class DatabaseBridge {
         try {
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
-                    word_count, last_chapter, last_scroll_index, chapter_title, 
+                    word_count, total_items, last_chapter, last_scroll_index, chapter_title, 
                     last_read_time, chapter_numbering, created_at, metadata, cover_data_url
                 FROM files ORDER BY last_read_time DESC`
             );
@@ -277,6 +280,7 @@ class DatabaseBridge {
                     fileType: row.file_type,
                     fileSize: row.file_size,
                     wordCount: row.word_count,
+                    totalItems: row.total_items || 0,  // 总段落数，用于精确计算阅读进度
                     lastChapter: row.last_chapter,
                     lastScrollIndex: row.last_scroll_index,
                     chapterTitle: row.chapter_title,
@@ -340,6 +344,7 @@ class DatabaseBridge {
                 fileSize: row.file_size,
                 content: JSON.parse(row.content || '[]'),
                 wordCount: row.word_count,
+                totalItems: row.total_items || 0,  // 总段落数，用于精确计算阅读进度
                 lastChapter: row.last_chapter,
                 lastScrollIndex: row.last_scroll_index,
                 chapterTitle: row.chapter_title,
@@ -354,6 +359,7 @@ class DatabaseBridge {
                 file_type: row.file_type,
                 file_size: row.file_size,
                 word_count: row.word_count,
+                total_items: row.total_items || 0,
                 last_chapter: row.last_chapter,
                 last_scroll_index: row.last_scroll_index,
                 chapter_title: row.chapter_title,

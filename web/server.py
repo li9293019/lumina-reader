@@ -75,6 +75,7 @@ class Database:
                     contentSize INTEGER DEFAULT 0,
                     content TEXT,
                     wordCount INTEGER DEFAULT 0,
+                    totalItems INTEGER DEFAULT 0,
                     lastChapter INTEGER DEFAULT 0,
                     lastScrollIndex INTEGER DEFAULT 0,
                     chapterTitle TEXT,
@@ -110,6 +111,13 @@ class Database:
             try:
                 conn.execute("ALTER TABLE books ADD COLUMN contentSize INTEGER DEFAULT 0")
                 print("[SQLite] 已添加 contentSize 字段")
+            except sqlite3.OperationalError:
+                pass  # 字段已存在
+            
+            # 为已存在的表添加 totalItems 字段（兼容旧数据库）
+            try:
+                conn.execute("ALTER TABLE books ADD COLUMN totalItems INTEGER DEFAULT 0")
+                print("[SQLite] 已添加 totalItems 字段")
             except sqlite3.OperationalError:
                 pass  # 字段已存在
             
@@ -151,10 +159,10 @@ class Database:
                 
                 conn.execute("""
                     INSERT OR REPLACE INTO books (
-                        fileKey, fileName, fileType, fileSize, contentSize, content, wordCount,
+                        fileKey, fileName, fileType, fileSize, contentSize, content, wordCount, totalItems,
                         lastChapter, lastScrollIndex, chapterTitle, lastReadTime,
                         customRegex, chapterNumbering, annotations, cover, heatMap, metadata, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     fileKey,
                     data.get('fileName', ''),
@@ -163,6 +171,7 @@ class Database:
                     content_size,
                     content_json,
                     data.get('wordCount', 0),
+                    data.get('totalItems', 0),  # 总段落数，用于精确计算阅读进度
                     data.get('lastChapter', 0),
                     data.get('lastScrollIndex', 0),
                     data.get('chapterTitle', ''),
@@ -223,7 +232,7 @@ class Database:
             rows = conn.execute("""
                 SELECT fileKey, fileName, fileType, 
                     (COALESCE(contentSize, 0) + LENGTH(COALESCE(cover, ''))) as fileSize, 
-                    wordCount, lastChapter, lastScrollIndex, chapterTitle, 
+                    wordCount, totalItems, lastChapter, lastScrollIndex, chapterTitle, 
                     lastReadTime, chapterNumbering, created_at, updated_at, metadata
                 FROM books 
                 ORDER BY lastReadTime DESC

@@ -264,7 +264,6 @@ class DatabaseBridge {
         }
 
         try {
-            // 返回 cover 数据用于书库封面渲染
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
                     word_count, last_chapter, last_scroll_index, chapter_title, 
@@ -284,8 +283,8 @@ class DatabaseBridge {
                     lastReadTime: row.last_read_time,
                     chapterNumbering: row.chapter_numbering,
                     created_at: row.created_at,
-                    cover: row.cover_data_url,  // 添加封面数据
-                    metadata: null
+                    cover: row.cover_data_url,
+                    metadata: row.metadata
                 };
                 // 解析 metadata JSON
                 if (row.metadata) {

@@ -1065,8 +1065,8 @@ Lumina.TTS.Manager = class {
             
             const textToAdd = this.extractItemText(item);
             
-            if (textToAdd) {
-                pageText += textToAdd + '。';
+            if (textToAdd && textToAdd.trim()) {
+                pageText += textToAdd.trim() + '。';
             }
         }
         
@@ -1949,22 +1949,30 @@ Lumina.TTS.Manager = class {
     _fillWindowForPlugin(engine, chapter, currentParagraphIdx, currentSentenceIdx, currentSentences) {
         if (!engine.fillWindow) return;
         
-        // 构建获取后续段落的回调
-        let nextParaIdx = 0;
+        // 构建获取后续段落的回调（自动跳过空段落、图片段落）
         const getNextParagraph = (idx) => {
-            const paraIdx = currentParagraphIdx + 1 + idx;
-            if (paraIdx >= chapter.items.length) return null;
-            
-            const item = chapter.items[paraIdx];
-            if (!item || item.type === 'image') return null;
-            
-            const text = this.extractItemText(item);
-            if (!text) return null;
-            
-            return {
-                sentences: this.splitIntoSentences(text),
-                source: `paragraph_${paraIdx}`
-            };
+            let searchOffset = idx;
+            while (true) {
+                const paraIdx = currentParagraphIdx + 1 + searchOffset;
+                if (paraIdx >= chapter.items.length) return null;
+                
+                const item = chapter.items[paraIdx];
+                if (!item || item.type === 'image') {
+                    searchOffset++;
+                    continue;
+                }
+                
+                const text = this.extractItemText(item);
+                if (!text || !text.trim()) {
+                    searchOffset++;
+                    continue;
+                }
+                
+                return {
+                    sentences: this.splitIntoSentences(text),
+                    source: `paragraph_${paraIdx}`
+                };
+            }
         };
         
         engine.fillWindow(currentSentenceIdx, currentSentences, getNextParagraph);

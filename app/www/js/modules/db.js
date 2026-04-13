@@ -452,11 +452,11 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             this.dbBridge.getStats()
         ]);
         
-        // 重新计算 estimatedSize = content长度 + cover长度
+        // 重新计算 estimatedSize = contentSize（来自数据库） + cover长度
         files.forEach(file => {
-            const contentSize = JSON.stringify(file.content || []).length * 2;
-            const coverSize = file.cover ? file.cover.length * 0.75 : 0;
-            file.estimatedSize = Math.round(contentSize + coverSize);
+            // 【修复】使用数据库返回的 fileSize（即 content_size + cover长度）
+            // db-bridge.getList() 已计算：(content_size + LENGTH(COALESCE(cover_data_url, "")))
+            file.estimatedSize = file.fileSize || 0;
         });
         
         return {
@@ -494,6 +494,10 @@ Lumina.DB.CapacitorSQLiteImpl = class {
         try {
             const existing = this.cache.get(fileKey) || {};
             
+            // 【关键】合并 content：如果 data.content 未定义，保留 existing.content
+            // 避免元数据更新（如修改封面）时丢失书籍内容
+            const mergedContent = data.content !== undefined ? data.content : existing.content;
+            
             const mergedAnnotations = (data.annotations === undefined || 
                 (Array.isArray(data.annotations) && data.annotations.length === 0 && existing.annotations?.length > 0))
                 ? existing.annotations 
@@ -521,6 +525,7 @@ Lumina.DB.CapacitorSQLiteImpl = class {
             const mergedData = {
                 ...existing,
                 ...data,
+                content: mergedContent,  // 【修复】显式合并 content
                 annotations: mergedAnnotations,
                 heatMap: mergedHeatMap,
                 metadata: mergedMetadata,

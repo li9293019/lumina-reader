@@ -2198,8 +2198,8 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                     : (existing.heatMap || null);
                 // 增量保存时，如果缺少 totalItems，从当前内容补充
                 let totalItems = existing.totalItems;
-                if (!totalItems && state.document?.items?.length > 0) {
-                    totalItems = state.document.items.length;
+                if (!totalItems && Lumina.State.app.document?.items?.length > 0) {
+                    totalItems = Lumina.State.app.document.items.length;
                 }
                 
                 const patchData = {

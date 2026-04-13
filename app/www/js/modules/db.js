@@ -780,8 +780,6 @@ Lumina.DB.SQLiteImpl = class {
         
         // 3. 保存到本地缓存（比较数据新旧）
         if (remote && this.localCacheReady) {
-            console.log('[SQLite] 准备保存到本地缓存...');
-            
             // 延迟保存，避免与 saveFile 冲突
             setTimeout(async () => {
                 try {
@@ -806,13 +804,7 @@ Lumina.DB.SQLiteImpl = class {
                         
                         // 如果远程数据不更新且热力图也不需要更新，则跳过
                         if (remoteTime <= localTime && !heatMapNeedsUpdate) {
-                            console.log('[SQLite] 本地缓存已是最新，跳过保存');
                             shouldSave = false;
-                        } else {
-                            console.log('[SQLite] 远程数据更新，需要同步到本地缓存:', {
-                                timeUpdated: remoteTime > localTime,
-                                heatMapUpdated: heatMapNeedsUpdate
-                            });
                         }
                     }
                     
@@ -820,7 +812,7 @@ Lumina.DB.SQLiteImpl = class {
                         await this.localCache.saveFile(fileKey, remote);
                     }
                 } catch (e) {
-            window.logger?.warn('SQLite', '本地缓存保存失败', { error: e.message });
+                    window.logger?.warn('SQLite', '本地缓存保存失败', { error: e.message });
                 }
             }, 500); // 延迟500ms，确保 saveFile 先完成
         }
@@ -1014,7 +1006,7 @@ Lumina.DB.SQLiteImpl = class {
             }
             return result && result.success;
         } catch (error) {
-            console.log('[SQLite] saveFile 失败:', error);
+            console.error('[SQLite] saveFile 失败:', error);
             return false;
         }
     }
@@ -1186,8 +1178,9 @@ Lumina.DB.SQLiteImpl = class {
             const local = await this.localCache.getFile(fileKey);
             if (local && local.content) {
                 // 只删除 content，保留其他元数据
+                // 关键：显式设置 content: [] 表示删除，否则 saveFile 会把 undefined 当成"未提供"而保留原值
                 const { content, ...metaData } = local;
-                await this.localCache.saveFile(fileKey, metaData);
+                await this.localCache.saveFile(fileKey, { ...metaData, content: [] });
                 return true;
             }
             return false;
@@ -1207,8 +1200,9 @@ Lumina.DB.SQLiteImpl = class {
             
             for (const file of allFiles) {
                 if (file.content && Array.isArray(file.content) && file.content.length > 0) {
+                    // 关键：显式设置 content: [] 表示删除
                     const { content, ...metaData } = file;
-                    await this.localCache.saveFile(file.fileKey, metaData);
+                    await this.localCache.saveFile(file.fileKey, { ...metaData, content: [] });
                     cleared++;
                 }
             }
@@ -1316,20 +1310,27 @@ Lumina.DB.WebCacheIndexedDBImpl = class {
                     
                     // 【关键】合并数据：保留 existing 中有的但 data 中没有的字段
                     // 这是为了确保重新打开文件时不丢失阅读进度等信息
+                    // 注意：需要检查 data 中是否真的有这个键，而不只是值不为 undefined
+                    const hasContent = 'content' in data;
+                    const hasCover = 'cover' in data;
+                    const hasHeatMap = 'heatMap' in data;
+                    const hasAnnotations = 'annotations' in data;
+                    const hasMetadata = 'metadata' in data;
+                    
                     const record = {
                         fileKey,
                         fileName: data.fileName,
                         fileType: data.fileType,
-                        // content：优先用 data 的，否则保留 existing（增量保存时不传 content）
-                        content: data.content !== undefined ? data.content : (existing?.content || null),
-                        // 封面：优先用 data 的，否则保留 existing
-                        cover: data.cover !== undefined ? data.cover : (existing?.cover || null),
-                        // 热力图：优先用 data 的，否则保留 existing
-                        heatMap: data.heatMap !== undefined ? data.heatMap : (existing?.heatMap || null),
-                        // 批注：优先用 data 的，否则保留 existing
-                        annotations: data.annotations !== undefined ? data.annotations : (existing?.annotations || []),
-                        // 元数据：优先用 data 的，否则保留 existing
-                        metadata: data.metadata !== undefined ? data.metadata : (existing?.metadata || null),
+                        // content：优先用 data 的（如果显式提供了），否则保留 existing
+                        content: hasContent ? data.content : (existing?.content || null),
+                        // 封面：优先用 data 的（如果显式提供了），否则保留 existing
+                        cover: hasCover ? data.cover : (existing?.cover || null),
+                        // 热力图：优先用 data 的（如果显式提供了），否则保留 existing
+                        heatMap: hasHeatMap ? data.heatMap : (existing?.heatMap || null),
+                        // 批注：优先用 data 的（如果显式提供了），否则保留 existing
+                        annotations: hasAnnotations ? data.annotations : (existing?.annotations || []),
+                        // 元数据：优先用 data 的（如果显式提供了），否则保留 existing
+                        metadata: hasMetadata ? data.metadata : (existing?.metadata || null),
                         // 阅读进度字段：优先保留 existing（除非 data 中有更新的值）
                         lastChapter: data.lastChapter || existing?.lastChapter || 0,
                         lastScrollIndex: data.lastScrollIndex || existing?.lastScrollIndex || 0,

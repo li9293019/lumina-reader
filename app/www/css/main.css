@@ -323,25 +323,25 @@ padding-bottom: 0 !important;
 
 /* 午夜蓝（冷调深夜 */
 [data-theme="midnight"] {
---bg-primary: #1a1f2e;
---bg-secondary: #161b28;
---bg-tertiary: #232837;
---heat-color: #758ed3;
---text-primary: #d8dce8;
---text-secondary: #8b92a8;
---text-muted: #5a6070;
---accent-color: #7c95d8;
---accent-hover: #9ab2e8;
---border-color: #2a3040;
---sidebar-bg: #141824;
---scrollbar-track: #1a1f2e;
---scrollbar-thumb: #3d4560;
---overlay-bg: rgba(15, 20, 35, 0.75);
---logo-page-main: #5a6a8a;
---logo-firefly-core: #ffb700; 
---logo-firefly-glow: #ffd700; 
---tooltip-bg: rgba(200, 210, 230, 0.95);
---tooltip-text: #1a1f2e;
+--bg-primary: #1a2639;
+--bg-secondary: #121d2d;
+--bg-tertiary: #0b1420;
+--heat-color: #dcc977;
+--text-primary: #f7f5f0;
+--text-secondary: #b8c0c8;
+--text-muted: #6b7a8f;
+--accent-color: #f0a040;
+--accent-hover: #ffb860;
+--border-color: #2a3a52;
+--sidebar-bg: #162230;
+--scrollbar-track: #0b1420;
+--scrollbar-thumb: #3d5a80;
+--overlay-bg: rgba(11, 20, 32, 0.8);
+--logo-page-main: #3d5a80;
+--logo-firefly-core: #ffaa33;
+--logo-firefly-glow: #ffcc66;
+--tooltip-bg: rgba(247, 245, 240, 0.95);
+--tooltip-text: #0b1420;
 }
 
 /* 星云紫 */
@@ -483,26 +483,26 @@ padding-bottom: 0 !important;
 }
 
 /* 藕荷  */
-[data-theme="mauve"] {
---bg-primary: #a090a0;
---bg-secondary: #908090;
---bg-tertiary: #807080;
---heat-color: #d6b0c3;
---text-primary: #f5f0f5;
---text-secondary: #e0d8e0;
---text-muted: #b8a8b8;
---accent-color: #e0c0d0;
---accent-hover: #f0d0e0;
---border-color: #988898;
---sidebar-bg: #988898;
---scrollbar-track: #807080;
---scrollbar-thumb: #b0a0b0;
---overlay-bg: rgba(60, 50, 60, 0.5);
---logo-page-main: #f0e8f0;
---logo-firefly-core: #e8d0e0;
---logo-firefly-glow: #f8e8f0;
---tooltip-bg: rgba(50, 45, 50, 0.95);
---tooltip-text: #f5f0f5;
+[data-theme="moss"] {
+--bg-primary: #3d4540;
+--bg-secondary: #323936;
+--bg-tertiary: #272e2b;
+--heat-color: #a8b5a0;
+--text-primary: #f0f2ee;
+--text-secondary: #c5ccc2;
+--text-muted: #8a958a;
+--accent-color: #b2cba6;
+--accent-hover: #c4d6bb;
+--border-color: #4a554e;
+--sidebar-bg: #373f3a;
+--scrollbar-track: #272e2b;
+--scrollbar-thumb: #5a6b60;
+--overlay-bg: rgba(30, 35, 32, 0.7);
+--logo-page-main: #5a6b60;
+--logo-firefly-core: #c9dcc0;
+--logo-firefly-glow: #e0f0d8;
+--tooltip-bg: rgba(240, 242, 238, 0.95);
+--tooltip-text: #272e2b;
 }
 
 /* 砂石  */

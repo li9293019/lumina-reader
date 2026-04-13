@@ -101,7 +101,7 @@ Lumina.Plugin.Markdown.Renderer = {
             'midnight': 'okaidia',          // 午夜蓝(深蓝) -> 冷调暗色
             'nebula': 'twilight',            // 星云紫(深紫) -> 冷调暗色
             'dusk': 'twilight',              // 黄昏暮光(暗紫) -> 冷调暗色
-            'mauve': 'okaidia',             // 藕荷(粉紫) -> 冷调暗色
+            'moss': 'okaidia',             // 苔藓(深绿) -> 冷调暗色
             'taupe': 'tomorrow',            // 灰褐(暖棕灰) -> 暖暗
             
             /* ========== 中间调主题 (5个) ========== */

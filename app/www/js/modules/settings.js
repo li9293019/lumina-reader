@@ -91,7 +91,7 @@ Lumina.Settings = {
         document.documentElement.setAttribute('data-theme', settings.theme);
         
         // 设置状态栏颜色（APP 环境）
-        const darkThemes = ['olive', 'taupe', 'dusk', 'mauve', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+        const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
         const isDarkTheme = darkThemes.includes(settings.theme);
         
         setTimeout(() => {

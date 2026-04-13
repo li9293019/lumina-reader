@@ -71,7 +71,64 @@ Lumina.UI = {
             Lumina.State.settings.sidebarVisible = isVisible;
             Lumina.Settings.save();
         };
-        document.getElementById('toggleToc').addEventListener('click', toggleSidebar);
+        
+        // PC Web: 点击 fileInfo 打开/关闭书籍详情页
+        const fileInfoEl = document.getElementById('fileInfo');
+        if (fileInfoEl) {
+            fileInfoEl.style.cursor = 'pointer';
+            fileInfoEl.addEventListener('click', () => {
+                const currentFileKey = Lumina.State.app.currentFile?.fileKey;
+                if (!currentFileKey) return; // 没有打开书籍时不响应
+                
+                // 如果详情页已打开则关闭，否则打开
+                const panel = document.getElementById('bookDetailPanel');
+                if (panel?.classList.contains('active')) {
+                    Lumina.BookDetail?.close();
+                } else {
+                    window.dataManager?.openBookDetail(currentFileKey);
+                }
+            });
+        }
+        
+        // 移动端: 两次短按目录图标打开/关闭书籍详情页
+        const tocBtn = document.getElementById('toggleToc');
+        let lastTapTime = 0;
+        let tapTimer = null;
+        const DOUBLE_TAP_DELAY = 300; // 毫秒
+        
+        tocBtn.addEventListener('click', (e) => {
+            const currentTime = new Date().getTime();
+            const tapInterval = currentTime - lastTapTime;
+            
+            // 检测是否为双击（两次点击间隔小于设定值）
+            if (tapInterval < DOUBLE_TAP_DELAY && tapInterval > 0) {
+                // 双击检测到，取消单击定时器
+                if (tapTimer) {
+                    clearTimeout(tapTimer);
+                    tapTimer = null;
+                }
+                lastTapTime = 0;
+                
+                const currentFileKey = Lumina.State.app.currentFile?.fileKey;
+                if (!currentFileKey) return; // 没有打开书籍时不响应
+                
+                // 如果详情页已打开则关闭，否则打开
+                const panel = document.getElementById('bookDetailPanel');
+                if (panel?.classList.contains('active')) {
+                    Lumina.BookDetail?.close();
+                } else {
+                    window.dataManager?.openBookDetail(currentFileKey);
+                }
+            } else {
+                // 单击：延迟执行切换侧边栏，等待可能的双击
+                lastTapTime = currentTime;
+                tapTimer = setTimeout(() => {
+                    tapTimer = null;
+                    toggleSidebar();
+                }, DOUBLE_TAP_DELAY);
+            }
+        });
+        
         document.getElementById('collapseToc').addEventListener('click', toggleSidebar);
 
         const panels = {

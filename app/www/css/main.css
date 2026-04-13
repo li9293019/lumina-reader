@@ -2455,9 +2455,9 @@ margin-left: 4px;
 /* 作者区域 */
 .about-author {
 background: var(--bg-secondary);
-border-radius: 12px;
-padding: 16px;
-margin-top: 8px;
+border-radius: 8px;
+padding: 8px 8px 16px 8px;
+margin: 8px -8px 0 -8px;
 }
 
 .about-author-header {

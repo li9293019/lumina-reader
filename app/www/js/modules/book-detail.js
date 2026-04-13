@@ -236,11 +236,8 @@ Lumina.BookDetail = {
             tagInput.addEventListener('keyup', (e) => this.handleTagInput(e));
         }
         
-        // 打开阅读按钮
-        const readBtn = document.getElementById('bookDetailReadBtn');
-        if (readBtn) {
-            readBtn.addEventListener('click', () => this.startReading());
-        }
+        // 打开阅读/返回按钮 - 统一交给 updateActionButton 设置处理器
+        // 在 show() 方法中会调用 updateActionButton 根据当前状态设置正确的处理器
     },
     
     // 打开面板（支持切换功能）
@@ -782,6 +779,9 @@ Lumina.BookDetail = {
         
         // 阅读进度条
         this.updateProgressBar(data);
+        
+        // 更新底部按钮：当前已打开该书籍时显示"返回"，否则显示"打开"
+        this.updateActionButton(data);
         
         // 简介
         if (el.description) {
@@ -1577,6 +1577,30 @@ Lumina.BookDetail = {
     },
     
     // 开始阅读
+    // 更新底部操作按钮（根据当前阅读状态切换"打开"或"返回"）
+    updateActionButton(data) {
+        const btn = document.getElementById('bookDetailReadBtn');
+        const btnIcon = document.getElementById('bookDetailBtnIcon');
+        const btnText = document.getElementById('bookDetailBtnText');
+        if (!btn || !btnIcon || !btnText) return;
+        
+        // 检查当前是否已经打开了该书籍
+        const currentOpenFileKey = Lumina.State.app.currentFile?.fileKey;
+        const isCurrentlyReading = currentOpenFileKey && currentOpenFileKey === data.fileKey;
+        
+        if (isCurrentlyReading) {
+            // 当前已打开该书籍，显示"返回"
+            btnIcon.innerHTML = '<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>';
+            btnText.textContent = Lumina.I18n.t('back') || '返回';
+            btn.onclick = () => this.close();
+        } else {
+            // 当前未打开该书籍，显示"打开阅读"
+            btnIcon.innerHTML = '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>';
+            btnText.textContent = Lumina.I18n.t('openBook') || '打开阅读';
+            btn.onclick = () => this.startReading();
+        }
+    },
+    
     async startReading() {
         if (!this.currentFile) return;
         

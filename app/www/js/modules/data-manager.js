@@ -662,13 +662,13 @@ Lumina.DataManager = class {
         const infoBarEl = document.querySelector('.storage-info-bar');
         
         // 书库统计信息（调试时使用 Logger.debug 查看）
-        if (window.logger) {
-            const impl = Lumina.DB.adapter.impl;
-            const storageType = impl?.dbBridge?.sqlite ? 'SQLite-APP' : 
-                               impl?.localCache ? 'SQLite-Web' : 
-                               impl?.db ? 'IndexedDB' : 'Unknown';
-            window.logger.debug('DataManager', '书库统计更新', { totalFiles, maxFiles, storage: storageType });
-        }
+        // if (window.logger) {
+        //     const impl = Lumina.DB.adapter.impl;
+        //     const storageType = impl?.dbBridge?.sqlite ? 'SQLite-APP' : 
+        //                        impl?.localCache ? 'SQLite-Web' : 
+        //                        impl?.db ? 'IndexedDB' : 'Unknown';
+        //     window.logger.debug('DataManager', '书库统计更新', { totalFiles, maxFiles, storage: storageType });
+        // }
         
         // SQLite 模式（无上限）隐藏进度条区域，IndexedDB 模式（50本上限）显示
         const isUnlimited = maxFiles === '∞' || typeof maxFiles !== 'number';

@@ -193,7 +193,7 @@ Lumina.ConfigManager = {
             console.error('[ConfigManager] 保存配置失败:', e);
             // 如果是配额错误，提示用户
             if (e.name === 'QuotaExceededError') {
-                Lumina.UI.showToast('配置保存失败：存储空间不足，请清理一些数据');
+                Lumina.UI.showToast(Lumina.I18n.t('configSaveQuotaExceeded'));
             }
             return false;
         }
@@ -347,7 +347,7 @@ Lumina.ConfigManager = {
         await Lumina.FontManager._saveCustomFonts();
         
         if (restoredCount > 0) {
-            Lumina.UI.showToast(t('fontRestoreSuccess', restoredCount, totalFonts) || `成功恢复 ${restoredCount} 个自定义字体`);
+            Lumina.UI.showToast(t('fontRestoreSuccess', restoredCount, totalFonts));
         }
         
         console.log('[ConfigManager] 字体恢复完成:', restoredCount, '/', totalFonts);
@@ -401,13 +401,13 @@ Lumina.ConfigManager = {
         await Lumina.FontManager._saveCustomFonts();
         
         if (restoredCount > 0) {
-            Lumina.UI.showToast(`从 Documents 恢复 ${restoredCount} 个字体`);
+            Lumina.UI.showToast(Lumina.I18n.t('fontsRestoredFromDocuments', restoredCount));
         }
         
         if (missingFonts.length > 0) {
             console.log('[ConfigManager] 以下字体未找到，需要手动添加:', missingFonts.map(f => f.name).join(', '));
             setTimeout(() => {
-                Lumina.UI.showToast(`${missingFonts.length} 个字体未找到，请手动添加`);
+                Lumina.UI.showToast(Lumina.I18n.t('fontsMissing', missingFonts.length));
             }, 500);
         }
     },
@@ -466,7 +466,7 @@ Lumina.ConfigManager = {
             if (encrypted) {
                 // 使用 Lumina 专用 .lmn 格式解密
                 const password = await this._requestPassword('enter');
-                if (password === null) return { success: false, error: '未输入密码' };
+                if (password === null) return { success: false, error: Lumina.I18n.t('noPasswordEntered') };
                 
                 console.log('[ConfigManager] 导入加密配置，密码长度:', password.length, '使用默认密钥:', password.length === 0);
                 console.log('[ConfigManager] 数据类型:', data.constructor.name, '数据长度:', data.length || data.byteLength);
@@ -479,7 +479,7 @@ Lumina.ConfigManager = {
                     console.log('[ConfigManager] 解密成功');
                 } catch (e) {
                     console.error('[ConfigManager] 解密失败:', e);
-                    return { success: false, error: '密码错误或数据损坏' };
+                    return { success: false, error: Lumina.I18n.t('passwordErrorOrCorrupt') };
                 }
             }
             
@@ -487,7 +487,7 @@ Lumina.ConfigManager = {
             
             // 验证配置结构
             if (!imported.version) {
-                throw new Error('无效的配置文件');
+                throw new Error(Lumina.I18n.t('invalidConfigFile'));
             }
             
             // 合并导入的配置（保留部分当前设置）
@@ -520,7 +520,7 @@ Lumina.ConfigManager = {
                     delete merged.customFontsData;
                     // 提示用户需要重新添加字体
                     setTimeout(() => {
-                        Lumina.UI.showToast('自定义字体配置已导入，请手动重新添加字体文件');
+                        Lumina.UI.showToast(Lumina.I18n.t('fontConfigImportedPleaseReAdd'));
                     }, 500);
                 } else {
                     // PC 端导入不含字体数据的配置（正常 PC 间导入）
@@ -546,8 +546,8 @@ Lumina.ConfigManager = {
     _requestPassword(type = 'enter') {
         return new Promise((resolve) => {
             const t = Lumina.I18n?.t || ((k) => k);
-            const title = type === 'set' ? t('configExportPasswordTitle') || '设置导出密码' : t('enterPassword') || '输入解密密码';
-            const message = type === 'set' ? t('configExportPasswordDesc') || '请为此配置备份设置密码' : t('enterPasswordDesc') || '此配置已加密，请输入密码';
+            const title = type === 'set' ? t('configExportPasswordTitle') : t('enterPassword');
+            const message = type === 'set' ? t('configExportPasswordDesc') : t('enterPasswordDesc');
             
             Lumina.UI.showDialog(message, 'prompt', (result) => {
                 if (result === null || result === false) {
@@ -559,22 +559,22 @@ Lumina.ConfigManager = {
                 
                 // 设置密码模式且用户输入了非空密码：需要确认密码
                 if (type === 'set' && password.length > 0) {
-                    Lumina.UI.showDialog(t('confirmPassword') || '确认密码', 'prompt', (confirmResult) => {
+                    Lumina.UI.showDialog(t('confirmPassword'), 'prompt', (confirmResult) => {
                         if (confirmResult === null || confirmResult === false) {
                             resolve(null); // 用户取消确认
                             return;
                         }
                         
                         if (password !== confirmResult) {
-                            Lumina.UI.showToast(t('passwordMismatch') || '两次输入的密码不一致');
+                            Lumina.UI.showToast(t('passwordMismatch'));
                             resolve(null);
                         } else {
                             resolve(password);
                         }
                     }, {
-                        title: t('confirmPassword') || '确认密码',
+                        title: t('confirmPassword'),
                         inputType: 'password',
-                        placeholder: t('passwordPlaceholder') || '再次输入密码'
+                        placeholder: t('passwordPlaceholder')
                     });
                 } else {
                     // 输入密码模式，或者设置模式但用户输入空密码：直接返回
@@ -583,7 +583,7 @@ Lumina.ConfigManager = {
             }, {
                 title,
                 inputType: 'password',
-                placeholder: t('passwordPlaceholder') || '输入密码（可选）'
+                placeholder: t('passwordPlaceholder')
             });
         });
     },
@@ -604,7 +604,7 @@ Lumina.ConfigManager = {
         let progressDialog = null;
         if (includeFonts && Lumina.ExportUtils) {
             progressDialog = Lumina.ExportUtils.showProgressDialog(
-                Lumina.I18n?.t?.('exportingConfig') || '正在导出配置...'
+                Lumina.I18n?.t?.('exportingConfig')
             );
         }
         
@@ -631,7 +631,7 @@ Lumina.ConfigManager = {
             if (result.success) {
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                 if (isApp) {
-                    Lumina.UI?.showToast?.(`已导出到: Documents/LuminaReader/${result.fileName}`);
+                    Lumina.UI?.showToast?.(Lumina.I18n.t('configExportedTo', result.fileName));
                 }
                 this.set('meta.lastBackup', Date.now());
             }
@@ -639,12 +639,12 @@ Lumina.ConfigManager = {
             if (progressDialog) progressDialog.close();
             if (err.code === 'EXPORT_SIZE_LIMIT') {
                 Lumina.UI?.showDialog?.(
-                    `配置文件过大（约 ${err.estimatedMB}MB），建议关闭"包含字体"选项或减少自定义字体数量后再试。`,
+                    Lumina.I18n.t('exportSizeLimit', err.estimatedMB),
                     'alert'
                 );
             } else {
                 console.error('[ConfigManager] 导出失败:', err);
-                Lumina.UI?.showToast?.('导出失败: ' + err.message);
+                Lumina.UI?.showToast?.(Lumina.I18n.t('exportFailed') + ': ' + err.message);
             }
         }
     },
@@ -685,7 +685,7 @@ Lumina.ConfigManager = {
                     resolve({ success: false, error: err.message });
                 }
             };
-            reader.onerror = () => resolve({ success: false, error: '文件读取失败' });
+            reader.onerror = () => resolve({ success: false, error: Lumina.I18n.t('fileReadFailed') });
             
             // 统一使用文本方式读取
             reader.readAsText(file);
@@ -708,7 +708,7 @@ Lumina.ConfigManager = {
             return bytes;
         } catch (e) {
             console.error('[ConfigManager] Base64 解码失败:', e);
-            throw new Error('文件格式错误：无效的 base64 编码');
+            throw new Error(Lumina.I18n.t('invalidBase64Encoding'));
         }
     },
     
@@ -739,7 +739,7 @@ Lumina.ConfigManager = {
             theme: config.reading.theme,
             language: config.reading.language,
             heatMapPresets: config.heatMap.presets.length,
-            lastBackup: config.meta.lastBackup ? new Date(config.meta.lastBackup).toLocaleString() : '从未',
+            lastBackup: config.meta.lastBackup ? new Date(config.meta.lastBackup).toLocaleString() : Lumina.I18n.t('neverBackedUp'),
         };
     }
 };

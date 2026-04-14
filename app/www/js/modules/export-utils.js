@@ -49,7 +49,7 @@ Lumina.ExportUtils = {
             },
             updateStep: (current, total, stepName = '') => {
                 if (progressStep) {
-                    progressStep.textContent = `步骤 ${current}/${total}${stepName ? ': ' + stepName : ''}`;
+                    progressStep.textContent = Lumina.I18n.t('exportStep', current, total, stepName ? ': ' + stepName : '');
                 }
             },
             updateDetail: (detail) => {
@@ -315,7 +315,7 @@ Lumina.ExportUtils = {
         if (encrypted && password !== null) {
             // 加密导出
             const progressDialog = onProgress ? null : this.showProgressDialog(
-                Lumina.I18n?.t?.('encrypting') || '正在加密...'
+                Lumina.I18n?.t?.('encrypting')
             );
             
             try {
@@ -401,13 +401,13 @@ Lumina.ExportUtils = {
         // 步骤1：处理字体打包（仅 APP 端）
         if (hasFonts) {
             if (onProgress) {
-                onProgress(0, { step: currentStep, total: totalSteps, stepName: '打包字体' });
+                onProgress(0, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('packingFonts') });
             }
             
             const fontsData = await this.packCustomFonts(
                 config.customFonts, 
                 onProgress ? (p) => {
-                    onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: '打包字体' });
+                    onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('packingFonts') });
                 } : null
             );
             
@@ -436,7 +436,7 @@ Lumina.ExportUtils = {
             
             try {
                 if (onProgress) {
-                    onProgress(0, { step: currentStep, total: totalSteps, stepName: '加密并写入文件' });
+                    onProgress(0, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('encryptingAndWritingFile') });
                 }
                 
                 const encryptedBuffer = await Lumina.Crypto.encrypt(
@@ -444,7 +444,7 @@ Lumina.ExportUtils = {
                     password || null, 
                     (progress) => {
                         if (onProgress) {
-                            onProgress(progress, { step: currentStep, total: totalSteps, stepName: '加密并写入文件' });
+                            onProgress(progress, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('encryptingAndWritingFile') });
                         }
                     }
                 );
@@ -454,7 +454,7 @@ Lumina.ExportUtils = {
                         `LuminaReader/${encFileName}`, 
                         encryptedBuffer,
                         onProgress ? (p) => {
-                            onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: '加密并写入文件' });
+                            onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('encryptingAndWritingFile') });
                         } : null
                     );
                 } else {
@@ -462,7 +462,7 @@ Lumina.ExportUtils = {
                 }
                 
                 if (onProgress) {
-                    onProgress(100, { step: currentStep, total: totalSteps, stepName: '完成' });
+                    onProgress(100, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('exportCompleted') });
                 }
                 
                 return { success: true, fileName: encFileName };
@@ -472,7 +472,7 @@ Lumina.ExportUtils = {
         } else {
             // 明文导出
             if (onProgress) {
-                onProgress(0, { step: currentStep, total: totalSteps, stepName: '写入文件' });
+                onProgress(0, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('writingFile') });
             }
             
             if (isApp) {
@@ -480,7 +480,7 @@ Lumina.ExportUtils = {
                     `LuminaReader/${fileName}`, 
                     exportConfig, 
                     onProgress ? (p) => {
-                        onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: '写入文件' });
+                        onProgress(p * 100, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('writingFile') });
                     } : null
                 );
             } else {
@@ -488,7 +488,7 @@ Lumina.ExportUtils = {
             }
             
             if (onProgress) {
-                onProgress(100, { step: currentStep, total: totalSteps, stepName: '完成' });
+                onProgress(100, { step: currentStep, total: totalSteps, stepName: Lumina.I18n.t('exportCompleted') });
             }
             
             return { success: true, fileName };

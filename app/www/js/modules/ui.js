@@ -244,7 +244,7 @@ Lumina.UI = {
                     await Lumina.Exporter.exportDocument(btn.dataset.export);
                 } catch (err) {
                     console.error('导出错误:', err);
-                    Lumina.UI.showToast('导出失败');
+                    Lumina.UI.showToast(Lumina.I18n.t('exportFailed'));
                 }
             }
         });
@@ -451,7 +451,7 @@ Lumina.UI = {
 
     // 打开 TTS 使用指南
     async openTTSGuide() {
-        const guideFileName = '语音朗读使用指南.md';
+        const guideFileName = Lumina.I18n.t('ttsGuideFileName');
         
         try {
             // 1. 检查书库中是否已有该文件
@@ -469,13 +469,13 @@ Lumina.UI = {
             console.log('[TTS Help] 加载内置指南...');
             const response = await fetch('./tts-guide.md');
             if (!response.ok) {
-                Lumina.UI.showToast('指南文件加载失败');
+                Lumina.UI.showToast(Lumina.I18n.t('ttsGuideLoadFailed'));
                 return;
             }
             
             const text = await response.text();
             if (!text || text.length < 100) {
-                Lumina.UI.showToast('指南文件内容无效');
+                Lumina.UI.showToast(Lumina.I18n.t('ttsGuideInvalidContent'));
                 return;
             }
             
@@ -485,7 +485,7 @@ Lumina.UI = {
                 : Lumina.Parser.parseTXT(text);
             
             if (!parsed?.items?.length) {
-                Lumina.UI.showToast('指南解析失败');
+                Lumina.UI.showToast(Lumina.I18n.t('ttsGuideParseFailed'));
                 return;
             }
             
@@ -509,7 +509,7 @@ Lumina.UI = {
             });
             
             if (!saved) {
-                Lumina.UI.showToast('保存指南失败');
+                Lumina.UI.showToast(Lumina.I18n.t('ttsGuideSaveFailed'));
                 return;
             }
             
@@ -525,7 +525,7 @@ Lumina.UI = {
             
         } catch (err) {
             console.error('[TTS Help] 打开指南失败:', err);
-            Lumina.UI.showToast('打开指南失败');
+            Lumina.UI.showToast(Lumina.I18n.t('ttsGuideOpenFailed'));
         }
     },
 
@@ -751,7 +751,7 @@ Lumina.UI = {
                 transition: opacity 0.3s;
                 font-family: system-ui, -apple-system, sans-serif;
             `;
-            toast.textContent = `字号: ${Math.round(size)}px`;
+            toast.textContent = Lumina.I18n.t('fontSizeLabel') + ': ' + Math.round(size) + 'px';
             document.body.appendChild(toast);
             
             setTimeout(() => {
@@ -884,27 +884,27 @@ Lumina.UI = {
         symbols: [
             // 第一行：元字符 + 结构
             [
-                { symbol: '^', desc: '行首' },
-                { symbol: '.', desc: '任意字符' },
-                { symbol: '+', desc: '一次或多次' },
-                { symbol: '*', desc: '零次或多次' },
-                { symbol: '-', desc: '连字符' },
-                { symbol: '?', desc: '零次或一次' },
-                { symbol: '()', desc: '捕获组', cursorOffset: 1 },
-                { symbol: '[]', desc: '字符类', cursorOffset: 1 },
-                { symbol: '{}', desc: '量词', cursorOffset: 1 }
+                { symbol: '^', desc: Lumina.I18n.t('regexDescStart') },
+                { symbol: '.', desc: Lumina.I18n.t('regexDescAny') },
+                { symbol: '+', desc: Lumina.I18n.t('regexDescOneOrMore') },
+                { symbol: '*', desc: Lumina.I18n.t('regexDescZeroOrMore') },
+                { symbol: '-', desc: Lumina.I18n.t('regexDescHyphen') },
+                { symbol: '?', desc: Lumina.I18n.t('regexDescZeroOrOne') },
+                { symbol: '()', desc: Lumina.I18n.t('regexDescCapture'), cursorOffset: 1 },
+                { symbol: '[]', desc: Lumina.I18n.t('regexDescGroup'), cursorOffset: 1 },
+                { symbol: '{}', desc: Lumina.I18n.t('regexDescQuantifier'), cursorOffset: 1 }
             ],
             // 第二行：位置 + 宏 + 转义 + 逻辑
             [
-                { symbol: '$', desc: '行尾' },
-                { symbol: '\\', desc: '转义符' },
-                { symbol: '\\C', desc: '中文数字' },
-                { symbol: '\\Z', desc: '中文字符' },
-                { symbol: '\\A', desc: '字母' },
-                { symbol: '\\R', desc: '罗马数字' },
-                { symbol: '\\s', desc: '空白字符' },
-                { symbol: '\\d', desc: '数字' },
-                { symbol: '|', desc: '或' }
+                { symbol: '$', desc: Lumina.I18n.t('regexDescEnd') },
+                { symbol: '\\', desc: Lumina.I18n.t('regexDescEscape') },
+                { symbol: '\\C', desc: Lumina.I18n.t('regexDescCN') },
+                { symbol: '\\Z', desc: Lumina.I18n.t('regexDescZhong') },
+                { symbol: '\\A', desc: Lumina.I18n.t('regexDescAlpha') },
+                { symbol: '\\R', desc: Lumina.I18n.t('regexDescRomanU') },
+                { symbol: '\\s', desc: Lumina.I18n.t('regexDescSpace') },
+                { symbol: '\\d', desc: Lumina.I18n.t('regexDescNum') },
+                { symbol: '|', desc: Lumina.I18n.t('regexDescOr') }
             ]
         ],
 

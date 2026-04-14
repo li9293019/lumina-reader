@@ -250,7 +250,7 @@ Lumina.LegalPage = {
                     window.ExitAppInterface.exitApp();
                 } else {
                     // 如果都不奏效，显示提示让用户手动退出
-                    Lumina.UI?.showToast?.('请手动关闭应用', 3000);
+                    Lumina.UI?.showToast?.(Lumina.I18n.t('closeAppManually'), 3000);
                 }
             } catch (e) {
                 console.error('[LegalPage] 备用退出方法也失败:', e);

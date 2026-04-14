@@ -301,7 +301,7 @@ Lumina.Actions = {
             if (isCancelled) {
                 console.log('[Actions] 用户取消操作');
             } else {
-                Lumina.UI.showDialog(`Error: ${err.message}`);
+                Lumina.UI.showDialog(Lumina.I18n.t('error') + ': ' + err.message);
             }
             return false;  // 处理失败
         } finally {
@@ -405,7 +405,7 @@ Lumina.Actions = {
     // 处理导入文件（JSON 或 LMN 格式，支持单本、批量和配置）
     async handleImportFile(file) {
         if (!Lumina.DataManager) {
-            Lumina.UI.showDialog('导入系统未初始化');
+            Lumina.UI.showDialog(Lumina.I18n.t('importSystemNotReady'));
             return;
         }
         
@@ -459,7 +459,7 @@ Lumina.Actions = {
             if (isConfigData) {
                 // 配置文件导入
                 if (!data.version) {
-                    throw new Error('无效的配置文件');
+                    throw new Error(Lumina.I18n.t('invalidConfigFile'));
                 }
                 
                 const current = Lumina.ConfigManager.load();
@@ -493,7 +493,7 @@ Lumina.Actions = {
                 // 单本书籍导入（旧格式，兼容）
                 await Lumina.DataManager.importDataToDB(data);
             } else {
-                throw new Error('无效的文件格式');
+                throw new Error(Lumina.I18n.t('invalidFileFormat'));
             }
         } catch (err) {
             Lumina.UI.showDialog(Lumina.I18n.t('importFailed') + ': ' + err.message);
@@ -513,7 +513,7 @@ Lumina.Actions = {
             }
             return bytes;
         } catch (e) {
-            throw new Error('文件格式错误：无效的 base64 编码');
+            throw new Error(Lumina.I18n.t('invalidBase64Encoding'));
         }
     },
 

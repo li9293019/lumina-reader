@@ -64,7 +64,7 @@ Lumina.BookDetail = {
             const datalist = document.createElement('datalist');
             datalist.id = 'languageOptions';
             const languages = Lumina.Config?.languages || [
-                { name: '简体中文' }, { name: '繁體中文' }, { name: 'English' },
+                { name: Lumina.I18n.t('zh') }, { name: Lumina.I18n.t('zh-TW') }, { name: Lumina.I18n.t('en') },
                 { name: '日本語' }, { name: '한국어' }
             ];
             datalist.innerHTML = languages.map(lang => `<option value="${lang.name}">`).join('');
@@ -75,8 +75,8 @@ Lumina.BookDetail = {
         const menu = document.getElementById('bookDetailLanguageMenu');
         if (menu && !menu.hasChildNodes()) {
             const languages = Lumina.Config?.languages || [
-                { code: 'zh', name: '简体中文' }, { code: 'zh-TW', name: '繁體中文' },
-                { code: 'en', name: 'English' }, { code: 'ja', name: '日本語' }, { code: 'ko', name: '한국어' }
+                { code: 'zh', name: Lumina.I18n.t('zh') }, { code: 'zh-TW', name: Lumina.I18n.t('zh-TW') },
+                { code: 'en', name: Lumina.I18n.t('en') }, { code: 'ja', name: '日本語' }, { code: 'ko', name: '한국어' }
             ];
             menu.innerHTML = languages.map(lang => 
                 `<div class="language-option" data-value="${lang.name}">${lang.name}</div>`

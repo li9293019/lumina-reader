@@ -128,7 +128,7 @@
     ];
 
     function generateHashGradient(title, author) {
-        const seedStr = `${(title || '未命名').trim()}|${(author || '佚名').trim()}`;
+        const seedStr = `${(title || Lumina.I18n.t('untitled')).trim()}|${(author || Lumina.I18n.t('anonymousAuthor')).trim()}`;
         const hash = djb2(seedStr);
         const themeIndex = hash % COLOR_THEMES.length;
         const theme = COLOR_THEMES[themeIndex];
@@ -1004,14 +1004,14 @@
             const gradient = generateHashGradient(title, author);
             
             // 处理文本
-            const spacedTitle = addSpaces(title || '未命名');
-            const spacedAuthor = addSpaces(author || '佚名');
+            const spacedTitle = addSpaces(title || Lumina.I18n.t('untitled'));
+            const spacedAuthor = addSpaces(author || Lumina.I18n.t('anonymousAuthor'));
             
             const titleUnits = tokenize(spacedTitle, false);
             const authorUnits = tokenize(spacedAuthor, false);
             
             // 分析标题排版模式
-            const analysis = analyzeText(titleUnits, title || '');
+            const analysis = analyzeText(titleUnits, title || Lumina.I18n.t('untitled'));
             
             // 计算版心几何
             const availableH = height - bleed * 2;

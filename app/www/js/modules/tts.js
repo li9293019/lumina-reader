@@ -181,7 +181,7 @@ Lumina.TTS.Manager = class {
         this.boundaryDetectedThisUtterance = false;
         
         // 启动后台服务
-        const bookTitle = state.currentFile?.name || '正在朗读...';
+        const bookTitle = state.currentFile?.name || Lumina.I18n.t('ttsReading');
         this.setBackgroundService(true, bookTitle);
 
         if (selectionInfo) {
@@ -266,7 +266,7 @@ Lumina.TTS.Manager = class {
         if (!Lumina.State.app.document.items.length) return;
         
         const state = Lumina.State.app;
-        const bookTitle = state.currentFile?.name || '正在朗读...';
+        const bookTitle = state.currentFile?.name || Lumina.I18n.t('ttsReading');
         
         // 启动后台服务
         this.setBackgroundService(true, bookTitle);
@@ -397,7 +397,7 @@ Lumina.TTS.Manager = class {
             if (!TTSBackground) return;
             
             const currentFile = Lumina.State.app.currentFile;
-            const title = currentFile ? currentFile.fileName : '正在朗读...';
+            const title = currentFile ? currentFile.fileName : Lumina.I18n.t('ttsReading');
             
             switch (action) {
                 case 'start':
@@ -657,7 +657,7 @@ Lumina.TTS.Manager = class {
                 setTimeout(async () => {
                     await TTSBackground.updatePlaying({ 
                         isPlaying: true, 
-                        title: title || '正在朗读...' 
+                        title: title || Lumina.I18n.t('ttsReading') 
                     });
                     // console.log('[TTS] 后台状态已更新');
                 }, 500);
@@ -680,7 +680,7 @@ Lumina.TTS.Manager = class {
             if (TTSBackground?.updatePlaying) {
                 await TTSBackground.updatePlaying({ 
                     isPlaying: isPlaying, 
-                    title: title || '正在朗读...' 
+                    title: title || Lumina.I18n.t('ttsReading') 
                 });
             }
         } catch (e) {
@@ -702,7 +702,7 @@ Lumina.TTS.Manager = class {
             if (result.needRequest && !this.batteryOptimizationRequested) {
                 this.batteryOptimizationRequested = true;
                 // 显示提示
-                Lumina.UI.showToast('需要电池优化权限以保证熄屏播放', 5000);
+                Lumina.UI.showToast(Lumina.I18n.t('batteryOptimizationNeeded'), 5000);
                 // 延迟后请求
                 setTimeout(() => {
                     TTSBackground.requestBatteryOptimization().catch(() => {});
@@ -729,7 +729,7 @@ Lumina.TTS.Manager = class {
         this.boundaryDetectedThisUtterance = false;
         
         // 启动后台服务（熄屏播放）
-        const bookTitle = Lumina.State.app.currentFile?.name || '正在朗读...';
+        const bookTitle = Lumina.State.app.currentFile?.name || Lumina.I18n.t('ttsReading');
         this.setBackgroundService(true, bookTitle);
 
         if (selectionInfo) {
@@ -821,7 +821,7 @@ Lumina.TTS.Manager = class {
         
         // 停止后台服务
         this.setBackgroundService(false);
-        this.updateBackgroundState(false, '已暂停');
+        this.updateBackgroundState(false, Lumina.I18n.t('ttsPaused'));
         this.stopServiceKeepAlive();
         
         window.getSelection().removeAllRanges();
@@ -937,7 +937,7 @@ Lumina.TTS.Manager = class {
         
         // 代码块 - 跳过朗读，只提示类型
         else if (item.type === 'codeblock') {
-            text = item.language ? `（${item.language}代码块）` : '（代码块）';
+            text = item.language ? Lumina.I18n.t('codeBlockWithLang', item.language) : Lumina.I18n.t('codeBlock');
         }
         
         // 引用块
@@ -987,7 +987,7 @@ Lumina.TTS.Manager = class {
                     }
                     return this.cleanMarkdownMarks(h.text) || '';
                 }).join('，');
-                if (headerTexts) tableTexts.push('表头：' + headerTexts);
+                if (headerTexts) tableTexts.push(Lumina.I18n.t('tableHeader') + headerTexts);
             }
             // 表格数据
             if (item.rows && Array.isArray(item.rows)) {
@@ -999,7 +999,7 @@ Lumina.TTS.Manager = class {
                             }
                             return this.cleanMarkdownMarks(cell.text) || '';
                         }).join('，');
-                        if (rowTexts) tableTexts.push(`第${rowIndex + 1}行：${rowTexts}`);
+                        if (rowTexts) tableTexts.push(Lumina.I18n.t('tableRow', rowIndex + 1, rowTexts));
                     }
                 });
             }

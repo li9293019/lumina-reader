@@ -22,14 +22,14 @@ Lumina.Exporter = {
                 await exporters[format]();
             } catch (e) {
                 console.error('导出失败:', e);
-                Lumina.UI.showToast('导出失败: ' + e.message);
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + e.message);
             }
         }
     },
 
     generateTXT() {
         return Lumina.State.app.document.items.map((i, idx) => {
-            if (i.type === 'image') return '[图片]';
+            if (i.type === 'image') return Lumina.I18n.t('imagePlaceholder');
             let text = i.display || i.text;
             // 简繁转换
             if (Lumina.Converter?.isConverting && text) {
@@ -64,7 +64,7 @@ Lumina.Exporter = {
 
         const fileTitle = escapeHtml(appState.currentFile.name.replace(/\.[^/.]+$/, ''));
         const chapterNames = appState.chapters.map(c =>
-            c.isPreface ? '前言' : escapeHtml(getCleanText(c.title).substring(0, 40))
+            c.isPreface ? Lumina.I18n.t('preface') : escapeHtml(getCleanText(c.title).substring(0, 40))
         );
 
         // 重置计数器
@@ -671,7 +671,7 @@ Lumina.Exporter = {
                     \`;
                     document.body.appendChild(toast);
                 }
-                toast.textContent = '字号: ' + size.toFixed(1) + 'px';
+                toast.textContent = Lumina.I18n.t('fontSizeLabel') + ': ' + size.toFixed(1) + 'px';
                 toast.style.opacity = '1';
                 clearTimeout(toastTimeout);
                 toastTimeout = setTimeout(() => {
@@ -978,12 +978,12 @@ Lumina.Exporter = {
             '<body>',
 
             '<header class="header">',
-            '<button class="header-btn" onclick="toggleMenu()" aria-label="目录">' + icons.menu + '</button>',
+            '<button class="header-btn" onclick="toggleMenu()" aria-label="' + Lumina.I18n.t('toc') + '">' + icons.menu + '</button>',
             '<div class="header-title">',
             '<div class="book-name">' + fileTitle + '</div>',
-            '<div class="chapter-name">点击目录开始阅读</div>',
+            '<div class="chapter-name">' + Lumina.I18n.t('clickTocToRead') + '</div>',
             '</div>',
-            '<button class="header-btn" onclick="toggleTheme()" aria-label="切换主题">' + icons.theme + '</button>',
+            '<button class="header-btn" onclick="toggleTheme()" aria-label="' + Lumina.I18n.t('themeSwitch') + '">' + icons.theme + '</button>',
             '</header>',
 
             '<div class="overlay"></div>',
@@ -1266,7 +1266,7 @@ Lumina.Exporter = {
                         await window.FileExporter.saveBinary(base64data, `${fileTitle}.docx`);
                         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                         if (isApp) {
-                            Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${fileTitle}.docx`);
+                            Lumina.UI.showToast(Lumina.I18n.t('exportedTo', {path: 'Documents/LuminaReader/' + fileTitle + '.docx'}));
                         } else {
                             Lumina.UI.showToast(Lumina.I18n.t('docxExportSuccess'));
                         }
@@ -1303,13 +1303,13 @@ Lumina.Exporter = {
                 await window.FileExporter.saveFile(content, fileName, mimeType);
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                 if (isApp) {
-                    Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${fileName}`);
+                    Lumina.UI.showToast(Lumina.I18n.t('exportedTo', {path: 'Documents/LuminaReader/' + fileName}));
                 } else {
-                    Lumina.UI.showToast('导出成功: ' + fileName);
+                    Lumina.UI.showToast(Lumina.I18n.t('exportSuccess') + ': ' + fileName);
                 }
             } catch (e) {
                 console.error('导出失败:', e);
-                Lumina.UI.showToast('导出失败: ' + e.message);
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + e.message);
             }
         } else {
             // 桥接层未加载，使用传统方式

@@ -3,12 +3,12 @@
 Lumina.Annotations = {
     // 颜色配置
     colors: [
-        { id: 'yellow', bg: 'rgba(255, 235, 59, 0.4)', border: '#F9A825', name: '黄色' },
-        { id: 'green', bg: 'rgba(76, 175, 80, 0.3)', border: '#388E3C', name: '绿色' },
-        { id: 'blue', bg: 'rgba(33, 150, 243, 0.3)', border: '#1976D2', name: '蓝色' },
-        { id: 'pink', bg: 'rgba(233, 30, 99, 0.3)', border: '#C2185B', name: '粉色' },
-        { id: 'purple', bg: 'rgba(156, 39, 176, 0.3)', border: '#7B1FA2', name: '紫色' },
-        { id: 'orange', bg: 'rgba(255, 152, 0, 0.3)', border: '#F57C00', name: '橙色' }
+        { id: 'yellow', bg: 'rgba(255, 235, 59, 0.4)', border: '#F9A825', get name() { return Lumina.I18n.t('colorYellow'); } },
+        { id: 'green', bg: 'rgba(76, 175, 80, 0.3)', border: '#388E3C', get name() { return Lumina.I18n.t('colorGreen'); } },
+        { id: 'blue', bg: 'rgba(33, 150, 243, 0.3)', border: '#1976D2', get name() { return Lumina.I18n.t('colorBlue'); } },
+        { id: 'pink', bg: 'rgba(233, 30, 99, 0.3)', border: '#C2185B', get name() { return Lumina.I18n.t('colorPink'); } },
+        { id: 'purple', bg: 'rgba(156, 39, 176, 0.3)', border: '#7B1FA2', get name() { return Lumina.I18n.t('colorPurple'); } },
+        { id: 'orange', bg: 'rgba(255, 152, 0, 0.3)', border: '#F57C00', get name() { return Lumina.I18n.t('colorOrange'); } }
     ],
     
     // 初始化
@@ -1025,7 +1025,7 @@ Lumina.Annotations = {
         let html = '';
         Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b)).forEach(chIdx => {
             const chapter = Lumina.State.app.chapters[chIdx];
-            const title = chapter ? (chapter.title || `第${parseInt(chIdx)+1}章`) : `第${parseInt(chIdx)+1}章`;
+            const title = chapter ? (chapter.title || Lumina.I18n.t('chapterNumber', parseInt(chIdx)+1)) : Lumina.I18n.t('chapterNumber', parseInt(chIdx)+1);
             
             html += `<div class="annotation-group">`;
             html += `<div class="annotation-group-title">${Lumina.Utils.escapeHtml(title)}</div>`;

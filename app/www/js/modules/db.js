@@ -82,7 +82,7 @@
                         return local;
                     }
                     if (typeof Lumina !== 'undefined' && Lumina.UI && Lumina.UI.showToast) {
-                        Lumina.UI.showToast('首次加载中...', 0);
+                        Lumina.UI.showToast(Lumina.I18n.t('firstLoading'), 0);
                     }
                 } catch (e) {
                     console.error('[getFileSmart] 本地缓存读取失败:', e);

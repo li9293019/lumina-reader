@@ -86,28 +86,28 @@ Lumina.FontManager = {
     builtInFonts: {
         serif: {
             id: 'serif',
-            name: '宋体',
+            name: Lumina.I18n.t('fontSong'),
             family: '"LXGW Neo Zhi Song", "Noto Serif SC", "Source Han Serif SC", "SimSun", "STSong", serif',
             cssUrl: './assets/fonts/LXGWNeoZhiSong.css',
             isBuiltIn: true
         },
         sans: {
             id: 'sans',
-            name: '黑体',
+            name: Lumina.I18n.t('fontHei'),
             family: '"LXGW Neo XiHei", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
             cssUrl: './assets/fonts/LXGWNeoXiHei.css',
             isBuiltIn: true
         },
         kai: {
             id: 'kai',
-            name: '楷体',
+            name: Lumina.I18n.t('fontKai'),
             family: '"LXGW WenKai", "KaiTi", "STKaiti", serif',
             cssUrl: './assets/fonts/lxgwwenkai.css',
             isBuiltIn: true
         },
         mono: {
             id: 'mono',
-            name: '等宽',
+            name: Lumina.I18n.t('fontMono'),
             family: '"JetBrains Mono", "Fira Code", "Consolas", "Monaco", monospace',
             cssUrl: null,
             isBuiltIn: true
@@ -330,7 +330,7 @@ Lumina.FontManager = {
             if (!file) return null;
             
             if (file.size > 30 * 1024 * 1024) {
-                Lumina.UI.showToast('字体文件过大（最大 30MB）');
+                Lumina.UI.showToast(Lumina.I18n.t('fontFileTooLarge'));
                 return null;
             }
             
@@ -340,7 +340,7 @@ Lumina.FontManager = {
             // 检查是否已存在相同名称的字体
             const exists = this.customFonts.find(f => f.name === fontName);
             if (exists) {
-                Lumina.UI.showToast(`字体 "${fontName}" 已存在`);
+                Lumina.UI.showToast(Lumina.I18n.t('fontAlreadyExists', {name: fontName}));
                 return null;
             }
             
@@ -365,12 +365,12 @@ Lumina.FontManager = {
             await this._saveCustomFonts();
             await this.loadFont(fontId);
             
-            Lumina.UI.showToast(`已安装字体: ${fontName}`);
+            Lumina.UI.showToast(Lumina.I18n.t('fontInstalled', {name: fontName}));
             return fontInfo;
             
         } catch (err) {
             window.logger?.error('FontManager', '添加字体失败', { error: err.message });
-            Lumina.UI.showToast('字体安装失败');
+            Lumina.UI.showToast(Lumina.I18n.t('fontInstallFailed'));
             return null;
         }
     },
@@ -808,7 +808,7 @@ Lumina.FontManagerDialog = {
                     <div class="font-name">${Lumina.Utils.escapeHtml(font.name)}</div>
                     <div class="font-meta">${this._formatSize(font.size)}</div>
                 </div>
-                <button class="btn-icon font-delete-btn" data-font-id="${font.id}" data-i18n-tooltip="delete" data-tooltip-text="删除">
+                <button class="btn-icon font-delete-btn" data-font-id="${font.id}" data-i18n-tooltip="delete" data-tooltip-text="' + Lumina.I18n.t('delete') + '">
                     <svg class="icon" style="width:18px;height:18px"><use href="#icon-delete"/></svg>
                 </button>
             </div>
@@ -861,7 +861,7 @@ Lumina.FontManagerDialog = {
                 console.warn('[FontManagerDialog] 安全超时触发，强制重置按钮状态');
                 hasReturned = true;
                 this._resetAddingState();
-                Lumina.UI.showToast('操作超时，请重试');
+                Lumina.UI.showToast(Lumina.I18n.t('operationTimeout'));
             }
         }, SAFETY_TIMEOUT);
         

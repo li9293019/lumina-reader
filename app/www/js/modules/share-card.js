@@ -623,12 +623,12 @@ Lumina.ShareCard = {
             source = source ? `${source} · ${this.bookInfo.author}` : this.bookInfo.author;
         }
         
-        if (!source) return '佚名';
+        if (!source) return Lumina.I18n.t('anonymousAuthor');
         
         if (maxWidth) {
             const metrics = ctx.measureText(source);
             if (metrics.width > maxWidth) {
-                const author = this.bookInfo.author || '佚名';
+                const author = this.bookInfo.author || Lumina.I18n.t('anonymousAuthor');
                 const maxTitleWidth = maxWidth - ctx.measureText(` · ${author}`).width - 20;
                 
                 let title = this.bookInfo.bookTitle || '';
@@ -1307,9 +1307,9 @@ Lumina.ShareCard = {
         if (navigator.clipboard?.write) {
             try {
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                Lumina.UI.showToast('已保存并复制到剪贴板');
+                Lumina.UI.showToast(Lumina.I18n.t('savedAndCopied'));
             } catch (e) {
-                Lumina.UI.showToast('已保存到下载文件夹');
+                Lumina.UI.showToast(Lumina.I18n.t('savedToDownloads'));
             }
         }
     },

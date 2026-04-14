@@ -578,7 +578,7 @@ Lumina.DataManager = class {
             ![...oldIds].every(id => newIds.has(id))) {
             this.currentStats = newStats;
             this.renderGrid();
-            Lumina.UI.showToast('书库已更新', 1500);
+            Lumina.UI.showToast(Lumina.I18n.t('libraryUpdated'), 1500);
         } else {
             // 只更新时间和统计（不闪屏）
             this.currentStats = newStats;
@@ -1193,7 +1193,7 @@ Lumina.DataManager = class {
                             Lumina.Actions.returnToWelcome();
                         }
                     } catch (err) {
-                        Lumina.UI.showToast('删除失败，请重试');
+                        Lumina.UI.showToast(Lumina.I18n.t('deleteFailedRetry'));
                         console.error(err);
                     }
                 }, 300);
@@ -1234,7 +1234,7 @@ Lumina.DataManager = class {
             if (result.success) {
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                 if (isApp) {
-                    Lumina.UI.showToast(`已导出到: Documents/LuminaReader/${result.fileName}`);
+                    Lumina.UI.showToast(Lumina.I18n.t('exportedTo', {path: 'Documents/LuminaReader/' + result.fileName}));
                 } else {
                     Lumina.UI.showToast(Lumina.I18n.t('exportSuccess'));
                 }
@@ -1387,7 +1387,7 @@ Lumina.DataManager = class {
             if (result.success) {
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                 if (isApp) {
-                    Lumina.UI.showToast(`已导出 ${batchData.totalBooks} 本书到: Documents/LuminaReader/${result.fileName}`);
+                    Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks) + ' ' + Lumina.I18n.t('exportedTo', {path: 'Documents/LuminaReader/' + result.fileName}));
                 } else {
                     Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
                 }
@@ -1401,7 +1401,7 @@ Lumina.DataManager = class {
                 );
             } else {
                 console.error('[Export] 导出失败:', err);
-                Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + (err.message || Lumina.I18n.t('cannotWriteFile')));
             }
         }
     }
@@ -1431,7 +1431,7 @@ Lumina.DataManager = class {
             if (result.success) {
                 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
                 if (isApp) {
-                    Lumina.UI.showToast(`已导出 ${batchData.totalBooks} 本书到: Documents/LuminaReader/${result.fileName}`);
+                    Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks) + ' ' + Lumina.I18n.t('exportedTo', {path: 'Documents/LuminaReader/' + result.fileName}));
                 } else {
                     Lumina.UI.showToast(Lumina.I18n.t('batchExportSuccess', batchData.totalBooks));
                 }
@@ -1571,7 +1571,7 @@ Lumina.DataManager = class {
                         // 每恢复一个字体更新一次进度
                         const percent = Math.round((current / total) * 100);
                         const stepName = t('fontRestoreProgress', current, total) || 
-                            `字体恢复 (${current}/${total})`;
+                            Lumina.I18n.t('fontRestoring', current, total);
                         fontProgressDialog.update(percent, `${stepName}: ${fontName}`);
                     }
                 );
@@ -1653,7 +1653,7 @@ Lumina.DataManager = class {
         // 如果有加载失败的字体，提示用户
         if (failedFonts.length > 0) {
             const failedNames = failedFonts.map(f => f.font.name).join(', ');
-            Lumina.UI.showToast(`字体加载失败: ${failedNames}`);
+            Lumina.UI.showToast(Lumina.I18n.t('fontLoadFailed') + ': ' + failedNames);
         }
         
         // 有缺失字体时静默清理配置（现在通过配置内嵌字体数据恢复）
@@ -1667,7 +1667,7 @@ Lumina.DataManager = class {
         }
         
         if (loadedCount > 0) {
-            Lumina.UI.showToast(`成功加载 ${loadedCount} 个自定义字体`);
+            Lumina.UI.showToast(Lumina.I18n.t('fontsLoaded', loadedCount));
         }
     }
     
@@ -1841,7 +1841,7 @@ Lumina.DataManager = class {
             console.log('[Import LMN] 读取文件成功:', binary.length, 'bytes');
         } catch (e) {
             console.error('[Import LMN] 读取文件失败:', e);
-            throw new Error('读取文件失败: ' + e.message);
+            throw new Error(Lumina.I18n.t('fileReadFailed') + ': ' + e.message);
         }
         
         // 如果是配置文件，尝试配置文件导入流程
@@ -1858,7 +1858,7 @@ Lumina.DataManager = class {
         
         // 检测是否为 .lmn 格式
         if (!Lumina.Crypto.isLmnFile(binary.buffer || binary)) {
-            throw new Error('无效的 .lmn 文件格式');
+            throw new Error(Lumina.I18n.t('invalidLmnFile'));
         }
         
         // 检测是否需要密码
@@ -1895,7 +1895,7 @@ Lumina.DataManager = class {
                 // 配置文件（文件名不含 config 的情况）
                 await this.importLmnConfigData(data);
             } else {
-                throw new Error('无效的文件格式');
+                throw new Error(Lumina.I18n.t('invalidFileFormat'));
             }
         } catch (err) {
             progressDialog.close();
@@ -1936,7 +1936,7 @@ Lumina.DataManager = class {
             });
             
             if (!saveResult) {
-                throw new Error('保存到数据库失败');
+                throw new Error(Lumina.I18n.t('saveToDbFailed'));
             }
             
             await this.refreshStats();
@@ -2055,7 +2055,7 @@ Lumina.DataManager = class {
             }
             return bytes;
         } catch (e) {
-            throw new Error('文件格式错误：无效的 base64 编码');
+            throw new Error(Lumina.I18n.t('invalidBase64Encoding'));
         }
     }
 };
@@ -2462,7 +2462,7 @@ Lumina.HistoryActions = {
     // 复用 DataManager 的导出逻辑
     async exportFile(fileKey) {
         if (!window.dataManager) {
-            Lumina.UI.showToast('导出系统未初始化');
+            Lumina.UI.showToast(Lumina.I18n.t('exportSystemNotReady'));
             return;
         }
         await window.dataManager.exportSingle(fileKey);

@@ -252,9 +252,9 @@ Lumina.importDefaultGuideIfNeeded = async () => {
         if (!parsed?.items?.length) return;
         
         // 保存到数据库
-        const fileKey = `流萤阅读器使用指南.md_${text.length}_${Date.now()}`;
+        const fileKey = Lumina.I18n.t('readerGuideFileName') + '_' + text.length + '_' + Date.now();
         const saved = await Lumina.DB.adapter.saveFile(fileKey, {
-            fileName: '流萤阅读器使用指南.md',
+            fileName: Lumina.I18n.t('readerGuideFileName'),
             fileType: 'md',
             fileSize: new Blob([text]).size,
             content: parsed.items,

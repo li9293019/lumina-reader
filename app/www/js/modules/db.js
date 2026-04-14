@@ -16,7 +16,7 @@
             this.impl = null;
             this.mode = 'indexeddb';
             this.webCache = null;
-            this.isCapacitor = typeof Capacitor !== 'undefined';
+            this.isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
             this.isLocalFile = location.protocol === 'file:';
         }
 
@@ -262,14 +262,21 @@
         async saveFile(fileKey, data) {
             if (!this.isReady || !this.db) return false;
             try {
-                const allFiles = await this.getAllFiles();
-                const exists = allFiles.some(f => f.fileKey === fileKey);
-                if (!exists && allFiles.length >= H.MAX_FILES) {
-                    window.logger?.warn('IndexedDB', 'Max files limit reached', { count: allFiles.length });
-                    return false;
+                const existing = await this.getFile(fileKey);
+                if (!existing) {
+                    const count = await new Promise((resolve) => {
+                        const tx = this.db.transaction(['fileData'], 'readonly');
+                        const store = tx.objectStore('fileData');
+                        const req = store.count();
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => resolve(0);
+                    });
+                    if (count >= H.MAX_FILES) {
+                        window.logger?.warn('IndexedDB', 'Max files limit reached', { count });
+                        return false;
+                    }
                 }
 
-                const existing = await this.getFile(fileKey);
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
                 const contentSize = new Blob([contentJson]).size;
@@ -401,14 +408,25 @@
             }
         }
 
-        async getStorageInfo() {
+        async getStorageStats() {
             const files = await this.getAllFiles();
             let totalSize = 0;
             files.forEach(file => {
                 const contentJson = JSON.stringify(file.content || []);
                 totalSize += new Blob([contentJson]).size;
             });
-            return { count: files.length, maxCount: H.MAX_FILES, totalSize };
+            return {
+                files,
+                totalFiles: files.length,
+                totalSize,
+                imageCount: 0,
+                maxFiles: String(H.MAX_FILES)
+            };
+        }
+
+        async getStorageInfo() {
+            const stats = await this.getStorageStats();
+            return { count: stats.totalFiles, maxCount: H.MAX_FILES, totalSize: stats.totalSize };
         }
 
         async clearStorage() {
@@ -454,6 +472,21 @@
             if (!this.isReady || !this.dbBridge) return false;
             try {
                 const existing = await this.getFile(fileKey);
+                // 如果 data 中未包含 content（如只更新 lastReadTime），使用 patch 避免重新序列化大 content
+                if (existing && data.content === undefined && this.dbBridge.patch) {
+                    const merged = H.mergeFileData(existing, data);
+                    const patchData = { ...data };
+                    if (!patchData.created_at && existing.created_at) {
+                        patchData.created_at = existing.created_at;
+                    }
+                    const result = await this.dbBridge.patch(fileKey, patchData);
+                    if (result && result.success) {
+                        this.fileCache.set(fileKey, merged);
+                        this._invalidateListCache();
+                    }
+                    return result && result.success;
+                }
+
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
                 const contentSize = new Blob([contentJson]).size;
@@ -473,7 +506,7 @@
         async getFile(fileKey) {
             if (!this.isReady || !this.dbBridge) return null;
             if (this.fileCache.has(fileKey)) {
-                return JSON.parse(JSON.stringify(this.fileCache.get(fileKey)));
+                return this.fileCache.get(fileKey);
             }
             try {
                 const result = await this.dbBridge.get(fileKey);
@@ -505,11 +538,11 @@
             if (!this.isReady || !this.dbBridge) return [];
             const now = Date.now();
             if (this.listCache && (now - this.listCacheTime) < this.LIST_CACHE_TTL) {
-                return JSON.parse(JSON.stringify(this.listCache));
+                return this.listCache;
             }
             try {
                 const files = (await this.dbBridge.getList() || []).sort((a, b) => new Date(b.lastReadTime || 0) - new Date(a.lastReadTime || 0));
-                this.listCache = JSON.parse(JSON.stringify(files));
+                this.listCache = files;
                 this.listCacheTime = now;
                 return files;
             } catch (e) {
@@ -580,14 +613,25 @@
             }
         }
 
-        async getStorageInfo() {
+        async getStorageStats() {
             const files = await this.getAllFiles();
             let totalSize = 0;
             files.forEach(file => {
                 const contentJson = JSON.stringify(file.content || []);
                 totalSize += new Blob([contentJson]).size;
             });
-            return { count: files.length, maxCount: H.MAX_FILES, totalSize };
+            return {
+                files,
+                totalFiles: files.length,
+                totalSize,
+                imageCount: 0,
+                maxFiles: String(H.MAX_FILES)
+            };
+        }
+
+        async getStorageInfo() {
+            const stats = await this.getStorageStats();
+            return { count: stats.totalFiles, maxCount: H.MAX_FILES, totalSize: stats.totalSize };
         }
 
         async clearStorage() {

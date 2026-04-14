@@ -2822,15 +2822,20 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         if (state.dbReady && fileData.fileKey) {
             try {
                 fileData.lastReadTime = Lumina.DB.getLocalTimeString();
-                await Lumina.DB.adapter.saveFile(fileData.fileKey, {
-                    ...fileData,
-                    lastReadTime: fileData.lastReadTime
-                });
-                
-                // 同步刷新书库和历史面板
-                if (window.dataManager && window.dataManager.refreshStats) {
-                    await window.dataManager.refreshStats();
-                }
+                // 异步非阻塞更新，避免大文件 content 序列化阻塞打开流程
+                setTimeout(async () => {
+                    try {
+                        await Lumina.DB.adapter.saveFile(fileData.fileKey, {
+                            lastReadTime: fileData.lastReadTime
+                        });
+                        // 刷新书库和历史面板
+                        if (window.dataManager && window.dataManager.refreshStats) {
+                            await window.dataManager.refreshStats();
+                        }
+                    } catch (err) {
+                        console.warn('[restoreFileFromDB] 更新阅读时间失败:', err);
+                    }
+                }, 0);
             } catch (err) { 
                 console.warn('[restoreFileFromDB] 更新阅读时间失败:', err);
             }

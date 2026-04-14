@@ -246,6 +246,68 @@ class DatabaseBridge {
         }
     }
 
+    async patch(fileKey, data) {
+        // 部分更新：只更新 data 中显式提供的字段，不触碰 content
+        if (this.mockMode) {
+            const existing = this.memoryStore.get(fileKey) || {};
+            this.memoryStore.set(fileKey, { ...existing, ...data });
+            return { success: true };
+        }
+
+        try {
+            const existing = await this.get(fileKey);
+            if (!existing) {
+                return { success: false, error: 'File not found' };
+            }
+
+            const fieldMap = {
+                fileName: 'file_name',
+                fileType: 'file_type',
+                fileSize: 'file_size',
+                contentSize: 'content_size',
+                content: 'content',
+                wordCount: 'word_count',
+                totalItems: 'total_items',
+                lastChapter: 'last_chapter',
+                lastScrollIndex: 'last_scroll_index',
+                chapterTitle: 'chapter_title',
+                lastReadTime: 'last_read_time',
+                customRegex: 'custom_regex',
+                chapterNumbering: 'chapter_numbering',
+                cover: 'cover_data_url',
+                heatMap: 'heat_map',
+                metadata: 'metadata',
+                created_at: 'created_at'
+            };
+
+            const updates = [];
+            const values = [];
+            for (const [key, col] of Object.entries(fieldMap)) {
+                if (Object.prototype.hasOwnProperty.call(data, key)) {
+                    let val = data[key];
+                    if (key === 'customRegex' || key === 'heatMap' || key === 'metadata') {
+                        val = val ? JSON.stringify(val) : null;
+                    }
+                    if (key === 'content') {
+                        val = val ? JSON.stringify(val) : null;
+                    }
+                    updates.push(`${col} = ?`);
+                    values.push(val);
+                }
+            }
+            if (updates.length === 0) {
+                return { success: true };
+            }
+            values.push(fileKey);
+            const sql = `UPDATE files SET ${updates.join(', ')} WHERE file_key = ?`;
+            await this.db.run(sql, values);
+            return { success: true };
+        } catch (err) {
+            console.error('[DB] Patch failed:', err);
+            return { success: false, error: err.message };
+        }
+    }
+
     async delete(fileKey) {
         if (this.mockMode) {
             this.memoryStore.delete(fileKey);

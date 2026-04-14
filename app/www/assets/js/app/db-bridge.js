@@ -117,6 +117,7 @@ class DatabaseBridge {
         await this.addColumnIfNotExists('files', 'heat_map', 'TEXT');
         await this.addColumnIfNotExists('files', 'metadata', 'TEXT');
         await this.addColumnIfNotExists('files', 'total_items', 'INTEGER DEFAULT 0');
+        await this.addColumnIfNotExists('files', 'content_size', 'INTEGER DEFAULT 0');
     }
 
     async addColumnIfNotExists(table, column, type) {
@@ -336,9 +337,8 @@ class DatabaseBridge {
 
         try {
             const coverCol = includeCover ? ', cover_data_url' : '';
-            const sizeExpr = includeCover
-                ? '(content_size + LENGTH(COALESCE(cover_data_url, "")))'
-                : 'content_size';
+            // 与 WEB 端统一：file_size 始终为 content_size + cover 长度
+            const sizeExpr = '(content_size + LENGTH(COALESCE(cover_data_url, "")))';
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, ${sizeExpr} as file_size,
                     word_count, total_items, last_chapter, last_scroll_index, chapter_title,

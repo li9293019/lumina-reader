@@ -225,15 +225,15 @@ class Database:
             return None
     
     def get_list(self):
-        """获取列表（不含 content 和 cover，但含 metadata）"""
+        """获取列表（不含 content，但含 metadata 和 cover）"""
         try:
             conn = self.get_conn()
-            # 【优化】使用预计算的 contentSize + LENGTH(cover) 作为展示大小，不返回 cover 数据
+            # 【优化】使用预计算的 contentSize + LENGTH(cover) 作为展示大小
             rows = conn.execute("""
                 SELECT fileKey, fileName, fileType, 
                     (COALESCE(contentSize, 0) + LENGTH(COALESCE(cover, ''))) as fileSize, 
                     wordCount, totalItems, lastChapter, lastScrollIndex, chapterTitle, 
-                    lastReadTime, chapterNumbering, created_at, updated_at, metadata
+                    lastReadTime, chapterNumbering, created_at, updated_at, metadata, cover
                 FROM books 
                 ORDER BY lastReadTime DESC
             """).fetchall()

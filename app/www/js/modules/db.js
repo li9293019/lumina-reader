@@ -409,19 +409,26 @@
         }
 
         async getStorageStats() {
-            const stats = await this.dbBridge.getStats();
             const files = await this.getAllFiles();
+            let totalSize = 0;
+            files.forEach(file => {
+                const contentJson = JSON.stringify(file.content || []);
+                const contentSize = new Blob([contentJson]).size;
+                const coverSize = file.cover ? new Blob([file.cover]).size : 0;
+                totalSize += contentSize + coverSize;
+                file.estimatedSize = contentSize + coverSize;
+            });
             return {
                 files,
-                totalFiles: stats.totalFiles,
-                totalSize: stats.totalSize,
+                totalFiles: files.length,
+                totalSize,
                 imageCount: 0,
                 maxFiles: String(H.MAX_FILES)
             };
         }
 
         async getStorageInfo() {
-            const stats = await this.dbBridge.getStats();
+            const stats = await this.getStorageStats();
             return { count: stats.totalFiles, maxCount: H.MAX_FILES, totalSize: stats.totalSize };
         }
 
@@ -632,8 +639,11 @@
             const files = await this.getAllFiles();
             let totalSize = 0;
             files.forEach(file => {
-                const contentJson = JSON.stringify(file.content || []);
-                totalSize += new Blob([contentJson]).size;
+                // APP 端 getAllFiles() 通过 dbBridge.getList() 获取，fileSize 已经是
+                // content_size（或 content_size + cover 长度），直接使用即可
+                const size = file.fileSize || 0;
+                file.estimatedSize = size;
+                totalSize += size;
             });
             return {
                 files,

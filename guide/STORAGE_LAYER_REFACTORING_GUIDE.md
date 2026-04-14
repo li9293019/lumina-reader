@@ -1,6 +1,6 @@
 # 流萤阅读器存储层重构与开发实践指南
 
-> 版本：v3.0  
+> 版本：v3.1  
 > 日期：2026-04-14  
 > 适用范围：Web（IndexedDB / Web SQLite）+ APP（Capacitor SQLite）  
 > 关键变更：引入 `db-helpers.js`，收敛数据合并与标准化逻辑
@@ -381,7 +381,13 @@ if (this.mode === 'sqlite' && this.webCache) {
    ```sql
    ALTER TABLE books ADD COLUMN readingTimeMinutes INTEGER DEFAULT 0;
    ```
-4. **修改 `db-bridge.js` 的 `save` / `rowToFile` / `getList`**（如果是 APP 模式）
+4. **修改 `db-bridge.js`**（如果是 APP 模式，这是最常见的遗漏点）：
+   - **A. `createTables()` 基础 Schema**：给 `files` 表增加新列（如 `reading_time_minutes INTEGER DEFAULT 0`）
+   - **B. `addColumnIfNotExists()`**：在初始化兼容段增加 `await this.addColumnIfNotExists('files', 'reading_time_minutes', 'INTEGER DEFAULT 0');`
+   - **C. `save()` 的 SQL 与 `params`**：在 `INSERT OR REPLACE` 的列名列表和参数数组中追加该字段映射（注意下划线命名）
+   - **D. `rowToFile()`**：在返回对象中增加 `readingTimeMinutes: row.reading_time_minutes || 0`
+   - **E. `getList()`**：如果书库/历史面板需要展示该字段，在 `SELECT` 和返回对象中追加
+   - **F. ⚠️ `patch()` 的 `fieldMap`**：必须增加 `readingTimeMinutes: 'reading_time_minutes'`。**这是暗坑**。如果不加，APP 端元数据增量更新（如只改 `lastReadTime`）时会静默忽略该字段
 5. **在业务层（如 `actions.js` 或 `renderer.js`）使用该字段**
 
 ### 7.3 为 TypeScript 迁移铺路
@@ -427,8 +433,22 @@ const merged = {
 | `dbBridge.get(key)` | `get(fileKey)` | 返回 **对象** |
 | `dbBridge.delete(key)` | `delete(fileKey)` | - |
 | `dbBridge.getList()` | `getList()` | 返回 **对象数组** |
+| `dbBridge.patch(key, obj)` | `patch(fileKey, data)` | 只更新指定字段，不触碰 `content` |
 
-### 8.5 完整测试闭环（任何存储层改动后必须执行）
+### 8.5 APP 新增字段同步清单（db-bridge.js）
+
+APP 模式有一条专属的「地下通道」——`db-bridge.js`。常规字段增删虽然不需要改 `CapacitorSQLiteImpl` 的 JS 逻辑，但**必须同步改 `db-bridge.js`**。请按以下顺序检查：
+
+1. **表结构初始化**（`createTables`）
+2. **旧库兼容**（`addColumnIfNotExists`）
+3. **`save()` 的 SQL 列名 + `params`**
+4. **`rowToFile()` 解析**
+5. **`getList()` 查询 + 返回**（如 UI 需要展示）
+6. **`patch()` 的 `fieldMap`**（⚠️ 最重要，漏了这里会导致增量更新丢失新字段）
+
+**口诀：新增字段改两头，`helpers` 给默认值，`bridge` 给通道，`patch` 的 `fieldMap` 必查必加。**
+
+### 8.6 完整测试闭环（任何存储层改动后必须执行）
 
 改动存储层后，必须在三种模式下跑通以下闭环：
 
@@ -440,7 +460,7 @@ const merged = {
 - **Web + Python（SQLite）**：启动 `python web/server.py`，观察控制台 `/api` 请求
 - **APP（Capacitor SQLite）**：通过 Android Studio logcat 观察 `[DB]` / `[CapacitorSQLite]` 日志
 
-### 8.6 避免 `instanceof` 检查存储模式
+### 8.7 避免 `instanceof` 检查存储模式
 
 旧代码中有：
 

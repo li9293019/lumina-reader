@@ -853,9 +853,9 @@ Lumina.DataManager = class {
             
             // 绑定长按事件
             card.addEventListener('touchstart', startLongPress, { passive: true });
-            card.addEventListener('touchend', cancelLongPress);
-            card.addEventListener('touchmove', cancelLongPress);
-            card.addEventListener('touchcancel', cancelLongPress);
+            card.addEventListener('touchend', cancelLongPress, { passive: true });
+            card.addEventListener('touchmove', cancelLongPress, { passive: true });
+            card.addEventListener('touchcancel', cancelLongPress, { passive: true });
             
             // 点击卡片打开详情或书籍（排除按钮区域和勾选框）
             card.addEventListener('click', (e) => {

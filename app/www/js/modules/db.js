@@ -118,8 +118,8 @@
             return result;
         }
 
-        async getAllFiles() {
-            return this.impl.getAllFiles();
+        async getAllFiles(includeCover = false) {
+            return this.impl.getAllFiles ? this.impl.getAllFiles(includeCover) : this.impl.getAllFiles();
         }
 
         async searchFiles(keyword) {
@@ -530,14 +530,33 @@
             }
         }
 
-        async getAllFiles() {
+        async getAllFiles(includeCover = false) {
             if (!this.isReady || !this.dbBridge) return [];
             const now = Date.now();
             if (this.listCache && (now - this.listCacheTime) < this.LIST_CACHE_TTL) {
-                return this.listCache;
+                const files = this.listCache;
+                if (!includeCover) {
+                    for (const f of files) {
+                        if (this.dbBridge.coverCache.has(f.fileKey)) {
+                            f.cover = this.dbBridge.coverCache.get(f.fileKey);
+                        }
+                    }
+                }
+                return files;
             }
             try {
-                const files = (await this.dbBridge.getList() || []).sort((a, b) => new Date(b.lastReadTime || 0) - new Date(a.lastReadTime || 0));
+                // 如果 cover 缓存为空，第一次全量拉取（包含 cover）以预热缓存
+                const needWarm = this.dbBridge.coverCache.size === 0;
+                const files = await this.dbBridge.getList(needWarm ? true : includeCover);
+                files.sort((a, b) => new Date(b.lastReadTime || 0) - new Date(a.lastReadTime || 0));
+                // 缓存已预热后，从内存补 cover（当查询本身不带 cover 时）
+                if (!needWarm && !includeCover) {
+                    for (const f of files) {
+                        if (this.dbBridge.coverCache.has(f.fileKey)) {
+                            f.cover = this.dbBridge.coverCache.get(f.fileKey);
+                        }
+                    }
+                }
                 this.listCache = files;
                 this.listCacheTime = now;
                 return files;

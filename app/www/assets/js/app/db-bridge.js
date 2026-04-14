@@ -19,6 +19,7 @@ class DatabaseBridge {
         this.initialized = false;
         this.mockMode = false;
         this.memoryStore = new Map();
+        this.coverCache = new Map(); // 内存缓存大封面数据，避免 getList() 反复搬运 base64
     }
 
     async init() {
@@ -219,6 +220,9 @@ class DatabaseBridge {
                 createdAt
             ];
             await this.db.run(sql, params);
+            if (data.cover !== undefined) {
+                this.coverCache.set(fileKey, data.cover || null);
+            }
             return { success: true };
         } catch (err) {
             console.error('[DB] 保存失败:', err);
@@ -237,7 +241,11 @@ class DatabaseBridge {
                 [fileKey]
             );
             if (result.values && result.values.length > 0) {
-                return this.rowToFile(result.values[0]);
+                const file = this.rowToFile(result.values[0]);
+                if (file && file.cover) {
+                    this.coverCache.set(fileKey, file.cover);
+                }
+                return file;
             }
             return null;
         } catch (err) {
@@ -294,6 +302,9 @@ class DatabaseBridge {
             values.push(fileKey);
             const sql = `UPDATE files SET ${updates.join(', ')} WHERE file_key = ?`;
             await this.db.run(sql, values);
+            if (data.cover !== undefined) {
+                this.coverCache.set(fileKey, data.cover || null);
+            }
             return { success: true };
         } catch (err) {
             console.error('[DB] Patch failed:', err);
@@ -304,11 +315,13 @@ class DatabaseBridge {
     async delete(fileKey) {
         if (this.mockMode) {
             this.memoryStore.delete(fileKey);
+            this.coverCache.delete(fileKey);
             return { success: true };
         }
 
         try {
             await this.db.run('DELETE FROM files WHERE file_key = ?', [fileKey]);
+            this.coverCache.delete(fileKey);
             return { success: true };
         } catch (err) {
             console.error('[DB] 删除失败:', err);
@@ -316,16 +329,20 @@ class DatabaseBridge {
         }
     }
 
-    async getList() {
+    async getList(includeCover = false) {
         if (this.mockMode) {
             return Array.from(this.memoryStore.values());
         }
 
         try {
+            const coverCol = includeCover ? ', cover_data_url' : '';
+            const sizeExpr = includeCover
+                ? '(content_size + LENGTH(COALESCE(cover_data_url, "")))'
+                : 'content_size';
             const result = await this.db.query(
-                `SELECT file_key, file_name, file_type, (content_size + LENGTH(COALESCE(cover_data_url, ""))) as file_size, 
-                    word_count, total_items, last_chapter, last_scroll_index, chapter_title, 
-                    last_read_time, chapter_numbering, created_at, metadata, cover_data_url
+                `SELECT file_key, file_name, file_type, ${sizeExpr} as file_size,
+                    word_count, total_items, last_chapter, last_scroll_index, chapter_title,
+                    last_read_time, chapter_numbering, created_at, metadata${coverCol}
                 FROM files ORDER BY last_read_time DESC`
             );
             return (result.values || []).map(row => {
@@ -335,16 +352,19 @@ class DatabaseBridge {
                     fileType: row.file_type,
                     fileSize: row.file_size,
                     wordCount: row.word_count,
-                    totalItems: row.total_items || 0,  // 总段落数，用于精确计算阅读进度
+                    totalItems: row.total_items || 0,
                     lastChapter: row.last_chapter,
                     lastScrollIndex: row.last_scroll_index,
                     chapterTitle: row.chapter_title,
                     lastReadTime: row.last_read_time,
                     chapterNumbering: row.chapter_numbering,
                     created_at: row.created_at,
-                    cover: row.cover_data_url,
                     metadata: row.metadata
                 };
+                if (includeCover && row.cover_data_url) {
+                    item.cover = row.cover_data_url;
+                    this.coverCache.set(row.file_key, row.cover_data_url);
+                }
                 // 解析 metadata JSON
                 if (row.metadata) {
                     try {

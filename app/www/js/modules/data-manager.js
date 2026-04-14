@@ -630,9 +630,9 @@ Lumina.DataManager = class {
 
     async refreshStats() {
         this.currentStats = await Lumina.DB.adapter.getStorageStats();
+        this.updateSettingsBar();
         this.renderStats();
         this.renderGrid();
-        this.updateSettingsBar();
     }
 
     renderStats() {
@@ -2219,7 +2219,6 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                 }
                 
                 const patchData = {
-                    ...existing,
                     lastChapter: Lumina.State.app.currentChapterIndex,
                     lastScrollIndex: Lumina.Renderer.getCurrentVisibleIndex(),
                     chapterTitle: currentChapter ? (currentChapter.isPreface ? Lumina.I18n.t('preface') : currentChapter.title) : '',
@@ -2233,13 +2232,20 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
                     ...(totalItems && { totalItems })  // 只有计算出值时才更新
                 };
                 await Lumina.DB.adapter.saveFile(fileKey, patchData);
-                await Lumina.DB.loadHistoryFromDB();
-                
-                // 同步刷新书库面板（与历史面板一致）
-                if (Lumina.State.app.dbReady && window.dataManager && window.dataManager.refreshStats) {
-                    await window.dataManager.refreshStats();
+
+                // 将 UI 刷新推迟到空闲时，避免在阅读滚动时阻塞主线程
+                const refreshUI = () => {
+                    Lumina.DB.loadHistoryFromDB();
+                    if (Lumina.State.app.dbReady && window.dataManager && window.dataManager.refreshStats) {
+                        window.dataManager.refreshStats().catch(err => {
+                            console.warn('[Patch Save] 刷新书库失败:', err);
+                        });
+                    }
+                };
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(refreshUI, { timeout: 5000 });
                 } else {
-                    console.warn('[Patch Save] 无法刷新书库:', { dbReady: Lumina.State.app.dbReady, hasDataManager: !!window.dataManager, hasRefreshStats: !!(window.dataManager && window.dataManager.refreshStats) });
+                    setTimeout(refreshUI, 100);
                 }
                 
                 return { saved: true, mode: 'patch' };

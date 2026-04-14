@@ -255,17 +255,13 @@ class DatabaseBridge {
         }
 
         try {
-            const existing = await this.get(fileKey);
-            if (!existing) {
-                return { success: false, error: 'File not found' };
-            }
-
+            // 注意：不预先 get()，避免解析大 content 的 JSON；直接执行 UPDATE
             const fieldMap = {
                 fileName: 'file_name',
                 fileType: 'file_type',
                 fileSize: 'file_size',
                 contentSize: 'content_size',
-                content: 'content',
+                // content 被有意排除：patch 不触碰 content 列
                 wordCount: 'word_count',
                 totalItems: 'total_items',
                 lastChapter: 'last_chapter',
@@ -286,9 +282,6 @@ class DatabaseBridge {
                 if (Object.prototype.hasOwnProperty.call(data, key)) {
                     let val = data[key];
                     if (key === 'customRegex' || key === 'heatMap' || key === 'metadata') {
-                        val = val ? JSON.stringify(val) : null;
-                    }
-                    if (key === 'content') {
                         val = val ? JSON.stringify(val) : null;
                     }
                     updates.push(`${col} = ?`);

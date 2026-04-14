@@ -174,7 +174,7 @@ Lumina.Annotations = {
                         // 无选区时不触发注释面板（让全屏切换能正常工作）
                     }, 600);
                 }
-            }, { passive: false });
+            }, { passive: true });
             
             contentArea.addEventListener('touchmove', () => {
                 clearTimeout(touchTimeout);

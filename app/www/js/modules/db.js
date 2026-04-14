@@ -409,23 +409,19 @@
         }
 
         async getStorageStats() {
+            const stats = await this.dbBridge.getStats();
             const files = await this.getAllFiles();
-            let totalSize = 0;
-            files.forEach(file => {
-                const contentJson = JSON.stringify(file.content || []);
-                totalSize += new Blob([contentJson]).size;
-            });
             return {
                 files,
-                totalFiles: files.length,
-                totalSize,
+                totalFiles: stats.totalFiles,
+                totalSize: stats.totalSize,
                 imageCount: 0,
                 maxFiles: String(H.MAX_FILES)
             };
         }
 
         async getStorageInfo() {
-            const stats = await this.getStorageStats();
+            const stats = await this.dbBridge.getStats();
             return { count: stats.totalFiles, maxCount: H.MAX_FILES, totalSize: stats.totalSize };
         }
 

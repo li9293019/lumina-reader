@@ -417,6 +417,18 @@ Lumina.ExportUtils = {
             currentStep++;
         }
 
+        // 检查导出大小是否超过安全阈值（50MB）
+        const EXPORT_SIZE_LIMIT = 50 * 1024 * 1024;
+        const configJson = JSON.stringify(exportConfig);
+        const estimatedSize = new Blob([configJson]).size;
+        if (estimatedSize > EXPORT_SIZE_LIMIT) {
+            const err = new Error('EXPORT_SIZE_LIMIT');
+            err.code = 'EXPORT_SIZE_LIMIT';
+            err.estimatedMB = (estimatedSize / 1024 / 1024).toFixed(1);
+            err.limitMB = (EXPORT_SIZE_LIMIT / 1024 / 1024);
+            throw err;
+        }
+
         // 最后一步：加密/写入文件
         if (encrypted && password !== null) {
             // 加密导出

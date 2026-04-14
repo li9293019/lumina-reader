@@ -133,9 +133,21 @@
         return results;
     }
 
+    const EXPORT_SIZE_LIMIT = 50 * 1024 * 1024; // 50MB 安全阈值
+
     async function runExportBatch(adapter) {
         const files = await adapter.getAllFiles();
         if (!files || files.length === 0) return null;
+
+        const estimatedSize = files.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+        if (estimatedSize > EXPORT_SIZE_LIMIT) {
+            const err = new Error('EXPORT_SIZE_LIMIT');
+            err.code = 'EXPORT_SIZE_LIMIT';
+            err.estimatedMB = (estimatedSize / 1024 / 1024).toFixed(1);
+            err.limitMB = (EXPORT_SIZE_LIMIT / 1024 / 1024);
+            throw err;
+        }
+
         const books = [];
         for (const file of files) {
             const fullData = await adapter.getFile(file.fileKey);

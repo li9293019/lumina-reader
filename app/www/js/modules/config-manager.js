@@ -637,8 +637,15 @@ Lumina.ConfigManager = {
             }
         } catch (err) {
             if (progressDialog) progressDialog.close();
-            console.error('[ConfigManager] 导出失败:', err);
-            Lumina.UI?.showToast?.('导出失败: ' + err.message);
+            if (err.code === 'EXPORT_SIZE_LIMIT') {
+                Lumina.UI?.showDialog?.(
+                    `配置文件过大（约 ${err.estimatedMB}MB），建议关闭"包含字体"选项或减少自定义字体数量后再试。`,
+                    'alert'
+                );
+            } else {
+                console.error('[ConfigManager] 导出失败:', err);
+                Lumina.UI?.showToast?.('导出失败: ' + err.message);
+            }
         }
     },
     

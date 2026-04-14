@@ -388,11 +388,25 @@ Lumina.DataManager = class {
     // 根据文件键列表导出（支持部分导出和整库导出）
     async exportBatchByKeys(fileKeys) {
         const books = [];
+        let estimatedSize = 0;
+        const EXPORT_SIZE_LIMIT = 50 * 1024 * 1024;
+
         for (const fileKey of fileKeys) {
             // 直接使用 getFile 获取完整数据，确保与 exportBatch 格式一致
             const fileData = await Lumina.DB.adapter.getFile(fileKey);
             if (fileData) {
                 books.push(fileData);
+                const contentJson = JSON.stringify(fileData.content || []);
+                estimatedSize += new Blob([contentJson]).size;
+                if (fileData.cover) estimatedSize += new Blob([fileData.cover]).size;
+                // 提前检查：超过阈值立即停止读取
+                if (estimatedSize > EXPORT_SIZE_LIMIT) {
+                    Lumina.UI.showDialog(
+                        Lumina.I18n.t('exportSizeLimit', (estimatedSize / 1024 / 1024).toFixed(1)),
+                        'alert'
+                    );
+                    return;
+                }
             }
         }
         
@@ -1311,8 +1325,15 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            window.logger?.error('Export', '批量导出失败', { error: err.message });
-            Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
+            if (err.code === 'EXPORT_SIZE_LIMIT') {
+                Lumina.UI.showDialog(
+                    Lumina.I18n.t('exportSizeLimit', err.estimatedMB),
+                    'alert'
+                );
+            } else {
+                window.logger?.error('Export', '批量导出失败', { error: err.message });
+                Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
+            }
         } finally {
             btn.classList.remove('loading');
         }
@@ -1335,8 +1356,15 @@ Lumina.DataManager = class {
                 await this.batchExportPlain(batchData);
             }
         } catch (err) {
-            window.logger?.error('Export', '批量导出失败', { error: err.message });
-            Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
+            if (err.code === 'EXPORT_SIZE_LIMIT') {
+                Lumina.UI.showDialog(
+                    Lumina.I18n.t('exportSizeLimit', err.estimatedMB),
+                    'alert'
+                );
+            } else {
+                window.logger?.error('Export', '批量导出失败', { error: err.message });
+                Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed'));
+            }
         }
     }
     
@@ -1366,8 +1394,15 @@ Lumina.DataManager = class {
             }
         } catch (err) {
             progressDialog.close();
-            console.error('[Export] 导出失败:', err);
-            Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
+            if (err.code === 'EXPORT_SIZE_LIMIT') {
+                Lumina.UI.showDialog(
+                    Lumina.I18n.t('exportSizeLimit', err.estimatedMB),
+                    'alert'
+                );
+            } else {
+                console.error('[Export] 导出失败:', err);
+                Lumina.UI.showToast('导出失败: ' + (err.message || '无法写入文件'));
+            }
         }
     }
     
@@ -1403,8 +1438,15 @@ Lumina.DataManager = class {
             }
         } catch (err) {
             progressDialog.close();
-            console.error('[Export] 加密失败:', err);
-            Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + err.message);
+            if (err.code === 'EXPORT_SIZE_LIMIT') {
+                Lumina.UI.showDialog(
+                    Lumina.I18n.t('exportSizeLimit', err.estimatedMB),
+                    'alert'
+                );
+            } else {
+                console.error('[Export] 加密失败:', err);
+                Lumina.UI.showToast(Lumina.I18n.t('exportFailed') + ': ' + err.message);
+            }
         }
     }
     

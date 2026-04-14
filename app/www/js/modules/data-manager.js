@@ -1533,75 +1533,8 @@ Lumina.DataManager = class {
     
     // 导入 LMN 配置文件数据
     async importLmnConfigData(data) {
-        const t = Lumina.I18n?.t || ((k) => k);
-        
-        if (!data.version) {
-            throw new Error(t('invalidFileFormat') || '无效的配置文件');
-        }
-        
-        const current = Lumina.ConfigManager.load();
-        const merged = Lumina.ConfigManager.mergeDeep(
-            Lumina.ConfigManager.getDefaultConfig(), 
-            data
-        );
-        
-        // 保留的元数据
-        merged.meta.firstInstall = current.meta.firstInstall;
-        merged.meta.importCount = (current.meta.importCount || 0) + 1;
-        merged.meta.lastImport = Date.now();
-        
-        // 处理字体数据恢复（APP端导入含字体数据的配置）
-        const isApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem;
-        const hasFontData = data.customFontsData?.length > 0;
-        
-        if (isApp && hasFontData && data.customFonts?.length > 0) {
-            console.log('[Import LMN] 发现字体数据，开始恢复:', data.customFontsData.length, '个字体');
-            
-            // 创建持久的进度对话框（避免使用 toast 一闪而过）
-            const fontProgressDialog = Lumina.ExportUtils?.showProgressDialog?.(
-                t('restoringFonts') || '正在恢复字体...'
-            ) || { update: () => {}, close: () => {} };
-            
-            try {
-                // 使用进度回调更新UI
-                await Lumina.ConfigManager._restoreFontsFromConfig(
-                    data.customFonts, 
-                    data.customFontsData,
-                    (current, total, fontName) => {
-                        // 每恢复一个字体更新一次进度
-                        const percent = Math.round((current / total) * 100);
-                        const stepName = t('fontRestoreProgress', current, total) || 
-                            Lumina.I18n.t('fontRestoring', current, total);
-                        fontProgressDialog.update(percent, `${stepName}: ${fontName}`);
-                    }
-                );
-                fontProgressDialog.close();
-            } catch (fontErr) {
-                fontProgressDialog.close();
-                console.error('[Import LMN] 字体恢复失败:', fontErr);
-                Lumina.UI?.showToast?.(t('fontRestoreFailed') || '字体恢复失败', 'error');
-                // 字体恢复失败不影响配置导入
-            }
-        }
-        
-        Lumina.ConfigManager.save(merged);
-        
-        // 刷新相关UI
-        Lumina.Settings.load();
-        await Lumina.Settings.apply();
-        if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
-        if (Lumina.Plugin.AzureTTS) {
-            Lumina.Plugin.AzureTTS.refreshUI();
-            if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
-                Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
-            }
-        }
-        if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
-        Lumina.I18n.updateUI();
-        Lumina.UI.showToast(t('configImportSuccess') || '配置导入成功');
-        
-        // 重新加载并激活自定义字体（对于没有字体数据的情况，尝试从已有文件加载）
-        if (data.customFonts && data.customFonts.length > 0) {
+        const result = await Lumina.ConfigManager.applyImportedConfig(data);
+        if (result.success && data.customFonts && data.customFonts.length > 0) {
             await this.reloadCustomFonts(data.customFonts);
         }
     }
@@ -1667,7 +1600,7 @@ Lumina.DataManager = class {
         }
         
         if (loadedCount > 0) {
-            Lumina.UI.showToast(Lumina.I18n.t('fontsLoaded', loadedCount));
+            Lumina.UI.showToast(Lumina.I18n.t('fontsLoaded', { count: loadedCount }));
         }
     }
     

@@ -501,16 +501,19 @@ Lumina.FontManager = {
             const { Filesystem } = Capacitor.Plugins;
             
             try {
-                await Filesystem.mkdir({
+                const dirExists = await Filesystem.stat({
                     path: this.FONT_DIR,
-                    directory: 'DATA',
-                    recursive: true
-                });
-            } catch (e) {
-                // 忽略"目录已存在"错误
-                if (!e.message?.includes('already exists')) {
-                    console.warn('[FontManager] 创建字体目录失败:', e.message);
+                    directory: 'DATA'
+                }).then(() => true).catch(() => false);
+                if (!dirExists) {
+                    await Filesystem.mkdir({
+                        path: this.FONT_DIR,
+                        directory: 'DATA',
+                        recursive: true
+                    });
                 }
+            } catch (e) {
+                console.warn('[FontManager] 创建字体目录失败:', e.message || e);
             }
             
             // 分块转换 ArrayBuffer 为 Base64，避免堆栈溢出

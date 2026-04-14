@@ -354,15 +354,23 @@ Lumina.ConfigManager = {
     },
     
     // 从 Documents 目录恢复字体（APP 端导入 PC 端配置时使用）
-    async _restoreFontsFromDocuments(customFonts) {
+    async _restoreFontsFromDocuments(customFonts, onProgress = null) {
         const { Filesystem } = Capacitor?.Plugins || {};
         if (!Filesystem) return;
         
         let restoredCount = 0;
         let missingFonts = [];
         
+        let currentIndex = 0;
+        const totalFonts = customFonts.length;
         for (const font of customFonts) {
+            currentIndex++;
             try {
+                // 报告进度
+                if (onProgress) {
+                    onProgress(currentIndex, totalFonts, font.name);
+                }
+                
                 // 检查 Documents 中是否有备份
                 const stat = await Filesystem.stat({
                     path: `fonts/user/${font.storedName}`,
@@ -458,84 +466,99 @@ Lumina.ConfigManager = {
         return btoa(binary);
     },
     
+    // ========== 应用导入的配置（统一后处理）==========
+    async applyImportedConfig(importedData, onProgress = null) {
+        if (!importedData || typeof importedData.version !== 'number') {
+            throw new Error(Lumina.I18n.t('invalidConfigFile'));
+        }
+
+        const current = this.load();
+        const merged = this.mergeDeep(this.getDefaultConfig(), importedData);
+
+        merged.meta.firstInstall = current.meta?.firstInstall;
+        merged.meta.importCount = (current.meta?.importCount || 0) + 1;
+        merged.meta.lastImport = Date.now();
+
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem;
+        const hasFontData = merged.customFontsData?.length > 0;
+        const fontCount = merged.customFonts?.length || 0;
+
+        // APP 端恢复字体时自动显示进度对话框
+        let progressDialog = null;
+        if (isApp && fontCount > 0 && !onProgress && Lumina.ExportUtils?.showProgressDialog) {
+            progressDialog = Lumina.ExportUtils.showProgressDialog(Lumina.I18n.t('restoringFonts'));
+            onProgress = (currentIdx, total, fontName) => {
+                const percent = Math.round((currentIdx / total) * 100);
+                const stepName = Lumina.I18n.t('fontRestoreProgress', currentIdx, total);
+                progressDialog.update(percent, `${stepName}: ${fontName}`);
+            };
+        }
+
+        if (fontCount > 0) {
+            try {
+                if (isApp && hasFontData) {
+                    console.log('[ConfigManager] APP 导入：恢复', merged.customFonts.length, '个字体');
+                    await this._restoreFontsFromConfig(merged.customFonts, merged.customFontsData, onProgress);
+                    delete merged.customFontsData;
+                } else if (isApp && !hasFontData) {
+                    console.log('[ConfigManager] APP 导入 PC 配置：尝试从 Documents 恢复字体');
+                    await this._restoreFontsFromDocuments(merged.customFonts, onProgress);
+                } else if (!isApp && hasFontData) {
+                    console.log('[ConfigManager] PC 导入 APP 配置：字体数据忽略，保留配置');
+                    delete merged.customFontsData;
+                    setTimeout(() => {
+                        Lumina.UI.showToast(Lumina.I18n.t('fontConfigImportedPleaseReAdd'));
+                    }, 500);
+                } else {
+                    console.log('[ConfigManager] PC 导入：从 IndexedDB 加载字体');
+                    await this._restoreFontsFromConfig(merged.customFonts, null, onProgress);
+                }
+            } finally {
+                if (progressDialog) progressDialog.close();
+            }
+        }
+
+        this.save(merged);
+        await this._applyCurrentFont(merged.reading?.font);
+
+        // 统一刷新 UI
+        Lumina.Settings.load();
+        await Lumina.Settings.apply();
+        if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
+        if (Lumina.Plugin.AzureTTS) {
+            Lumina.Plugin.AzureTTS.refreshUI();
+            if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
+                Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
+            }
+        }
+        if (Lumina.Settings.reloadPasswordPresetUI) {
+            Lumina.Settings.reloadPasswordPresetUI();
+        }
+        Lumina.I18n.updateUI();
+
+        return { success: true, config: merged };
+    },
+
     // ========== 导入配置（恢复） ==========
     async import(data, encrypted = false) {
         try {
             let json = data;
             
             if (encrypted) {
-                // 使用 Lumina 专用 .lmn 格式解密
                 const password = await this._requestPassword('enter');
                 if (password === null) return { success: false, error: Lumina.I18n.t('noPasswordEntered') };
                 
-                console.log('[ConfigManager] 导入加密配置，密码长度:', password.length, '使用默认密钥:', password.length === 0);
-                console.log('[ConfigManager] 数据类型:', data.constructor.name, '数据长度:', data.length || data.byteLength);
-                
                 try {
-                    // 确保传递 ArrayBuffer 给 decrypt
                     const arrayBuffer = data.buffer instanceof ArrayBuffer ? data.buffer : data;
                     const decrypted = await Lumina.Crypto.decrypt(arrayBuffer, password);
                     json = JSON.stringify(decrypted);
-                    console.log('[ConfigManager] 解密成功');
                 } catch (e) {
-                    console.error('[ConfigManager] 解密失败:', e);
                     return { success: false, error: Lumina.I18n.t('passwordErrorOrCorrupt') };
                 }
             }
             
             const imported = JSON.parse(json);
-            
-            // 验证配置结构
-            if (!imported.version) {
-                throw new Error(Lumina.I18n.t('invalidConfigFile'));
-            }
-            
-            // 合并导入的配置（保留部分当前设置）
-            const current = this.load();
-            const merged = this.mergeDeep(this.getDefaultConfig(), imported);
-            
-            // 保留的元数据
-            merged.meta.firstInstall = current.meta.firstInstall;
-            merged.meta.importCount = (current.meta.importCount || 0) + 1;
-            merged.meta.lastImport = Date.now();
-            
-            // 处理跨平台字体导入
-            const isApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Filesystem;
-            const hasFontData = merged.customFontsData?.length > 0;
-            
-            if (merged.customFonts?.length > 0) {
-                if (isApp && hasFontData) {
-                    // APP 端导入含字体数据的配置（正常流程）
-                    console.log('[ConfigManager] APP 导入：恢复', merged.customFonts.length, '个字体');
-                    await this._restoreFontsFromConfig(merged.customFonts, merged.customFontsData);
-                    delete merged.customFontsData;
-                } else if (isApp && !hasFontData) {
-                    // APP 端导入不含字体数据的配置（来自 PC）
-                    console.log('[ConfigManager] APP 导入 PC 配置：尝试从 Documents 恢复字体');
-                    await this._restoreFontsFromDocuments(merged.customFonts);
-                } else if (!isApp && hasFontData) {
-                    // PC 端导入含字体数据的配置（来自 APP）
-                    console.log('[ConfigManager] PC 导入 APP 配置：字体数据忽略，保留配置');
-                    // 保存字体配置但不保存字体数据
-                    delete merged.customFontsData;
-                    // 提示用户需要重新添加字体
-                    setTimeout(() => {
-                        Lumina.UI.showToast(Lumina.I18n.t('fontConfigImportedPleaseReAdd'));
-                    }, 500);
-                } else {
-                    // PC 端导入不含字体数据的配置（正常 PC 间导入）
-                    console.log('[ConfigManager] PC 导入：从 IndexedDB 加载字体');
-                    await this._restoreFontsFromConfig(merged.customFonts, null);
-                }
-            }
-            
-            // 保存配置（不含字体数据）
-            this.save(merged);
-            
-            // 应用配置中的当前字体设置
-            await this._applyCurrentFont(merged.reading?.font);
-            
-            return { success: true, config: merged };
+            return await this.applyImportedConfig(imported);
         } catch (e) {
             console.error('[ConfigManager] 导入失败:', e);
             return { success: false, error: e.message };

@@ -501,28 +501,6 @@ Lumina.Settings = {
             }
             
             if (result.success) {
-                // 重新加载并应用配置
-                Lumina.Settings.load();
-                await Lumina.Settings.apply();
-                
-                // 更新热力图预设内存状态
-                if (Lumina.HeatMap) {
-                    Lumina.HeatMap.loadPresets();
-                }
-                
-                // 刷新 Azure TTS UI（导入的配置已在 ConfigManager 中）
-                if (Lumina.Plugin.AzureTTS) {
-                    Lumina.Plugin.AzureTTS.refreshUI();
-                    // 如果已启用且配置有效，重新初始化引擎
-                    if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
-                        Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
-                    }
-                }
-                
-                // 重新加载 PDF 密码预设 UI
-                Lumina.Settings.reloadPasswordPresetUI();
-                
-                Lumina.I18n.updateUI();
                 Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess') || '配置导入成功');
             } else {
                 Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${result.error}`);
@@ -668,27 +646,6 @@ Lumina.Settings = {
             progressDialog.close();
             
             if (result.success) {
-                // 重新加载并应用配置
-                Lumina.Settings.load();
-                await Lumina.Settings.apply();
-                
-                // 更新热力图预设内存状态
-                if (Lumina.HeatMap) {
-                    Lumina.HeatMap.loadPresets();
-                }
-                
-                // 刷新 Azure TTS UI
-                if (Lumina.Plugin.AzureTTS) {
-                    Lumina.Plugin.AzureTTS.refreshUI();
-                    if (Lumina.Plugin.AzureTTS.config.enabled && Lumina.Plugin.AzureTTS.config.speechKey) {
-                        Lumina.Plugin.AzureTTS.engine.init(Lumina.Plugin.AzureTTS.config.speechKey, Lumina.Plugin.AzureTTS.config.region);
-                    }
-                }
-                
-                // 重新加载 PDF 密码预设 UI
-                Lumina.Settings.reloadPasswordPresetUI();
-                
-                Lumina.I18n.updateUI();
                 Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess') || '配置导入成功');
             } else {
                 Lumina.UI.showDialog(Lumina.I18n.t('configImportFailed') || `配置导入失败: ${result.error}`);

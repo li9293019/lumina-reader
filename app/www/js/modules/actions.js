@@ -457,30 +457,7 @@ Lumina.Actions = {
             const isConfigData = hasVersion && hasReadingSection && !hasBooksData;
             
             if (isConfigData) {
-                // 配置文件导入
-                if (!data.version) {
-                    throw new Error(Lumina.I18n.t('invalidConfigFile'));
-                }
-                
-                const current = Lumina.ConfigManager.load();
-                const merged = Lumina.ConfigManager.mergeDeep(
-                    Lumina.ConfigManager.getDefaultConfig(), 
-                    data
-                );
-                
-                // 保留的元数据
-                merged.meta.firstInstall = current.meta.firstInstall;
-                merged.meta.importCount = (current.meta.importCount || 0) + 1;
-                merged.meta.lastImport = Date.now();
-                
-                Lumina.ConfigManager.save(merged);
-                
-                // 刷新相关UI
-                Lumina.Settings.load();
-                await Lumina.Settings.apply();
-                if (Lumina.HeatMap) Lumina.HeatMap.loadFromConfig?.();
-                if (Lumina.Settings.reloadPasswordPresetUI) Lumina.Settings.reloadPasswordPresetUI();
-                Lumina.I18n.updateUI();
+                await Lumina.ConfigManager.applyImportedConfig(data);
                 Lumina.UI.showToast(Lumina.I18n.t('configImportSuccess'));
                 
             } else if (data.exportType === 'batch' && Array.isArray(data.books)) {

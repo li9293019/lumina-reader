@@ -2,7 +2,7 @@
 
 Lumina.About = {
     // GitHub 用户名配置
-    githubUsername: 'JLinMr', // 请修改为你的 GitHub 用户名
+    githubUsername: 'li9293019', // 请修改为你的 GitHub 用户名
     
     // 赞助页面 URL
     get sponsorUrl() {

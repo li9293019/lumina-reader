@@ -456,7 +456,7 @@ Lumina.Converter = {
             return;
         }
         
-        const uiIsTrad = this.uiLanguage === 'zh1';
+        const uiIsTrad = this.uiLanguage === 'zh-TW';
         const bookIsTrad = this.bookLanguage === 'zh-TW';
         
         // UI和书籍简繁类型不同，需要转换

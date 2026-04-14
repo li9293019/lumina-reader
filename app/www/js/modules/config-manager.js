@@ -23,7 +23,7 @@ Lumina.ConfigManager = {
             langLower === 'zh-tw' || 
             langLower === 'zh-hk' || 
             langLower === 'zh-mo') {
-            return 'zh1';  // 繁体中文
+            return 'zh-TW';  // 繁体中文
         }
         
         // 简体中文：zh-CN, zh-SG 或其他 zh- 变体

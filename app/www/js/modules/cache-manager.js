@@ -241,7 +241,7 @@ Lumina.CacheManager = {
             const result = await impl.clearAllCache();
             
             if (result.success) {
-                const msg = Lumina.I18n.t('cacheManagerClearSuccess').replace('{count}', result.cleared);
+                const msg = Lumina.I18n.t('cacheManagerClearSuccess', {count: result.cleared});
                 Lumina.UI.showToast(msg);
                 this.loadCacheStats();
             } else {

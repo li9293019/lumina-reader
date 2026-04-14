@@ -4,6 +4,24 @@
 
 > **核心特性**：离线优先 · 隐私至上 · 本地存储 · 插件扩展
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Android-blue)
+![Tech](https://img.shields.io/badge/Tech-Capacitor%206%20%2B%20Vanilla%20JS-green)
+
+## 预览
+
+<p align="center">
+  <img src="screenshots/reader-light.jpg" width="280" alt="阅读界面 - 浅色主题">
+</p>
+
+| 启动页 | 书库管理 | 书籍详情 |
+|--------|----------|----------|
+| <img src="screenshots/splash.jpg" width="220" alt="启动页"> | <img src="screenshots/library.jpg" width="220" alt="书库管理"> | <img src="screenshots/book-detail.jpg" width="220" alt="书籍详情"> |
+
+| 阅读界面 - 深色 | 全文搜索 | 设置面板 |
+|-----------------|----------|----------|
+| <img src="screenshots/reader.jpg" width="220" alt="阅读界面"> | <img src="screenshots/search.jpg" width="220" alt="全文搜索"> | <img src="screenshots/settings.jpg" width="220" alt="设置面板"> |
+
 ---
 
 ## 项目结构
@@ -333,7 +351,10 @@ npx cap sync android  # 完整同步（安装新插件时用）
 ## Git 提交
 
 ```bash
-# 克隆
+# GitHub（主仓库）
+git clone https://github.com/li9293019/lumina-reader.git
+
+# 码云（国内镜像）
 git clone https://gitee.com/boyryan85/lumina-reader.git
 
 # 日常提交
@@ -438,4 +459,4 @@ git push
 
 ## License
 
-MIT License © 2024
+MIT License © 2026

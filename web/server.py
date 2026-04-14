@@ -294,9 +294,11 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
     
     # Web 服务目录指向 ../app/www/
     WEB_ROOT = Path(__file__).parent.parent / 'app' / 'www'
+    # 截图目录指向项目根目录的 screenshots/
+    SCREENSHOTS_ROOT = Path(__file__).parent.parent / 'screenshots'
     
     def translate_path(self, path):
-        """重写路径解析，服务 ../app/www/ 目录"""
+        """重写路径解析，服务 ../app/www/ 目录，同时支持 /screenshots/"""
         # 移除 URL 参数
         path = path.split('?', 1)[0]
         path = path.split('#', 1)[0]
@@ -308,6 +310,12 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         path = os.path.normpath(path)
         if path.startswith('..'):
             path = ''
+        
+        # 截图目录单独处理
+        if path.startswith('screenshots'):
+            full_path = self.SCREENSHOTS_ROOT / path[len('screenshots'):].lstrip('/\\')
+            return str(full_path)
+        
         # 拼接完整路径
         full_path = self.WEB_ROOT / path
         return str(full_path)

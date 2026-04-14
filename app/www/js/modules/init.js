@@ -1035,8 +1035,11 @@ Lumina.HeatMap = {
 
 // 页面获得焦点时自动刷新（防止其他窗口操作后数据不同步）
 window.addEventListener('focus', () => {
-    if (Lumina.DB.adapter instanceof Lumina.DB.SQLiteImpl && 
-        Lumina.DB.adapter.isReady &&
+    if (Lumina.DB.adapter &&
+        Lumina.DB.adapter.getStorageMode &&
+        Lumina.DB.adapter.getStorageMode() === 'sqlite' &&
+        Lumina.DB.adapter.impl &&
+        Lumina.DB.adapter.impl.isReady &&
         Lumina.DataManager) {
         
         // 如果书库面板正打开，静默刷新（复用正在进行的请求）

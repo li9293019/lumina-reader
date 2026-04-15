@@ -638,3 +638,10 @@ box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-color);
     flex-direction: column;
     transition: transform 0.2s ease;
 }
+
+
+/* placeholder 字体统一 */
+input::placeholder,
+textarea::placeholder {
+    font-family: var(--font-family-dynamic);
+}

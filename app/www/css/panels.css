@@ -1733,3 +1733,244 @@ margin-top: 4px;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-primary);
 }
+
+
+/* ==================== 从 main.css 迁移的残余样式 ==================== */
+
+/* 设置面板内容区 */
+.settings-content,
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* 热力图预设输入 */
+#heatPresetNameInput,
+#heatPresetAddBtn {
+    height: 36px;
+    box-sizing: border-box;
+}
+
+/* 书库排序 */
+.sort-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sort-btn,
+.sort-direction-btn {
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px 0 0 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-family-dynamic);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sort-dropdown:hover .sort-btn,
+.sort-dropdown:hover .sort-direction-btn {
+    border-color: var(--accent-color);
+}
+
+.lib-brief-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.lib-brief-stats .stats-separator {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.5;
+}
+
+.lib-brief-stats .stats-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sort-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 100%;
+    white-space: nowrap;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.2s;
+    z-index: 100;
+}
+
+.sort-menu.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.sort-item {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+    line-height: 1.4;
+}
+
+.sort-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.sort-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.sort-item:hover {
+    background: var(--bg-secondary);
+}
+
+.sort-item.active {
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+/* 多选模式 */
+.batch-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.batch-action-link {
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.batch-action-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.lib-batch-header {
+    background: var(--accent-color);
+    color: white;
+}
+
+#dataManagerPanel .panel-title {
+    font-family: var(--font-family-dynamic);
+}
+
+.lib-batch-header .panel-title {
+    color: white;
+}
+
+.lib-batch-header .btn-icon {
+    color: white;
+}
+
+.lib-batch-header .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.checkbox-icon {
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.8);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.checkbox-frame {
+    stroke: rgba(255, 255, 255, 0.9);
+}
+
+.checkbox-check {
+    stroke: currentColor;
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    transition: stroke-dashoffset 0.2s;
+}
+
+/* 字体管理器 */
+.custom-fonts-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+#fontManagerDialog .about-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+}
+
+.font-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.font-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.font-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.font-delete-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.font-delete-btn:hover {
+    background: var(--warnning);
+    color: white;
+    opacity: 1;
+}
+
+/* 正则工具栏适配 */
+.settings-content.with-regex-toolbar {
+    padding-bottom: 120px;
+}

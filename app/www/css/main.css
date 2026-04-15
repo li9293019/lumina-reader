@@ -2496,6 +2496,8 @@ color: var(--accent-color);
 .about-update-text {
     font-size: 13px;
     color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
 }
 
 .about-update-text strong {
@@ -2507,6 +2509,8 @@ color: var(--accent-color);
     position: relative;
     overflow: hidden;
     min-width: 84px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .update-btn-label {
@@ -2815,7 +2819,7 @@ color: var(--text-secondary);
 margin-bottom: 16px;
 line-height: 1.5;
 white-space: pre-line;
-word-break: break-all;
+overflow-wrap: break-word;
 }
 
 .dialog-input-wrapper {

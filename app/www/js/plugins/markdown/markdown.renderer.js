@@ -565,7 +565,9 @@ Lumina.Plugin.Markdown.Renderer = {
             'xml': 'markup',
             'htm': 'markup',
             'cs': 'csharp',
-            'c#': 'csharp'
+            'c#': 'csharp',
+            'cmd': 'batch',
+            'bat': 'batch'
         };
         
         const actualLang = aliasMap[lang] || lang;

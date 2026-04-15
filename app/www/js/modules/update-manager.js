@@ -43,6 +43,20 @@ Lumina.UpdateManager = {
      * @returns {Promise<{hasUpdate: boolean, remote: object|null, local: object, error: string|null}>}
      */
     async check() {
+        // ==================== 测试模式：强制 APK 更新 ====================
+        // if (this.isAvailable) {
+        //     return {
+        //         hasUpdate: true,
+        //         remote: {
+        //             version: '9.9.9',
+        //             requiresNativeUpdate: true,
+        //             changelog: '测试：需要重新下载安装包'
+        //         },
+        //         local: await this.getLocalVersion(),
+        //         error: 'requires_native'
+        //     };
+        // }
+        // ================================================================
         if (!this.isAvailable) {
             const hasCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
             if (hasCapacitor && !Capacitor.Plugins?.AppUpdater) {

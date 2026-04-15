@@ -720,6 +720,7 @@ Lumina.I18n.data['en'] = {
         updatePluginNotReady: 'Update feature is not ready. Please reinstall the app.',
         nativeUpdateRequired: 'APK update required',
         nativeUpdateHint: 'This update includes native changes. Please download the latest APK from GitHub Release.',
+        nativeUpdateConfirm: 'A new version v${version} is available and requires downloading the APK to update.\n\nWe recommend backing up your books and settings via "Settings → Data Management → Export" before updating to prevent data loss during the upgrade.\n\nGo to GitHub Release page to download the latest APK?\n\n${url}',
         updateDetailTitle: 'Update Details',
         currentVersionLabel: 'Current Version',
         newVersionLabel: 'New Version',

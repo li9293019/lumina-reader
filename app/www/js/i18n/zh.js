@@ -720,6 +720,7 @@ Lumina.I18n.data['zh'] = {
         updatePluginNotReady: '更新功能尚未就绪，请重新安装应用',
         nativeUpdateRequired: '需要下载安装包',
         nativeUpdateHint: '本次更新涉及原生功能，请前往 GitHub Release 下载最新 APK',
+        nativeUpdateConfirm: '检测到新版本 v${version} 需要重新下载安装包才能更新。\n\n建议您在更新前通过「设置 → 数据管理 → 导出」功能备份书籍和配置数据，以防升级过程中数据丢失。\n\n是否前往 GitHub Release 页面下载最新 APK？\n\n${url}',
         updateDetailTitle: '更新详情',
         currentVersionLabel: '当前版本',
         newVersionLabel: '新版本',

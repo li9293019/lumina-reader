@@ -10,6 +10,10 @@ __pycache__/
 app/android/app/build/
 app/android/.gradle/
 app/android/build/
+app/android/capacitor.settings.gradle
+app/android/app/capacitor.build.gradle
+# 注意：app/build.gradle 是手动维护的核心构建配置（含 versionCode/versionName），必须纳入 git
+# app/android/app/build.gradle
 dist/
 build/
 
@@ -31,6 +35,9 @@ data/
 # Reference files
 reference/
 refrence/
+
+# Local scripts / tools (release, deploy, personal utilities)
+scripts/
 
 # Backup files
 appBak.rar

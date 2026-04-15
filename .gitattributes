@@ -1,0 +1,22 @@
+# GitHub Linguist 语言统计修正
+# 官方文档: https://github.com/github-linguist/linguist/blob/master/docs/overrides.md
+
+# 前端页面 HTML 不应主导语言统计
+*.html linguist-documentation
+
+# 第三方库标记为 vendored，不计入主要语言统计
+app/www/assets/js/lib/* linguist-vendored
+app/www/assets/js/lib/**/* linguist-vendored
+app/www/assets/js/app/speech-sdk.bundle.js linguist-vendored
+app/www/js/plugins/azure-tts/speech-sdk.bundle.js linguist-vendored
+app/www/js/plugins/markdown/lib/prism/* linguist-vendored
+app/www/js/plugins/markdown/lib/prism/**/* linguist-vendored
+app/www/assets/js/lib/opencc/* linguist-vendored
+
+# Android 原生构建产物和大量生成的 Gradle/资源文件
+app/android/app/src/main/assets/* linguist-generated
+app/android/build/* linguist-generated
+app/android/.gradle/* linguist-generated
+app/android/gradle/* linguist-vendored
+app/android/gradlew linguist-vendored
+app/android/gradlew.bat linguist-vendored

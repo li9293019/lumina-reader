@@ -348,8 +348,11 @@ Lumina.Renderer.generatePageNumbers = (current, total) => {
 };
 
 Lumina.Renderer.updateDocumentStyles = () => {
+    const state = Lumina.State.app;
+    // 首字下沉只在章节第一页生效，分页后的页面不触发
+    if (state.currentPageIdx !== 0) return;
     const firstPara = Lumina.DOM.contentWrapper.querySelector('.doc-line.paragraph');
-    if (firstPara && Lumina.State.settings.dropCap) firstPara.classList.add('drop-cap');
+    if (firstPara && Lumina.State.settings?.dropCap) firstPara.classList.add('drop-cap');
 };
 
 Lumina.Renderer.generateTOC = () => {

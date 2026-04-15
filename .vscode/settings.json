@@ -9,5 +9,7 @@
   "search.exclude": {
     "node_modules/": true
   },
-  "kimi.alwaysExpandThinking": true
+  "kimi.alwaysExpandThinking": true,
+  "kimi.showThinkingContent": true,
+  "kimi.showThinkingExpanded": true
 }

@@ -1,1 +1,13 @@
-{"editor.tabSize":2,"editor.insertSpaces":true,"files.eol":"\n","files.exclude":{"node_modules/":true,"__pycache__/":true},"search.exclude":{"node_modules/":true}}
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.eol": "\n",
+  "files.exclude": {
+    "node_modules/": true,
+    "__pycache__/": true
+  },
+  "search.exclude": {
+    "node_modules/": true
+  },
+  "kimi.alwaysExpandThinking": true
+}

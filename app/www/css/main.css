@@ -2357,6 +2357,8 @@ font-weight: 600;
 }
 
 .about-body {
+flex: 1;
+min-height: 0;
 overflow-y: auto;
 line-height: 1.8;
 padding: 0 24px;
@@ -2456,11 +2458,12 @@ margin-left: 4px;
 .about-author {
 background: var(--bg-secondary);
 border-radius: 8px;
-padding: 8px 8px 16px 8px;
+padding: 0 8px 16px 8px;
 margin: 8px -8px 0 -8px;
 }
 
 .about-author-header {
+margin-top: 8px;
 margin-bottom: 12px;
 }
 
@@ -2476,6 +2479,178 @@ font-size: 14px;
 font-size: 13px;
 color: var(--accent-color);
 }
+
+.about-update {
+    margin: 0;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.about-update-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.about-update-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.about-update-text strong {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+#aboutUpdateBtn {
+    position: relative;
+    overflow: hidden;
+    min-width: 84px;
+}
+
+.update-btn-label {
+    position: relative;
+    z-index: 1;
+}
+
+.update-btn-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 0%;
+    background: var(--accent-color);
+    opacity: 1;
+    z-index: 0;
+    transition: width 0.15s linear;
+}
+
+/* update detail panel */
+#updateDetailPanel {
+    font-family: var(--font-family-dynamic);
+}
+
+#updateDetailPanel * {
+    font-family: inherit;
+}
+
+.update-detail-info {
+    background: var(--bg-secondary);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.update-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.update-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.update-detail-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.update-detail-section {
+    margin-bottom: 20px;
+}
+
+.update-detail-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+}
+
+.update-detail-changelog {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    white-space: pre-wrap;
+}
+
+.update-detail-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.update-detail-actions .option-btn {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 14px;
+}
+
+/* 面板内下载进度 */
+.update-progress-title {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.update-progress-bar-wrap {
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.update-progress-bar {
+    height: 100%;
+    width: 0%;
+    min-width: 2px;
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+.update-progress-percent {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.update-progress-error {
+    font-size: 13px;
+    color: var(--heart);
+    text-align: center;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+/* 面板内就绪状态 */
+.update-ready-title {
+    font-size: 15px;
+    color: var(--accent);
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.update-ready-version {
+    font-size: 20px;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.update-ready-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
 
 .about-link-external {
 display: inline-flex;
@@ -5527,4 +5702,41 @@ transform: translate(-50%, -50%) scale(1);
         /* PC 端如果设置面板不是全屏，工具栏需要跟随面板 */
         position: fixed;
     }
+}
+
+/* ==================== APP 更新检查区域 ==================== */
+
+
+.about-update-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.about-update-version {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.about-update-version strong {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.about-update-status {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.6;
+    min-height: 18px;
+}
+
+.about-update-actions {
+    display: none;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.about-update-actions .option-btn {
+    flex: 1;
 }

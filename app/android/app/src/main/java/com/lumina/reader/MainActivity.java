@@ -22,6 +22,9 @@ import com.lumina.reader.BuildConfig;
 import com.lumina.reader.plugins.TTSBackgroundPlugin;
 import com.lumina.reader.plugins.TTSEnhancedPlugin;
 import com.lumina.reader.plugins.LargeFilePlugin;
+import com.lumina.reader.plugins.AppUpdaterPlugin;
+
+import java.io.File;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -69,6 +72,13 @@ public class MainActivity extends BridgeActivity {
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Capacitor 8: Bridge 在 super.onCreate 内部就被创建，
+        // 所以自定义插件必须在 super.onCreate 之前注册
+        registerPlugin(TTSBackgroundPlugin.class);
+        registerPlugin(TTSEnhancedPlugin.class);
+        registerPlugin(LargeFilePlugin.class);
+        registerPlugin(AppUpdaterPlugin.class);
+        
         super.onCreate(savedInstanceState);
         mainHandler = new Handler(Looper.getMainLooper());
         
@@ -76,9 +86,8 @@ public class MainActivity extends BridgeActivity {
             WebView.setWebContentsDebuggingEnabled(true);
         }
         
-        registerPlugin(TTSBackgroundPlugin.class);
-        registerPlugin(TTSEnhancedPlugin.class);
-        registerPlugin(LargeFilePlugin.class);
+        // 检查并应用热更新资源
+        applyHotUpdateIfExists();
         
         // Capacitor 社区插件自动注册，无需手动注册
         
@@ -589,6 +598,26 @@ public class MainActivity extends BridgeActivity {
                   .replace("\t", "\\t");
     }
     
+    /**
+     * 应用热更新：如果 files/www/index.html 存在，则让 Capacitor 从该目录加载
+     */
+    private void applyHotUpdateIfExists() {
+        try {
+            File updatedIndex = new File(getFilesDir(), "www/index.html");
+            if (updatedIndex.exists()) {
+                File wwwDir = updatedIndex.getParentFile();
+                if (bridge != null && wwwDir != null) {
+                    bridge.setServerBasePath(wwwDir.getAbsolutePath());
+                    Log.d(TAG, "热更新已应用: " + wwwDir.getAbsolutePath());
+                }
+            } else {
+                Log.d(TAG, "无热更新资源，使用内置 assets");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "应用热更新失败", e);
+        }
+    }
+
     private static class FileInfo {
         String fileName;
         String mimeType;

@@ -34,6 +34,24 @@ Lumina.init = async () => {
 
     Lumina.UI.init();
 
+    // 热更新后：以当前运行的 version.json 为准覆盖 Config.version
+    try {
+        const versionRes = await fetch('version.json', { cache: 'no-store' });
+        if (versionRes.ok) {
+            const versionData = await versionRes.json();
+            if (versionData?.version) {
+                const parts = String(versionData.version).split('.').map(n => parseInt(n, 10) || 0);
+                Lumina.Config.version.major = parts[0] || 0;
+                Lumina.Config.version.minor = parts[1] || 0;
+                Lumina.Config.version.patch = parts[2] || 0;
+                Lumina.Config.version.build = versionData.build || Lumina.Config.version.build;
+                console.log('[Init] 版本已同步:', Lumina.Config.version.toString());
+            }
+        }
+    } catch (e) {
+        console.log('[Init] 读取 version.json 失败，使用内置版本');
+    }
+
     Lumina.DB.adapter = new Lumina.DB.StorageAdapter();
 
     // 检测运行环境：Capacitor > Web SQLite > IndexedDB

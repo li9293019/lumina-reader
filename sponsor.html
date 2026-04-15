@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="color-scheme" content="light dark">
+    <meta name="color-scheme" content="light">
     <title>Support Lumina Reader</title>
     <style>
         :root {
@@ -25,27 +25,6 @@
             --glow: rgba(244, 156, 12, 0.15);
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-primary: #1a1814;
-                --bg-secondary: #2a2520;
-                --bg-gradient-start: #2a2520;
-                --bg-gradient-end: #1a1814;
-                --text-primary: #e8e0d5;
-                --text-secondary: #b0b0b0;
-                --text-tertiary: #666666;
-                --accent: #A6957D;
-                --accent-light: #C4B5A0;
-                --border: rgba(166, 149, 125, 0.2);
-                --shadow: rgba(0, 0, 0, 0.3);
-                --card-bg: #2a2520;
-                --wechat: #4CAF50;
-                --alipay: #64B5F6;
-                --heart: #E57373;
-                --glow: rgba(244, 156, 12, 0.1);
-            }
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -53,19 +32,20 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        html, body {
+        html {
             height: 100%;
         }
 
         body {
+            min-height: 100%;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR', sans-serif;
             background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 24px;
+            padding: 16px;
             color: var(--text-primary);
-            line-height: 1.7;
+            line-height: 1.65;
         }
 
         .container {
@@ -82,25 +62,25 @@
         /* 顶部品牌区域 */
         .brand-section {
             text-align: center;
-            margin-bottom: 28px;
+            margin-bottom: 20px;
         }
 
         .logo {
             width: 72px;
             height: 72px;
-            margin: 0 auto 16px;
-            border-radius: 18px;
+            margin: 0 auto 12px;
+            border-radius: 14px;
             box-shadow: 0 4px 20px var(--shadow), 0 0 40px var(--glow);
         }
 
         .logo svg {
             width: 100%;
             height: 100%;
-            border-radius: 18px;
+            border-radius: 14px;
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 600;
             letter-spacing: -0.5px;
         }
@@ -109,14 +89,14 @@
         .quotes-card {
             background: var(--card-bg);
             border-radius: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             box-shadow: 0 4px 20px var(--shadow);
             border: 1px solid var(--border);
             overflow: hidden;
         }
 
         .quote-section {
-            padding: 20px;
+            padding: 16px;
             position: relative;
         }
 
@@ -127,7 +107,7 @@
         .quote-section p {
             font-size: 14px;
             color: var(--text-secondary);
-            line-height: 1.8;
+            line-height: 1.7;
         }
 
         .quote-highlight {
@@ -138,15 +118,15 @@
         /* 二维码区域 */
         .qr-section {
             display: flex;
-            gap: 16px;
-            margin-bottom: 28px;
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
         .qr-card {
             flex: 1;
             background: var(--card-bg);
             border-radius: 16px;
-            padding: 16px;
+            padding: 12px;
             box-shadow: 0 4px 20px var(--shadow);
             border: 1px solid var(--border);
             text-align: center;
@@ -189,13 +169,13 @@
         /* 感谢区域 */
         .thanks-section {
             text-align: center;
-            padding: 8px 0 20px;
+            padding: 4px 0 12px;
         }
 
         .heart-icon {
-            width: 28px;
-            height: 28px;
-            margin-bottom: 10px;
+            width: 26px;
+            height: 26px;
+            margin-bottom: 8px;
             fill: var(--heart);
             animation: heartbeat 2s ease-in-out infinite;
         }
@@ -216,7 +196,7 @@
             justify-content: center;
             align-items: center;
             gap: 12px;
-            padding-top: 16px;
+            padding-top: 12px;
             border-top: 1px solid var(--border);
         }
 
@@ -278,14 +258,40 @@
             top: 24px;
         }
 
-        /* 响应式 */
+        /* 响应式：中等高度屏幕进一步紧凑 */
+        @media (max-height: 850px) {
+            .brand-section { margin-bottom: 16px; }
+            .logo { width: 64px; height: 64px; margin-bottom: 10px; border-radius: 12px; }
+            .logo svg { border-radius: 12px; }
+            h1 { font-size: 18px; }
+            .quotes-card { margin-bottom: 14px; }
+            .quote-section { padding: 14px; }
+            .quote-section p { font-size: 13px; line-height: 1.65; }
+            .qr-section { gap: 10px; margin-bottom: 16px; }
+            .qr-card { padding: 10px; }
+            .qr-label { font-size: 12px; }
+            .thanks-section { padding: 4px 0 10px; }
+            .heart-icon { width: 24px; height: 24px; margin-bottom: 6px; }
+            .thanks-text { font-size: 12px; }
+            .lang-footer { padding-top: 10px; }
+            body { padding: 12px; }
+        }
+
+        /* 响应式：小高度屏幕极致紧凑 */
         @media (max-height: 700px) {
-            .brand-section { margin-bottom: 20px; }
-            .logo { width: 60px; height: 60px; }
-            h1 { font-size: 20px; }
-            .quotes-card { margin-bottom: 20px; }
-            .quote-section { padding: 16px; }
-            .quote-section p { font-size: 13px; }
+            .brand-section { margin-bottom: 14px; }
+            .logo { width: 56px; height: 56px; margin-bottom: 8px; border-radius: 10px; }
+            .logo svg { border-radius: 10px; }
+            h1 { font-size: 17px; }
+            .quotes-card { margin-bottom: 12px; }
+            .quote-section { padding: 12px; }
+            .quote-section p { font-size: 12.5px; line-height: 1.6; }
+            .qr-section { gap: 8px; margin-bottom: 14px; }
+            .qr-card { padding: 8px; }
+            .thanks-section { padding: 2px 0 8px; }
+            .heart-icon { width: 22px; height: 22px; margin-bottom: 4px; }
+            .lang-footer { padding-top: 8px; }
+            body { padding: 10px; }
         }
     </style>
 </head>

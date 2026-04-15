@@ -1,0 +1,123 @@
+@keyframes breathe {
+
+0%,
+100% {
+    transform: scale(0.9);
+    opacity: 1;
+}
+
+50% {
+    transform: scale(1.1);
+    opacity: 0.85;
+}
+}
+
+@keyframes orbit {
+0% {
+    transform: rotate(0deg) translateX(0) rotate(0deg);
+}
+
+25% {
+    transform: rotate(90deg) translateX(2px) rotate(-90deg);
+}
+
+50% {
+    transform: rotate(180deg) translateX(0) rotate(-180deg);
+}
+
+75% {
+    transform: rotate(270deg) translateX(-2px) rotate(-270deg);
+}
+
+100% {
+    transform: rotate(360deg) translateX(0) rotate(-360deg);
+}
+}
+
+@keyframes trail-fade-1 {
+
+0%,
+100% {
+    opacity: 0.5;
+    transform: scale(0.8);
+}
+
+50% {
+    opacity: 0.3;
+    transform: scale(0.6);
+}
+}
+
+@keyframes trail-fade-2 {
+
+0%,
+100% {
+    opacity: 0.3;
+    transform: scale(0.6);
+}
+
+50% {
+    opacity: 0.1;
+    transform: scale(0.4);
+}
+}
+
+@keyframes spin {
+to {
+    transform: rotate(360deg);
+}
+}
+
+@keyframes spin {
+to { transform: rotate(360deg); }
+}
+
+@keyframes dialogSlideIn {
+from {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+to {
+    opacity: 1;
+    transform: translateY(0);
+}
+}
+
+@keyframes markerPulse {
+
+0%,
+100% {
+    border-left-width: 3px;
+}
+
+50% {
+    border-left-width: 5px;
+}
+}
+
+@keyframes fadeIn {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+from { opacity: 1; }
+to { opacity: 0; }
+}
+
+@keyframes slideUp {
+from { 
+    opacity: 0;
+    transform: translateY(20px);
+}
+to { 
+    opacity: 1;
+    transform: translateY(0);
+}
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.5; }
+}

@@ -1,0 +1,43 @@
+/* ========== 移动端优化：去 H5 化 ========== */
+/* 禁用点击高亮（避免蓝色背景暴露 H5 本质） */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 减少系统手势冲突（华为/荣耀 IJankManager 优化） */
+html, body {
+    overscroll-behavior: none;
+    touch-action: pan-y;
+}
+
+/* 恢复输入框的焦点样式（不要误伤） */
+input:focus, 
+textarea:focus, 
+[contenteditable]:focus {
+    -webkit-tap-highlight-color: auto;
+}
+
+/* 键盘打开时隐藏底部安全距离（APP 环境 */
+body.keyboard-open {
+--safe-area-bottom: 0px !important;
+}
+
+/* 强制覆盖所有使用安全距离的元素 */
+body.keyboard-open * {
+--safe-area-bottom: 0px !important;
+}
+
+/* 具体元素覆盖 */
+body.keyboard-open .app-container,
+body.keyboard-open #appContainer,
+body.keyboard-open .sidebar-right,
+body.keyboard-open #sidebarRight,
+body.keyboard-open .sidebar-left,
+body.keyboard-open #sidebarLeft {
+padding-bottom: 0 !important;
+}
+
+body.keyboard-open .content-scroll,
+body.keyboard-open #contentScroll {
+padding-bottom: 0 !important;
+}

@@ -1,0 +1,493 @@
+[data-theme="parchment"] {
+--bg-primary: #f7f3e8;
+--bg-secondary: #ede8d8;
+--bg-tertiary: #e3dcc8;
+--text-primary: #3d3530;
+--text-secondary: #6b5e52;
+--text-muted: #9a8c7a;
+--accent-color: #b07d46;
+--accent-hover: #c98f52;
+--border-color: #d8d0c0;
+--sidebar-bg: #f2ede0;
+--scrollbar-track: #e6e0d0;
+--scrollbar-thumb: #c9c0b0;
+--overlay-bg: rgba(60, 55, 45, 0.55);
+--logo-page-main: #6b5e52;
+--logo-firefly-core: #d4a373;
+--logo-firefly-glow: #e6d4b8;
+--tooltip-bg: rgba(60, 55, 45, 0.95);
+--tooltip-text: #f7f3e8;
+--heat-color: #c0a791;
+}
+
+[data-theme="sprout"] {
+--bg-primary: #f0f4ec;
+--bg-secondary: #e5ebe0;
+--bg-tertiary: #d8e0d0;
+--text-primary: #3d4a3d;
+--text-secondary: #6b7a6b;
+--text-muted: #9aaa9a;
+--accent-color: #6b8e6b;
+--accent-hover: #5a7a5a;
+--border-color: #cdd8c5;
+--sidebar-bg: #e8efe5;
+--scrollbar-track: #e0e8d8;
+--scrollbar-thumb: #a8b8a0;
+--overlay-bg: rgba(60, 80, 60, 0.35);
+--logo-page-main: #5a7a5a;
+--logo-firefly-core: #d4a373;
+--logo-firefly-glow: #e9c46a;
+--tooltip-bg: rgba(50, 60, 50, 0.95);
+--tooltip-text: #f0f4ec;
+--heat-color: #829e81;
+}
+
+[data-theme="slate"] {
+--bg-primary: #f8fafc;
+--bg-secondary: #f1f5f9;
+--bg-tertiary: #e2e8f0;
+--heat-color: #8a939c;
+--text-primary: #1e293b;
+--text-secondary: #64748b;
+--text-muted: #94a3b8;
+--accent-color: #475569;
+--accent-hover: #334155;
+--border-color: #cbd5e1;
+--sidebar-bg: #f8fafc;
+--scrollbar-track: #e2e8f0;
+--scrollbar-thumb: #94a3b8;
+--overlay-bg: rgba(30, 41, 59, 0.5);
+--logo-page-main: #334155;
+--logo-firefly-core: #d4a373;
+--logo-firefly-glow: #e9c46a;
+--tooltip-bg: rgba(30, 41, 59, 0.95);
+--tooltip-text: #f8fafc;
+}
+
+[data-theme="mist"] {
+--bg-primary: #f0f4f8;
+--bg-secondary: #e8eef5;
+--bg-tertiary: #dde5f0;
+--heat-color: #85a0bb;
+--text-primary: #2c3a4a;
+--text-secondary: #5a6b7d;
+--text-muted: #8a9aaa;
+--accent-color: #4a6fa5;
+--accent-hover: #5a7db8;
+--border-color: #cdd8e6;
+--sidebar-bg: #e8eef5;
+--scrollbar-track: #e0e8f0;
+--scrollbar-thumb: #a8c0d8;
+--overlay-bg: rgba(40, 55, 70, 0.5);
+--logo-page-main: #3d5a80;
+--logo-firefly-core: #e0b883;
+--logo-firefly-glow: #d4a373;
+--tooltip-bg: rgba(44, 58, 74, 0.95);
+--tooltip-text: #f0f4f8;
+}
+
+[data-theme="mint"] {
+--bg-primary: #f0fdfa;
+--bg-secondary: #e6f7f5;
+--bg-tertiary: #d1f0eb;
+--heat-color: #7baaa4;
+--text-primary: #134e4a;
+--text-secondary: #2d6b66;
+--text-muted: #5f9891;
+--accent-color: #0d9488;
+--accent-hover: #14b8a6;
+--border-color: #b8e6e0;
+--sidebar-bg: #e8f8f6;
+--scrollbar-track: #d1f0eb;
+--scrollbar-thumb: #7dd3c0;
+--overlay-bg: rgba(19, 78, 74, 0.25);
+--logo-page-main: #115e59;
+--logo-firefly-core: #f59e0b;
+--logo-firefly-glow: #fcd34d; 
+--tooltip-bg: rgba(19, 78, 74, 0.95);
+--tooltip-text: #f0fdfa;
+}
+
+[data-theme="rose"] {
+--bg-primary: #faf0f0;
+--bg-secondary: #f5e6e6;
+--bg-tertiary: #ebd5d5;
+--heat-color: #be9494;
+--text-primary: #451a1a;
+--text-secondary: #7c4e4e;
+--text-muted: #a77e7e;
+--accent-color: #be5656;
+--accent-hover: #dc6b6b;
+--border-color: #e8d5d5;
+--sidebar-bg: #f7f0f0;
+--scrollbar-track: #ebd5d5;
+--scrollbar-thumb: #d4a5a5;
+--overlay-bg: rgba(69, 26, 26, 0.45);
+--logo-page-main: #783636;
+--logo-firefly-core: #f87171;
+--logo-firefly-glow: #fca5a5;
+--tooltip-bg: rgba(69, 26, 26, 0.95);
+--tooltip-text: #faf0f0;
+}
+
+[data-theme="espresso"] {
+--bg-primary: #2b2622;
+--bg-secondary: #332d28;
+--bg-tertiary: #3d3630;
+--heat-color: #92744f;
+--text-primary: #e8e0d8;
+--text-secondary: #a89a8d;
+--text-muted: #6b6058;
+--accent-color: #d4a574;
+--accent-hover: #e4b890;
+--border-color: #4a4238;
+--sidebar-bg: #26211e;
+--scrollbar-track: #332d28;
+--scrollbar-thumb: #5a5048;
+--overlay-bg: rgba(30, 26, 22, 0.75);
+--logo-page-main: #7a6b5a;
+--logo-firefly-core: #d4a574;
+--logo-firefly-glow: #5a4a3a;
+--tooltip-bg: rgba(230, 220, 210, 0.95);
+--tooltip-text: #2b2622;
+}
+
+[data-theme="dark"] {
+--bg-primary: #1a1a1a;
+--bg-secondary: #252525;
+--bg-tertiary: #363636;
+--heat-color: #caa26d;
+--text-primary: #d1d1d1;
+--text-secondary: #a0a0a0;
+--text-muted: #6e6e6e;
+--accent-color: #c9a06c;
+--accent-hover: #dcb07d;
+--border-color: #2e2e2e;
+--sidebar-bg: #202020;
+--scrollbar-track: #1f1f1f;
+--scrollbar-thumb: #4a4a4a;
+--overlay-bg: rgba(0, 0, 0, 0.65);
+--logo-page-main: #b8a88a;
+--logo-firefly-core: #c9a06c; 
+--logo-firefly-glow: #5c4a2f;
+--tooltip-bg: rgba(255, 255, 255, 0.95);
+--tooltip-text: #1a1a1a;
+}
+
+[data-theme="amoled"] {
+--bg-primary: #000000;
+--bg-secondary: #0a0a0a;
+--bg-tertiary: #1f1f1f;
+--heat-color: #cea266;
+--text-primary: #b8b8b8;
+--text-secondary: #808080;
+--text-muted: #505050;
+--accent-color: #c9956b;
+--accent-hover: #dcb482;
+--border-color: #1f1f1f;
+--sidebar-bg: #050505;
+--scrollbar-track: #0f0f0f;
+--scrollbar-thumb: #333333;
+--overlay-bg: rgba(255, 255, 255, 0.08);
+--logo-page-main: #9a8b6f;
+--logo-firefly-core: #e0b883; 
+--logo-firefly-glow: #8b6914; 
+--tooltip-bg: rgba(232, 220, 192, 0.95);
+--tooltip-text: #000000;
+}
+
+[data-theme="midnight"] {
+--bg-primary: #1a2639;
+--bg-secondary: #121d2d;
+--bg-tertiary: #0b1420;
+--heat-color: #dcc977;
+--text-primary: #f7f5f0;
+--text-secondary: #b8c0c8;
+--text-muted: #6b7a8f;
+--accent-color: #f0a040;
+--accent-hover: #ffb860;
+--border-color: #2a3a52;
+--sidebar-bg: #162230;
+--scrollbar-track: #0b1420;
+--scrollbar-thumb: #3d5a80;
+--overlay-bg: rgba(11, 20, 32, 0.8);
+--logo-page-main: #3d5a80;
+--logo-firefly-core: #ffaa33;
+--logo-firefly-glow: #ffcc66;
+--tooltip-bg: rgba(247, 245, 240, 0.95);
+--tooltip-text: #0b1420;
+}
+
+[data-theme="nebula"] {
+--bg-primary: #1a1c26;
+--bg-secondary: #151720;
+--bg-tertiary: #222530;
+--heat-color: #b4a1db;
+--text-primary: #e2e0eb;
+--text-secondary: #9a96b0;
+--text-muted: #5e5a70;
+--accent-color: #b8a8d8;
+--accent-hover: #d0c4f0;
+--border-color: #2a2c3a;
+--sidebar-bg: #13141c;
+--scrollbar-track: #1a1c26;
+--scrollbar-thumb: #3e4052;
+--overlay-bg: rgba(15, 16, 25, 0.75);
+--logo-page-main: #5a5a7a;
+--logo-firefly-core: #e0b883;
+--logo-firefly-glow: #c9a06c; 
+--tooltip-bg: rgba(230, 225, 245, 0.95);
+--tooltip-text: #1a1c26;
+}
+
+[data-theme="dusk"] {
+--bg-primary: #6b5b73;
+--bg-secondary: #5a4d61;
+--bg-tertiary: #4a3f50;
+--heat-color: #dab299;
+--text-primary: #f5f0e8;
+--text-secondary: #d4c4b0;
+--text-muted: #a89a8a;
+--accent-color: #e6b89c;
+--accent-hover: #f0c4a8;
+--border-color: #5d5063;
+--sidebar-bg: #625468;
+--scrollbar-track: #4a3f50;
+--scrollbar-thumb: #7a6b82;
+--overlay-bg: rgba(40, 35, 45, 0.6);
+--logo-page-main: #8a7a92;
+--logo-firefly-core: #ffb366;
+--logo-firefly-glow: #ffd9b3;
+--tooltip-bg: rgba(245, 240, 232, 0.95);
+--tooltip-text: #4a3f50;
+}
+
+[data-theme="olive"] {
+--bg-primary: #7d8471;
+--bg-secondary: #6e7562;
+--bg-tertiary: #5f6654;
+--heat-color: #a3a380;
+--text-primary: #f2f0e9;
+--text-secondary: #d4d1c5;
+--text-muted: #a8a598;
+--accent-color: #a3a380;
+--accent-hover: #a2b592;
+--border-color: #707865;
+--sidebar-bg: #777e6c;
+--scrollbar-track: #5f6654;
+--scrollbar-thumb: #959c88;
+--overlay-bg: rgba(55, 60, 45, 0.5);
+--logo-page-main: #979e85;
+--logo-firefly-core: #f4d03f;
+--logo-firefly-glow: #d7ca92;
+--tooltip-bg: rgba(242, 240, 233, 0.95);
+--tooltip-text: #4a5040;
+}
+
+[data-theme="taupe"] {
+--bg-primary: #8c7c70;
+--bg-secondary: #7d6d61;
+--bg-tertiary: #6e5e52;
+--heat-color: #b5a175;
+--text-primary: #f5f0eb;
+--text-secondary: #e0d5c8;
+--text-muted: #b0a090;
+--accent-color: #c4a882;
+--accent-hover: #d4b892;
+--border-color: #7a6a5e;
+--sidebar-bg: #857565;
+--scrollbar-track: #6e5e52;
+--scrollbar-thumb: #a09080;
+--overlay-bg: rgba(60, 50, 45, 0.55);
+--logo-page-main: #9a8a7a;
+--logo-firefly-core: #e8c4a0;
+--logo-firefly-glow: #f5e0c8;
+--tooltip-bg: rgba(60, 50, 45, 0.95);
+--tooltip-text: #f5f0eb;
+}
+
+[data-theme="straw"] {
+--bg-primary: #c4b896;
+--bg-secondary: #b8ac8a;
+--bg-tertiary: #aca078;
+--heat-color: #96835b;
+--text-primary: #3d3525;
+--text-secondary: #5e5240;
+--text-muted: #8a7d65;
+--accent-color: #9a7d50;
+--accent-hover: #b09060;
+--border-color: #b0a480;
+--sidebar-bg: #c0b490;
+--scrollbar-track: #aca078;
+--scrollbar-thumb: #9a8d70;
+--overlay-bg: rgba(45, 40, 30, 0.45);
+--logo-page-main: #7a6b52;
+--logo-firefly-core: #d4b86a;
+--logo-firefly-glow: #e8d4a0;
+--tooltip-bg: rgba(45, 40, 30, 0.95);
+--tooltip-text: #f0e8d0;
+}
+
+[data-theme="terracotta"] {
+--bg-primary: #c9a090;
+--heat-color: #a37667;
+--bg-secondary: #bd9486;
+--bg-tertiary: #b08878;
+--text-primary: #3d2820;
+--text-secondary: #6b4e42;
+--text-muted: #9a7a6b;
+--accent-color: #8b5a4a;
+--accent-hover: #6b4236;
+--border-color: #a67c6b;
+--sidebar-bg: #c49888;
+--scrollbar-track: #b08878;
+--scrollbar-thumb: #9a7a6b;
+--overlay-bg: rgba(61, 40, 32, 0.45);
+--logo-page-main: #8b6b5c;
+--logo-firefly-core: #ffd9b3;
+--logo-firefly-glow: #ffe4c4;
+--tooltip-bg: rgba(61, 40, 32, 0.95);
+--tooltip-text: #faf0e8;
+}
+
+[data-theme="moss"] {
+--bg-primary: #3d4540;
+--bg-secondary: #323936;
+--bg-tertiary: #272e2b;
+--heat-color: #a8b5a0;
+--text-primary: #f0f2ee;
+--text-secondary: #c5ccc2;
+--text-muted: #8a958a;
+--accent-color: #b2cba6;
+--accent-hover: #c4d6bb;
+--border-color: #4a554e;
+--sidebar-bg: #373f3a;
+--scrollbar-track: #272e2b;
+--scrollbar-thumb: #5a6b60;
+--overlay-bg: rgba(30, 35, 32, 0.7);
+--logo-page-main: #5a6b60;
+--logo-firefly-core: #c9dcc0;
+--logo-firefly-glow: #e0f0d8;
+--tooltip-bg: rgba(240, 242, 238, 0.95);
+--tooltip-text: #272e2b;
+}
+
+[data-theme="sandstone"] {
+--bg-primary: #d8dce0;
+--bg-secondary: #c8ccd0;
+--bg-tertiary: #b8bcc0;
+--heat-color: #a3a8ad;
+--text-primary: #4a5056;
+--text-secondary: #6a7076;
+--text-muted: #8a9096;
+--accent-color: #8a9298;
+--accent-hover: #9aa2a8;
+--border-color: #b8bcc0;
+--sidebar-bg: #e0e4e8;
+--scrollbar-track: #c8ccd0;
+--scrollbar-thumb: #a8b0b8;
+--overlay-bg: rgba(60, 65, 70, 0.4);
+--logo-page-main: #6a7278;
+--logo-firefly-core: #a8b0b8;
+--logo-firefly-glow: #c8d0d8;
+--tooltip-bg: rgba(45, 50, 55, 0.95);
+--tooltip-text: #f0f4f8;
+}
+
+[data-theme="dark"] .tts-highlight {
+background: linear-gradient(90deg,
+        rgba(212, 163, 115, 0.4) 0%,
+        rgba(212, 163, 115, 0.15) 100%);
+}
+
+[data-theme="dark"] .firefly-group, [data-theme="amoled"] .firefly-group {
+filter: url(#logo-glow);
+transform-origin: 79.17px 20.83px;
+animation: orbit 10s linear infinite;
+}
+
+[data-theme="dark"] .firefly-main, [data-theme="amoled"] .firefly-main {
+transform-origin: center;
+animation: breathe 5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .firefly-trail-1, [data-theme="amoled"] .firefly-trail-1 {
+animation: trail-fade-1 5s ease-in-out infinite;
+animation-delay: -0.5s;
+}
+
+[data-theme="dark"] .firefly-trail-2, [data-theme="amoled"] .firefly-trail-2 {
+animation: trail-fade-2 5s ease-in-out infinite;
+animation-delay: -0.8s;
+}
+
+[data-theme="dark"] .firefly-logo filter, [data-theme="amoled"] .firefly-logo filter {
+--glow-intensity: 3px;
+}
+
+[data-theme="dark"] .toc-item::before,
+[data-theme="midnight"] .toc-item::before,
+[data-theme="amoled"] .toc-item::before {
+background: color-mix(in srgb, var(--heat-color, var(--accent-color)) calc(var(--heat-opacity, 0.25) * 70%), transparent);
+}
+
+[data-theme="midnight"] .toc-item::before,
+[data-theme="amoled"] .toc-item::before {
+background: color-mix(in srgb, var(--heat-color, var(--accent-color)) calc(var(--heat-opacity, 0.25) * 70%), transparent);
+}
+
+[data-theme="amoled"] .toc-item::before {
+background: color-mix(in srgb, var(--heat-color, var(--accent-color)) calc(var(--heat-opacity, 0.25) * 70%), transparent);
+}
+
+[data-theme="dark"] .regex-input.error {
+background: rgba(220, 53, 69, 0.1);
+}
+
+[data-theme="dark"] .regex-input.valid {
+background: rgba(40, 167, 69, 0.1);
+}
+
+[data-theme="dark"] .history-hover-actions {
+background: linear-gradient(to top, var(--bg-secondary) 0%, rgba(35,40,50,0.97) 40%, rgba(35,40,50,0.85) 100%);
+}
+
+[data-theme="dark"] .history-action-export {
+background: #3B82F6;
+}
+
+[data-theme="dark"] .history-action-delete {
+background: #DC2626;
+}
+
+[data-theme="dark"] .last-read-marker {
+background: linear-gradient(90deg,
+        rgba(212, 163, 115, 0.2) 0%,
+        rgba(212, 163, 115, 0.05) 50%,
+        transparent 100%);
+}
+
+[data-theme="dark"] .regex-toolbar {
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .regex-toolbar-btn {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .regex-toolbar-btn:active,
+[data-theme="dark"] .regex-toolbar-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+[data-theme="dark"] .regex-toolbar-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}

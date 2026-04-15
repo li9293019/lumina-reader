@@ -1,0 +1,71 @@
+:root {
+/* 基础变量 */
+--font-family-dynamic: "LXGW Neo Zhi Song", "Noto Serif SC", "Source Han Serif SC", "Noto Serif", "Times New Roman", "Georgia Pro", Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif SC", Simsun, serif;
+--font-serif: var(--font-family-dynamic);
+--font-sans: var(--font-family-dynamic);
+--font-kai: var(--font-family-dynamic);
+--font-mono: "JetBrains Mono", "Fira Code", "Consolas", "Monaco", monospace;
+--font-serif-fallback: "LXGW Neo Zhi Song", "SimSun", "STSong", serif;
+--font-sans-fallback: "LXGW Neo XiHei", "Microsoft YaHei", "PingFang SC", sans-serif;
+
+/* 响应式布局变量（桌面端默认值） */
+--content-max-width: 80%;
+--content-padding: 40px;
+--sidebar-width: 320px;
+--file-info-max-width: 250px;
+--nav-info-display: flex;
+--mobile-hidden-display: block;
+--toolbar-gap: 8px;
+--search-box-width: 0;
+--search-box-expanded-width: 280px;
+
+/* 基础色板（浅色主题） */
+--bg-primary: #ffffff;
+--bg-secondary: #f8f9fa;
+--bg-tertiary: #e9ecef;
+--text-primary: #212529;
+--text-secondary: #6c757d;
+--text-muted: #adb5bd;
+--accent-color: #495057;
+--accent-hover: #343a40;
+--border-color: #dee2e6;
+--shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+--sidebar-bg: #f8f9fa;
+--scrollbar-track: #f1f1f1;
+--scrollbar-thumb: #c1c1c1;
+--scrollbar-thumb-hover: #a8a8a8;
+--overlay-bg: rgba(0, 0, 0, 0.5);
+--logo-page-main: #3a506b;
+--logo-firefly-core: #d4a373;
+--logo-firefly-glow: #e9c46a;
+--tooltip-bg: rgba(33, 37, 41, 0.95);
+--tooltip-text: #ffffff;
+--heat-color: #9da8b5;
+
+/* 排版变量 */
+--font-size: 18px;
+--line-height: 1.8;
+--paragraph-spacing: 0.8em;
+
+/* 特殊颜色 */
+--warnning: #e4707c;
+--valid: #28a745;
+
+/* 控制侧边 面板顶部定位 */
+--header-height: 60px;
+--header-offset: 60px;  
+
+/* 滑动操作背景色（导出/删除） */
+--swipe-export-bg: #10B981;
+--swipe-delete-bg: #DC2626;
+
+/* 安全区域（适配刘海屏、状态栏、底部虚拟按键） */
+--safe-area-top: env(safe-area-inset-top, 24px);
+--safe-area-bottom: env(safe-area-inset-bottom, 24px);
+--safe-area-left: env(safe-area-inset-left, 0px);
+--safe-area-right: env(safe-area-inset-right, 0px);
+
+/* 过渡曲线：先快后慢，自然顺滑 */
+--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+--ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
+}

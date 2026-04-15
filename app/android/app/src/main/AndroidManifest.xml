@@ -112,30 +112,18 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
-    
+
     <!-- TTS 和后台播放 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    
-    <!-- 文件存储权限 -->
-    <!-- Android 13+ 使用新的媒体权限 -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" 
-        android:minSdkVersion="33" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" 
-        android:minSdkVersion="33" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" 
-        android:minSdkVersion="33" />
-    <!-- Android 10-12 使用旧权限 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="29" />
-    
-    <!-- Android 11+ 需要手动授权才能访问所有文件 -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" 
-        tools:ignore="ScopedStorage" />
-    
+
+    <!-- 文件访问说明：
+         本应用采用纯本地阅读模式，所有文件导入均通过系统文件选择器（SAF）
+         或 HTML5 input[type=file] 完成，无需申请存储权限。
+         导出操作通过系统分享/保存对话框完成，同样无需存储权限。
+    -->
+
     <!-- 耳机控制 -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
 </manifest>

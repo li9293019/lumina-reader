@@ -127,3 +127,103 @@ Lumina.Utils.calculateWordCount = (items) => {
     }, 0);
 };
 
+// ==================== 外部链接跳转（通用） ====================
+
+// 打开外部链接（自动区分 APP/Web 环境）
+Lumina.Utils.openExternal = (url) => {
+    if (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.()) {
+        window.open(url, '_system');
+    } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+};
+
+// 跳转前确认
+Lumina.Utils.confirmExternalLink = (url) => {
+    const t = Lumina.I18n?.t || ((k) => k);
+    const message = (t('externalLinkConfirm') || '将访问阅读器外地址，是否跳转？\n\n$1').replace('$1', url);
+    Lumina.UI.showDialog(message, 'confirm', (result) => {
+        if (result === true) Lumina.Utils.openExternal(url);
+    });
+};
+
+// 将容器内的纯文本 URL 和邮箱自动转为可点击链接
+Lumina.Utils.linkifyContent = (container) => {
+    if (!container) return;
+    
+    // URL 正则：匹配 http(s):// 或 ftp:// 开头的链接
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+    // 邮箱正则
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    const nodesToReplace = [];
+    
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        // 跳过已在 <a> 标签内的文本
+        if (node.parentElement?.closest('a')) continue;
+        
+        const text = node.textContent;
+        if (!urlRegex.test(text) && !emailRegex.test(text)) {
+            urlRegex.lastIndex = 0;
+            emailRegex.lastIndex = 0;
+            continue;
+        }
+        urlRegex.lastIndex = 0;
+        emailRegex.lastIndex = 0;
+        
+        nodesToReplace.push(node);
+    }
+    
+    nodesToReplace.forEach(node => {
+        const text = node.textContent;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        
+        // 合并正则，按位置排序匹配
+        const matches = [];
+        let m;
+        while ((m = urlRegex.exec(text)) !== null) {
+            matches.push({ index: m.index, end: m.index + m[0].length, text: m[0], type: 'url' });
+        }
+        while ((m = emailRegex.exec(text)) !== null) {
+            matches.push({ index: m.index, end: m.index + m[0].length, text: m[0], type: 'email' });
+        }
+        // 去重并排序
+        matches.sort((a, b) => a.index - b.index);
+        const unique = [];
+        matches.forEach(match => {
+            if (!unique.some(u => match.index < u.end && match.end > u.index)) {
+                unique.push(match);
+            }
+        });
+        
+        unique.forEach(match => {
+            if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+            }
+            const a = document.createElement('a');
+            a.href = match.type === 'email' ? 'mailto:' + match.text : match.text;
+            a.textContent = match.text;
+            a.className = 'external-link';
+            fragment.appendChild(a);
+            lastIndex = match.end;
+        });
+        
+        if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+        
+        node.parentNode.replaceChild(fragment, node);
+    });
+    
+    // 统一绑定点击事件
+    container.querySelectorAll('a.external-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            Lumina.Utils.confirmExternalLink(link.href);
+        });
+    });
+};
+

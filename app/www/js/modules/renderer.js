@@ -51,6 +51,13 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
     Lumina.Renderer.updateDocumentStyles();
     Lumina.Renderer.updateChapterNavInfo();
     
+    // 4.5 自动识别正文中的 URL 和邮箱，转为可点击外部链接
+    if (Lumina.Utils?.linkifyContent) {
+        Lumina.DOM.contentWrapper.querySelectorAll('.doc-line').forEach(line => {
+            Lumina.Utils.linkifyContent(line);
+        });
+    }
+    
     // 5. 关键修复：将所有可能触发重排的读操作延迟到下一帧
     requestAnimationFrame(() => {
         // 高亮和滚动（读+写混合操作）

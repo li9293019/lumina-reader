@@ -286,6 +286,7 @@ pointer-events: none;
 }
 .font-manager-footer .btn-primary.loading::after {
 content: '';
+display: inline-block;
 width: 16px;
 height: 16px;
 border: 2px solid transparent;

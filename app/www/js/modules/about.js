@@ -37,7 +37,7 @@ Lumina.About = {
         document.querySelectorAll('.about-opensource a, .about-link-external').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.confirmExternalLink(link.href);
+                Lumina.Utils.confirmExternalLink(link.href);
             });
         });
     },
@@ -60,23 +60,15 @@ Lumina.About = {
     },
 
     confirmExternalLink(url) {
-        const t = Lumina.I18n?.t || ((k) => k);
-        const message = (t('externalLinkConfirm') || '将访问阅读器外地址，是否跳转？\n\n$1').replace('$1', url);
-        Lumina.UI.showDialog(message, 'confirm', (result) => {
-            if (result === true) this.openExternal(url);
-        });
+        Lumina.Utils.confirmExternalLink(url);
     },
 
     openExternal(url) {
-        if (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.()) {
-            window.open(url, '_system');
-        } else {
-            window.open(url, '_blank', 'noopener,noreferrer');
-        }
+        Lumina.Utils.openExternal(url);
     },
 
     openSponsor() {
-        this.confirmExternalLink(this.sponsorUrl);
+        Lumina.Utils.confirmExternalLink(this.sponsorUrl);
     },
 
     // ==================== 更新检查 ====================
@@ -208,7 +200,7 @@ Lumina.About = {
             .replace(/\$\{version\}/g, version)
             .replace(/\$\{url\}/g, url);
         Lumina.UI.showDialog(message, 'confirm', (result) => {
-            if (result === true) this.openExternal(url);
+            if (result === true) Lumina.Utils.openExternal(url);
         });
     },
 

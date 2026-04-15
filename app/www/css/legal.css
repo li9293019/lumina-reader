@@ -125,11 +125,14 @@
 .legal-content {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 24px;
     line-height: 1.5;
     color: var(--text-primary);
     background: var(--bg-primary);
     -webkit-overflow-scrolling: touch;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .legal-content h1 {
@@ -176,6 +179,31 @@
 .legal-content strong {
     font-weight: 600;
     color: var(--text-primary, #212529);
+}
+
+/* 表格：小屏幕下支持横向滚动查看 */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 12px 0;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.table-wrapper table {
+    width: auto;
+    min-width: 100%;
+    margin: 0;
+}
+
+.table-wrapper table th,
+.table-wrapper table td {
+    padding: 10px 12px;
+    line-height: 1.5;
+    vertical-align: top;
+    min-width: 100px;
+    word-break: normal;
+    overflow-wrap: break-word;
 }
 
 /* 隐藏内容中的大标题（Tab已显示） */

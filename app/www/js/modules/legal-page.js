@@ -191,6 +191,9 @@ Lumina.LegalPage = {
             // 插入内容
             container.innerHTML = content;
             
+            // 自动将文本中的 URL 和邮箱转为可点击链接
+            Lumina.Utils.linkifyContent(container);
+            
             // 滚动到顶部
             container.scrollTop = 0;
             

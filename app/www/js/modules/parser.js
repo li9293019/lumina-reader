@@ -406,28 +406,25 @@ Lumina.Parser.processHeading = (level, rawText, cleanText = null) => {
  * DOCX 解密辅助函数
  */
 Lumina.Parser.decryptDOCX = async (arrayBuffer, password) => {
-    // 检查库是否可用
     const cryptoLib = window.officeCrypto;
     if (!cryptoLib || typeof cryptoLib.decrypt !== 'function') {
         console.error('[DOCX] officeCrypto not available');
         throw new Error('DOCX decryption library not available');
     }
-    
-    // 注意：officecrypto-tool 依赖 Node.js 的 Buffer 和 crypto 模块
-    // browserify 打包后在浏览器/APP WebView 中可能无法正常工作
-    // 这里尝试调用，如果失败会抛出错误
-    
-    // 转换为 Uint8Array，库需要这种格式
+
     const inputData = new Uint8Array(arrayBuffer);
     console.log('[DOCX] Calling officeCrypto.decrypt...');
-    
-    // 调用解密函数
+
     const result = await cryptoLib.decrypt(inputData, {password});
     console.log('[DOCX] Decryption successful');
-    
-    // 返回 ArrayBuffer
-    if (result.buffer) {
-        return result.buffer;
+
+    // officecrypto-tool 返回的是 browserify Buffer（Uint8Array 子类）
+    if (ArrayBuffer.isView(result)) {
+        // 提取精确的 ArrayBuffer 片段，避免底层 buffer 包含多余数据
+        return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength);
+    }
+    if (result instanceof ArrayBuffer) {
+        return result;
     }
     return result;
 };
@@ -447,13 +444,13 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
             const decryptedBuffer = await Lumina.Parser.decryptDOCX(arrayBuffer, password);
             zip = await JSZip.loadAsync(decryptedBuffer);
         } catch (decryptError) {
-            console.error('[DOCX] Decryption error:', decryptError);
-            // 检查错误类型来给出更准确的提示
             const errorMsg = decryptError.message ? decryptError.message.toLowerCase() : '';
-            if (errorMsg.includes('password') || errorMsg.includes('incorrect') || errorMsg.includes('invalid') || errorMsg.includes('not available')) {
+            const isPasswordError = errorMsg.includes('password') || errorMsg.includes('incorrect') || errorMsg.includes('invalid') || errorMsg.includes('not available');
+            if (isPasswordError) {
+                console.log('[DOCX] Decryption failed (password issue):', decryptError.message);
                 throw new Error('Password incorrect');
             }
-            // 其他错误也视为密码错误
+            console.error('[DOCX] Decryption error:', decryptError);
             throw new Error('Password incorrect');
         }
     } else {
@@ -465,6 +462,10 @@ Lumina.Parser.parseDOCX = async (arrayBuffer, password = null) => {
                 throw new Error('DOCX encrypted');
             }
             throw zipError;
+        }
+        // 如果 ZIP 能打开但包含 EncryptionInfo 和 EncryptedPackage，说明是标准 OOXML 加密文档
+        if (zip.file('EncryptionInfo') && zip.file('EncryptedPackage') && !zip.file('word/document.xml')) {
+            throw new Error('DOCX encrypted');
         }
     }
     let styleDefs = {};

@@ -135,5 +135,4 @@ A：请检查：
 
 ---
 
-*流萤阅读器 · Lumina Reader*  
-*为阅读而生，因私密而美*
+*流萤阅读器 · Lumina Reader*

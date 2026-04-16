@@ -325,7 +325,16 @@ Lumina.Actions = {
                 // 尝试解析（带密码或不带密码）
                 return await Lumina.Parser.parseDOCX(arrayBuffer, password);
             } catch (err) {
-                console.log('[DOCX] Parse error:', err.message);
+                const isExpected = err.message === 'DOCX encrypted' || 
+                                   err.message === 'Password incorrect' ||
+                                   err.message === 'DOCX decryption library not available' ||
+                                   err.message?.includes('not a function') ||
+                                   (err.message && err.message.includes('end of central directory'));
+                if (isExpected) {
+                    console.log('[DOCX] Expected flow error:', err.message);
+                } else {
+                    console.error('[DOCX] Parse error:', err);
+                }
                 
                 // 检查是否是解密库问题（Web/APP 端加密 DOCX 支持有限）
                 // 这种情况直接显示不支持，不进入密码重试循环
@@ -351,15 +360,20 @@ Lumina.Actions = {
                 }
                 
                 // 检查是否第一次尝试（无密码）且是加密文件
-                // 如果是，说明是加密文件但库不可用，直接提示不支持
+                // 如果解密库不可用，直接提示不支持；否则进入密码输入流程
                 if (!password && err.message === 'DOCX encrypted') {
-                    const t = Lumina.I18n.t;
-                    Lumina.UI.showDialog(
-                        t('docxEncryptedNotSupported') || 
-                        '加密的 DOCX 文档暂不支持。建议：\n1. 在 Word 中打开并另存为 PDF\n2. 或使用未加密的 DOCX 文件',
-                        'alert'
-                    );
-                    throw new Error('Password cancelled');
+                    const cryptoLib = window.officeCrypto;
+                    const libAvailable = cryptoLib && typeof cryptoLib.decrypt === 'function';
+                    if (!libAvailable) {
+                        const t = Lumina.I18n.t;
+                        Lumina.UI.showDialog(
+                            t('docxEncryptedNotSupported') || 
+                            '加密的 DOCX 文档暂不支持。建议：\n1. 在 Word 中打开并另存为 PDF\n2. 或使用未加密的 DOCX 文件',
+                            'alert'
+                        );
+                        throw new Error('Password cancelled');
+                    }
+                    // 库可用时继续往下走，弹出密码输入框
                 }
                 
                 // 隐藏 loading 界面，显示密码对话框

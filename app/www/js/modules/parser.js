@@ -34,6 +34,12 @@ Lumina.Parser.EncodingManager = {
         if (big5Score > 0) scores.push({ encoding: 'Big5', score: big5Score, reason: 'big5_pairs' });
         const ansiScore = this.calculateANSIScore(bytes, sampleSize);
         if (ansiScore > 0) scores.push({ encoding: 'Windows-1252', score: ansiScore, reason: 'ansi_extended' });
+        const eucjpScore = this.calculateEUCJPScore(bytes, sampleSize);
+        if (eucjpScore > 0) scores.push({ encoding: 'EUC-JP', score: eucjpScore, reason: 'eucjp_pairs' });
+        const sjisScore = this.calculateShiftJISScore(bytes, sampleSize);
+        if (sjisScore > 0) scores.push({ encoding: 'Shift_JIS', score: sjisScore, reason: 'shift_jis_pairs' });
+        const euckrScore = this.calculateEUCKRScore(bytes, sampleSize);
+        if (euckrScore > 0) scores.push({ encoding: 'EUC-KR', score: euckrScore, reason: 'euckr_pairs' });
         return scores.sort((a, b) => b.score - a.score);
     },
 
@@ -133,11 +139,92 @@ Lumina.Parser.EncodingManager = {
         return 0;
     },
 
+    calculateEUCJPScore(bytes, sampleSize) {
+        let validPairs = 0, invalidPairs = 0, commonChars = 0, i = 0;
+        while (i < sampleSize - 1) {
+            const b1 = bytes[i];
+            if (b1 >= 0xA1 && b1 <= 0xFE) {
+                const b2 = bytes[i + 1];
+                if (b2 >= 0xA1 && b2 <= 0xFE) {
+                    validPairs++;
+                    if (b1 === 0xA4 || b1 === 0xA5) commonChars++;
+                    i += 2; continue;
+                } else invalidPairs++;
+            } else if (b1 === 0x8E) {
+                const b2 = bytes[i + 1];
+                if (b2 >= 0xA1 && b2 <= 0xDF) {
+                    validPairs++; commonChars++; i += 2; continue;
+                }
+            } else if (b1 > 0x7F) invalidPairs++;
+            i++;
+        }
+        const total = validPairs + invalidPairs;
+        if (total < 10) return 0;
+        const ratio = validPairs / total;
+        const bonus = Math.min(commonChars * 3, 25);
+        if (ratio > 0.95) return Math.min(88 + bonus, 94);
+        if (ratio > 0.90) return Math.min(78 + bonus, 85);
+        if (ratio > 0.80) return Math.min(65 + bonus, 76);
+        return 0;
+    },
+
+    calculateShiftJISScore(bytes, sampleSize) {
+        let validPairs = 0, invalidPairs = 0, commonChars = 0, i = 0;
+        while (i < sampleSize - 1) {
+            const b1 = bytes[i];
+            const isLead = (b1 >= 0x81 && b1 <= 0x9F) || (b1 >= 0xE0 && b1 <= 0xEF);
+            if (isLead) {
+                const b2 = bytes[i + 1];
+                if ((b2 >= 0x40 && b2 <= 0x7E) || (b2 >= 0x80 && b2 <= 0xFC)) {
+                    validPairs++;
+                    if (b1 === 0x82 || b1 === 0x83 || (b1 >= 0x88 && b1 <= 0x9F)) commonChars++;
+                    i += 2; continue;
+                } else invalidPairs++;
+            } else if (b1 > 0x7F) invalidPairs++;
+            i++;
+        }
+        const total = validPairs + invalidPairs;
+        if (total < 10) return 0;
+        const ratio = validPairs / total;
+        const bonus = Math.min(commonChars * 3, 25);
+        if (ratio > 0.95) return Math.min(90 + bonus, 95);
+        if (ratio > 0.90) return Math.min(80 + bonus, 87);
+        if (ratio > 0.80) return Math.min(66 + bonus, 78);
+        return 0;
+    },
+
+    calculateEUCKRScore(bytes, sampleSize) {
+        let validPairs = 0, invalidPairs = 0, commonChars = 0, i = 0;
+        while (i < sampleSize - 1) {
+            const b1 = bytes[i];
+            if (b1 >= 0xA1 && b1 <= 0xFE) {
+                const b2 = bytes[i + 1];
+                if (b2 >= 0xA1 && b2 <= 0xFE) {
+                    validPairs++;
+                    if (b1 >= 0xB0 && b1 <= 0xC8) commonChars++;
+                    i += 2; continue;
+                } else invalidPairs++;
+            } else if (b1 > 0x7F) invalidPairs++;
+            i++;
+        }
+        const total = validPairs + invalidPairs;
+        if (total < 10) return 0;
+        const ratio = validPairs / total;
+        const bonus = Math.min(commonChars * 3, 25);
+        if (ratio > 0.95) return Math.min(86 + bonus, 93);
+        if (ratio > 0.90) return Math.min(76 + bonus, 84);
+        if (ratio > 0.80) return Math.min(64 + bonus, 75);
+        return 0;
+    },
+
     generateCandidates(scores) {
         const candidates = [];
         for (const { encoding, score } of scores) if (score >= this.confidenceThreshold.MEDIUM) candidates.push({ encoding, confidence: score });
         candidates.push({ encoding: 'UTF-8', confidence: 50 });
         candidates.push({ encoding: 'GB18030', confidence: 40 });
+        candidates.push({ encoding: 'Shift_JIS', confidence: 35 });
+        candidates.push({ encoding: 'EUC-JP', confidence: 35 });
+        candidates.push({ encoding: 'EUC-KR', confidence: 35 });
         return candidates;
     },
 

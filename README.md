@@ -155,7 +155,6 @@ LuminaReader/
 |--------|------|------|
 | `jszip.min.js` | 3.x | ZIP 压缩/解压（解析 DOCX） |
 | `pdf.min.js` + `pdf.worker.min.js` | 3.x | PDF 解析与渲染 |
-| `encoding.min.js` | - | 编码检测（UTF-8/GBK/Big5/ANSI） |
 | `docx.min.js` | - | DOCX 文档解析 |
 | `pinyin-pro.min.js` | - | 拼音转换（PDF 密码智能猜测） |
 

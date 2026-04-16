@@ -17,6 +17,11 @@ Lumina.About = {
         this.renderVersion();
         this.initUpdateCheck();
         this.initUpdateDetailPanel();
+        
+        // 监听语言切换，重新渲染更新区域文本
+        window.addEventListener('languageChanged', () => {
+            this.setUpdateState(this._updateState, this._lastDetail);
+        });
     },
 
     bindEvents() {
@@ -314,6 +319,7 @@ Lumina.About = {
 
     setUpdateState(state, detail) {
         this._updateState = state;
+        this._lastDetail = detail;
         const textEl = document.getElementById('aboutUpdateText');
         const btn = document.getElementById('aboutUpdateBtn');
         const label = btn?.querySelector('.update-btn-label');

@@ -37,28 +37,21 @@
    说明：代码语法高亮库
    链接：https://github.com/PrismJS/prism
 
-5. encoding-japanese
-   ----------------------------------------------------------------------------
-   许可证：MIT License
-   版权：Copyright (c) 2013 polygon planet
-   说明：JavaScript 编码检测与转换库
-   链接：https://github.com/polygonplanet/encoding.js
-
-6. pinyin-pro
+5. pinyin-pro
    ----------------------------------------------------------------------------
    许可证：MIT License
    版权：Copyright (c) 2021 zh-lx
    说明：中文拼音转换库
    链接：https://github.com/zh-lx/pinyin-pro
 
-7. Capacitor
+6. Capacitor
    ----------------------------------------------------------------------------
    许可证：MIT License
    版权：Copyright (c) 2015-present Ionic (http://ionic.io/)
    说明：跨平台原生应用容器
    链接：https://github.com/ionic-team/capacitor
 
-8. Capacitor Community Plugins
+7. Capacitor Community Plugins
    ----------------------------------------------------------------------------
    许可证：MIT License
    插件列表：
@@ -66,7 +59,7 @@
    - @capacitor-community/text-to-speech
    链接：https://github.com/capacitor-community
 
-9. browserify
+8. browserify
    ----------------------------------------------------------------------------
    许可证：MIT License
    版权：Copyright (c) 2010-2014 James Halliday
@@ -164,5 +157,5 @@ SIL Open Font License 1.1
 
 
 ================================================================================
-更新日期：2025年4月
+更新日期：2026年4月
 ================================================================================

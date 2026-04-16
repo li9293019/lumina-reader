@@ -140,7 +140,19 @@ Lumina.ConfigManager = {
                 // 'plugin-id': true/false
             },
             
-            // ========== 10. 元数据 ==========
+            // ========== 10. AI 设置 ==========
+            ai: {
+                enabled: false,
+                endpoint: 'http://localhost:1234',
+                model: '',
+                apiKey: '',
+                timeout: 30000,
+                systemPrompt: '你是一个 helpful 的阅读助手。回答简洁、准确，直接给出结果，不要过度发挥。',
+                fabX: null,
+                fabY: null
+            },
+            
+            // ========== 11. 元数据 ==========
             meta: {
                 firstInstall: Date.now(),
                 lastBackup: null,

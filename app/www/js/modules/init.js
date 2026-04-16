@@ -241,9 +241,19 @@ Lumina.init = async () => {
     // 延迟初始化非关键模块，避免阻塞 UI
     requestIdleCallback?.(() => {
         // 初始化密码预设器设置（FileOpener 在 file-opener-bridge.js 加载后自动初始化）
-        Lumina.Settings.initPasswordPreset();
+        if (typeof Lumina.Settings.initPasswordPreset === 'function') {
+            Lumina.Settings.initPasswordPreset();
+        }
+        if (typeof Lumina.Settings.initAISettings === 'function') {
+            Lumina.Settings.initAISettings();
+        }
     }) ?? setTimeout(() => {
-        Lumina.Settings.initPasswordPreset();
+        if (typeof Lumina.Settings.initPasswordPreset === 'function') {
+            Lumina.Settings.initPasswordPreset();
+        }
+        if (typeof Lumina.Settings.initAISettings === 'function') {
+            Lumina.Settings.initAISettings();
+        }
     }, 100);
 };
 

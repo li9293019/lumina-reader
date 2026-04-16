@@ -27,6 +27,9 @@ Lumina.Settings = {
             pdfPasswordLength: config.pdf.passwordPreset.length,
             pdfPasswordPrefix: config.pdf.passwordPreset.prefix,
             pdfCommonPasswords: config.pdf.passwordPreset.commonPasswords,
+            aiEnabled: config.ai?.enabled ?? false,
+            aiEndpoint: config.ai?.endpoint ?? 'http://localhost:1234',
+            aiModel: config.ai?.model ?? '',
         };
     },
 
@@ -82,6 +85,15 @@ Lumina.Settings = {
             length: settings.pdfPasswordLength,
             prefix: settings.pdfPasswordPrefix,
             commonPasswords: settings.pdfCommonPasswords
+        });
+        
+        Lumina.ConfigManager.set('ai', {
+            enabled: settings.aiEnabled ?? false,
+            endpoint: settings.aiEndpoint ?? 'http://localhost:1234',
+            model: settings.aiModel ?? '',
+            apiKey: settings.aiApiKey ?? '',
+            timeout: settings.aiTimeout ?? 30000,
+            systemPrompt: settings.aiSystemPrompt ?? ''
         });
     },
 
@@ -159,6 +171,16 @@ Lumina.Settings = {
             if (wasConverting !== Lumina.Converter.isConverting && Lumina.State.app.document.items.length > 0) {
                 savedScrollIndex = Lumina.Renderer.getCurrentVisibleIndex();
             }
+        }
+        
+        // 同步 AI 配置面板显示状态
+        const aiConfigPanel = document.getElementById('aiConfigPanel');
+        if (aiConfigPanel) {
+            aiConfigPanel.style.display = settings.aiEnabled ? 'block' : 'none';
+        }
+        // 同步 AI FAB 按钮显示状态
+        if (Lumina.AI?._updateFABVisibility) {
+            Lumina.AI._updateFABVisibility();
         }
         
         // 只有当前输入框不是焦点时才更新值（避免覆盖用户正在输入的内容）
@@ -834,6 +856,43 @@ Lumina.Font = {
         const fallbackStack = config.metrics ? `"${type}-fallback", ${config.fallback}` : config.fallback;
         document.documentElement.style.setProperty(`--font-${type}-fallback`, fallbackStack);
         document.documentElement.classList.add(`font-${type}-fallback`);
+    },
+
+    initAISettings() {
+        const toggle = document.getElementById('aiEnabledToggle');
+        const panel = document.getElementById('aiConfigPanel');
+        const endpointInput = document.getElementById('aiEndpoint');
+        const modelInput = document.getElementById('aiModel');
+        if (!toggle || !panel || !endpointInput || !modelInput) return;
+
+        const cfg = Lumina.AI?.getConfig?.() || { enabled: false, endpoint: 'http://localhost:1234', model: '' };
+
+        // 同步 UI（开关状态由 apply() 统一处理，这里只处理面板和输入框）
+        panel.style.display = cfg.enabled ? 'block' : 'none';
+        endpointInput.value = cfg.endpoint || 'http://localhost:1234';
+        modelInput.value = cfg.model || '';
+
+        // 监听 toggle 点击，控制配置面板的展开/收起（和 initPasswordPreset 模式一致）
+        toggle.addEventListener('click', () => {
+            setTimeout(() => {
+                const isEnabled = Lumina.State.settings.aiEnabled;
+                panel.style.display = isEnabled ? 'block' : 'none';
+            }, 10);
+        });
+
+        // 输入框失焦保存
+        const saveInputs = () => {
+            Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
+            Lumina.State.settings.aiModel = modelInput.value.trim();
+            Lumina.AI?.saveConfig?.({
+                ...cfg,
+                enabled: Lumina.State.settings.aiEnabled ?? false,
+                endpoint: endpointInput.value.trim(),
+                model: modelInput.value.trim()
+            });
+        };
+        endpointInput.addEventListener('change', saveInputs);
+        modelInput.addEventListener('change', saveInputs);
     },
 
     preloadCritical() {

@@ -1400,14 +1400,14 @@ Lumina.UI = {
                     transform: translateX(-50%);
                     background: var(--tooltip-bg, rgba(33, 37, 41, 0.95));
                     color: var(--tooltip-text, #fff);
-                    padding: 14px 32px;
+                    padding: 10px 20px;
                     border-radius: 24px;
                     font-size: 14px;
                     z-index: 99999;
                     opacity: 0;
                     transition: opacity 0.3s ease;
                     pointer-events: none;
-                    min-width: min(320px, 90vw);
+                    min-width: min(120px, 90vw);
                     max-width: 75vw;
                     text-align: center;
                     word-break: break-word;

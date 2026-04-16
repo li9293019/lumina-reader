@@ -109,7 +109,7 @@
 <!-- 操作事务 -->
 <script src="./js/modules/actions.js"></script>
 <script src="./js/modules/exporter.js"></script>
-<script src="./js/modules/ai.js?v=2.1.5-ai-fix3"></script>
+<script src="./js/modules/ai.js?v=2.1.5-contextbar"></script>
 
 <!-- 插件系统 -->
 <link rel="stylesheet" href="./css/markdown.css">
@@ -294,6 +294,9 @@
     <div class="ai-chat-panel" id="aiChatPanel">
         <div class="ai-chat-header" id="aiChatHeader">
             <div class="ai-chat-header-title" data-i18n="aiChatTitle">AI 对话</div>
+            <button class="btn-icon" id="aiChatClearContext" data-i18n-tooltip="aiClearContext" data-tooltip-text="清除上下文">
+                <svg class="icon" style="width:18px;height:18px;"><use href="#icon-delete"/></svg>
+            </button>
             <button class="btn-icon" id="aiChatCopyAll" data-i18n-tooltip="aiCopyAll" data-tooltip-text="Copy all">
                 <svg class="icon" style="width:18px;height:18px;"><use href="#icon-copy"/></svg>
             </button>
@@ -306,8 +309,14 @@
         </div>
         <div class="ai-chat-messages" id="aiChatMessages"></div>
         <div class="ai-chat-input-area">
+            <div class="ai-context-bar" id="aiContextBar">
+                <div class="ai-context-track">
+                    <div class="ai-context-fill" id="aiContextFill"></div>
+                </div>
+            </div>
             <div class="ai-quote-bar" id="aiQuoteBar" style="display:none;">
                 <span id="aiQuoteLabel"></span>
+                <span class="ai-quote-preview" id="aiQuotePreview"></span>
                 <button class="ai-quote-close" id="aiQuoteClose" aria-label="close">
                     <svg class="icon" style="width:14px;height:14px;"><use href="#icon-close"/></svg>
                 </button>

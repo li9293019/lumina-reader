@@ -10,7 +10,8 @@ Lumina.AI = {
     _isChatMode: false,
     _chatHistory: [],
     _forgottenRounds: 0,
-    _quote: { type: 'chapter', label: '' },
+    _currentBookKey: '',
+    _quote: null,
     _chatDrag: { active: false, offsetX: 0, offsetY: 0 },
 
     getConfig() {
@@ -42,6 +43,62 @@ Lumina.AI = {
         this._initChatPanel();
         this._updateFABVisibility();
         window.addEventListener('languageChanged', () => this._updateFABVisibility());
+        window.addEventListener('fileOpened', () => this._onReadingContextChanged('file'));
+        window.addEventListener('chapterRendered', () => this._onReadingContextChanged('chapter'));
+        document.addEventListener('selectionchange', this._debounce(() => this._onReadingContextChanged('selection'), 200));
+        if (Lumina.DOM.contentScroll) {
+            Lumina.DOM.contentScroll.addEventListener('scroll', this._debounce(() => this._onReadingContextChanged('scroll'), 300));
+        }
+    },
+
+    _debounce(fn, wait) {
+        let t;
+        return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+    },
+
+    _onReadingContextChanged(source) {
+        if (!this.isAvailable() || !this._isChatPanelOpen()) return;
+        if (source === 'file') {
+            this._currentBookKey = '';
+            this._chatHistory = [];
+            this._forgottenRounds = 0;
+            this._resetQuoteForCurrentContext();
+            this._updateContextBar();
+        } else if (source === 'chapter') {
+            // chapter 切换/翻页后，若当前引用已失效，刷新选项状态
+            this._refreshQuoteOptions();
+            this._updateQuoteBar();
+        } else if (source === 'selection') {
+            const sel = window.getSelection()?.toString()?.trim();
+            if (sel) {
+                this._quote = { type: 'selection', label: '' };
+                this._updateQuoteLabel();
+                this._updateQuoteBar();
+            } else if (this._quote?.type === 'selection') {
+                // 选区消失，不再硬编码兜底为 chapter，交给刷新逻辑自动切到第一个可用类型
+                this._refreshQuoteOptions();
+            }
+            const popover = document.getElementById('aiQuotePopover');
+            if (popover?.classList.contains('active')) {
+                this._refreshQuoteOptions();
+            }
+        } else if (source === 'scroll') {
+            if (this._quote?.type === 'paragraph') {
+                this._updateQuoteBar();
+            }
+        }
+    },
+
+    _resetQuoteForCurrentContext() {
+        const sel = window.getSelection()?.toString()?.trim();
+        if (sel) {
+            this._quote = { type: 'selection', label: '' };
+        } else {
+            // 默认使用段落（视觉焦点段落），打开书籍后必然存在
+            this._quote = { type: 'paragraph', label: '' };
+        }
+        this._updateQuoteLabel();
+        this._updateQuoteBar();
     },
 
     _updateFABVisibility() {
@@ -220,10 +277,12 @@ Lumina.AI = {
         this._isChatMode = true;
         this._chatHistory = [];
         this._forgottenRounds = 0;
-        // 默认引用：有选区则选区，否则章节
-        const sel = window.getSelection()?.toString()?.trim();
-        this._quote = { type: sel ? 'selection' : 'chapter', label: '' };
-        this._updateQuoteLabel();
+        const doc = Lumina.State.app.document;
+        if (doc?.items?.length > 0) {
+            this._resetQuoteForCurrentContext();
+        } else {
+            this._quote = null;
+        }
     },
 
     _isAnyPanelOpen() {
@@ -375,6 +434,12 @@ Lumina.AI = {
         if (resultPlaceholder) resultPlaceholder.style.display = 'none';
     },
 
+    _renderStreamingResult(text) {
+        const resultContent = document.getElementById('aiResultContent');
+        if (!resultContent) return;
+        resultContent.innerHTML = this._escapeHtml(text).replace(/\n/g, '<br>');
+    },
+
     _escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     },
@@ -421,6 +486,80 @@ Lumina.AI = {
         this._sendTaskChat(p.system, context);
     },
 
+    async _streamChat(url, cfg, messages, onDelta, onDone, onError) {
+        this._abortController = new AbortController();
+        const timeoutId = setTimeout(() => this._abortController.abort(), cfg.timeout || 60000);
+        let buffer = '';
+        let receivedAny = false;
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(cfg.apiKey ? { 'Authorization': `Bearer ${cfg.apiKey}` } : {})
+                },
+                body: JSON.stringify({
+                    model: cfg.model || 'local-model',
+                    messages,
+                    temperature: 0.7,
+                    stream: true
+                }),
+                signal: this._abortController.signal
+            });
+
+            if (!res.ok) {
+                clearTimeout(timeoutId);
+                const errText = await res.text().catch(() => '');
+                throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                buffer += chunk;
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const dataStr = trimmed.slice(5).trim();
+                    if (dataStr === '[DONE]') {
+                        clearTimeout(timeoutId);
+                        onDone?.();
+                        this._abortController = null;
+                        return;
+                    }
+                    try {
+                        const json = JSON.parse(dataStr);
+                        const delta = json.choices?.[0]?.delta?.content;
+                        if (typeof delta === 'string') {
+                            if (!receivedAny) {
+                                receivedAny = true;
+                                clearTimeout(timeoutId);
+                            }
+                            onDelta?.(delta);
+                        }
+                    } catch (e) {
+                        // ignore malformed JSON
+                    }
+                }
+            }
+
+            clearTimeout(timeoutId);
+            onDone?.();
+        } catch (err) {
+            clearTimeout(timeoutId);
+            onError?.(err);
+        } finally {
+            this._abortController = null;
+        }
+    },
+
     async _sendTaskChat(systemPrompt, userContent) {
         const cfg = this.getConfig();
         if (!this.isAvailable()) {
@@ -434,46 +573,44 @@ Lumina.AI = {
         ];
         this._renderResult('');
         this._setLoading(true);
-        this._abortController = new AbortController();
-        const timeoutId = setTimeout(() => this._abortController.abort(), cfg.timeout || 30000);
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(cfg.apiKey ? { 'Authorization': `Bearer ${cfg.apiKey}` } : {})
-                },
-                body: JSON.stringify({
-                    model: cfg.model || 'local-model',
-                    messages,
-                    temperature: 0.7,
-                    stream: false
-                }),
-                signal: this._abortController.signal
-            });
-            clearTimeout(timeoutId);
-            if (!res.ok) {
-                const errText = await res.text().catch(() => '');
-                throw new Error(`HTTP ${res.status}: ${errText}`);
+
+        let reply = '';
+        let started = false;
+
+        await this._streamChat(url, cfg, messages,
+            (delta) => {
+                if (!started) {
+                    started = true;
+                    this._setLoading(false);
+                }
+                reply += delta;
+                this._renderStreamingResult(reply);
+            },
+            () => {
+                if (!started) this._setLoading(false);
+                this._setFooterVisible(true);
+                if (!reply.trim()) {
+                    this._renderResult(`<span style="opacity:.7;">${Lumina.I18n.t('aiEmptyResponse') || '模型返回为空'}</span>`);
+                }
+            },
+            (err) => {
+                if (!started) this._setLoading(false);
+                this._setFooterVisible(true);
+                if (err.name === 'AbortError') {
+                    this._renderResult(`<span style="opacity:.7;">${Lumina.I18n.t('aiCancelled') || '已取消'}</span>`);
+                } else if (this._isContextOverflowError(err)) {
+                    const msg = '输入内容超过 LM Studio 模型的上下文长度。请在 LM Studio 中调大 Context Length，或减少引用范围。';
+                    this._renderResult(`<span style="color:#e57373;">${this._escapeHtml(msg)}</span>`);
+                } else {
+                    this._renderResult(`<span style="color:#e57373;">${this._escapeHtml(Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`)}</span>`);
+                }
             }
-            const data = await res.json();
-            const reply = data.choices?.[0]?.message?.content?.trim();
-            if (!reply) throw new Error(Lumina.I18n.t('aiEmptyResponse') || '模型返回为空');
-            this._setLoading(false);
-            this._renderResult(this._escapeHtml(reply).replace(/\n/g, '<br>'));
-            this._setFooterVisible(true);
-        } catch (err) {
-            clearTimeout(timeoutId);
-            this._setLoading(false);
-            if (err.name === 'AbortError') {
-                this._renderResult(`<span style="opacity:.7;">${Lumina.I18n.t('aiCancelled') || '已取消'}</span>`);
-            } else {
-                this._renderResult(`<span style="color:#e57373;">${this._escapeHtml(Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`)}</span>`);
-            }
-            this._setFooterVisible(true);
-        } finally {
-            this._abortController = null;
-        }
+        );
+    },
+
+    _isContextOverflowError(err) {
+        const msg = (err?.message || '').toLowerCase();
+        return msg.includes('context length') || msg.includes('overflow') || msg.includes('not enough');
     },
 
     // ==================== 对话模式面板 ====================
@@ -481,6 +618,7 @@ Lumina.AI = {
         const overlay = document.getElementById('aiChatOverlay');
         const panel = document.getElementById('aiChatPanel');
         const closeBtn = document.getElementById('aiChatClose');
+        const clearContextBtn = document.getElementById('aiChatClearContext');
         const copyAllBtn = document.getElementById('aiChatCopyAll');
         const exportBtn = document.getElementById('aiChatExport');
         const sendBtn = document.getElementById('aiSendBtn');
@@ -490,6 +628,15 @@ Lumina.AI = {
         const header = document.getElementById('aiChatHeader');
 
         if (closeBtn) closeBtn.addEventListener('click', () => this.closeChatPanel());
+
+        if (clearContextBtn) {
+            clearContextBtn.addEventListener('click', () => {
+                this._chatHistory = [];
+                this._forgottenRounds = 0;
+                this._updateContextBar();
+                Lumina.UI.showToast(Lumina.I18n.t('aiContextCleared') || '对话上下文已清除');
+            });
+        }
 
         if (copyAllBtn) {
             copyAllBtn.addEventListener('click', async () => {
@@ -564,6 +711,7 @@ Lumina.AI = {
         // 引用选项
         document.querySelectorAll('.ai-quote-option').forEach(el => {
             el.addEventListener('click', () => {
+                if (el.classList.contains('disabled')) return;
                 const type = el.dataset.quote;
                 this._quote = { type, label: '' };
                 this._updateQuoteLabel();
@@ -673,7 +821,12 @@ Lumina.AI = {
                 panel.style.top = 'auto';
             }
         }
+        const doc = Lumina.State.app.document;
+        if (!this._quote && doc?.items?.length > 0) {
+            this._resetQuoteForCurrentContext();
+        }
         this._updateQuoteBar();
+        this._updateContextBar();
         this._scrollChatToBottom();
     },
 
@@ -697,8 +850,14 @@ Lumina.AI = {
         }
         // 隐藏 quote bar，展开 popover
         if (quoteBar && quoteBar.style.display !== 'none') quoteBar.classList.add('hidden-anim');
-        // 刷新状态
+        this._refreshQuoteOptions();
+        popover.classList.add('active');
+    },
+
+    _refreshQuoteOptions() {
         const types = ['selection','paragraph','page','chapter','book'];
+        let firstAvailable = '';
+        const hasBook = !!(Lumina.State.app.document?.items?.length > 0);
         types.forEach(type => {
             const text = this._getQuoteText(type, false);
             const len = text.length;
@@ -707,6 +866,9 @@ Lumina.AI = {
             const opt = document.querySelector(`.ai-quote-option[data-quote="${type}"]`);
             if (opt) {
                 opt.classList.toggle('disabled', len === 0);
+                // 未打开书籍时全部显示但置灰；打开书籍后，空内容选项直接隐藏
+                opt.style.display = (len === 0 && hasBook) ? 'none' : '';
+                if (len > 0 && !firstAvailable) firstAvailable = type;
                 const nameDiv = opt.querySelector('div');
                 if (nameDiv) {
                     const full = Lumina.I18n.t(`aiQuote${type.charAt(0).toUpperCase() + type.slice(1)}`) || type;
@@ -715,7 +877,19 @@ Lumina.AI = {
                 }
             }
         });
-        popover.classList.add('active');
+        // 未打开书籍：没有任何可用引用
+        if (!firstAvailable) {
+            this._quote = null;
+            this._updateQuoteBar();
+            return;
+        }
+        // 如果当前选中类型不可见，自动切换到第一个可用类型
+        if (this._quote?.type && this._getQuoteText(this._quote.type, false).length === 0 && firstAvailable) {
+            this._quote = { type: firstAvailable, label: '' };
+            this._updateQuoteLabel();
+            this._updateQuoteBar();
+        }
+        // 同步高亮状态
         document.querySelectorAll('.ai-quote-option').forEach(o => o.classList.toggle('active', o.dataset.quote === this._quote?.type));
     },
 
@@ -723,36 +897,61 @@ Lumina.AI = {
         const state = Lumina.State.app;
         const doc = state.document;
         const chapter = state.chapters?.[state.currentChapterIndex];
-        const maxLen = withTruncate ? (this.getConfig().maxTokens || 4096) * 2 : Infinity;
+        const maxLen = withTruncate ? Math.floor((this.getConfig().maxTokens || 4096) * 1.4) : Infinity;
 
         let text = '';
         switch (type) {
             case 'selection': {
                 const sel = window.getSelection()?.toString()?.trim();
-                text = sel || '';
+                text = sel || this._quote?.snapshot || '';
                 break;
             }
             case 'paragraph': {
-                // 当前可视区域或光标附近段落难以精确获取，简化：取当前章节首 3 段
                 if (chapter && doc?.items) {
-                    const items = doc.items.slice(chapter.startIndex, chapter.endIndex + 1);
-                    let paraCount = 0;
-                    const paras = [];
-                    for (const item of items) {
-                        if (item.text?.trim()) paras.push(item.text);
-                        if (item.text?.trim() && ++paraCount >= 3) break;
+                    let globalIdx = -1;
+                    const sel = window.getSelection();
+                    if (sel && sel.rangeCount > 0) {
+                        const range = sel.getRangeAt(0);
+                        let node = range.commonAncestorContainer;
+                        if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+                        const lineEl = node?.closest('.doc-line.paragraph');
+                        if (lineEl) globalIdx = parseInt(lineEl.dataset.index, 10);
                     }
-                    text = paras.join('\n');
+                    if (globalIdx < 0 && Lumina.Renderer.getCurrentVisibleIndex) {
+                        const centerIdx = Lumina.Renderer.getCurrentVisibleIndex();
+                        // 从视觉中心往前往后找最近的正文段落（.doc-line.paragraph）
+                        const paragraphs = Array.from(document.querySelectorAll('.doc-line.paragraph[data-index]'));
+                        let best = -1;
+                        let minDist = Infinity;
+                        paragraphs.forEach(el => {
+                            const idx = parseInt(el.dataset.index, 10);
+                            const dist = Math.abs(idx - centerIdx);
+                            if (dist < minDist) {
+                                minDist = dist;
+                                best = idx;
+                            }
+                        });
+                        globalIdx = best;
+                    }
+                    if (globalIdx >= 0 && doc.items[globalIdx]?.text) {
+                        text = doc.items[globalIdx].text.trim();
+                    }
                 }
                 break;
             }
             case 'page': {
-                // 简化：取当前章节内容的前 1/3 模拟一页
                 if (chapter && doc?.items) {
-                    const items = doc.items.slice(chapter.startIndex, chapter.endIndex + 1);
-                    const total = items.length;
-                    const pageItems = items.slice(0, Math.max(1, Math.floor(total / 3)));
-                    text = pageItems.map(i => i.text).join('\n').trim();
+                    const state = Lumina.State.app;
+                    const ranges = state.pageRanges || chapter.pageRanges;
+                    const pageIdx = state.currentPageIdx || 0;
+                    if (ranges && ranges[pageIdx]) {
+                        const range = ranges[pageIdx];
+                        const start = chapter.startIndex + range.start;
+                        const end = chapter.startIndex + range.end + 1;
+                        text = doc.items.slice(start, end).map(i => i.text).join('\n').trim();
+                    } else {
+                        text = doc.items.slice(chapter.startIndex, chapter.endIndex + 1).map(i => i.text).join('\n').trim();
+                    }
                 }
                 break;
             }
@@ -790,12 +989,18 @@ Lumina.AI = {
     _updateQuoteBar() {
         const bar = document.getElementById('aiQuoteBar');
         const label = document.getElementById('aiQuoteLabel');
+        const preview = document.getElementById('aiQuotePreview');
         if (!bar || !label) return;
         if (!this._quote) {
             bar.style.display = 'none';
             return;
         }
         const text = this._getQuoteText(this._quote.type, false);
+        if (this._quote) this._quote.snapshot = text;
+        if (!text || text.length === 0) {
+            bar.style.display = 'none';
+            return;
+        }
         const len = text.length;
         const tokens = Math.ceil(len / 2);
         const t = Lumina.I18n.t;
@@ -809,8 +1014,28 @@ Lumina.AI = {
             ? `${Math.round(len/1000)}k ${charsBase === 'char' ? charsLabel : charsBase} · ${tokensStr}` 
             : `${charsStr} · ${tokensStr}`;
         label.textContent = `${this._quote.label} · ${sizeLabel}`;
+        if (preview) {
+            const previewText = text.replace(/\s+/g, ' ').trim();
+            preview.textContent = previewText ? (previewText.slice(0, 50) + (previewText.length > 50 ? '…' : '')) : '';
+        }
         bar.style.display = 'flex';
         bar.classList.remove('hidden-anim');
+    },
+
+    _updateContextBar() {
+        const fill = document.getElementById('aiContextFill');
+        if (!fill) return;
+        const cfg = this.getConfig();
+        const maxTokens = cfg.maxTokens || 4096;
+        const systemPrompt = this._buildSystemPrompt();
+        let usedTokens = this._estimateTokens(systemPrompt);
+        for (const m of this._chatHistory) {
+            usedTokens += this._estimateTokens(m.content || '');
+        }
+        const pct = Math.min(100, Math.max(0, (usedTokens / maxTokens) * 100));
+        fill.style.width = `${pct}%`;
+        fill.classList.toggle('warning', pct >= 60 && pct < 85);
+        fill.classList.toggle('danger', pct >= 85);
     },
 
     _estimateTokens(text) {
@@ -828,22 +1053,29 @@ Lumina.AI = {
             const pairTokens = this._estimateTokens(history[i]?.content || '') + this._estimateTokens(history[i+1]?.content || '');
             total += pairTokens;
         }
-        // 目标：低于限制的 85%
-        const target = Math.floor(limit * 0.85);
+        // 目标：低于限制的 70%（给模型留足生成余量，避免 4096 模型直接溢出）
+        const target = Math.floor(limit * 0.7);
         while (total > target && trimmed.length >= 2) {
             const removedUser = trimmed.shift();
             const removedAssist = trimmed.shift();
             total -= (this._estimateTokens(removedUser?.content || '') + this._estimateTokens(removedAssist?.content || ''));
             forgotten++;
         }
-        return { history: trimmed, forgotten };
+        const remainingBudget = target - total;
+        return { history: trimmed, forgotten, overBudget: total > target, remainingBudget };
     },
 
     _buildSystemPrompt() {
         const state = Lumina.State.app;
         const doc = state.document;
         const chapter = state.chapters?.[state.currentChapterIndex];
-        const bookTitle = doc?.fileName || Lumina.I18n.t('unknownBook') || '未知书籍';
+        const currentFile = state.currentFile;
+        const bookTitle = currentFile?.metadata?.title
+            || currentFile?.fileName?.replace(/\.[^/.]+$/, '')
+            || currentFile?.name
+            || doc?.fileName
+            || Lumina.I18n.t('unknownBook')
+            || '未知书籍';
         const chapterTitle = chapter?.title || '';
         const t = Lumina.I18n.t;
         return `你是阅读助手，正在帮助用户阅读《${bookTitle}》。用户当前在${chapterTitle ? `「${chapterTitle}」` : '当前章节'}。请根据用户提供的引用内容回答问题，回答简洁准确。`;
@@ -853,7 +1085,12 @@ Lumina.AI = {
         const state = Lumina.State.app;
         const doc = state.document;
         const chapter = state.chapters?.[state.currentChapterIndex];
-        const bookTitle = doc?.fileName || 'Unknown';
+        const currentFile = state.currentFile;
+        const bookTitle = currentFile?.metadata?.title
+            || currentFile?.fileName?.replace(/\.[^/.]+$/, '')
+            || currentFile?.name
+            || doc?.fileName
+            || 'Unknown';
         const t = Lumina.I18n.t;
         let out = `《${bookTitle}》 · ${t('aiChatTitle') || 'AI Chat'}\n${'─'.repeat(30)}\n\n`;
         for (let i = 0; i < this._chatHistory.length; i++) {
@@ -916,11 +1153,47 @@ Lumina.AI = {
         if (container) container.scrollTop = container.scrollHeight;
     },
 
+    _createStreamingChatBubble() {
+        const container = document.getElementById('aiChatMessages');
+        if (!container) return null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-chat-message assistant streaming';
+        wrapper.id = 'aiChatStreaming';
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-chat-bubble';
+        wrapper.appendChild(bubble);
+        container.appendChild(wrapper);
+        this._scrollChatToBottom();
+        return { wrapper, bubble };
+    },
+
+    _finishStreamingChatBubble(meta) {
+        const el = document.getElementById('aiChatStreaming');
+        if (!el) return;
+        el.removeAttribute('id');
+        el.classList.remove('streaming');
+        if (meta) {
+            const metaEl = document.createElement('div');
+            metaEl.className = 'ai-chat-meta';
+            metaEl.textContent = meta;
+            el.appendChild(metaEl);
+            this._scrollChatToBottom();
+        }
+    },
+
     async _sendChatMessage() {
         const input = document.getElementById('aiChatInput');
         if (!input) return;
         const rawText = input.value.trim();
         if (!rawText) return;
+
+        // 换书检测：如果当前书籍变了，清空历史
+        const currentBookKey = Lumina.State.app.currentFile?.fileKey || Lumina.State.app.document?.fileKey || '';
+        if (this._currentBookKey !== currentBookKey) {
+            this._chatHistory = [];
+            this._forgottenRounds = 0;
+            this._currentBookKey = currentBookKey;
+        }
 
         const cfg = this.getConfig();
         if (!this.isAvailable()) {
@@ -936,11 +1209,13 @@ Lumina.AI = {
             quoteMeta = (Lumina.I18n.t('aiQuoteMeta') || '基于 · $1').replace('$1', this._quote.label);
         }
 
-        const userContent = quoteText
-            ? `${rawText}\n\n---\n[${this._quote.label}]\n${quoteText}`
-            : rawText;
+        // 构建发送给 AI 的 user message：引用在前，问题在后，避免 Lost in the Middle
+        let userContent = rawText;
+        if (quoteText) {
+            userContent = `[${this._quote.label}]\n${quoteText}\n\n---\n${rawText}`;
+        }
 
-        // 渲染用户消息
+        // 渲染用户消息（界面上只显示用户原始输入）
         this._renderChatMessage('user', rawText);
         input.value = '';
         input.style.height = 'auto';
@@ -949,12 +1224,27 @@ Lumina.AI = {
         const systemPrompt = this._buildSystemPrompt();
         const maxTokens = cfg.maxTokens || 4096;
 
-        // 截断历史
+        // 截断历史：用 userContent（含引用）预留空间，确保不会溢出
         const trimResult = this._trimHistory(this._chatHistory, maxTokens, userContent, systemPrompt);
         const historyToSend = trimResult.history;
         if (trimResult.forgotten > 0) {
             this._forgottenRounds += trimResult.forgotten;
             this._renderForgetHint(trimResult.forgotten);
+        }
+
+        // 如果清空历史后仍然超预算，优先截断本轮引用内容，而不是混合截断
+        if (trimResult.overBudget && trimResult.remainingBudget < 0) {
+            const sysTokens = this._estimateTokens(systemPrompt);
+            const histTokens = historyToSend.reduce((sum, m) => sum + this._estimateTokens(m.content || ''), 0);
+            const rawTokens = this._estimateTokens(rawText);
+            const reserve = 256; // 给模型生成回复留余量
+            const maxQuoteTokens = Math.max(0, Math.floor(maxTokens * 0.7 - sysTokens - histTokens - rawTokens - reserve));
+            const maxQuoteChars = Math.max(0, maxQuoteTokens * 2);
+            if (quoteText.length > maxQuoteChars) {
+                const truncated = quoteText.slice(0, maxQuoteChars);
+                userContent = `[${this._quote.label}]\n${truncated}\n\n[... ${Lumina.I18n.t('aiTruncated') || '内容已截断'} ...]\n\n---\n${rawText}`;
+                Lumina.UI.showToast(Lumina.I18n.t('aiQuoteTruncated') || '引用内容过长，已自动截断以适配模型上下文');
+            }
         }
 
         const messages = [
@@ -963,48 +1253,61 @@ Lumina.AI = {
             { role: 'user', content: userContent }
         ];
 
+        console.log('[AI Chat] userContent length:', userContent.length);
+        console.log('[AI Chat] messages:', messages);
+
         const url = `${cfg.endpoint.replace(/\/$/, '')}/v1/chat/completions`;
-        this._abortController = new AbortController();
-        const timeoutId = setTimeout(() => this._abortController.abort(), cfg.timeout || 30000);
 
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(cfg.apiKey ? { 'Authorization': `Bearer ${cfg.apiKey}` } : {})
-                },
-                body: JSON.stringify({
-                    model: cfg.model || 'local-model',
-                    messages,
-                    temperature: 0.7,
-                    stream: false
-                }),
-                signal: this._abortController.signal
-            });
-            clearTimeout(timeoutId);
-            if (!res.ok) {
-                const errText = await res.text().catch(() => '');
-                throw new Error(`HTTP ${res.status}: ${errText}`);
+        let reply = '';
+        let bubbleEl = null;
+        let started = false;
+
+        await this._streamChat(url, cfg, messages,
+            (delta) => {
+                console.log('[AI Chat] delta:', JSON.stringify(delta));
+                if (!started) {
+                    started = true;
+                    this._removeChatThinking();
+                    const created = this._createStreamingChatBubble();
+                    bubbleEl = created?.bubble || null;
+                }
+                reply += delta;
+                if (bubbleEl) {
+                    bubbleEl.innerHTML = this._escapeHtml(reply).replace(/\n/g, '<br>');
+                    this._scrollChatToBottom();
+                }
+            },
+            () => {
+                console.log('[AI Chat] final reply:', reply);
+                if (!started) {
+                    this._removeChatThinking();
+                    this._renderChatMessage('assistant', Lumina.I18n.t('aiEmptyResponse') || '模型返回为空');
+                } else {
+                    this._finishStreamingChatBubble(quoteMeta || undefined);
+                    // history 只存用户的原始问题，避免上下文被引用文本撑爆
+                    this._chatHistory.push({ role: 'user', content: rawText });
+                    this._chatHistory.push({ role: 'assistant', content: reply });
+                }
+                this._updateContextBar();
+            },
+            (err) => {
+                console.error('[AI Chat] error:', err);
+                if (!started) this._removeChatThinking();
+                let errMsg = err.name === 'AbortError'
+                    ? (Lumina.I18n.t('aiCancelled') || '已取消')
+                    : (Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`);
+                if (this._isContextOverflowError(err)) {
+                    errMsg = '输入内容超过 LM Studio 模型的上下文长度。请在 LM Studio 中调大 Context Length，或减少引用范围。';
+                }
+                if (started && bubbleEl) {
+                    bubbleEl.innerHTML = this._escapeHtml(errMsg).replace(/\n/g, '<br>');
+                    this._finishStreamingChatBubble();
+                } else {
+                    this._renderChatMessage('assistant', errMsg);
+                }
+                this._updateContextBar();
             }
-            const data = await res.json();
-            const reply = data.choices?.[0]?.message?.content?.trim();
-            if (!reply) throw new Error(Lumina.I18n.t('aiEmptyResponse') || '模型返回为空');
-
-            this._removeChatThinking();
-            this._chatHistory.push({ role: 'user', content: userContent });
-            this._chatHistory.push({ role: 'assistant', content: reply });
-            this._renderChatMessage('assistant', reply, quoteMeta || undefined);
-        } catch (err) {
-            clearTimeout(timeoutId);
-            this._removeChatThinking();
-            const errMsg = err.name === 'AbortError'
-                ? (Lumina.I18n.t('aiCancelled') || '已取消')
-                : (Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`);
-            this._renderChatMessage('assistant', errMsg);
-        } finally {
-            this._abortController = null;
-        }
+        );
     },
 
     cancel() {

@@ -89,6 +89,7 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
         // 预加载下一页的图片（提升翻页体验）
         Lumina.Renderer.preloadNextPageImages(chapter, pageIdx);
     });
+    window.dispatchEvent(new CustomEvent('chapterRendered', { detail: { chapterIndex: state.currentChapterIndex, pageIndex: state.currentPageIdx } }));
 };
 
 // 预加载下一页图片

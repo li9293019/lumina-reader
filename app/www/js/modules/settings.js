@@ -30,6 +30,7 @@ Lumina.Settings = {
             aiEnabled: config.ai?.enabled ?? false,
             aiEndpoint: config.ai?.endpoint ?? 'http://localhost:1234',
             aiModel: config.ai?.model ?? '',
+            aiMaxTokens: config.ai?.maxTokens ?? 4096,
         };
     },
 
@@ -91,6 +92,7 @@ Lumina.Settings = {
             enabled: settings.aiEnabled ?? false,
             endpoint: settings.aiEndpoint ?? 'http://localhost:1234',
             model: settings.aiModel ?? '',
+            maxTokens: Number(settings.aiMaxTokens) || 4096,
             apiKey: settings.aiApiKey ?? '',
             timeout: settings.aiTimeout ?? 30000,
             systemPrompt: settings.aiSystemPrompt ?? ''
@@ -863,14 +865,16 @@ Lumina.Font = {
         const panel = document.getElementById('aiConfigPanel');
         const endpointInput = document.getElementById('aiEndpoint');
         const modelInput = document.getElementById('aiModel');
+        const maxTokensSlider = document.getElementById('aiMaxTokensSlider');
         if (!toggle || !panel || !endpointInput || !modelInput) return;
 
-        const cfg = Lumina.AI?.getConfig?.() || { enabled: false, endpoint: 'http://localhost:1234', model: '' };
+        const cfg = Lumina.AI?.getConfig?.() || { enabled: false, endpoint: 'http://localhost:1234', model: '', maxTokens: 4096 };
 
         // 同步 UI（开关状态由 apply() 统一处理，这里只处理面板和输入框）
         panel.style.display = cfg.enabled ? 'block' : 'none';
         endpointInput.value = cfg.endpoint || 'http://localhost:1234';
         modelInput.value = cfg.model || '';
+        if (maxTokensSlider) maxTokensSlider.value = cfg.maxTokens || 4096;
 
         // 监听 toggle 点击，控制配置面板的展开/收起（和 initPasswordPreset 模式一致）
         toggle.addEventListener('click', () => {
@@ -880,7 +884,7 @@ Lumina.Font = {
             }, 10);
         });
 
-        // 输入框失焦保存
+        // 输入框失焦保存（滑块由 UI.js 统一处理）
         const saveInputs = () => {
             Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
             Lumina.State.settings.aiModel = modelInput.value.trim();
@@ -888,7 +892,8 @@ Lumina.Font = {
                 ...cfg,
                 enabled: Lumina.State.settings.aiEnabled ?? false,
                 endpoint: endpointInput.value.trim(),
-                model: modelInput.value.trim()
+                model: modelInput.value.trim(),
+                maxTokens: Lumina.State.settings.aiMaxTokens ?? 4096
             });
         };
         endpointInput.addEventListener('change', saveInputs);

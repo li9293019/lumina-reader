@@ -149,7 +149,12 @@ Lumina.ConfigManager = {
                 timeout: 30000,
                 systemPrompt: '你是一个 helpful 的阅读助手。回答简洁、准确，直接给出结果，不要过度发挥。',
                 fabX: null,
-                fabY: null
+                fabY: null,
+                maxTokens: 4096,
+                chatPanelX: null,
+                chatPanelY: null,
+                chatPanelWidth: null,
+                chatPanelHeight: null
             },
             
             // ========== 11. 元数据 ==========

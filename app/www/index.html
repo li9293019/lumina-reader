@@ -48,6 +48,7 @@
 <link rel="stylesheet" href="./css/themes.css">
 <link rel="stylesheet" href="./css/layout.css">
 <link rel="stylesheet" href="./css/components.css">
+<link rel="stylesheet" href="./css/ai.css">
 <link rel="stylesheet" href="./css/reader.css">
 <link rel="stylesheet" href="./css/panels.css">
 <link rel="stylesheet" href="./css/animations.css">
@@ -197,6 +198,7 @@
 <symbol id="icon-ai-rewrite" viewBox="0 0 24 24"><path d="M4 20L11 13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6l2-4 2 4 4 2-4 2-2 4-2-4-4-2z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="icon-ai" viewBox="0 0 24 24"><path d="M10 3 Q12 11 19 12 Q12 13 10 21 Q8 13 1 12 Q8 11 10 3 Z M18 2 Q19 5 22 6 Q19 7 18 10 Q17 7 14 6 Q17 5 18 2 Z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="icon-ai-custom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="12" cy="17" r="1" fill="currentColor"/></symbol>
+<symbol id="icon-quote" viewBox="0 0 24 24"><path d="M4 11c0-3.3 2.7-6 6-6v2c-2.2 0-4 1.8-4 4v1h4v5H4v-6z" fill="currentColor"/><path d="M14 11c0-3.3 2.7-6 6-6v2c-2.2 0-4 1.8-4 4v1h4v5h-6v-6z" fill="currentColor"/></symbol>
 <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
 <symbol id="icon-storage-local" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6h6M12 10h6"/></symbol>
 <symbol id="icon-storage-server" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 12c0 1.5 4 3 9 3s9-1.5 9-3"/><path d="M3 5v14c0 1.5 4 3 9 3s9-1.5 9-3V5"/></symbol>
@@ -231,9 +233,17 @@
     <div class="ai-panel-inner">
         <div class="ai-panel-header">
             <div class="ai-panel-title" id="aiPanelTitle" data-i18n="aiPanelTitle">本地 AI</div>
-            <button class="btn-icon" id="aiPanelClose" data-i18n-tooltip="close" data-tooltip-text="Close">
-                <svg class="icon" style="width:20px;height:20px;"><use href="#icon-close"/></svg>
-            </button>
+            <div class="ai-panel-header-actions">
+                <button class="btn-icon" id="aiCopyBtn" data-i18n-tooltip="aiCopyResult" data-tooltip-text="Copy result">
+                    <svg class="icon" style="width:18px;height:18px;"><use href="#icon-copy"/></svg>
+                </button>
+                <button class="btn-icon" id="aiExportBtn" data-i18n-tooltip="aiExportTxt" data-tooltip-text="Export TXT">
+                    <svg class="icon" style="width:18px;height:18px;"><use href="#icon-export"/></svg>
+                </button>
+                <button class="btn-icon" id="aiPanelClose" data-i18n-tooltip="close" data-tooltip-text="Close">
+                    <svg class="icon" style="width:20px;height:20px;"><use href="#icon-close"/></svg>
+                </button>
+            </div>
         </div>
         <div class="ai-panel-body">
             <div class="ai-context-box">
@@ -258,18 +268,12 @@
                     <svg class="ai-action-icon"><use href="#icon-ai-summary"/></svg>
                     <span class="ai-action-label" data-i18n="aiSummary">摘要</span>
                 </button>
-                <button class="ai-action-btn" data-action="continue">
-                    <svg class="ai-action-icon"><use href="#icon-ai-continue"/></svg>
-                    <span class="ai-action-label" data-i18n="aiContinue">续写</span>
-                </button>
+
                 <button class="ai-action-btn" data-action="rewrite">
                     <svg class="ai-action-icon"><use href="#icon-ai-rewrite"/></svg>
                     <span class="ai-action-label" data-i18n="aiRewrite">润色</span>
                 </button>
-                <button class="ai-action-btn" data-action="custom">
-                    <svg class="ai-action-icon"><use href="#icon-ai-custom"/></svg>
-                    <span class="ai-action-label" data-i18n="aiCustom">提问</span>
-                </button>
+
             </div>
             <div class="ai-result-box" id="aiResultBox">
                 <div class="ai-result-placeholder" id="aiResultPlaceholder" data-i18n="aiResultPlaceholder">点击上方按钮开始对话</div>
@@ -281,9 +285,66 @@
                 <div class="ai-result-content" id="aiResultContent"></div>
             </div>
         </div>
-        <div class="ai-panel-footer" id="aiPanelFooter">
-            <button class="ai-footer-btn" id="aiCopyBtn" data-i18n="aiCopyResult">复制结果</button>
-            <button class="ai-footer-btn" id="aiExportBtn" data-i18n="aiExportTxt">导出 TXT</button>
+
+    </div>
+</div>
+
+<!-- AI 对话面板 -->
+<div class="ai-chat-overlay" id="aiChatOverlay">
+    <div class="ai-chat-panel" id="aiChatPanel">
+        <div class="ai-chat-header" id="aiChatHeader">
+            <div class="ai-chat-header-title" data-i18n="aiChatTitle">AI 对话</div>
+            <button class="btn-icon" id="aiChatCopyAll" data-i18n-tooltip="aiCopyAll" data-tooltip-text="Copy all">
+                <svg class="icon" style="width:18px;height:18px;"><use href="#icon-copy"/></svg>
+            </button>
+            <button class="btn-icon" id="aiChatExport" data-i18n-tooltip="aiExportChat" data-tooltip-text="Export chat">
+                <svg class="icon" style="width:18px;height:18px;"><use href="#icon-export"/></svg>
+            </button>
+            <button class="btn-icon" id="aiChatClose" data-i18n-tooltip="close" data-tooltip-text="Close">
+                <svg class="icon" style="width:20px;height:20px;"><use href="#icon-close"/></svg>
+            </button>
+        </div>
+        <div class="ai-chat-messages" id="aiChatMessages"></div>
+        <div class="ai-chat-input-area">
+            <div class="ai-quote-bar" id="aiQuoteBar" style="display:none;">
+                <span id="aiQuoteLabel"></span>
+                <button class="ai-quote-close" id="aiQuoteClose" aria-label="close">
+                    <svg class="icon" style="width:14px;height:14px;"><use href="#icon-close"/></svg>
+                </button>
+            </div>
+            <div class="ai-chat-input-row">
+                <div style="position:relative;">
+                    <button class="ai-quote-btn" id="aiQuoteBtn" aria-label="quote">
+                        <svg class="icon" style="width:18px;height:18px;"><use href="#icon-quote"/></svg>
+                    </button>
+                    <div class="ai-quote-popover" id="aiQuotePopover">
+                        <div class="ai-quote-option" data-quote="selection">
+                            <div data-i18n="aiQuoteSelection">选区</div>
+                            <span class="ai-quote-desc" id="aiQuoteDescSelection">—</span>
+                        </div>
+                        <div class="ai-quote-option" data-quote="paragraph">
+                            <div data-i18n="aiQuoteParagraph">段落</div>
+                            <span class="ai-quote-desc" id="aiQuoteDescParagraph">—</span>
+                        </div>
+                        <div class="ai-quote-option" data-quote="page">
+                            <div data-i18n="aiQuotePage">页面</div>
+                            <span class="ai-quote-desc" id="aiQuoteDescPage">—</span>
+                        </div>
+                        <div class="ai-quote-option" data-quote="chapter">
+                            <div data-i18n="aiQuoteChapter">章节</div>
+                            <span class="ai-quote-desc" id="aiQuoteDescChapter">—</span>
+                        </div>
+                        <div class="ai-quote-option" data-quote="book">
+                            <div data-i18n="aiQuoteBook">全书</div>
+                            <span class="ai-quote-desc" id="aiQuoteDescBook">—</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ai-chat-input-wrap">
+                    <textarea class="ai-chat-input" id="aiChatInput" rows="1" data-i18n-placeholder="aiChatInputPlaceholder" placeholder="输入消息..."></textarea>
+                </div>
+                <button class="ai-send-btn" id="aiSendBtn" data-i18n="aiSend">发送</button>
+            </div>
         </div>
     </div>
 </div>
@@ -788,6 +849,13 @@
                         <div style="margin-bottom: 10px;">
                             <div class="setting-label" style="font-size: 0.85em; opacity: 0.8;" data-i18n="aiModel"></div>
                             <input type="text" class="regex-input" id="aiModel" data-i18n-placeholder="aiModelPlaceholder">
+                        </div>
+                        <div class="slider-control" data-setting-slider="aiMaxTokens" data-min="512" data-max="12288" data-unit="" data-divider="1">
+                            <div class="setting-label" style="font-size: 0.85em; opacity: 0.8;" data-i18n="aiMaxTokens"></div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="aiMaxTokensSlider" min="512" max="12288" step="512" value="4096">
+                                <span class="slider-value" id="aiMaxTokensValue">4096</span>
+                            </div>
                         </div>
                     </div>
                     <div style="font-size: 0.8em; opacity: 0.6; margin-top: 6px;" data-i18n="aiDesc"></div>

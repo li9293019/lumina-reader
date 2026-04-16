@@ -769,7 +769,234 @@ Lumina.Settings = {
                 e.target.value = '';
             });
         }
+    },
+
+    _closeAIModelMenu() {
+        document.getElementById('aiModelMenu')?.classList.remove('open');
+    },
+
+    _updateAIModelLabel(value) {
+        const label = document.getElementById('aiModelLabel');
+        const menu = document.getElementById('aiModelMenu');
+        if (!label) return;
+        const activeItem = menu?.querySelector(`.sort-item[data-value="${CSS.escape(value)}"]`);
+        if (activeItem) {
+            label.textContent = activeItem.textContent;
+        } else {
+            label.textContent = Lumina.I18n.t('aiModelPlaceholder') || '请选择模型';
+        }
+        menu?.querySelectorAll('.sort-item').forEach(el => el.classList.toggle('active', el.dataset.value === value));
+    },
+
+    async refreshAIModels() {
+        const endpointInput = document.getElementById('aiEndpoint');
+        const modelInput = document.getElementById('aiModel');
+        const menu = document.getElementById('aiModelMenu');
+        const refreshBtn = document.getElementById('aiRefreshModelsBtn');
+        const endpoint = endpointInput?.value?.trim().replace(/\/$/, '');
+        if (!endpoint) {
+            Lumina.UI.showToast(Lumina.I18n.t('aiEndpointEmpty') || '请先填写服务端地址');
+            return;
+        }
+        if (refreshBtn) {
+            refreshBtn.style.pointerEvents = 'none';
+            refreshBtn.style.opacity = '0.6';
+        }
+        const icon = refreshBtn?.querySelector('.icon');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const saveInputs = () => {
+            const cfg = Lumina.AI?.getConfig?.() || {};
+            Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
+            Lumina.State.settings.aiModel = modelInput.value.trim();
+            Lumina.AI?.saveConfig?.({
+                ...cfg,
+                enabled: Lumina.State.settings.aiEnabled ?? false,
+                endpoint: endpointInput.value.trim(),
+                model: modelInput.value.trim(),
+                maxTokens: Lumina.State.settings.aiMaxTokens ?? 4096
+            });
+        };
+
+        try {
+            const res = await fetch(`${endpoint}/v1/models`, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const models = data.data || [];
+            if (menu) {
+                const current = modelInput?.value || '';
+                menu.innerHTML = '';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'sort-item';
+                placeholder.dataset.value = '';
+                placeholder.textContent = Lumina.I18n.t('aiModelPlaceholder') || '请选择模型';
+                menu.appendChild(placeholder);
+                models.forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'sort-item';
+                    item.dataset.value = m.id;
+                    item.textContent = m.id;
+                    item.addEventListener('click', () => {
+                        modelInput.value = m.id;
+                        this._updateAIModelLabel(m.id);
+                        saveInputs();
+                        this._closeAIModelMenu();
+                    });
+                    menu.appendChild(item);
+                });
+                this._updateAIModelLabel(current);
+            }
+            Lumina.UI.showToast((Lumina.I18n.t('aiModelsLoaded') || '已加载 $1 个模型').replace('$1', models.length));
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                Lumina.UI.showToast(Lumina.I18n.t('aiModelsTimeout') || '服务响应较慢，请确认 LM Studio 已启动且模型已加载');
+            } else {
+                Lumina.UI.showToast((Lumina.I18n.t('aiModelsLoadFailed') || '获取模型失败: $1').replace('$1', err.message));
+            }
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.style.pointerEvents = '';
+                refreshBtn.style.opacity = '';
+            }
+            if (icon) icon.style.animation = '';
+        }
+    },
+
+    async refreshAIModels() {
+        const endpointInput = document.getElementById('aiEndpoint');
+        const modelInput = document.getElementById('aiModel');
+        const refreshBtn = document.getElementById('aiRefreshModelsBtn');
+        const endpoint = endpointInput?.value?.trim().replace(/\/$/, '');
+        if (!endpoint) {
+            Lumina.UI.showToast(Lumina.I18n.t('aiEndpointEmpty') || '请先填写服务端地址');
+            return;
+        }
+        if (refreshBtn) {
+            refreshBtn.style.pointerEvents = 'none';
+            refreshBtn.style.opacity = '0.6';
+        }
+        const icon = refreshBtn?.querySelector('.icon');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const saveInputs = () => {
+            const cfg = Lumina.AI?.getConfig?.() || {};
+            Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
+            Lumina.State.settings.aiModel = modelInput.value.trim();
+            Lumina.AI?.saveConfig?.({
+                ...cfg,
+                enabled: Lumina.State.settings.aiEnabled ?? false,
+                endpoint: endpointInput.value.trim(),
+                model: modelInput.value.trim(),
+                maxTokens: Lumina.State.settings.aiMaxTokens ?? 4096
+            });
+        };
+
+        try {
+            const res = await fetch(`${endpoint}/v1/models`, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const models = data.data || [];
+            if (this.aiModelSelect) {
+                const items = models.map(m => ({ value: m.id, label: m.id }));
+                this.aiModelSelect.setItems(items);
+                const current = modelInput?.value || '';
+                if (!current && models.length > 0) {
+                    this.aiModelSelect.setValue(models[0].id);
+                    modelInput.value = models[0].id;
+                    saveInputs();
+                } else {
+                    this.aiModelSelect.setValue(current, true);
+                }
+            }
+            Lumina.UI.showToast((Lumina.I18n.t('aiModelsLoaded') || '已加载 $1 个模型').replace('$1', models.length));
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                Lumina.UI.showToast(Lumina.I18n.t('aiModelsTimeout') || '服务响应较慢，请确认 LM Studio 已启动且模型已加载');
+            } else {
+                Lumina.UI.showToast((Lumina.I18n.t('aiModelsLoadFailed') || '获取模型失败: $1').replace('$1', err.message));
+            }
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.style.pointerEvents = '';
+                refreshBtn.style.opacity = '';
+            }
+            if (icon) icon.style.animation = '';
+        }
+    },
+
+    initAISettings() {
+        if (this._aiSettingsInited) return;
+        this._aiSettingsInited = true;
+        const toggle = document.getElementById('aiEnabledToggle');
+        const panel = document.getElementById('aiConfigPanel');
+        const endpointInput = document.getElementById('aiEndpoint');
+        const modelInput = document.getElementById('aiModel');
+        const refreshBtn = document.getElementById('aiRefreshModelsBtn');
+        const maxTokensSlider = document.getElementById('aiMaxTokensSlider');
+        if (!toggle || !panel || !endpointInput || !modelInput) return;
+
+        const cfg = Lumina.AI?.getConfig?.() || { enabled: false, endpoint: 'http://localhost:1234', model: '', maxTokens: 4096 };
+
+        panel.style.display = cfg.enabled ? 'block' : 'none';
+        endpointInput.value = cfg.endpoint || 'http://localhost:1234';
+        modelInput.value = cfg.model || '';
+        if (maxTokensSlider) maxTokensSlider.value = cfg.maxTokens || 4096;
+
+        toggle.addEventListener('click', () => {
+            setTimeout(() => {
+                const isEnabled = Lumina.State.settings.aiEnabled;
+                panel.style.display = isEnabled ? 'block' : 'none';
+            }, 10);
+        });
+
+        const saveInputs = () => {
+            Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
+            Lumina.State.settings.aiModel = modelInput.value.trim();
+            Lumina.AI?.saveConfig?.({
+                ...cfg,
+                enabled: Lumina.State.settings.aiEnabled ?? false,
+                endpoint: endpointInput.value.trim(),
+                model: modelInput.value.trim(),
+                maxTokens: Lumina.State.settings.aiMaxTokens ?? 4096
+            });
+        };
+        endpointInput.addEventListener('change', saveInputs);
+        modelInput.addEventListener('change', saveInputs);
+
+        const modelContainer = document.getElementById('aiModelSelectContainer');
+        if (modelContainer && typeof Lumina.UI.CustomSelect === 'function') {
+            this.aiModelSelect = new Lumina.UI.CustomSelect(modelContainer, {
+                placeholder: Lumina.I18n.t('aiModelPlaceholder') || '请选择模型',
+                value: cfg.model || '',
+                onChange: (val) => {
+                    modelInput.value = val;
+                    saveInputs();
+                }
+            });
+        }
+
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.refreshAIModels());
+        }
     }
+
+
 };
 
 // ==================== 16. 字体加载器 ====================
@@ -858,46 +1085,6 @@ Lumina.Font = {
         const fallbackStack = config.metrics ? `"${type}-fallback", ${config.fallback}` : config.fallback;
         document.documentElement.style.setProperty(`--font-${type}-fallback`, fallbackStack);
         document.documentElement.classList.add(`font-${type}-fallback`);
-    },
-
-    initAISettings() {
-        const toggle = document.getElementById('aiEnabledToggle');
-        const panel = document.getElementById('aiConfigPanel');
-        const endpointInput = document.getElementById('aiEndpoint');
-        const modelInput = document.getElementById('aiModel');
-        const maxTokensSlider = document.getElementById('aiMaxTokensSlider');
-        if (!toggle || !panel || !endpointInput || !modelInput) return;
-
-        const cfg = Lumina.AI?.getConfig?.() || { enabled: false, endpoint: 'http://localhost:1234', model: '', maxTokens: 4096 };
-
-        // 同步 UI（开关状态由 apply() 统一处理，这里只处理面板和输入框）
-        panel.style.display = cfg.enabled ? 'block' : 'none';
-        endpointInput.value = cfg.endpoint || 'http://localhost:1234';
-        modelInput.value = cfg.model || '';
-        if (maxTokensSlider) maxTokensSlider.value = cfg.maxTokens || 4096;
-
-        // 监听 toggle 点击，控制配置面板的展开/收起（和 initPasswordPreset 模式一致）
-        toggle.addEventListener('click', () => {
-            setTimeout(() => {
-                const isEnabled = Lumina.State.settings.aiEnabled;
-                panel.style.display = isEnabled ? 'block' : 'none';
-            }, 10);
-        });
-
-        // 输入框失焦保存（滑块由 UI.js 统一处理）
-        const saveInputs = () => {
-            Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
-            Lumina.State.settings.aiModel = modelInput.value.trim();
-            Lumina.AI?.saveConfig?.({
-                ...cfg,
-                enabled: Lumina.State.settings.aiEnabled ?? false,
-                endpoint: endpointInput.value.trim(),
-                model: modelInput.value.trim(),
-                maxTokens: Lumina.State.settings.aiMaxTokens ?? 4096
-            });
-        };
-        endpointInput.addEventListener('change', saveInputs);
-        modelInput.addEventListener('change', saveInputs);
     },
 
     preloadCritical() {

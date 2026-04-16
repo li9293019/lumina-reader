@@ -1202,6 +1202,98 @@ Lumina.UI = {
     },
 
     hideTooltip() { Lumina.DOM.tooltip.classList.remove('visible'); },
+    CustomSelect: class {
+        constructor(container, options = {}) {
+            this.container = typeof container === 'string' ? document.getElementById(container) : container;
+            this.options = {
+                placeholder: options.placeholder || '',
+                value: options.value || '',
+                onChange: options.onChange || null,
+                menuMaxHeight: options.menuMaxHeight || 240,
+                ...options
+            };
+            this.items = [];
+            this.value = this.options.value;
+            this.opened = false;
+            this._render();
+            this._bindEvents();
+            this.setValue(this.value, true);
+        }
+
+        _render() {
+            if (!this.container) return;
+            this.container.innerHTML = '';
+            this.container.classList.add('lumina-custom-select');
+
+            this.trigger = document.createElement('button');
+            this.trigger.className = 'lumina-custom-select__trigger';
+            this.trigger.type = 'button';
+            this.trigger.innerHTML = '<span class="lumina-custom-select__label"></span><svg class="icon lumina-custom-select__arrow"><use href="#icon-caret-down"/></svg>';
+            this.labelEl = this.trigger.querySelector('.lumina-custom-select__label');
+
+            this.dropdown = document.createElement('div');
+            this.dropdown.className = 'lumina-custom-select__dropdown';
+            this.dropdown.innerHTML = '<div class="lumina-custom-select__menu"></div>';
+            this.menu = this.dropdown.querySelector('.lumina-custom-select__menu');
+
+            this.container.appendChild(this.trigger);
+            this.container.appendChild(this.dropdown);
+        }
+
+        _bindEvents() {
+            if (!this.trigger) return;
+            this.trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+            this._outsideClick = (e) => {
+                if (!this.container.contains(e.target)) this.close();
+            };
+            document.addEventListener('click', this._outsideClick);
+        }
+
+        setItems(items) {
+            this.items = items || [];
+            if (!this.menu) return;
+            this.menu.innerHTML = '';
+            this.items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'lumina-custom-select__item';
+                el.dataset.value = item.value;
+                el.textContent = item.label;
+                el.addEventListener('click', () => {
+                    this.setValue(item.value);
+                    this.close();
+                });
+                this.menu.appendChild(el);
+            });
+            this.setValue(this.value, true);
+        }
+
+        setValue(value, silent = false) {
+            this.value = value;
+            if (this.labelEl) {
+                const active = this.menu?.querySelector(`[data-value="${CSS.escape(value)}"]`);
+                this.labelEl.textContent = active ? active.textContent : this.options.placeholder;
+            }
+            this.menu?.querySelectorAll('.lumina-custom-select__item').forEach(el => {
+                el.classList.toggle('active', el.dataset.value === String(value));
+            });
+            if (!silent && this.options.onChange) {
+                this.options.onChange(value);
+            }
+        }
+
+        getValue() { return this.value; }
+        open() { this.opened = true; this.dropdown?.classList.add('open'); }
+        close() { this.opened = false; this.dropdown?.classList.remove('open'); }
+        toggle() { this.opened ? this.close() : this.open(); }
+        destroy() {
+            if (this._outsideClick) document.removeEventListener('click', this._outsideClick);
+            if (this.container) this.container.innerHTML = '';
+        }
+    },
+
 
     // 全屏查看图片
     viewImageFull(src, alt = '') {

@@ -1,4 +1,5 @@
 // ==================== 20. 初始化入口 ====================
+console.log('[Init] module loaded v2.1.5-ai-fix');
 
 Lumina.init = async () => {
     const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
@@ -237,22 +238,21 @@ Lumina.init = async () => {
         Lumina.DOM.sidebarLeft.classList.remove('visible');
         Lumina.DOM.readingArea.classList.remove('with-sidebar');
     }
-    
+
+    // AI 设置绑定（提前初始化，避免用户在 requestIdleCallback 执行前点击按钮无响应）
+    if (typeof Lumina.Settings.initAISettings === 'function') {
+        Lumina.Settings.initAISettings();
+    }
+
     // 延迟初始化非关键模块，避免阻塞 UI
     requestIdleCallback?.(() => {
         // 初始化密码预设器设置（FileOpener 在 file-opener-bridge.js 加载后自动初始化）
         if (typeof Lumina.Settings.initPasswordPreset === 'function') {
             Lumina.Settings.initPasswordPreset();
         }
-        if (typeof Lumina.Settings.initAISettings === 'function') {
-            Lumina.Settings.initAISettings();
-        }
     }) ?? setTimeout(() => {
         if (typeof Lumina.Settings.initPasswordPreset === 'function') {
             Lumina.Settings.initPasswordPreset();
-        }
-        if (typeof Lumina.Settings.initAISettings === 'function') {
-            Lumina.Settings.initAISettings();
         }
     }, 100);
 };

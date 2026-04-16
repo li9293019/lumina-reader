@@ -71,28 +71,45 @@ Lumina.AI = {
         const marginBottom = 16;
         const safeAreaBottom = this._getSafeAreaBottom();
         const bottomOffset = Math.max(marginBottom, marginBottom + safeAreaBottom);
+        const vw = window.visualViewport;
+        const vpW = vw ? vw.width : window.innerWidth;
+        const vpH = vw ? vw.height : window.innerHeight;
 
         if (cfg.fabX != null && cfg.fabY != null) {
             this._fabPos = { x: cfg.fabX, y: cfg.fabY };
         } else {
             this._fabPos = {
-                x: window.innerWidth - size - marginSide,
-                y: window.innerHeight - size - bottomOffset
+                x: vpW - size - marginSide,
+                y: vpH - size - bottomOffset
             };
         }
-        this._fabPos.x = Math.max(margin, Math.min(this._fabPos.x, window.innerWidth - size - margin));
-        this._fabPos.y = Math.max(margin, Math.min(this._fabPos.y, window.innerHeight - size - bottomOffset));
+        this._fabPos.x = Math.max(margin, Math.min(this._fabPos.x, vpW - size - margin));
+        this._fabPos.y = Math.max(margin, Math.min(this._fabPos.y, vpH - size - bottomOffset));
+        // PC Web 兜底：如果仍显得贴底，额外抬高 24px
+        if (!this._isMobile() && this._fabPos.y + size > vpH - 8) {
+            this._fabPos.y = vpH - size - Math.max(bottomOffset, 24);
+        }
         this._applyFabPos();
 
-        window.addEventListener('resize', () => {
+        const onViewportChange = () => {
             const safeB = this._getSafeAreaBottom();
             const botOff = Math.max(marginBottom, marginBottom + safeB);
-            this._fabPos.x = Math.min(this._fabPos.x, window.innerWidth - size - margin);
-            this._fabPos.y = Math.min(this._fabPos.y, window.innerHeight - size - botOff);
+            const vW = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+            const vH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            this._fabPos.x = Math.min(this._fabPos.x, vW - size - margin);
+            this._fabPos.y = Math.min(this._fabPos.y, vH - size - botOff);
             this._fabPos.x = Math.max(margin, this._fabPos.x);
             this._fabPos.y = Math.max(margin, this._fabPos.y);
+            if (!this._isMobile() && this._fabPos.y + size > vH - 8) {
+                this._fabPos.y = vH - size - Math.max(botOff, 24);
+            }
             this._applyFabPos();
-        });
+        };
+
+        window.addEventListener('resize', onViewportChange);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', onViewportChange);
+        }
 
         // 拖拽
         const onStart = (e) => {
@@ -111,8 +128,10 @@ Lumina.AI = {
                 let ny = cy - this._dragOffset.y;
                 const safeB = this._getSafeAreaBottom();
                 const botOff = Math.max(marginBottom, marginBottom + safeB);
-                nx = Math.max(margin, Math.min(nx, window.innerWidth - size - margin));
-                ny = Math.max(margin, Math.min(ny, window.innerHeight - size - botOff));
+                const vW = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+                const vH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                nx = Math.max(margin, Math.min(nx, vW - size - margin));
+                ny = Math.max(margin, Math.min(ny, vH - size - botOff));
                 this._fabPos = { x: nx, y: ny };
                 this._applyFabPos();
             };

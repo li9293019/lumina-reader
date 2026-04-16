@@ -46,9 +46,6 @@ Lumina.AI = {
         window.addEventListener('fileOpened', () => this._onReadingContextChanged('file'));
         window.addEventListener('chapterRendered', () => this._onReadingContextChanged('chapter'));
         document.addEventListener('selectionchange', this._debounce(() => this._onReadingContextChanged('selection'), 200));
-        if (Lumina.DOM.contentScroll) {
-            Lumina.DOM.contentScroll.addEventListener('scroll', this._debounce(() => this._onReadingContextChanged('scroll'), 300));
-        }
     },
 
     _debounce(fn, wait) {
@@ -794,6 +791,13 @@ Lumina.AI = {
         const overlay = document.getElementById('aiChatOverlay');
         const panel = document.getElementById('aiChatPanel');
         if (!overlay || !panel) return;
+        if (!this._scrollBound) {
+            this._scrollBound = true;
+            const scroller = Lumina.DOM.contentScroll;
+            if (scroller) {
+                scroller.addEventListener('scroll', this._debounce(() => this._onReadingContextChanged('scroll'), 300));
+            }
+        }
         this.closeTaskPanel();
         overlay.classList.add('active');
         if (this._isMobile()) {

@@ -1006,8 +1006,26 @@ Lumina.Exporter = {
     },
 
     async generateDOCX() {
-        const docxLib = window.docx || window.Docx;
-        if (!docxLib) { Lumina.UI.showToast(Lumina.I18n.t('docxLibraryNotLoaded') || 'DOCX 库未加载'); return; }
+        let docxLib = window.docx || window.Docx;
+        if (!docxLib) {
+            Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = Lumina.I18n.t('loadingDocxLibrary') || '正在加载 DOCX 导出库...';
+            Lumina.DOM.loadingScreen.classList.add('active');
+            try {
+                await Lumina.Loader.loadLibrary('docx', './assets/js/lib/docx.min.js', 20000);
+                docxLib = window.docx || window.Docx;
+            } catch (e) {
+                Lumina.DOM.loadingScreen.classList.remove('active');
+                Lumina.UI.showToast(Lumina.I18n.t('docxLibraryNotLoaded') || 'DOCX 库未加载');
+                console.error('[Exporter] Failed to load docx library:', e);
+                return;
+            } finally {
+                Lumina.DOM.loadingScreen.classList.remove('active');
+            }
+        }
+        if (!docxLib) {
+            Lumina.UI.showToast(Lumina.I18n.t('docxLibraryNotLoaded') || 'DOCX 库未加载');
+            return;
+        }
 
         const { Document, Packer, Paragraph, PageSize, TextRun, ImageRun, PageBreak, AlignmentType, Header, Footer, PageNumber, ShadingType } = docxLib;
 

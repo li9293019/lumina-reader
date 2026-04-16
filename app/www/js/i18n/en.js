@@ -641,6 +641,8 @@ Lumina.I18n.data['en'] = {
         fileDataError: 'Cannot get file data',
         lastReadHere: 'Last read here',
         generatingDocx: 'Generating document...',
+        loadingDocxLibrary: 'Loading DOCX export library...',
+        docxLibraryNotLoaded: 'DOCX export library not loaded',
         docxExportSuccess: 'Document exported successfully',
         docxExportFailed: 'Export failed: $1',
         confirmOverwrite: 'File "$1" already exists. Overwrite existing record? ',

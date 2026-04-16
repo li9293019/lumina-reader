@@ -32,11 +32,9 @@
 
 <!-- 本地库文件（离线可用） -->
 <script src="./assets/js/lib/jszip.min.js"></script>
-<!-- 本地PDF.js库 -->
+<!-- 本地PDF.js核心库 -->
 <script src="./assets/js/lib/pdf.min.js"></script>
-<script src="./assets/js/lib/docx.min.js"></script>
-<script src="./assets/js/lib/officecrypto.min.js"></script>
-<script src="./assets/js/lib/pdf.worker.min.js"></script>
+<!-- docx / officecrypto / pinyin-pro 改为按需加载 -->
 
 <!-- 应用桥接 -->
 <script src="./assets/js/app/exporter-bridge.js"></script>
@@ -60,6 +58,7 @@
 
 <!-- 核心应用模块 -->
 <script src="./js/modules/namespace.js"></script>
+<script src="./js/modules/loader.js"></script>
 <script src="./assets/js/app/file-opener-bridge.js"></script>
 <script src="./js/modules/config.js"></script>
 <script src="./js/modules/export-utils.js"></script>
@@ -76,9 +75,7 @@
 <script src="./js/modules/metadata-extractor.js"></script>
 <!-- 章节处理 -->
 <script src="./js/modules/chapter.js"></script>
-<!-- 简繁转换 -->
-<script src="./assets/js/lib/opencc/STCharacters.js"></script>
-<script src="./assets/js/lib/opencc/TSCharacters.js"></script>
+<!-- 简繁转换（字典改为按需加载） -->
 <script src="./js/modules/converter.js"></script>
 <!-- 渲染引擎（包含搜索、热图、分页） -->
 <script src="./js/modules/renderer.js"></script>
@@ -87,9 +84,8 @@
 <!-- 缓存管理（Web SQLite 模式专用） -->
 <link rel="stylesheet" href="./css/cache-manager.css">
 <script src="./js/modules/cache-manager.js"></script>
-<!-- 密码预设器 -->
-<script src="./assets/js/lib/pinyin-pro.min.js"></script>
-    <script src="./js/modules/password-preset.js"></script>
+<!-- 密码预设器（拼音库改为按需加载） -->
+<script src="./js/modules/password-preset.js"></script>
 <!-- 语音朗读 -->
 <script src="./js/modules/crypto.js"></script>
 <script src="./js/modules/tts.js"></script>

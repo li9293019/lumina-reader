@@ -406,9 +406,17 @@ Lumina.Parser.processHeading = (level, rawText, cleanText = null) => {
  * DOCX 解密辅助函数
  */
 Lumina.Parser.decryptDOCX = async (arrayBuffer, password) => {
-    const cryptoLib = window.officeCrypto;
+    let cryptoLib = window.officeCrypto;
     if (!cryptoLib || typeof cryptoLib.decrypt !== 'function') {
-        console.error('[DOCX] officeCrypto not available');
+        try {
+            await Lumina.Loader.loadLibrary('officecrypto', './assets/js/lib/officecrypto.min.js', 20000);
+            cryptoLib = window.officeCrypto;
+        } catch (e) {
+            console.error('[DOCX] Failed to load officecrypto:', e.message);
+            throw new Error('DOCX decryption library not available');
+        }
+    }
+    if (!cryptoLib || typeof cryptoLib.decrypt !== 'function') {
         throw new Error('DOCX decryption library not available');
     }
 
@@ -1074,7 +1082,7 @@ Lumina.Parser.parseEPUB = async (arrayBuffer) => {
 
 // 初始化 PDF.js worker
 if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './assets/js/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './assets/js/lib/pdf.worker.min.js';
 }
 
 /**
@@ -1107,8 +1115,20 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
     const extractImages = Lumina.State?.settings?.pdfExtractImages !== false;
     // console.log(`[PDF] Extract images: ${extractImages}`);
 
+    // 如果启用了密码预设，提前加载 pinyin-pro，确保 onPassword 同步回调时拼音功能已就绪
+    if (Lumina.PasswordPreset && Lumina.PasswordPreset.getConfig().enabled) {
+        try {
+            await Promise.race([
+                Lumina.PasswordPreset._ensurePinyinLoaded(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('pinyin timeout')), 3000))
+            ]);
+        } catch (e) {
+            console.warn('[PDF] pinyin-pro preload failed or timed out:', e.message);
+        }
+    }
+
     let loadingTask = null;
-    
+
     try {
         loadingTask = pdfjsLib.getDocument({
             data: arrayBuffer,
@@ -1117,16 +1137,16 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
             cMapPacked: true
         });
 
-        // 处理密码保护
+        // 处理密码保护（PDF.js onPassword 回调必须是同步的）
         loadingTask.onPassword = (updateCallback, reason) => {
             // 用户已取消，抛出异常终止解析
             if (userCancelled) {
                 throw new Error('Password cancelled');
             }
-            
+
             const t = Lumina.I18n.t;
             const isRetry = reason === 2;
-            
+
             // 第一次被调用：尝试预设密码
             if (!isRetry && !passwordState.initialized && Lumina.PasswordPreset) {
                 passwordState.initialized = true;

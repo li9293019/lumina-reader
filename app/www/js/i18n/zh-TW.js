@@ -641,6 +641,8 @@ Lumina.I18n.data['zh-TW'] = {
         fileDataError: '無法獲取檔案數據',
         lastReadHere: '上次閱讀位置',
         generatingDocx: '正在生成排版文件...',
+        loadingDocxLibrary: '正在載入 DOCX 匯出庫...',
+        docxLibraryNotLoaded: 'DOCX 匯出庫未載入',
         docxExportSuccess: '文件匯出成功',
         docxExportFailed: '匯出失敗：$1',
         confirmOverwrite: '檔案 "$1" 已存在，覆蓋原記錄？',

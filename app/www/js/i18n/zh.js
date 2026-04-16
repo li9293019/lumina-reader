@@ -641,6 +641,8 @@ Lumina.I18n.data['zh'] = {
         fileDataError: '无法获取文件数据',
         lastReadHere: '上次阅读位置',
         generatingDocx: '正在生成排版文档...',
+        loadingDocxLibrary: '正在加载 DOCX 导出库...',
+        docxLibraryNotLoaded: 'DOCX 导出库未加载',
         docxExportSuccess: '文档导出成功',
         docxExportFailed: '导出失败：$1',
         confirmOverwrite: '文件 "$1" 已存在，覆盖原记录？',

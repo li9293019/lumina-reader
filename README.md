@@ -350,11 +350,8 @@ npx cap sync android  # 完整同步（安装新插件时用）
 ## Git 提交
 
 ```bash
-# GitHub（主仓库）
+# GitHub
 git clone https://github.com/li9293019/lumina-reader.git
-
-# 码云（国内镜像）
-git clone https://gitee.com/boyryan85/lumina-reader.git
 
 # 日常提交
 git add .

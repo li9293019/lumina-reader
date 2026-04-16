@@ -5,20 +5,24 @@ Lumina.Actions = {
     supportedFormats: ['docx', 'epub', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
     
     async processFile(file) {
-        if (Lumina.State.app.ui.isProcessing) return;
+        if (Lumina.State.app.ui.isProcessing) return false;
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
         // 检查文件类型是否支持
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!this.supportedFormats.includes(fileExt)) {
             Lumina.UI.showDialog(Lumina.I18n.t('supportedFileFormatTip', fileExt.toUpperCase(), this.supportedFormats.join(', ').toUpperCase()));
-            return;
+            return false;
         }
 
         // 处理导入文件（JSON 或 LMN 格式）- 支持配置、单本、批量
         if (fileExt === 'json' || fileExt === 'lmn') {
-            await this.handleImportFile(file);
-            return;
+            try {
+                await this.handleImportFile(file);
+                return true;
+            } catch (e) {
+                return false;
+            }
         }
 
         const fileKey = Lumina.DB.adapter.generateFileKey(file);
@@ -34,7 +38,7 @@ Lumina.Actions = {
             if (exactMatch) {
                 Lumina.UI.showToast(Lumina.I18n.t('dbUsingCache'));
                 await Lumina.DB.restoreFileFromDB(exactMatch);
-                return;
+                return true;
             }
             const existingByName = await Lumina.DB.adapter.findByFileName(file.name);
             if (existingByName) {
@@ -42,14 +46,13 @@ Lumina.Actions = {
                     if (confirmed) {
                         await Lumina.DB.adapter.deleteFile(existingByName.fileKey);
                         await Lumina.DB.loadHistoryFromDB();
-                        const success = await this.processFileContinue(file, fileKey);
-        if (!success) return;  // 处理失败（如用户取消），不继续执行
+                        await this.processFileContinue(file, fileKey);
                     }
                 });
-                return;
+                return true; // 对话框已弹出，视为流程已接管
             }
         }
-        await this.processFileContinue(file, fileKey);
+        return await this.processFileContinue(file, fileKey);
     },
 
     async processFileContinue(file, fileKey) {
@@ -360,11 +363,11 @@ Lumina.Actions = {
                 }
                 
                 // 检查是否第一次尝试（无密码）且是加密文件
-                // 如果解密库不可用，直接提示不支持；否则进入密码输入流程
+                // 先尝试按需加载解密库，加载失败才提示不支持
                 if (!password && err.message === 'DOCX encrypted') {
-                    const cryptoLib = window.officeCrypto;
-                    const libAvailable = cryptoLib && typeof cryptoLib.decrypt === 'function';
-                    if (!libAvailable) {
+                    try {
+                        await Lumina.Loader.loadLibrary('officecrypto', './assets/js/lib/officecrypto.min.js', 20000);
+                    } catch (e) {
                         const t = Lumina.I18n.t;
                         Lumina.UI.showDialog(
                             t('docxEncryptedNotSupported') || 
@@ -373,7 +376,7 @@ Lumina.Actions = {
                         );
                         throw new Error('Password cancelled');
                     }
-                    // 库可用时继续往下走，弹出密码输入框
+                    // 库加载成功，继续往下走，弹出密码输入框
                 }
                 
                 // 隐藏 loading 界面，显示密码对话框

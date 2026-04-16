@@ -100,18 +100,24 @@ Lumina.Converter = {
      * 通过 script 标签预加载的全局变量获取（兼容 file:// 协议）
      */
     async loadDictionaries() {
-        // 直接使用全局变量（通过 script 标签加载的 JS 文件）
+        // 直接使用全局变量（如果已经通过其他方式加载）
         if (window.OpenCC_ST && window.OpenCC_TS) {
             this.s2tMap = window.OpenCC_ST;
             this.t2sMap = window.OpenCC_TS;
             this.dictLoaded = true;
-            // console.log('[Converter] OpenCC 字典加载成功，映射数:', Object.keys(this.s2tMap).length);
             return;
         }
-        
-        // 等待一小段时间，处理可能的加载顺序问题
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+
+        // 按需加载字典脚本
+        try {
+            await Promise.all([
+                Lumina.Loader.loadScript('./assets/js/lib/opencc/STCharacters.js', 10000),
+                Lumina.Loader.loadScript('./assets/js/lib/opencc/TSCharacters.js', 10000)
+            ]);
+        } catch (e) {
+            console.warn('[Converter] Failed to load OpenCC scripts:', e.message);
+        }
+
         if (window.OpenCC_ST && window.OpenCC_TS) {
             this.s2tMap = window.OpenCC_ST;
             this.t2sMap = window.OpenCC_TS;

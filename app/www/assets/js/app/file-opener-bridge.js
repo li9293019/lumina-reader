@@ -198,7 +198,14 @@ Lumina.FileOpener = {
         
         try {
             await this._waitForLumina();
-            await Lumina.Actions.processFile(file);
+            const success = await Lumina.Actions.processFile(file);
+            
+            // 处理失败（如用户取消密码输入），不显示成功提示
+            if (!success) {
+                Lumina.UI?.hideLoading?.();
+                this._lastProcessedFile = { name: null, time: 0, size: 0 };
+                return false;
+            }
             
             // 记录成功处理的文件（用于重复检测）
             this._lastProcessedFile = {
@@ -210,6 +217,7 @@ Lumina.FileOpener = {
             Lumina.UI?.hideLoading?.();
             Lumina.UI?.showToast?.(Lumina.I18n?.t?.('fileOpened', file.name) || ('Opened: ' + file.name));
             console.log('[FileOpener] 完成:', file.name, '大小:', file.size);
+            return true;
         } catch (err) {
             Lumina.UI?.hideLoading?.();
             // 即使失败也重置记录，允许重试

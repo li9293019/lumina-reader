@@ -10,6 +10,22 @@
  */
 
 Lumina.PasswordPreset = {
+    _pinyinLoading: null,
+
+    async _ensurePinyinLoaded() {
+        if (typeof pinyinPro !== 'undefined') return true;
+        if (this._pinyinLoading) {
+            try { await this._pinyinLoading; } catch (e) {}
+            return typeof pinyinPro !== 'undefined';
+        }
+        this._pinyinLoading = Lumina.Loader.loadLibrary('pinyin-pro', './assets/js/lib/pinyin-pro.min.js', 10000).catch(e => {
+            console.warn('[PasswordPreset] pinyin-pro load failed:', e.message);
+            return false;
+        });
+        try { await this._pinyinLoading; } catch (e) {}
+        return typeof pinyinPro !== 'undefined';
+    },
+
     // 使用统一配置管理器
     getConfig() {
         const config = Lumina.ConfigManager.get('pdf.passwordPreset');
@@ -178,7 +194,7 @@ Lumina.PasswordPreset = {
     generatePasswords(fileName) {
         const config = this.getConfig();
         const passwords = [];
-        
+
         // 优先级1：小雨林规则（固定前缀为 xyl）
         if (config.prefix === 'xyl') {
             passwords.push(...this.generateSmartPasswords(fileName, config.length));

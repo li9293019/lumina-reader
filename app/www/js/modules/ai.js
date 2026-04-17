@@ -59,21 +59,25 @@ Lumina.AI = {
             this._currentBookKey = '';
             this._chatHistory = [];
             this._forgottenRounds = 0;
+            this._removeForgetHint();
             this._resetQuoteForCurrentContext();
             this._updateContextBar();
         } else if (source === 'chapter') {
             // chapter 切换/翻页后，若当前引用已失效，刷新选项状态
             this._refreshQuoteOptions();
             this._updateQuoteBar();
+            this._updateContextBar();
         } else if (source === 'selection') {
             const sel = window.getSelection()?.toString()?.trim();
             if (sel) {
                 this._quote = { type: 'selection', label: '' };
                 this._updateQuoteLabel();
                 this._updateQuoteBar();
+                this._updateContextBar();
             } else if (this._quote?.type === 'selection') {
                 // 选区消失，不再硬编码兜底为 chapter，交给刷新逻辑自动切到第一个可用类型
                 this._refreshQuoteOptions();
+                this._updateContextBar();
             }
             const popover = document.getElementById('aiQuotePopover');
             if (popover?.classList.contains('active')) {
@@ -82,6 +86,7 @@ Lumina.AI = {
         } else if (source === 'scroll') {
             if (this._quote?.type === 'paragraph') {
                 this._updateQuoteBar();
+                this._updateContextBar();
             }
         }
     },
@@ -96,6 +101,7 @@ Lumina.AI = {
         }
         this._updateQuoteLabel();
         this._updateQuoteBar();
+        this._updateContextBar();
     },
 
     _updateFABVisibility() {
@@ -279,6 +285,7 @@ Lumina.AI = {
             this._resetQuoteForCurrentContext();
         } else {
             this._quote = null;
+            this._updateContextBar();
         }
     },
 
@@ -434,7 +441,7 @@ Lumina.AI = {
     _renderStreamingResult(text) {
         const resultContent = document.getElementById('aiResultContent');
         if (!resultContent) return;
-        resultContent.innerHTML = this._escapeHtml(text).replace(/\n/g, '<br>');
+        resultContent.innerHTML = this._renderMarkdownInline(text);
     },
 
     _escapeHtml(str) {
@@ -462,11 +469,56 @@ Lumina.AI = {
                     container.appendChild(el);
                 }
             });
+            // 给表格加 wrapper，防止撑破气泡
+            container.querySelectorAll('table').forEach((table) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'markdown-table-wrapper';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            });
             return container.innerHTML;
         } catch (e) {
             console.warn('[AI] Markdown render failed, fallback to plain text:', e);
             return this._escapeHtml(text).replace(/\n/g, '<br>');
         }
+    },
+
+    _renderMarkdownInline(text) {
+        if (!text) return '';
+        let html = this._escapeHtml(text).replace(/\n/g, '<br>');
+
+        // 保护已渲染的标签，避免被标题规则误匹配
+        const placeholders = [];
+        const protect = (regex) => {
+            html = html.replace(regex, (match) => {
+                placeholders.push(match);
+                return `\u0000${placeholders.length - 1}\u0000`;
+            });
+        };
+        protect(/<(code|strong|em|del|a)[^>]*>.*?<\/\1>/g);
+
+        // 标题：独占一行，# 开头
+        html = html.replace(/(^|<br>)(#{1,6})\s+([^<]+?)(?=<br>|$)/g, (match, prefix, hashes, content) => {
+            const level = hashes.length;
+            return `${prefix}<h${level} class="markdown-heading markdown-h${level}">${content.trim()}</h${level}>`;
+        });
+
+        // 恢复受保护的标签
+        html = html.replace(/\u0000(\d+)\u0000/g, (_, i) => placeholders[i]);
+
+        // 行内代码
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // 粗体
+        html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        // 斜体
+        html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+        html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+        // 删除线
+        html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+        // 链接
+        html = html.replace(/\[([^\]]+)\]\(([^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        return html;
     },
 
     _getContextText() {
@@ -669,6 +721,7 @@ Lumina.AI = {
             clearContextBtn.addEventListener('click', () => {
                 this._chatHistory = [];
                 this._forgottenRounds = 0;
+                this._removeForgetHint();
                 this._updateContextBar();
                 Lumina.UI.showToast(Lumina.I18n.t('aiContextCleared') || '对话上下文已清除');
             });
@@ -722,6 +775,7 @@ Lumina.AI = {
             input.addEventListener('input', () => {
                 input.style.height = 'auto';
                 input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+                this._updateContextBar();
             });
         }
         if (quoteBtn) {
@@ -733,6 +787,9 @@ Lumina.AI = {
         if (quoteClose) {
             quoteClose.addEventListener('click', () => {
                 this._quote = null;
+                this._refreshQuoteOptions();
+                this._updateQuoteBar();
+                this._updateContextBar();
                 const quoteBar = document.getElementById('aiQuoteBar');
                 if (quoteBar) {
                     quoteBar.classList.add('hidden-anim');
@@ -763,9 +820,10 @@ Lumina.AI = {
                 if (quoteBar) {
                     quoteBar.classList.remove('hidden-anim');
                     // 先更新内容，等动画展开
-                    setTimeout(() => this._updateQuoteBar(), 50);
+                    setTimeout(() => { this._updateQuoteBar(); this._updateContextBar(); }, 50);
                 } else {
                     this._updateQuoteBar();
+                    this._updateContextBar();
                 }
             });
         });
@@ -933,11 +991,12 @@ Lumina.AI = {
             this._updateQuoteBar();
             return;
         }
-        // 如果当前选中类型不可见，自动切换到第一个可用类型
-        if (this._quote?.type && this._getQuoteText(this._quote.type, false).length === 0 && firstAvailable) {
+        // 当前无引用或当前引用不可用时，自动切换到第一个可用类型
+        if (firstAvailable && (!this._quote?.type || this._getQuoteText(this._quote.type, false).length === 0)) {
             this._quote = { type: firstAvailable, label: '' };
             this._updateQuoteLabel();
             this._updateQuoteBar();
+            this._updateContextBar();
         }
         // 同步高亮状态
         document.querySelectorAll('.ai-quote-option').forEach(o => o.classList.toggle('active', o.dataset.quote === this._quote?.type));
@@ -1082,6 +1141,16 @@ Lumina.AI = {
         for (const m of this._chatHistory) {
             usedTokens += this._estimateTokens(m.content || '');
         }
+        // 当前引用
+        if (this._quote) {
+            const quoteText = this._getQuoteText(this._quote.type, false);
+            usedTokens += this._estimateTokens(quoteText);
+        }
+        // 输入框中尚未发送的内容
+        const input = document.getElementById('aiChatInput');
+        if (input && input.value) {
+            usedTokens += this._estimateTokens(input.value.trim());
+        }
         const pct = Math.min(100, Math.max(0, (usedTokens / maxTokens) * 100));
         fill.style.width = `${pct}%`;
         fill.classList.toggle('warning', pct >= 60 && pct < 85);
@@ -1170,13 +1239,20 @@ Lumina.AI = {
         this._scrollChatToBottom();
     },
 
-    _renderForgetHint(count) {
-        if (count <= 0) return;
+    _removeForgetHint() {
         const container = document.getElementById('aiChatMessages');
         if (!container) return;
+        container.querySelectorAll('.ai-chat-forget-hint').forEach(el => el.remove());
+    },
+
+    _renderForgetHint(totalCount) {
+        if (totalCount <= 0) return;
+        const container = document.getElementById('aiChatMessages');
+        if (!container) return;
+        this._removeForgetHint();
         const el = document.createElement('div');
         el.className = 'ai-chat-forget-hint';
-        const text = (Lumina.I18n.t('aiForgetHint') || '已忘记最开始的 $1 轮对话').replace('$1', count);
+        const text = (Lumina.I18n.t('aiForgetHint') || '已忘记最开始的 $1 轮对话').replace('$1', totalCount);
         el.textContent = text;
         container.appendChild(el);
         this._scrollChatToBottom();
@@ -1294,7 +1370,7 @@ Lumina.AI = {
         const historyToSend = trimResult.history;
         if (trimResult.forgotten > 0) {
             this._forgottenRounds += trimResult.forgotten;
-            this._renderForgetHint(trimResult.forgotten);
+            this._renderForgetHint(this._forgottenRounds);
         }
 
         // 如果清空历史后仍然超预算，优先截断本轮引用内容，而不是混合截断
@@ -1311,6 +1387,9 @@ Lumina.AI = {
                 Lumina.UI.showToast(Lumina.I18n.t('aiQuoteTruncated') || '引用内容过长，已自动截断以适配模型上下文');
             }
         }
+
+        // 发送前同步一次进度条，确保用户看到"已忘记..."提示时，条也是最新的
+        this._updateContextBar();
 
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -1338,7 +1417,7 @@ Lumina.AI = {
                 }
                 reply += delta;
                 if (bubbleEl) {
-                    bubbleEl.innerHTML = this._escapeHtml(reply).replace(/\n/g, '<br>');
+                    bubbleEl.innerHTML = this._renderMarkdownInline(reply);
                     this._scrollChatToBottom();
                 }
             },
@@ -1350,7 +1429,8 @@ Lumina.AI = {
                 } else {
                     if (bubbleEl) bubbleEl.innerHTML = this._renderMarkdown(reply);
                     this._finishStreamingChatBubble(quoteMeta || undefined);
-                    // history 只存用户的原始问题，避免上下文被引用文本撑爆
+                    // 同步 _chatHistory 为实际发送的历史，确保进度条和导出口径一致
+                    this._chatHistory = [...historyToSend];
                     this._chatHistory.push({ role: 'user', content: rawText });
                     this._chatHistory.push({ role: 'assistant', content: reply });
                 }

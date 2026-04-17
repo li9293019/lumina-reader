@@ -704,16 +704,23 @@
 .ai-markdown-body li {
     margin: 0.2em 0;
 }
+.markdown-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0.6em 0;
+    border-radius: 6px;
+}
 .ai-markdown-body table {
     width: 100%;
     border-collapse: collapse;
-    margin: 0.6em 0;
     font-size: 0.95em;
+    min-width: 200px;
 }
 .ai-markdown-body th, .ai-markdown-body td {
     border: 1px solid var(--border-color);
     padding: 0.4em 0.6em;
     text-align: left;
+    white-space: nowrap;
 }
 .ai-markdown-body th {
     background: var(--bg-tertiary);

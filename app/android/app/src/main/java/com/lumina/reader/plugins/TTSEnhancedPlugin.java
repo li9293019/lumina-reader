@@ -22,12 +22,53 @@ public class TTSEnhancedPlugin extends Plugin {
     private static final String LOG_TAG = "TTSEnhanced";
     private android.speech.tts.TextToSpeech tts = null;
     private boolean isInitialized = false;
+    private PluginCall pendingSpeakCall = null;
     
     @Override
     public void load() {
         tts = new android.speech.tts.TextToSpeech(getContext(), status -> {
             isInitialized = (status == android.speech.tts.TextToSpeech.SUCCESS);
             Log.d(LOG_TAG, "TTS 初始化状态: " + isInitialized);
+            if (isInitialized && tts != null) {
+                tts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                    @Override
+                    public void onStart(String utteranceId) {
+                        Log.d(LOG_TAG, "朗读开始: " + utteranceId);
+                    }
+
+                    @Override
+                    public void onDone(String utteranceId) {
+                        Log.d(LOG_TAG, "朗读完成: " + utteranceId);
+                        if (pendingSpeakCall != null) {
+                            JSObject ret = new JSObject();
+                            ret.put("completed", true);
+                            pendingSpeakCall.resolve(ret);
+                            pendingSpeakCall = null;
+                        }
+                    }
+
+                    @Override
+                    public void onError(String utteranceId) {
+                        Log.e(LOG_TAG, "朗读错误: " + utteranceId);
+                        if (pendingSpeakCall != null) {
+                            pendingSpeakCall.reject("朗读失败");
+                            pendingSpeakCall = null;
+                        }
+                    }
+
+                    @Override
+                    public void onStop(String utteranceId, boolean interrupted) {
+                        Log.d(LOG_TAG, "朗读停止: " + utteranceId + ", interrupted=" + interrupted);
+                        if (pendingSpeakCall != null) {
+                            JSObject ret = new JSObject();
+                            ret.put("completed", false);
+                            ret.put("interrupted", interrupted);
+                            pendingSpeakCall.resolve(ret);
+                            pendingSpeakCall = null;
+                        }
+                    }
+                });
+            }
         });
     }
     
@@ -174,12 +215,22 @@ public class TTSEnhancedPlugin extends Plugin {
             Bundle params = new Bundle();
             params.putFloat(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_VOLUME, volume);
             
-            int speakResult = tts.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "utterance-id");
-            
-            JSObject ret = new JSObject();
-            ret.put("success", speakResult == android.speech.tts.TextToSpeech.SUCCESS);
-            ret.put("resultCode", speakResult);
-            call.resolve(ret);
+            // 如果之前还有 pending 的 call，先 reject 掉（防御性处理）
+            if (pendingSpeakCall != null) {
+                pendingSpeakCall.reject("被新请求覆盖");
+                pendingSpeakCall = null;
+            }
+
+            int speakResult = tts.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "utterance-" + System.currentTimeMillis());
+
+            if (speakResult == android.speech.tts.TextToSpeech.SUCCESS) {
+                pendingSpeakCall = call;
+            } else {
+                JSObject ret = new JSObject();
+                ret.put("success", false);
+                ret.put("resultCode", speakResult);
+                call.reject("朗读启动失败，错误码: " + speakResult, ret);
+            }
             
         } catch (Exception e) {
             Log.e(LOG_TAG, "朗读失败", e);
@@ -191,6 +242,12 @@ public class TTSEnhancedPlugin extends Plugin {
     public void stop(PluginCall call) {
         if (tts != null) {
             tts.stop();
+        }
+        if (pendingSpeakCall != null) {
+            JSObject ret = new JSObject();
+            ret.put("interrupted", true);
+            pendingSpeakCall.resolve(ret);
+            pendingSpeakCall = null;
         }
         call.resolve();
     }

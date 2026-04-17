@@ -556,6 +556,9 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+.ai-send-btn.stop {
+    background: #6b7280;
+}
 
 /* 引用选择器 */
 .ai-quote-popover {

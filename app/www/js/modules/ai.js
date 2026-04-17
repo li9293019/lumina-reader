@@ -485,7 +485,10 @@ Lumina.AI = {
 
     async _streamChat(url, cfg, messages, onDelta, onDone, onError) {
         this._abortController = new AbortController();
-        const timeoutId = setTimeout(() => this._abortController.abort(), cfg.timeout || 60000);
+        this._userCancelled = false;
+        // 长文本在本地模型上首 token 可能很慢，延长到 120 秒
+        const timeoutMs = cfg.timeout || 120000;
+        const timeoutId = setTimeout(() => this._abortController.abort(), timeoutMs);
         let buffer = '';
         let receivedAny = false;
 
@@ -666,10 +669,17 @@ Lumina.AI = {
             });
         }
         if (sendBtn && input) {
-            sendBtn.addEventListener('click', () => this._sendChatMessage());
+            sendBtn.addEventListener('click', () => {
+                if (sendBtn.dataset.generating === 'true') {
+                    this.cancel();
+                } else {
+                    this._sendChatMessage();
+                }
+            });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
+                    if (sendBtn?.dataset.generating === 'true') return;
                     this._sendChatMessage();
                 }
             });
@@ -1152,6 +1162,20 @@ Lumina.AI = {
         if (el) el.remove();
     },
 
+    _setSendButtonState(generating) {
+        const btn = document.getElementById('aiSendBtn');
+        if (!btn) return;
+        if (generating) {
+            btn.textContent = Lumina.I18n.t('aiStop') || '停止';
+            btn.classList.add('stop');
+            btn.dataset.generating = 'true';
+        } else {
+            btn.textContent = Lumina.I18n.t('aiSend') || '发送';
+            btn.classList.remove('stop');
+            btn.dataset.generating = '';
+        }
+    },
+
     _scrollChatToBottom() {
         const container = document.getElementById('aiChatMessages');
         if (container) container.scrollTop = container.scrollHeight;
@@ -1224,6 +1248,7 @@ Lumina.AI = {
         input.value = '';
         input.style.height = 'auto';
         this._appendChatThinking();
+        this._setSendButtonState(true);
 
         const systemPrompt = this._buildSystemPrompt();
         const maxTokens = cfg.maxTokens || 4096;
@@ -1268,7 +1293,7 @@ Lumina.AI = {
 
         await this._streamChat(url, cfg, messages,
             (delta) => {
-                console.log('[AI Chat] delta:', JSON.stringify(delta));
+                // console.log('[AI Chat] delta:', JSON.stringify(delta));
                 if (!started) {
                     started = true;
                     this._removeChatThinking();
@@ -1292,23 +1317,40 @@ Lumina.AI = {
                     this._chatHistory.push({ role: 'user', content: rawText });
                     this._chatHistory.push({ role: 'assistant', content: reply });
                 }
+                this._setSendButtonState(false);
                 this._updateContextBar();
             },
             (err) => {
-                console.error('[AI Chat] error:', err);
-                if (!started) this._removeChatThinking();
-                let errMsg = err.name === 'AbortError'
-                    ? (Lumina.I18n.t('aiCancelled') || '已取消')
-                    : (Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`);
-                if (this._isContextOverflowError(err)) {
-                    errMsg = '输入内容超过 LM Studio 模型的上下文长度。请在 LM Studio 中调大 Context Length，或减少引用范围。';
+                if (err.name !== 'AbortError' || !this._userCancelled) {
+                    console.error('[AI Chat] error:', err);
                 }
-                if (started && bubbleEl) {
-                    bubbleEl.innerHTML = this._escapeHtml(errMsg).replace(/\n/g, '<br>');
-                    this._finishStreamingChatBubble();
+                if (!started) {
+                    this._removeChatThinking();
+                }
+                if (err.name === 'AbortError' && this._userCancelled && started && bubbleEl) {
+                    // 用户主动点击停止，保留已生成的内容，不加入 history
+                    this._finishStreamingChatBubble(quoteMeta || undefined);
+                } else if (err.name === 'AbortError' && !this._userCancelled) {
+                    // 超时 abort
+                    const timeoutMsg = Lumina.I18n.t('aiTimeout') || 'AI 响应超时，长文本在本地模型上可能需要更长时间。请检查 LM Studio 是否正常运行，或尝试减少引用范围。';
+                    if (started && bubbleEl) {
+                        bubbleEl.innerHTML = this._escapeHtml(timeoutMsg).replace(/\n/g, '<br>');
+                        this._finishStreamingChatBubble();
+                    } else {
+                        this._renderChatMessage('assistant', timeoutMsg);
+                    }
                 } else {
-                    this._renderChatMessage('assistant', errMsg);
+                    let errMsg = this._isContextOverflowError(err)
+                        ? '输入内容超过 LM Studio 模型的上下文长度。请在 LM Studio 中调大 Context Length，或减少引用范围。'
+                        : (Lumina.I18n.t('aiError')?.replace?.('$1', err.message) || `AI 请求失败: ${err.message}`);
+                    if (started && bubbleEl) {
+                        bubbleEl.innerHTML = this._escapeHtml(errMsg).replace(/\n/g, '<br>');
+                        this._finishStreamingChatBubble();
+                    } else {
+                        this._renderChatMessage('assistant', errMsg);
+                    }
                 }
+                this._setSendButtonState(false);
                 this._updateContextBar();
             }
         );
@@ -1316,6 +1358,7 @@ Lumina.AI = {
 
     cancel() {
         if (this._abortController) {
+            this._userCancelled = true;
             this._abortController.abort();
             this._abortController = null;
         }

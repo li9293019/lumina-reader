@@ -597,6 +597,7 @@ Lumina.I18n.data['zh'] = {
         aiExportChat: '导出对话',
         aiChatInputPlaceholder: '输入消息…',
         aiSend: '发送',
+        aiStop: '停止',
         aiQuoteSelection: '选区',
         aiQuoteParagraph: '段落',
         aiQuotePage: '页面',

@@ -597,6 +597,7 @@ Lumina.I18n.data['en'] = {
         aiExportChat: 'Export chat',
         aiChatInputPlaceholder: 'Type a message…',
         aiSend: 'Send',
+        aiStop: 'Stop',
         aiQuoteSelection: 'Selection',
         aiQuoteParagraph: 'Paragraph',
         aiQuotePage: 'Page',

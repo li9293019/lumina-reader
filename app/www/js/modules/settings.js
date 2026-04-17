@@ -31,6 +31,9 @@ Lumina.Settings = {
             aiEndpoint: config.ai?.endpoint ?? 'http://localhost:1234',
             aiModel: config.ai?.model ?? '',
             aiMaxTokens: config.ai?.maxTokens ?? 4096,
+            aiApiKey: config.ai?.apiKey ?? '',
+            aiTimeout: config.ai?.timeout ?? 30000,
+            aiSystemPrompt: config.ai?.systemPrompt ?? '',
         };
     },
 
@@ -88,7 +91,9 @@ Lumina.Settings = {
             commonPasswords: settings.pdfCommonPasswords
         });
         
+        const currentAi = Lumina.ConfigManager.get('ai') || {};
         Lumina.ConfigManager.set('ai', {
+            ...currentAi,
             enabled: settings.aiEnabled ?? false,
             endpoint: settings.aiEndpoint ?? 'http://localhost:1234',
             model: settings.aiModel ?? '',
@@ -809,11 +814,11 @@ Lumina.Settings = {
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const saveInputs = () => {
-            const cfg = Lumina.AI?.getConfig?.() || {};
+            const currentCfg = Lumina.AI?.getConfig?.() || {};
             Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
             Lumina.State.settings.aiModel = modelInput.value.trim();
             Lumina.AI?.saveConfig?.({
-                ...cfg,
+                ...currentCfg,
                 enabled: Lumina.State.settings.aiEnabled ?? false,
                 endpoint: endpointInput.value.trim(),
                 model: modelInput.value.trim(),
@@ -890,11 +895,11 @@ Lumina.Settings = {
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const saveInputs = () => {
-            const cfg = Lumina.AI?.getConfig?.() || {};
+            const currentCfg = Lumina.AI?.getConfig?.() || {};
             Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
             Lumina.State.settings.aiModel = modelInput.value.trim();
             Lumina.AI?.saveConfig?.({
-                ...cfg,
+                ...currentCfg,
                 enabled: Lumina.State.settings.aiEnabled ?? false,
                 endpoint: endpointInput.value.trim(),
                 model: modelInput.value.trim(),
@@ -966,10 +971,11 @@ Lumina.Settings = {
         });
 
         const saveInputs = () => {
+            const currentCfg = Lumina.AI?.getConfig?.() || {};
             Lumina.State.settings.aiEndpoint = endpointInput.value.trim();
             Lumina.State.settings.aiModel = modelInput.value.trim();
             Lumina.AI?.saveConfig?.({
-                ...cfg,
+                ...currentCfg,
                 enabled: Lumina.State.settings.aiEnabled ?? false,
                 endpoint: endpointInput.value.trim(),
                 model: modelInput.value.trim(),

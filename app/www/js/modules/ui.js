@@ -1274,7 +1274,8 @@ Lumina.UI = {
             this.value = value;
             if (this.labelEl) {
                 const active = this.menu?.querySelector(`[data-value="${CSS.escape(value)}"]`);
-                this.labelEl.textContent = active ? active.textContent : this.options.placeholder;
+                // 如果 menu 中找不到对应 item，但 value 非空，直接显示 value（避免已保存的值被 placeholder 覆盖）
+                this.labelEl.textContent = active ? active.textContent : (value || this.options.placeholder);
             }
             this.menu?.querySelectorAll('.lumina-custom-select__item').forEach(el => {
                 el.classList.toggle('active', el.dataset.value === String(value));

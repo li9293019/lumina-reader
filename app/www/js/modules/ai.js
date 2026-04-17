@@ -441,6 +441,34 @@ Lumina.AI = {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     },
 
+    _renderMarkdown(text) {
+        const parser = Lumina.Plugin?.Markdown?.Parser;
+        const renderer = Lumina.Plugin?.Markdown?.Renderer;
+        if (!parser || !renderer || !text) {
+            return this._escapeHtml(text || '').replace(/\n/g, '<br>');
+        }
+        try {
+            const parsed = parser.parse(text);
+            if (!parsed?.items?.length) {
+                return this._escapeHtml(text).replace(/\n/g, '<br>');
+            }
+            const container = document.createElement('div');
+            container.className = 'ai-markdown-body';
+            parsed.items.forEach((item) => {
+                const el = renderer.render(item, -1);
+                if (el) {
+                    el.classList.remove('doc-line');
+                    delete el.dataset.index;
+                    container.appendChild(el);
+                }
+            });
+            return container.innerHTML;
+        } catch (e) {
+            console.warn('[AI] Markdown render failed, fallback to plain text:', e);
+            return this._escapeHtml(text).replace(/\n/g, '<br>');
+        }
+    },
+
     _getContextText() {
         const selection = window.getSelection();
         if (selection && selection.toString().trim().length > 0) {
@@ -486,8 +514,12 @@ Lumina.AI = {
     async _streamChat(url, cfg, messages, onDelta, onDone, onError) {
         this._abortController = new AbortController();
         this._userCancelled = false;
-        // 长文本在本地模型上首 token 可能很慢，延长到 120 秒
-        const timeoutMs = cfg.timeout || 120000;
+        // 动态超时：本地模型处理长文本首 token 很慢，按内容长度计算
+        // 基础 30 秒 + 每 1000 字符 10 秒，最小 60 秒，最大 300 秒（5 分钟）
+        const contentLength = JSON.stringify(messages).length;
+        const dynamicTimeout = Math.min(300000, Math.max(60000, 30000 + Math.floor(contentLength / 1000) * 10000));
+        // getConfig 默认 timeout 是 30000，对于本地模型太短，必须取两者较大值
+        const timeoutMs = Math.max(cfg.timeout || 30000, dynamicTimeout);
         const timeoutId = setTimeout(() => this._abortController.abort(), timeoutMs);
         let buffer = '';
         let receivedAny = false;
@@ -591,12 +623,16 @@ Lumina.AI = {
                 this._setFooterVisible(true);
                 if (!reply.trim()) {
                     this._renderResult(`<span style="opacity:.7;">${Lumina.I18n.t('aiEmptyResponse') || '模型返回为空'}</span>`);
+                } else {
+                    this._renderResult(this._renderMarkdown(reply));
                 }
             },
             (err) => {
                 if (!started) this._setLoading(false);
                 this._setFooterVisible(true);
-                if (err.name === 'AbortError') {
+                if (err.name === 'AbortError' && this._userCancelled && reply.trim()) {
+                    this._renderResult(this._renderMarkdown(reply));
+                } else if (err.name === 'AbortError') {
                     this._renderResult(`<span style="opacity:.7;">${Lumina.I18n.t('aiCancelled') || '已取消'}</span>`);
                 } else if (this._isContextOverflowError(err)) {
                     const msg = '输入内容超过 LM Studio 模型的上下文长度。请在 LM Studio 中调大 Context Length，或减少引用范围。';
@@ -1312,6 +1348,7 @@ Lumina.AI = {
                     this._removeChatThinking();
                     this._renderChatMessage('assistant', Lumina.I18n.t('aiEmptyResponse') || '模型返回为空');
                 } else {
+                    if (bubbleEl) bubbleEl.innerHTML = this._renderMarkdown(reply);
                     this._finishStreamingChatBubble(quoteMeta || undefined);
                     // history 只存用户的原始问题，避免上下文被引用文本撑爆
                     this._chatHistory.push({ role: 'user', content: rawText });
@@ -1329,6 +1366,7 @@ Lumina.AI = {
                 }
                 if (err.name === 'AbortError' && this._userCancelled && started && bubbleEl) {
                     // 用户主动点击停止，保留已生成的内容，不加入 history
+                    if (bubbleEl) bubbleEl.innerHTML = this._renderMarkdown(reply);
                     this._finishStreamingChatBubble(quoteMeta || undefined);
                 } else if (err.name === 'AbortError' && !this._userCancelled) {
                     // 超时 abort

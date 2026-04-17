@@ -640,3 +640,97 @@
         font-size: 1em;
     }
 }
+
+/* AI 输出 Markdown 渲染适配 */
+.ai-markdown-body {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+.ai-markdown-body > div {
+    margin: 0;
+}
+.ai-markdown-body .markdown-heading {
+    margin: 0.8em 0 0.4em;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+.ai-markdown-body .markdown-h1 { font-size: 1.3em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.2em; }
+.ai-markdown-body .markdown-h2 { font-size: 1.2em; }
+.ai-markdown-body .markdown-h3 { font-size: 1.1em; }
+.ai-markdown-body .markdown-h4 { font-size: 1.05em; }
+.ai-markdown-body .markdown-h5 { font-size: 1em; }
+.ai-markdown-body .markdown-h6 { font-size: 0.95em; color: var(--text-secondary); }
+.ai-markdown-body .markdown-paragraph {
+    margin: 0.5em 0;
+}
+.ai-markdown-body .markdown-paragraph:first-child { margin-top: 0; }
+.ai-markdown-body .markdown-paragraph:last-child { margin-bottom: 0; }
+.ai-markdown-body .markdown-blockquote {
+    margin: 0.6em 0;
+    padding: 0.4em 0.8em;
+    border-left: 3px solid var(--accent-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: 0 6px 6px 0;
+}
+.ai-markdown-body .markdown-blockquote p {
+    margin: 0.3em 0;
+}
+.ai-markdown-body pre {
+    margin: 0.6em 0;
+    padding: 0.6em 0.8em;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow-x: auto;
+}
+.ai-markdown-body pre code {
+    font-family: var(--font-family-mono, monospace);
+    font-size: 0.9em;
+    background: transparent;
+}
+.ai-markdown-body code {
+    font-family: var(--font-family-mono, monospace);
+    font-size: 0.9em;
+    background: var(--bg-tertiary);
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+}
+.ai-markdown-body ul, .ai-markdown-body ol {
+    margin: 0.5em 0;
+    padding-left: 1.4em;
+}
+.ai-markdown-body li {
+    margin: 0.2em 0;
+}
+.ai-markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.6em 0;
+    font-size: 0.95em;
+}
+.ai-markdown-body th, .ai-markdown-body td {
+    border: 1px solid var(--border-color);
+    padding: 0.4em 0.6em;
+    text-align: left;
+}
+.ai-markdown-body th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+}
+.ai-markdown-body hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 0.8em 0;
+}
+.ai-markdown-body img {
+    max-width: 100%;
+    border-radius: 6px;
+}
+.ai-markdown-body a {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+.ai-markdown-body strong { font-weight: 600; }
+.ai-markdown-body em { font-style: italic; }

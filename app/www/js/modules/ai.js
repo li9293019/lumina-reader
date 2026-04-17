@@ -1198,9 +1198,13 @@ Lumina.AI = {
 
     _buildSystemPrompt() {
         const state = Lumina.State.app;
+        const currentFile = state.currentFile;
+        // 没有打开书籍时，使用通用助手角色
+        if (!currentFile?.fileName && !currentFile?.name && !state.document?.fileName) {
+            return '你是一个 helpful 的助手，请根据用户的提示词简洁准确地回答问题。';
+        }
         const doc = state.document;
         const chapter = state.chapters?.[state.currentChapterIndex];
-        const currentFile = state.currentFile;
         const bookTitle = currentFile?.metadata?.title
             || currentFile?.fileName?.replace(/\.[^/.]+$/, '')
             || currentFile?.name
@@ -1208,7 +1212,6 @@ Lumina.AI = {
             || Lumina.I18n.t('unknownBook')
             || '未知书籍';
         const chapterTitle = chapter?.title || '';
-        const t = Lumina.I18n.t;
         return `你是阅读助手，正在帮助用户阅读《${bookTitle}》。用户当前在${chapterTitle ? `「${chapterTitle}」` : '当前章节'}。请根据用户提供的引用内容回答问题，回答简洁准确。`;
     },
 

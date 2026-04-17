@@ -4,7 +4,7 @@
 .legal-page {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    z-index: 500;
     background: var(--overlay-bg);
     display: none;
     align-items: center;

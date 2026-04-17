@@ -645,6 +645,8 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().evaluateJavascript(
                 "javascript:(function() { " +
                 "  if (document.querySelector('.share-card-overlay')) return 'shareCard'; " +  // 分享卡片（最高优先级）
+                "  if (document.getElementById('aiChatOverlay')?.classList.contains('active')) return 'aiChat'; " +
+                "  if (document.getElementById('aiPanel')?.classList.contains('active')) return 'aiTask'; " +
                 "  if (document.getElementById('bookDetailPanel')?.classList.contains('active')) return 'bookDetail'; " +
                 "  if (document.getElementById('fileBrowserPanel')?.classList.contains('active')) return 'fileBrowser'; " +
                 "  if (document.getElementById('dataManagerPanel')?.classList.contains('active')) return 'dataManager'; " +
@@ -679,6 +681,8 @@ public class MainActivity extends BridgeActivity {
         
         switch (state) {
             case "shareCard":
+            case "aiChat":
+            case "aiTask":
             case "bookDetail":
             case "dataManager":
             case "about":

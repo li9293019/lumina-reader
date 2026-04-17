@@ -1102,7 +1102,17 @@ Lumina.BackButtonHandler = {
         // 注意：此方法由原生层通过 onBackPressed 调用
         // 原生层已经检查了状态，这里直接执行关闭逻辑
         
-        // 优先级1: 关闭分享卡片（临时覆盖层，最高优先级）
+        // 优先级0: AI 面板（z-index 600）
+        if (Lumina.AI?._isChatPanelOpen?.()) {
+            Lumina.AI.closeChatPanel();
+            return true;
+        }
+        if (Lumina.AI?._isTaskPanelOpen?.()) {
+            Lumina.AI.closeTaskPanel();
+            return true;
+        }
+        
+        // 优先级1: 关闭分享卡片（临时覆盖层）
         if (Lumina.ShareCard?.overlay) {
             Lumina.ShareCard.close();
             return true;

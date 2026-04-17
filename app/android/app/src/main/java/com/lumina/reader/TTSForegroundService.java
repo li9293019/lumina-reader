@@ -1,5 +1,6 @@
 package com.lumina.reader;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -16,22 +17,17 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
-import android.os.SystemClock;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.media.app.NotificationCompat.MediaStyle;
 
 public class TTSForegroundService extends Service {
     
     private static final String CHANNEL_ID = "LuminaTTS";
     private static final String CHANNEL_NAME = "语音朗读";
     private static final int NOTIFICATION_ID = 1001;
+    private static final String RESTART_ACTION = "com.lumina.reader.RESTART_TTS_SERVICE";
     
-    private MediaSessionCompat mediaSession;
     private PowerManager.WakeLock wakeLock;
     private Handler keepAliveHandler;
     private Runnable keepAliveRunnable;
@@ -52,32 +48,52 @@ public class TTSForegroundService extends Service {
         super.onCreate();
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         keepAliveHandler = new Handler(Looper.getMainLooper());
-        initMediaSession();
         createNotificationChannel();
     }
     
-    private void initMediaSession() {
-        mediaSession = new MediaSessionCompat(this, "LuminaReader");
-        mediaSession.setCallback(new MediaSessionCompat.Callback() {
-            @Override
-            public void onPlay() {
-                sendBroadcast(new Intent("com.lumina.reader.TTS_RESUME"));
-            }
-            
-            @Override
-            public void onPause() {
-                sendBroadcast(new Intent("com.lumina.reader.TTS_PAUSE"));
-            }
-            
-            @Override
-            public void onStop() {
-                sendBroadcast(new Intent("com.lumina.reader.TTS_STOP"));
-            }
-        });
+    /**
+     * 服务被杀时自动重启（国产ROM关键保障）
+     */
+    private void scheduleRestart() {
+        Intent restartIntent = new Intent(getApplicationContext(), TTSForegroundService.class);
+        restartIntent.setAction("START");
+        PendingIntent pendingIntent = PendingIntent.getService(
+            getApplicationContext(), 0, restartIntent,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         
-        mediaSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | 
-                             MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
-        mediaSession.setActive(true);
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager != null) {
+            long triggerAt = System.currentTimeMillis() + 500;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // setAndAllowWhileIdle 不需要 SCHEDULE_EXACT_ALARM 权限
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            }
+        }
+    }
+    
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // 用户从任务列表划掉应用时，如果正在播放，自动重启服务
+        if (isPlaying) {
+            scheduleRestart();
+        }
+        super.onTaskRemoved(rootIntent);
+    }
+    
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopKeepAlive();
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        abandonAudioFocus();
+        // 如果还在播放状态（非正常停止），自动重启
+        if (isPlaying) {
+            scheduleRestart();
+        }
     }
     
     @Override
@@ -120,9 +136,6 @@ public class TTSForegroundService extends Service {
         Notification notification = buildNotification("正在朗读...", true);
         startForeground(NOTIFICATION_ID, notification);
         
-        // 设置媒体会话状态
-        updatePlaybackState(true);
-        
         // 启动保活机制 - 每 5 秒发送一次广播唤醒 WebView
         startKeepAlive();
     }
@@ -138,14 +151,12 @@ public class TTSForegroundService extends Service {
         
         abandonAudioFocus();
         
-        updatePlaybackState(false);
         stopForeground(true);
         stopSelf();
     }
     
     private void updateState(boolean playing, String title) {
         isPlaying = playing;
-        updatePlaybackState(playing);
         
         if (playing) {
             Notification notification = buildNotification(title != null ? title : "正在朗读...", true);
@@ -231,30 +242,11 @@ public class TTSForegroundService extends Service {
         }
     }
     
-    private void updatePlaybackState(boolean playing) {
-        PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
-            .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE | 
-                       PlaybackStateCompat.ACTION_STOP)
-            .setState(playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
-                     playing ? SystemClock.elapsedRealtime() : 0, 1.0f);
-        
-        mediaSession.setPlaybackState(stateBuilder.build());
-        mediaSession.setMetadata(new MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "流萤阅读器")
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "语音朗读")
-            .build());
-    }
-    
     private Notification buildNotification(String text, boolean playing) {
         Intent openIntent = new Intent(this, MainActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, openIntent,
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        
-        Intent pauseIntent = new Intent(this, TTSForegroundService.class);
-        pauseIntent.setAction("PAUSE");
-        PendingIntent pausePending = PendingIntent.getService(this, 1, pauseIntent,
-            PendingIntent.FLAG_IMMUTABLE);
         
         Intent stopIntent = new Intent(this, TTSForegroundService.class);
         stopIntent.setAction("STOP");
@@ -267,15 +259,13 @@ public class TTSForegroundService extends Service {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(contentIntent)
             .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setStyle(new MediaStyle()
-                .setMediaSession(mediaSession.getSessionToken())
-                .setShowActionsInCompactView(0, 1))
-            .addAction(playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                playing ? "暂停" : "继续", pausePending)
-            .addAction(android.R.drawable.ic_delete, "停止", stopPending);
+            .addAction(android.R.drawable.ic_delete, "停止朗读", stopPending);
+        
+        // Android 12+：前台服务必须立即启动
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+        }
         
         return builder.build();
     }
@@ -285,15 +275,20 @@ public class TTSForegroundService extends Service {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager == null) return;
             
-            // 检查渠道是否已存在
-            if (manager.getNotificationChannel(CHANNEL_ID) != null) {
+            NotificationChannel existing = manager.getNotificationChannel(CHANNEL_ID);
+            // 如果渠道已存在且重要性正确，不重创（避免覆盖用户自定义设置）
+            if (existing != null && existing.getImportance() >= NotificationManager.IMPORTANCE_DEFAULT) {
                 return;
+            }
+            // 如果存在但级别不够，删除后重建
+            if (existing != null) {
+                manager.deleteNotificationChannel(CHANNEL_ID);
             }
             
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             );
             channel.setDescription("语音朗读后台播放");
             channel.setSound(null, null);
@@ -311,17 +306,4 @@ public class TTSForegroundService extends Service {
         return binder;
     }
     
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        stopKeepAlive();
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-        abandonAudioFocus();
-        if (mediaSession != null) {
-            mediaSession.setActive(false);
-            mediaSession.release();
-        }
-    }
 }

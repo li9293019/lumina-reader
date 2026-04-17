@@ -116,9 +116,10 @@
 
     <!-- TTS 和后台播放 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 允许低电量模式下通过 AlarmManager 唤醒服务 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- 文件访问说明：
          本应用采用纯本地阅读模式，所有文件导入均通过系统文件选择器（SAF）

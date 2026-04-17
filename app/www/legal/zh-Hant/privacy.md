@@ -34,7 +34,6 @@
 
 - **INTERNET**：用於檢查應用程式更新、載入線上字型資源、以及 Azure TTS 語音合成服務。
 - **WAKE_LOCK / FOREGROUND_SERVICE**：用於保障後台語音朗讀（TTS）不被系統中斷。
-- **REQUEST_IGNORE_BATTERY_OPTIMIZATIONS**：用於向系統申請電池最佳化白名單，確保後台 TTS 穩定運行。
 - **BLUETOOTH**：用於響應藍牙耳機播放/暫停按鍵事件。
 
 **特別說明**：本軟體**不申請讀取/寫入外部儲存權限**。所有書籍匯入均透過 Android 系統檔案選擇器（SAF）由您主動選擇完成；匯出操作透過系統分享/儲存對話框完成。

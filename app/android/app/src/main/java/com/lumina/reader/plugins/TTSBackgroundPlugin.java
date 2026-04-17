@@ -103,4 +103,35 @@ public class TTSBackgroundPlugin extends Plugin {
             call.resolve(); // 低版本不需要
         }
     }
+    
+    /**
+     * 获取 ROM 品牌标识（用于后台播放引导提示）
+     * 直接返回简化品牌名，避免 JS 层解析 UA
+     */
+    @PluginMethod
+    public void getROMBrand(PluginCall call) {
+        JSObject result = new JSObject();
+        String brand = "other";
+        
+        String mfr = Build.MANUFACTURER;
+        String br = Build.BRAND;
+        String display = Build.DISPLAY;
+        
+        String combined = (mfr + " " + br + " " + display).toLowerCase();
+        
+        if (combined.contains("oppo") || combined.contains("realme") || combined.contains("coloros")) {
+            brand = "oppo";
+        } else if (combined.contains("xiaomi") || combined.contains("redmi") || combined.contains("miui") || combined.contains("poco")) {
+            brand = "xiaomi";
+        } else if (combined.contains("huawei") || combined.contains("honor") || combined.contains("emui") || combined.contains("harmony")) {
+            brand = "huawei";
+        } else if (combined.contains("vivo") || combined.contains("iqoo") || combined.contains("origin")) {
+            brand = "vivo";
+        } else if (combined.contains("samsung") || combined.contains("one ui")) {
+            brand = "samsung";
+        }
+        
+        result.put("brand", brand);
+        call.resolve(result);
+    }
 }

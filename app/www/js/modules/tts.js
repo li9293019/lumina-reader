@@ -688,29 +688,51 @@ Lumina.TTS.Manager = class {
         }
     }
     
-    // 检查并请求电池优化白名单（熄屏播放必需）
-    async checkBatteryOptimization() {
-        if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform?.()) return;
-        
+    // ROM 品牌检测（原生层直接返回，ColorOS 等 WebView UA 无法识别）
+    async _detectROM() {
         try {
             const TTSBackground = Capacitor.Plugins.TTSBackground;
-            if (!TTSBackground) return;
-            
-            const result = await TTSBackground.checkBatteryOptimization();
-            // console.log('[TTS] 电池优化检查:', result);
-            
-            if (result.needRequest && !this.batteryOptimizationRequested) {
-                this.batteryOptimizationRequested = true;
-                // 显示提示
-                Lumina.UI.showToast(Lumina.I18n.t('batteryOptimizationNeeded'), 5000);
-                // 延迟后请求
-                setTimeout(() => {
-                    TTSBackground.requestBatteryOptimization().catch(() => {});
-                }, 2000);
+            if (TTSBackground?.getROMBrand) {
+                const info = await TTSBackground.getROMBrand();
+                const brand = info.brand;
+                if (brand && brand !== 'other') {
+                    return brand;
+                }
             }
         } catch (e) {
-            console.warn('[TTS] 电池优化检查失败:', e);
+            console.warn('[TTS] ROM 检测失败:', e);
         }
+        return 'other';
+    }
+    
+    // 获取 ROM 后台播放引导文案
+    _getROMGuide(rom) {
+        const t = Lumina.I18n.t.bind(Lumina.I18n);
+        switch (rom) {
+            case 'oppo':
+                return t('romGuideOppo') || 'ColorOS：设置 → 电池 → 应用耗电管理 → 允许本应用后台运行';
+            case 'xiaomi':
+                return t('romGuideXiaomi') || 'MIUI：设置 → 省电与电池 → 应用智能省电 → 流萤阅读器 → 无限制';
+            case 'huawei':
+                return t('romGuideHuawei') || 'EMUI：设置 → 电池 → 启动管理 → 流萤阅读器 → 允许后台活动';
+            case 'vivo':
+                return t('romGuideVivo') || 'OriginOS：设置 → 电池 → 后台耗电管理 → 流萤阅读器 → 允许后台高耗电';
+            case 'samsung':
+                return t('romGuideSamsung') || '三星：设置 → 电池 → 后台使用限制 → 流萤阅读器 → 不优化';
+            default:
+                return t('romGuideGeneric') || '如熄屏播放中断，请前往系统设置允许本应用后台运行';
+        }
+    }
+    
+    // 检查并提示后台播放设置引导（替代电池优化弹窗）
+    async checkBatteryOptimization() {
+        if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform?.()) return;
+        if (this._romGuideShown) return;
+        
+        this._romGuideShown = true;
+        const title = Lumina.I18n.t('romGuideTitle') || '后台播放提示';
+        const guide = Lumina.I18n.t('romGuideGeneric') || '如熄屏播放中断，请前往系统设置允许本应用后台运行';
+        Lumina.UI.showDialog(guide, 'alert', null, { title });
     }
 
     start() {

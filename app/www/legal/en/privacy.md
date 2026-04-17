@@ -34,7 +34,6 @@ The system permissions required by the Software and their purposes are as follow
 
 - **INTERNET**: Used to check for app updates, load online font resources, and access the Azure TTS speech synthesis service.
 - **WAKE_LOCK / FOREGROUND_SERVICE**: Used to ensure background text-to-speech (TTS) is not interrupted by the system.
-- **REQUEST_IGNORE_BATTERY_OPTIMIZATIONS**: Used to request a battery optimization whitelist from the system to ensure stable background TTS operation.
 - **BLUETOOTH**: Used to respond to play/pause button events on Bluetooth headsets.
 
 **Special Note**: The Software **does not request read/write external storage permissions**. All book imports are completed through the Android system file picker (SAF) based on your active selection; export operations are completed through the system share/save dialog.

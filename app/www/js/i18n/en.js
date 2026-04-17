@@ -585,7 +585,7 @@ Lumina.I18n.data['en'] = {
         aiNoResult: 'Nothing to export',
         aiExported: 'Exported TXT',
         aiTruncated: 'Content truncated; edit above before sending',
-        aiModelPlaceholder: 'e.g. qwen2.5-3b',
+        aiModelPlaceholder: 'Please Select Model',
         aiRefreshModels: 'Refresh Models',
         aiModelsLoaded: 'Loaded $1 models',
         aiModelsLoadFailed: 'Failed to load models: $1',

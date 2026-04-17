@@ -585,7 +585,7 @@ Lumina.I18n.data['zh-TW'] = {
         aiNoResult: '沒有可匯出的內容',
         aiExported: '已匯出 TXT',
         aiTruncated: '內容已截斷，可在上方編輯後發送',
-        aiModelPlaceholder: '如：qwen2.5-3b',
+        aiModelPlaceholder: '請選擇模型',
         aiRefreshModels: '刷新模型',
         aiModelsLoaded: '已載入 $1 個模型',
         aiModelsLoadFailed: '取得模型失敗: $1',

@@ -40,13 +40,21 @@ Lumina.Exporter = {
     },
 
     generateMD() {
-        return Lumina.State.app.document.items.map((i, idx) => {
-            // 获取文本并转换
+        const doc = Lumina.State.app.document;
+        // 原始文档就是 Markdown 格式：拼接每个 item 的 raw 字段（保留原始 Markdown 语法）
+        if (doc.type === 'md') {
+            let content = doc.items.map(i => i.raw || '').join('\n');
+            if (Lumina.Converter?.isConverting && content) {
+                content = Lumina.Converter.convert(content);
+            }
+            return content;
+        }
+        // 其他格式：按现有简化逻辑导出为 Markdown
+        return doc.items.map((i, idx) => {
             let text = i.text || i.display || '';
             if (Lumina.Converter?.isConverting && text) {
                 text = Lumina.Converter.getConvertedText(i, idx);
             }
-            
             if (i.type === 'image') return `![${i.alt || 'image'}](${i.data})`;
             if (i.type === 'title') return `# ${text}`;
             if (i.type === 'subtitle') return `## ${text}`;

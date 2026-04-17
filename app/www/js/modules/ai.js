@@ -179,11 +179,22 @@ Lumina.AI = {
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             const rect = fab.getBoundingClientRect();
             this._dragOffset = { x: clientX - rect.left, y: clientY - rect.top };
+            this._dragStartPos = { x: clientX, y: clientY };
 
             const onMove = (ev) => {
-                this._isDragging = true;
                 const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
                 const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+                // 首次移动超过阈值才标记为拖动，同时取消长按
+                if (!this._isDragging && this._dragStartPos) {
+                    const dx = Math.abs(cx - this._dragStartPos.x);
+                    const dy = Math.abs(cy - this._dragStartPos.y);
+                    if (dx > 5 || dy > 5) {
+                        this._isDragging = true;
+                        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+                        isLongPress = false;
+                    }
+                }
+                if (!this._isDragging) return;
                 let nx = cx - this._dragOffset.x;
                 let ny = cy - this._dragOffset.y;
                 const safeB = this._getSafeAreaBottom();

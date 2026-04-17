@@ -1131,14 +1131,15 @@ Lumina.AI = {
         bar.classList.remove('hidden-anim');
     },
 
-    _updateContextBar() {
+    _updateContextBar(historyOverride = null) {
         const fill = document.getElementById('aiContextFill');
         if (!fill) return;
         const cfg = this.getConfig();
         const maxTokens = cfg.maxTokens || 4096;
         const systemPrompt = this._buildSystemPrompt();
         let usedTokens = this._estimateTokens(systemPrompt);
-        for (const m of this._chatHistory) {
+        const history = historyOverride || this._chatHistory;
+        for (const m of history) {
             usedTokens += this._estimateTokens(m.content || '');
         }
         // 当前引用
@@ -1327,6 +1328,9 @@ Lumina.AI = {
         const rawText = input.value.trim();
         if (!rawText) return;
 
+        // 清除旧的遗忘提示（本轮若无截断，不应再显示旧提示）
+        this._removeForgetHint();
+
         // 换书检测：如果当前书籍变了，清空历史
         const currentBookKey = Lumina.State.app.currentFile?.fileKey || Lumina.State.app.document?.fileKey || '';
         if (this._currentBookKey !== currentBookKey) {
@@ -1371,6 +1375,9 @@ Lumina.AI = {
         if (trimResult.forgotten > 0) {
             this._forgottenRounds += trimResult.forgotten;
             this._renderForgetHint(this._forgottenRounds);
+        } else {
+            // 本轮无截断，重置遗忘计数
+            this._forgottenRounds = 0;
         }
 
         // 如果清空历史后仍然超预算，优先截断本轮引用内容，而不是混合截断
@@ -1388,8 +1395,8 @@ Lumina.AI = {
             }
         }
 
-        // 发送前同步一次进度条，确保用户看到"已忘记..."提示时，条也是最新的
-        this._updateContextBar();
+        // 发送前同步一次进度条，使用截断后的历史，确保用户看到真实容量
+        this._updateContextBar(historyToSend);
 
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -1429,9 +1436,9 @@ Lumina.AI = {
                 } else {
                     if (bubbleEl) bubbleEl.innerHTML = this._renderMarkdown(reply);
                     this._finishStreamingChatBubble(quoteMeta || undefined);
-                    // 同步 _chatHistory 为实际发送的历史，确保进度条和导出口径一致
+                    // 同步 _chatHistory 为实际发送的历史，保存包含引用的 userContent
                     this._chatHistory = [...historyToSend];
-                    this._chatHistory.push({ role: 'user', content: rawText });
+                    this._chatHistory.push({ role: 'user', content: userContent });
                     this._chatHistory.push({ role: 'assistant', content: reply });
                 }
                 this._setSendButtonState(false);

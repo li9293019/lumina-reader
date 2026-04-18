@@ -614,19 +614,18 @@
             }
         }
 
-        async overwriteFile(fileKey, newData) {
+        async overwriteFile(oldKey, newKey, newData, oldData) {
             if (!this.isReady || !this.dbBridge) return false;
             try {
-                const existing = await this.getFile(fileKey);
-                if (!existing) return false;
-                const merged = H.mergeFileData(existing, newData);
+                await this.deleteFile(oldKey);
+                const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
                 const contentSize = new Blob([contentJson]).size;
-                const record = H.normalizeRecord(fileKey, merged, contentSize);
-                record.created_at = existing.created_at;
+                const record = H.normalizeRecord(newKey, merged, contentSize);
+                record.created_at = oldData?.created_at || H.getLocalTimeString();
 
-                await this.dbBridge.save(fileKey, record);
-                this.fileCache.set(fileKey, record);
+                await this.dbBridge.save(newKey, record);
+                this.fileCache.set(newKey, record);
                 this._invalidateListCache();
                 return true;
             } catch (e) {
@@ -858,19 +857,17 @@
             }
         }
 
-        async overwriteFile(fileKey, newData) {
+        async overwriteFile(oldKey, newKey, newData, oldData) {
             if (!this.isReady) return false;
             try {
-                const oldData = await this.getFile(fileKey);
-                if (!oldData) return false;
-                await this.deleteFile(fileKey);
+                await this.deleteFile(oldKey);
                 const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
                 const contentSize = new Blob([contentJson]).size;
-                const record = H.normalizeRecord(fileKey, merged, contentSize);
+                const record = H.normalizeRecord(newKey, merged, contentSize);
                 record.lastReadTime = H.getLocalTimeString();
-                record.created_at = oldData.created_at;
-                return this.saveFile(fileKey, record);
+                record.created_at = oldData?.created_at || H.getLocalTimeString();
+                return this.saveFile(newKey, record);
             } catch (error) {
                 window.logger?.error('SQLite', 'overwriteFile error', { error: error.message });
                 return false;

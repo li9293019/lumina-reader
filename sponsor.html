@@ -43,7 +43,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 16px;
+            padding: 24px;
             color: var(--text-primary);
             line-height: 1.65;
         }
@@ -147,6 +147,7 @@
 
         .qr-wrapper {
             width: 100%;
+            max-width: 150px;
             aspect-ratio: 1;
             margin: 0 auto 12px;
             background: #fff;
@@ -258,6 +259,14 @@
             top: 24px;
         }
 
+        /* 响应式：小屏幕宽度优化（主要针对移动端） */
+        @media (max-width: 400px) {
+            body { padding: 20px; }
+            .qr-section { gap: 10px; }
+            .qr-card { padding: 10px; }
+            .qr-wrapper { max-width: 130px; }
+        }
+
         /* 响应式：中等高度屏幕进一步紧凑 */
         @media (max-height: 850px) {
             .brand-section { margin-bottom: 16px; }
@@ -274,7 +283,7 @@
             .heart-icon { width: 24px; height: 24px; margin-bottom: 6px; }
             .thanks-text { font-size: 12px; }
             .lang-footer { padding-top: 10px; }
-            body { padding: 12px; }
+            body { padding: 20px; }
         }
 
         /* 响应式：小高度屏幕极致紧凑 */
@@ -291,7 +300,7 @@
             .thanks-section { padding: 2px 0 8px; }
             .heart-icon { width: 22px; height: 22px; margin-bottom: 4px; }
             .lang-footer { padding-top: 8px; }
-            body { padding: 10px; }
+            body { padding: 16px; }
         }
     </style>
 </head>

@@ -1,9 +1,9 @@
 // 本地版本信息（供 file:// 模式无 CORS 加载）
 // 与 version.json 保持同步
 window.AppVersion = {
-  "version": "2.1.2",
-  "build": "20250415",
+  "version": "2.1.3",
+  "build": "20250417",
   "minNativeVersion": "1.0.0",
   "requiresNativeUpdate": false,
-  "changelog": "修复了 PDF 密码预设器，优化了书库滑动体验"
+  "changelog": "修复分享卡动画与存储接口问题，完善架构文档与发布流程"
 };

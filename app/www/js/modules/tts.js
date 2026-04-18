@@ -1,4 +1,4 @@
-// ==================== 12. 语音朗读模块 ====================
+﻿// ==================== 12. 语音朗读模块 ====================
 
 Lumina.TTS.Manager = class {
     constructor() {
@@ -24,6 +24,7 @@ Lumina.TTS.Manager = class {
         this.isPageMode = false; // true=页面模式，false=段落模式
         this._longPressTimer = null;
         this._isLongPress = false;
+        this._speakTimer = null;
         
         // 插件引擎
         this.pluginEngine = null;
@@ -152,6 +153,12 @@ Lumina.TTS.Manager = class {
         this._isPressed = false;
         this._longPressTriggered = false;
     }
+
+    // 内部：延迟调度 speakCurrent，自动清理旧定时器
+    _speakAfter(ms) {
+        clearTimeout(this._speakTimer);
+        this._speakTimer = setTimeout(() => this.speakCurrent(), ms);
+    }
     
     // 短按：未播放时启动段落模式，播放中时停止
     toggleParagraphMode() {
@@ -197,7 +204,7 @@ Lumina.TTS.Manager = class {
                 
                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                setTimeout(() => this.speakCurrent(), 100);
+                this._speakAfter(100);
                 return;
             }
             
@@ -224,7 +231,7 @@ Lumina.TTS.Manager = class {
             setTimeout(() => {
                 const targetEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
                 if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(() => this.speakCurrent(), 200);
+                this._speakAfter(200);
             }, 300);
             
         } else {
@@ -244,7 +251,7 @@ Lumina.TTS.Manager = class {
             this.currentFileKey = state.currentFile?.fileKey;
             this.isPlaying = true;
             this.updateUI();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
         }
     }
     
@@ -725,14 +732,18 @@ Lumina.TTS.Manager = class {
     }
     
     // 检查并提示后台播放设置引导（替代电池优化弹窗）
+    // 持久化标记：仅在首次安装/清除数据后提示一次
     async checkBatteryOptimization() {
         if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform?.()) return;
         if (this._romGuideShown) return;
+        if (Lumina.ConfigManager?.get('meta.romGuideShown')) return;
         
         this._romGuideShown = true;
         const title = Lumina.I18n.t('romGuideTitle') || '后台播放提示';
         const guide = Lumina.I18n.t('romGuideGeneric') || '如熄屏播放中断，请前往系统设置允许本应用后台运行';
-        Lumina.UI.showDialog(guide, 'alert', null, { title });
+        Lumina.UI.showDialog(guide, 'alert', () => {
+            Lumina.ConfigManager?.set('meta.romGuideShown', true);
+        }, { title });
     }
 
     start() {
@@ -767,7 +778,7 @@ Lumina.TTS.Manager = class {
                 
                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                setTimeout(() => this.speakCurrent(), 100);
+                this._speakAfter(100);
                 return;
             }
             
@@ -789,7 +800,7 @@ Lumina.TTS.Manager = class {
             this.currentFileKey = state.currentFile?.fileKey;
             this.isPlaying = true;
             this.updateUI();
-            setTimeout(() => this.speakCurrent(), 200);
+            this._speakAfter(200);
             
         } else {
             this.currentItemIndex = Lumina.Renderer.getCurrentVisibleIndex();
@@ -808,7 +819,7 @@ Lumina.TTS.Manager = class {
             this.currentFileKey = state.currentFile?.fileKey;
             this.isPlaying = true;
             this.updateUI();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
         }
     }
 
@@ -846,6 +857,8 @@ Lumina.TTS.Manager = class {
         this.updateBackgroundState(false, Lumina.I18n.t('ttsPaused'));
         this.stopServiceKeepAlive();
         
+        clearTimeout(this._speakTimer);
+        this._speakTimer = null;
         window.getSelection().removeAllRanges();
     }
 
@@ -1380,7 +1393,7 @@ Lumina.TTS.Manager = class {
                 this.currentHighlightIndex = -1;
                 
                 Lumina.Renderer.renderCurrentChapter();
-                setTimeout(() => this.speakCurrent(), 300);
+                this._speakAfter(300);
                 return;
             } else {
                 this.stop();
@@ -1402,7 +1415,7 @@ Lumina.TTS.Manager = class {
             if (targetPageIdx !== currentPageIdx) {
                 state.currentPageIdx = targetPageIdx;
                 Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
-                setTimeout(() => this.speakCurrent(), 200);
+                this._speakAfter(200);
                 return;
             }
         }
@@ -1414,13 +1427,13 @@ Lumina.TTS.Manager = class {
         if (!item || item.type === 'image' || !itemText.trim()) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
-            setTimeout(() => this.speakCurrent(), 50);
+            this._speakAfter(50);
             return;
         }
         
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
         if (!this.currentParagraphEl) {
-            setTimeout(() => this.speakCurrent(), 300);
+            this._speakAfter(300);
             return;
         }
         
@@ -1555,7 +1568,7 @@ Lumina.TTS.Manager = class {
             if (this.isPlaying && e.error !== 'canceled') {
                 this.currentItemIndex++;
                 this.currentSentenceIndex = 0;
-                setTimeout(() => this.speakCurrent(), 100);
+                this._speakAfter(100);
             }
         };
         
@@ -1584,7 +1597,7 @@ Lumina.TTS.Manager = class {
                 this.currentHighlightIndex = -1;
                 
                 Lumina.Renderer.renderCurrentChapter();
-                setTimeout(() => this.speakCurrent(), 300);
+                this._speakAfter(300);
                 return;
             } else {
                 this.stop();
@@ -1606,7 +1619,7 @@ Lumina.TTS.Manager = class {
             if (targetPageIdx !== currentPageIdx) {
                 state.currentPageIdx = targetPageIdx;
                 Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
-                setTimeout(() => this.speakCurrent(), 200);
+                this._speakAfter(200);
                 return;
             }
         }
@@ -1618,7 +1631,7 @@ Lumina.TTS.Manager = class {
         if (!item || item.type === 'image' || !itemText.trim()) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
-            setTimeout(() => this.speakCurrent(), 50);
+            this._speakAfter(50);
             return;
         }
         
@@ -1676,7 +1689,7 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = 0;
             this.currentHighlightIndex = -1;
             this.clearAllHighlights();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
         }
     }
     
@@ -1707,7 +1720,7 @@ Lumina.TTS.Manager = class {
                 this.currentHighlightIndex = -1;
                 
                 Lumina.Renderer.renderCurrentChapter();
-                setTimeout(() => this.speakCurrent(), 300);
+                this._speakAfter(300);
                 return;
             } else {
                 this.stop();
@@ -1729,7 +1742,7 @@ Lumina.TTS.Manager = class {
             if (targetPageIdx !== currentPageIdx) {
                 state.currentPageIdx = targetPageIdx;
                 Lumina.Renderer.renderCurrentChapter(this.currentItemIndex);
-                setTimeout(() => this.speakCurrent(), 200);
+                this._speakAfter(200);
                 return;
             }
         }
@@ -1741,7 +1754,7 @@ Lumina.TTS.Manager = class {
         if (!item || item.type === 'image' || !itemText.trim()) {
             this.currentItemIndex++;
             this.currentSentenceIndex = 0;
-            setTimeout(() => this.speakCurrent(), 50);
+            this._speakAfter(50);
             return;
         }
         
@@ -1822,7 +1835,7 @@ Lumina.TTS.Manager = class {
                 if (e.message?.includes('未初始化') || e.message?.includes('失败')) {
                     // console.log('[TTS] 插件引擎不可用，切换到系统 TTS');
                     this.clearPluginEngine();
-                    setTimeout(() => this.speakCurrent(), 100);
+                    this._speakAfter(100);
                     return;
                 }
                 // 其他错误继续下一句
@@ -1836,7 +1849,7 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = 0;
             this.currentHighlightIndex = -1;
             this.clearAllHighlights();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
         }
     }
     
@@ -1866,7 +1879,7 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = 0;
             this.currentHighlightIndex = -1;
             this.clearAllHighlights();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
             return;
         }
         
@@ -1908,7 +1921,7 @@ Lumina.TTS.Manager = class {
             this.currentSentenceIndex = 0;
             this.currentHighlightIndex = -1;
             this.clearAllHighlights();
-            setTimeout(() => this.speakCurrent(), 100);
+            this._speakAfter(100);
         }
     }
     
@@ -2044,20 +2057,15 @@ Lumina.TTS.Manager = class {
         
         // 使用当前保存的句子数组（与朗读时一致），而不是重新从 DOM 获取
         const sentences = this.currentSentences;
-        // console.log('[TTS Debug] 句子数组:', sentences);
         
         if (!sentences || sentenceIndex >= sentences.length) {
-            // console.log('[TTS Debug] 句子索引越界或数组为空');
             return null;
         }
         
         const targetSentence = sentences[sentenceIndex];
-        // console.log('[TTS Debug] 目标句子:', targetSentence);
         
         // 获取 DOM 文本用于定位
         const fullText = this.currentParagraphEl.textContent;
-        // console.log('[TTS Debug] DOM文本长度:', fullText.length);
-        // console.log('[TTS Debug] DOM文本前100字:', fullText.substring(0, 100));
         
         // 计算该句子在段落中的位置（基于当前句子数组）
         let charIndex = 0;
@@ -2077,7 +2085,6 @@ Lumina.TTS.Manager = class {
         
         // 在 DOM 中查找目标句子
         let sentenceStart = fullText.indexOf(targetSentence, charIndex);
-        // console.log('[TTS Debug] 目标句子起始位置:', sentenceStart, '(从', charIndex, '开始查找)');
         
         // 如果精确查找失败，尝试模糊查找（忽略 Markdown 标记差异）
         if (sentenceStart < 0) {
@@ -2085,7 +2092,6 @@ Lumina.TTS.Manager = class {
             const cleanedSentence = this.cleanMarkdownMarks(targetSentence);
             const cleanedFullText = this.cleanMarkdownMarks(fullText);
             sentenceStart = cleanedFullText.indexOf(cleanedSentence, charIndex);
-            // console.log('[TTS Debug] 模糊查找结果:', sentenceStart);
             
             // 如果还是找不到，使用估算位置
             if (sentenceStart < 0) {
@@ -2117,15 +2123,12 @@ Lumina.TTS.Manager = class {
                 currentChar += nodeLength;
             }
             
-            // console.log('[TTS Debug] TreeWalker结果: startNode=', !!startNode, 'endNode=', !!endNode);
-            // console.log('[TTS Debug] startOffset=', startOffset, 'endOffset=', endOffset);
             
             if (startNode && endNode) {
                 // 验证 offset 是否有效
                 const startValid = startOffset >= 0 && startOffset <= startNode.textContent.length;
                 const endValid = endOffset >= 0 && endOffset <= endNode.textContent.length;
                 
-                // console.log('[TTS Debug] offset有效性: startValid=', startValid, 'endValid=', endValid);
                 
                 if (!startValid || !endValid) {
                     console.warn('[TTS] 高亮位置无效，跳过句子高亮');
@@ -2135,7 +2138,6 @@ Lumina.TTS.Manager = class {
                 range.setStart(startNode, startOffset);
                 range.setEnd(endNode, endOffset);
                 
-            // console.log('[TTS Debug] Range创建成功, canSurround=', this._canSurround(range));
                 
                 // 检查 Range 是否跨越元素边界
                 if (this._canSurround(range)) {
@@ -2144,12 +2146,10 @@ Lumina.TTS.Manager = class {
                     span.className = 'tts-sentence-highlight';
                     range.surroundContents(span);
                     this.sentenceElements.push(span);
-                // console.log('[TTS Debug] 单节点高亮成功');
                     return span;  // 返回高亮的 span
                 } else {
                     // 跨越边界时，使用安全的多节点高亮
                     const firstSpan = this._highlightCrossBoundary(range);
-                // console.log('[TTS Debug] 跨节点高亮结果:', firstSpan);
                     return firstSpan;  // 返回第一个高亮的 span
                 }
             } else {
@@ -2283,19 +2283,13 @@ Lumina.TTS.Manager = class {
         // 防御：如果不支持boundary，不执行
         if (!this.supportsBoundary) return;
         
-        // console.log('[TTS Debug] === highlightSentence (Web Speech) ===');
-        // console.log('[TTS Debug] sentenceIndex:', sentenceIndex);
-        // console.log('[TTS Debug] currentParagraphEl:', this.currentParagraphEl?.tagName);
-        // console.log('[TTS Debug] currentSentences:', this.currentSentences);
         
         if (!this.currentParagraphEl || !this.currentSentences[sentenceIndex]) {
-            // console.log('[TTS Debug] 缺少段落或句子');
             return;
         }
         
         // 统一检测：复杂结构使用段落级高亮
         if (this._shouldUseParagraphHighlight()) {
-            // console.log('[TTS Debug] 检测到复杂结构，使用段落级高亮');
             this.clearAllHighlights();
             this.currentParagraphEl.classList.add('tts-highlight');
             this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2310,12 +2304,9 @@ Lumina.TTS.Manager = class {
 
         const fullText = this.currentParagraphEl.textContent;
         const targetSentence = this.currentSentences[sentenceIndex];
-        // console.log('[TTS Debug] 目标句子:', targetSentence);
-        // console.log('[TTS Debug] DOM文本长度:', fullText.length);
         
         let charIndex = 0;
         for (let i = 0; i < sentenceIndex; i++) charIndex += this.currentSentences[i].length;
-        // console.log('[TTS Debug] 计算的起始位置:', charIndex);
 
         const range = document.createRange();
         const treeWalker = document.createTreeWalker(this.currentParagraphEl, NodeFilter.SHOW_TEXT, null, false);
@@ -2326,24 +2317,20 @@ Lumina.TTS.Manager = class {
             if (!startNode && currentChar + nodeLength > charIndex) {
                 startNode = node;
                 startOffset = charIndex - currentChar;
-                // console.log('[TTS Debug] 找到startNode:', node.textContent.substring(0, 20), 'offset:', startOffset);
             }
             if (startNode && currentChar + nodeLength >= charIndex + targetSentence.length) {
                 endNode = node;
                 endOffset = (charIndex + targetSentence.length) - currentChar;
-                // console.log('[TTS Debug] 找到endNode:', node.textContent.substring(0, 20), 'offset:', endOffset);
                 break;
             }
             currentChar += nodeLength;
         }
         
-        // console.log('[TTS Debug] TreeWalker结果: startNode=', !!startNode, 'endNode=', !!endNode);
 
         if (startNode && endNode) {
             try {
                 range.setStart(startNode, startOffset);
                 range.setEnd(endNode, endOffset);
-                // console.log('[TTS Debug] canSurround:', this._canSurround(range));
                 
                 // 检查 Range 是否跨越元素边界
                 if (this._canSurround(range)) {
@@ -2351,13 +2338,11 @@ Lumina.TTS.Manager = class {
                     highlightSpan.className = 'tts-sentence-highlight';
                     range.surroundContents(highlightSpan);
                     this.sentenceElements.push(highlightSpan);
-                    // console.log('[TTS Debug] 单节点高亮成功');
                     // 滚动到句子
                     highlightSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
                     // 跨越边界时，使用安全的多节点高亮
                     const firstSpan = this._highlightCrossBoundary(range);
-                    // console.log('[TTS Debug] 跨节点高亮结果:', firstSpan);
                     // 滚动到第一个高亮的 span
                     if (firstSpan) {
                         firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2372,7 +2357,6 @@ Lumina.TTS.Manager = class {
                 this.currentParagraphEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         } else {
-            // console.log('[TTS Debug] 未找到startNode或endNode');
         }
     }
 
@@ -2421,7 +2405,7 @@ Lumina.TTS.Manager = class {
         this.currentItemIndex++;
         this.currentSentenceIndex = 0;
         this.clearSentenceHighlights();
-        setTimeout(() => this.speakCurrent(), 50);
+        this._speakAfter(50);
     }
 
     updateUI() {

@@ -112,7 +112,7 @@ Lumina.Annotations = {
                         // 获取选区位置
                         try {
                             const range = currentSelection.getRangeAt(0);
-                            this.showContextMenu(menu, currentSelection, window.innerWidth <= 768);
+                            this.showContextMenu(menu, currentSelection, Lumina.Utils.isMobile());
                         } catch (e) {
                             // 如果无法获取范围，使用长按目标
                             if (this.longPressTarget) {
@@ -134,7 +134,7 @@ Lumina.Annotations = {
         if (contentArea) {
             // 阻止默认的上下文菜单
             contentArea.addEventListener('contextmenu', (e) => {
-                if (window.innerWidth < 768) {
+                if (Lumina.Utils.isMobile()) {
                     e.preventDefault();
                 }
                 return false;

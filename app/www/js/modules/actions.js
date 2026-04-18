@@ -57,7 +57,7 @@ Lumina.Actions = {
 
     async processFileContinue(file, fileKey) {
         // 移动端：关闭所有面板（热启动/文件唤醒时也生效）
-        const isMobileView = window.innerWidth <= 768;
+        const isMobileView = Lumina.Utils.isMobile();
         if (isMobileView) {
             Lumina.DOM.sidebarRight?.classList.remove('open');
             Lumina.DOM.historyPanel?.classList.remove('open');
@@ -266,7 +266,7 @@ Lumina.Actions = {
             Lumina.State.app.annotations = [];
             Lumina.Annotations.renderAnnotations();
 
-            const isMobileView = window.innerWidth <= 768;
+            const isMobileView = Lumina.Utils.isMobile();
             if (!isMobileView) {
                 // 桌面端：显示目录
                 Lumina.DOM.sidebarLeft.classList.add('visible');
@@ -585,7 +585,7 @@ Lumina.Actions = {
         }
         
         // 7.1 目录导航自动隐藏面板：移动端点击目录项后自动隐藏
-        if (window.innerWidth <= 768 && Lumina.DOM.sidebarLeft?.classList.contains('visible')) {
+        if (Lumina.Utils.isMobile() && Lumina.DOM.sidebarLeft?.classList.contains('visible')) {
             Lumina.DOM.sidebarLeft.classList.remove('visible');
             Lumina.DOM.readingArea?.classList.remove('with-sidebar');
             Lumina.State.settings.sidebarVisible = false;

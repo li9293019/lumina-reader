@@ -143,7 +143,7 @@ Lumina.Settings = {
         document.documentElement.style.setProperty('--line-height', (settings.lineHeight / 10).toString());
         document.documentElement.style.setProperty('--paragraph-spacing', `${settings.paragraphSpacing / 10}em`);
 
-        const isMobileView = window.innerWidth <= 768;
+        const isMobileView = Lumina.Utils.isMobile();
         document.documentElement.style.setProperty('--content-max-width', isMobileView ? '100%' : `${settings.pageWidth}%`);
         document.documentElement.style.setProperty('--content-padding', isMobileView ? '16px' : `${settings.margin}px`);
 

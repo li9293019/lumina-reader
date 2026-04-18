@@ -322,7 +322,7 @@ Lumina.BookDetail = {
         // 移除旧按钮和hover区域
         panel.querySelectorAll('.book-nav-zone').forEach(zone => zone.remove());
         
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = Lumina.Utils.isMobile();
         if (isMobile) return; // 移动端不显示按钮，使用滑动
         
         const total = this.fileList.length;
@@ -1383,7 +1383,7 @@ Lumina.BookDetail = {
     
     // 绑定封面滑动操作（移动端）
     bindCoverSwipeActions() {
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = Lumina.Utils.isMobile();
         if (!isMobile) return;
         
         const swipeLayer = document.getElementById('bookDetailCoverSwipeLayer');

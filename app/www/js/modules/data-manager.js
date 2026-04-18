@@ -805,7 +805,7 @@ Lumina.DataManager = class {
     // 统一绑定卡片事件（PC和移动端共用）
     bindCardEvents() {
         const grid = document.getElementById('dataGrid');
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = Lumina.Utils.isMobile();
         
         grid.querySelectorAll('.data-card').forEach(card => {
             const fileKey = card.dataset.filekey;
@@ -2753,7 +2753,7 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         Lumina.DOM.fileInfo.textContent = Lumina.Converter?.getDisplayTitle?.(fileData) || fileData.fileName;
         Lumina.DOM.welcomeScreen.style.display = 'none';
 
-        const isMobileView = window.innerWidth <= 768;
+        const isMobileView = Lumina.Utils.isMobile();
         if (!isMobileView) {
             // 桌面端：显示目录
             Lumina.DOM.sidebarLeft.classList.add('visible');

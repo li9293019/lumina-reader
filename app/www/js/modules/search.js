@@ -372,7 +372,7 @@ Lumina.Search = {
                 Lumina.Actions.navigateToChapter(chapterIndex, globalIndex);
 
                 // 移动端自动关闭搜索面板
-                if (window.innerWidth <= 768) {
+                if (Lumina.Utils.isMobile()) {
                     Lumina.DOM.searchPanel.classList.remove('open');
                 }
 
@@ -386,7 +386,7 @@ Lumina.Search = {
                         item.classList.add('active');
                         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                }, window.innerWidth <= 768 ? 400 : 150);
+                }, Lumina.Utils.isMobile() ? 400 : 150);
             });
         });
     },
@@ -467,7 +467,7 @@ Lumina.Search = {
                     Lumina.DataManager.openFile(fileKey);
                 }
                 
-                if (window.innerWidth <= 768) {
+                if (Lumina.Utils.isMobile()) {
                     Lumina.DOM.searchPanel.classList.remove('open');
                 }
             });

@@ -578,7 +578,7 @@ Lumina.UI = {
                 Lumina.DOM.searchPanel?.classList.remove('open');
                 Lumina.DOM.aboutPanel?.classList.remove('active');
                 // 移动端关闭侧边栏
-                if (window.innerWidth <= 768) {
+                if (Lumina.Utils.isMobile()) {
                     Lumina.DOM.sidebarLeft?.classList.remove('visible');
                     Lumina.DOM.readingArea?.classList.remove('with-sidebar');
                     Lumina.State.settings.sidebarVisible = false;
@@ -692,7 +692,7 @@ Lumina.UI = {
 
     setupCustomTooltip() {
         // 移动端/APP 环境不显示 tooltip（注释内容的 tooltip 除外，单独处理）
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = Lumina.Utils.isMobile();
         const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
         if (isMobile || isCapacitor) return;
         
@@ -713,7 +713,7 @@ Lumina.UI = {
 
     // 双指缩放字体功能（移动端）
     setupPinchZoom() {
-        if (window.innerWidth > 768) return;
+        if (!Lumina.Utils.isMobile()) return;
         
         let initialPinchDistance = 0;
         let initialFontSize = 0;

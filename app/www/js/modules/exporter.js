@@ -857,7 +857,7 @@ Lumina.Exporter = {
                     return;
                 }
                 
-                const isMobile = window.innerWidth <= 768;
+                const isMobile = Lumina.Utils.isMobile();
                 const offset = isMobile ? 70 : 80;
                 let top;
                 
@@ -907,7 +907,7 @@ Lumina.Exporter = {
             }, { passive: true });
             
             function onScroll() {
-                const isMobile = window.innerWidth <= 768;
+                const isMobile = Lumina.Utils.isMobile();
                 const offset = isMobile ? 70 : 80;
                 
                 const allTargets = $$('[id^="h-"], [id^="ch-"], .doc-title[id], .doc-subtitle[id]');

@@ -12,6 +12,16 @@ Lumina.ShareCard = {
     usedSeeds: new Set(),
     currentPatternId: 0,
     
+    // 缩放状态
+    _scale: 1,
+    _minScale: 0.5,
+    _maxScale: 4,
+    _isPinching: false,
+    _pinchStartDistance: 0,
+    _pinchStartScale: 1,
+    _scaleResetting: false,
+    _isAnimating: false,  // 入场/滑出/回弹动画期间锁
+    
     // 统一品牌样式
     BRAND_OPACITY: 0.85,
     BRAND_Y: 22,
@@ -61,8 +71,10 @@ Lumina.ShareCard = {
     },
     
     show(selectedText) {
-        // 重置关闭标志，允许再次关闭
+        // 重置状态
         this._isClosing = false;
+        this.currentX = 0;
+        this._scale = 1;
         
         // 保留分段信息（按换行符分割段落，过滤空段落和纯空白段落）
         this.paragraphs = selectedText
@@ -118,6 +130,9 @@ Lumina.ShareCard = {
     },
     
     generateCard() {
+        // 强制重置 transform 状态，避免上一场动画残留
+        this.currentX = 0;
+        
         const layoutType = this.getLayoutType(this.selectedText);
         
         const baseW = this.baseWidth;
@@ -149,6 +164,7 @@ Lumina.ShareCard = {
         this.cardEl.style.width = width + 'px';
         this.cardEl.style.height = height + 'px';
         
+        this._scale = 1;
         this.cardEl.style.transform = 'scale(0.95)';
         this.cardEl.style.opacity = '0';
         requestAnimationFrame(() => {
@@ -625,32 +641,133 @@ Lumina.ShareCard = {
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     },
     
+    // 统一更新 transform，避免散落各地的 style.transform 互相覆盖
+    _updateTransform({ x = this.currentX, rotate = this.currentX * 0.03, scale = this._scale, transition = false } = {}) {
+        if (!this.cardEl) return;
+        this.cardEl.style.transition = transition ? 'transform 0.3s ease, opacity 0.3s ease' : 'none';
+        this.cardEl.style.transform = `translateX(${x}px) rotate(${rotate}deg) scale(${scale})`;
+    },
+    
+    // 缩放回弹到 1:1
+    _resetScale() {
+        if (this._scale === 1) return;
+        if (this._isAnimating) return;
+        this._scale = 1;
+        this._scaleResetting = true;
+        this.currentX = 0;
+        this._updateTransform({ x: 0, rotate: 0, scale: 1, transition: true });
+        setTimeout(() => { this._scaleResetting = false; }, 300);
+    },
+    
     bindGestures() {
-        this.wrapper.addEventListener('touchstart', this.onStart.bind(this), { passive: true });
-        this.wrapper.addEventListener('touchmove', this.onMove.bind(this), { passive: true });
-        this.wrapper.addEventListener('touchend', this.onEnd.bind(this));
-        this.wrapper.addEventListener('mousedown', this.onStart.bind(this));
-        document.addEventListener('mousemove', this.onMove.bind(this));
-        document.addEventListener('mouseup', this.onEnd.bind(this));
+        // 触摸：双指缩放 + 单指滑动
+        this.wrapper.addEventListener('touchstart', this._onTouchStart.bind(this), { passive: false });
+        this.wrapper.addEventListener('touchmove', this._onTouchMove.bind(this), { passive: false });
+        this.wrapper.addEventListener('touchend', this._onTouchEnd.bind(this));
+        
+        // 鼠标：拖动
+        this.wrapper.addEventListener('mousedown', this._onMouseDown.bind(this));
+        document.addEventListener('mousemove', this._onMouseMove.bind(this));
+        document.addEventListener('mouseup', this._onMouseUp.bind(this));
+        
+        // 滚轮：缩放（PC）
+        this.wrapper.addEventListener('wheel', this._onWheel.bind(this), { passive: false });
     },
     
-    onStart(e) {
-        this.isDragging = true;
-        this.startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-        this.cardEl.style.transition = 'none';
+    // ========== 触摸事件 ==========
+    _onTouchStart(e) {
+        if (e.touches.length === 2) {
+            // 双指：进入缩放模式
+            this._isPinching = true;
+            this.isDragging = false;
+            
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            this._pinchStartDistance = Math.hypot(dx, dy);
+            this._pinchStartScale = this._scale;
+            
+            e.preventDefault();
+        } else if (e.touches.length === 1 && !this._isPinching) {
+            // 单指：如果当前有缩放，先回弹，不进入拖动
+            if (this._scale !== 1) {
+                this._resetScale();
+                return;
+            }
+            this._startDrag(e.touches[0].clientX);
+        }
     },
     
-    onMove(e) {
+    _onTouchMove(e) {
+        if (this._isPinching && e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const distance = Math.hypot(dx, dy);
+            
+            if (this._pinchStartDistance > 0) {
+                const ratio = distance / this._pinchStartDistance;
+                this._scale = Math.max(this._minScale, Math.min(this._maxScale, this._pinchStartScale * ratio));
+                this._updateTransform({ scale: this._scale });
+            }
+        } else if (!this._isPinching && this.isDragging && e.touches.length === 1) {
+            if (this._scaleResetting) return;
+            this._doDrag(e.touches[0].clientX);
+        }
+    },
+    
+    _onTouchEnd(e) {
+        if (this._isPinching && e.touches.length < 2) {
+            this._isPinching = false;
+        } else if (!this._isPinching) {
+            this._endDrag();
+        }
+    },
+    
+    // ========== 鼠标事件 ==========
+    _onMouseDown(e) {
+        if (this._scale !== 1) {
+            this._resetScale();
+            return;
+        }
+        this._startDrag(e.clientX);
+    },
+    
+    _onMouseMove(e) {
         if (!this.isDragging) return;
-        const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-        this.currentX = x - this.startX;
+        if (this._scaleResetting) return;
+        this._doDrag(e.clientX);
+    },
+    
+    _onMouseUp() {
+        this._endDrag();
+    },
+    
+    // ========== 滚轮缩放（PC） ==========
+    _onWheel(e) {
+        e.preventDefault();
+        if (this._isAnimating || this._scaleResetting) return;
+        const delta = e.deltaY > 0 ? 0.92 : 1.08;
+        this._scale = Math.max(this._minScale, Math.min(this._maxScale, this._scale * delta));
+        this._updateTransform({ transition: true });
+    },
+    
+    // ========== 拖动核心 ==========
+    _startDrag(clientX) {
+        this.isDragging = true;
+        this.startX = clientX;
+        this.currentX = 0;
+        this._updateTransform({ transition: false });
+    },
+    
+    _doDrag(clientX) {
+        this.currentX = clientX - this.startX;
         const rotate = this.currentX * 0.03;
-        this.cardEl.style.transform = `translateX(${this.currentX}px) rotate(${rotate}deg)`;
         const opacity = 1 - Math.abs(this.currentX) / 300;
+        this._updateTransform({ rotate });
         this.cardEl.style.opacity = Math.max(0.4, opacity);
     },
     
-    onEnd() {
+    _endDrag() {
         if (!this.isDragging) return;
         this.isDragging = false;
         
@@ -659,16 +776,17 @@ Lumina.ShareCard = {
         } else if (this.currentX < -this.threshold) {
             this.onSwitch();
         } else {
-            this.cardEl.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-            this.cardEl.style.transform = 'translateX(0) rotate(0)';
+            this.currentX = 0;
+            this._updateTransform({ x: 0, rotate: 0, transition: true });
             this.cardEl.style.opacity = '1';
         }
-        this.currentX = 0;
     },
     
     async onSave() {
+        this._isAnimating = true;
+        this._scale = 1;
         this.cardEl.style.transition = 'transform 0.3s ease, opacity 0.2s ease';
-        this.cardEl.style.transform = 'translateX(120%) rotate(15deg)';
+        this.cardEl.style.transform = 'translateX(120%) rotate(15deg) scale(1)';
         this.cardEl.style.opacity = '0';
         
         // 使用 Canvas 高清渲染
@@ -679,7 +797,23 @@ Lumina.ShareCard = {
             await this.saveCard(); // 降级
         }
         
-        setTimeout(() => this.close(), 300);
+        // 等待退场动画精确完成后再关闭，避免 setTimeout 与 CSS transition 竞态
+        let ended = false;
+        const onEnd = (e) => {
+            if (ended || e.propertyName !== 'transform') return;
+            ended = true;
+            this.cardEl.removeEventListener('transitionend', onEnd);
+            clearTimeout(fallbackTimer);
+            this._isAnimating = false;
+            this.close();
+        };
+        this.cardEl.addEventListener('transitionend', onEnd);
+        const fallbackTimer = setTimeout(() => {
+            if (ended) return;
+            this.cardEl.removeEventListener('transitionend', onEnd);
+            this._isAnimating = false;
+            this.close();
+        }, 400);
     },
     
     /**
@@ -988,21 +1122,13 @@ Lumina.ShareCard = {
         // --- 上半部分图案背景（intensity=1.0，与 SVG 一致）---
         this.renderPatternArea(ctx, 0, 0, w, halfH, palette, this.currentSeed, 1.0);
         
-        // --- 顶部渐变遮罩 + 品牌（右上角，避免与来源重叠）---
+        // --- 顶部渐变遮罩 ---
         const topMaskH = Math.floor(h * 0.12);
         const topGradient = ctx.createLinearGradient(0, 0, 0, topMaskH);
         topGradient.addColorStop(0, this.hexToRgba(palette.bg, 0.85));
         topGradient.addColorStop(1, this.hexToRgba(palette.bg, 0));
         ctx.fillStyle = topGradient;
         ctx.fillRect(0, 0, w, topMaskH);
-        
-        ctx.textAlign = 'right';
-        const brandSize = this.getBrandFontSize(fontSize);
-        ctx.font = `${brandSize}px ${fontStack}`;
-        ctx.fillStyle = palette.accent;
-        ctx.globalAlpha = 0.85;
-        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, Math.floor(h * 0.04));
-        ctx.globalAlpha = 1;
         
         // --- 下半部分白色背景 ---
         ctx.fillStyle = '#ffffff';
@@ -1023,6 +1149,15 @@ Lumina.ShareCard = {
         const lineHeight = Math.floor(fontSize * 1.7);
         const contentW = w - padding * 2 - Math.floor(fontSize * 0.3);
         const textStartY = lineY + lineGap + fontSize;
+        
+        // --- 品牌（右上角，fontSize 已定义后绘制）---
+        ctx.textAlign = 'right';
+        const brandSize = this.getBrandFontSize(fontSize);
+        ctx.font = `${brandSize}px ${fontStack}`;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.85;
+        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, Math.floor(h * 0.04));
+        ctx.globalAlpha = 1;
         
         // 分段渲染（使用当前字体栈）
         let allLines = [];
@@ -1337,10 +1472,31 @@ Lumina.ShareCard = {
     },
     
     onSwitch() {
+        this._isAnimating = true;
+        this._scale = 1;
         this.cardEl.style.transition = 'transform 0.3s ease, opacity 0.2s ease';
-        this.cardEl.style.transform = 'translateX(-120%) rotate(-15deg)';
+        this.cardEl.style.transform = 'translateX(-120%) rotate(-15deg) scale(1)';
         this.cardEl.style.opacity = '0';
-        setTimeout(() => this.generateCard(), 300);
+        
+        // 等待退场动画精确完成后再生成新卡片，避免 setTimeout 与 CSS transition 竞态
+        let ended = false;
+        const onEnd = (e) => {
+            if (ended || e.propertyName !== 'transform') return;
+            ended = true;
+            this.cardEl.removeEventListener('transitionend', onEnd);
+            clearTimeout(fallbackTimer);
+            this._isAnimating = false;
+            this._scale = 1;
+            this.generateCard();
+        };
+        this.cardEl.addEventListener('transitionend', onEnd);
+        const fallbackTimer = setTimeout(() => {
+            if (ended) return;
+            this.cardEl.removeEventListener('transitionend', onEnd);
+            this._isAnimating = false;
+            this._scale = 1;
+            this.generateCard();
+        }, 400);
     },
     
     async saveCard() {

@@ -13,9 +13,13 @@ Lumina.ShareCard = {
     currentPatternId: 0,
     
     // 统一品牌样式
-    BRAND_SIZE: 11,
-    BRAND_OPACITY: 0.6,
+    BRAND_OPACITY: 0.85,
     BRAND_Y: 22,
+    
+    // 品牌名字号：跟随正文字号的 0.618（黄金比例），最小 11px
+    getBrandFontSize(baseFontSize) {
+        return Math.max(11, Math.floor(baseFontSize * 0.618));
+    },
     
     // 高清输出配置
     EXPORT_CONFIG: {
@@ -261,7 +265,7 @@ Lumina.ShareCard = {
         
         const t = Lumina.I18n.t;
         const brandY = h - Math.floor(h * 0.04);
-        svg += `<text x="${Math.floor(w/2)}" y="${brandY}" text-anchor="middle" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${Math.floor(w/2)}" y="${brandY}" text-anchor="middle" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },
@@ -342,9 +346,15 @@ Lumina.ShareCard = {
         const source = this.buildSource(contentW);
         svg += `<text x="${padding}" y="${bottomY}" font-size="${Math.max(11, Math.floor(w * 0.022))}" font-style="italic" fill="#888">${this.escapeXml(source)}</text>`;
         
+        // 顶部渐变遮罩 + 品牌（右上角，避免与来源重叠）
+        const topMaskH = Math.floor(h * 0.12);
+        const topGradId = `topMask-${seed}`;
+        svg += `<defs><linearGradient id="${topGradId}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="${palette.bg}" stop-opacity="0.85"/><stop offset="100%" stop-color="${palette.bg}" stop-opacity="0"/></linearGradient></defs>`;
+        svg += `<rect x="0" y="0" width="${w}" height="${topMaskH}" fill="url(#${topGradId})"/>`;
+        
         const t = Lumina.I18n.t;
-        const brandY = h - Math.floor(h * 0.04);
-        svg += `<text x="${w - padding}" y="${brandY}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        const brandY = Math.floor(h * 0.04);
+        svg += `<text x="${w - padding}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },
@@ -475,7 +485,7 @@ Lumina.ShareCard = {
         // 品牌（右对齐，与文本右边界对齐）
         const t = Lumina.I18n.t;
         const brandY = h - Math.floor(h * 0.04);
-        svg += `<text x="${textRightX}" y="${brandY}" text-anchor="end" font-size="${this.BRAND_SIZE}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${textRightX}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
         
         return svg;
     },
@@ -575,39 +585,6 @@ Lumina.ShareCard = {
         }
         
         return lines;
-    },
-    
-    measureTextWithLimit(text, maxWidth, fontSize, maxLines) {
-        const allLines = this.measureText(text, maxWidth, fontSize);
-        
-        if (allLines.length <= maxLines) {
-            return allLines;
-        }
-        
-        let cutIndex = maxLines - 1;
-        
-        for (let i = maxLines - 1; i >= Math.max(0, maxLines - 3); i--) {
-            if (allLines[i] && /[。\.]$/.test(allLines[i])) {
-                cutIndex = i + 1;
-                break;
-            }
-            if (allLines[i] && /[。\.][^。\.]*$/.test(allLines[i])) {
-                const match = allLines[i].match(/^(.*?[。\.])([^。\.]*)$/);
-                if (match) {
-                    allLines[i] = match[1];
-                    cutIndex = i + 1;
-                    break;
-                }
-            }
-        }
-        
-        const result = allLines.slice(0, cutIndex);
-        
-        const lastLine = result[result.length - 1];
-        const isCJK = /[\u4e00-\u9fa5]/.test(lastLine);
-        result[result.length - 1] = allLines[lastIdx].substring(0, allLines[lastIdx].length - 2) + (isCJK ? '……' : '...');
-        
-        return result;
     },
     
     buildSource(maxWidth) {
@@ -936,7 +913,7 @@ Lumina.ShareCard = {
         ctx.stroke();
         
         // --- 来源（使用阅读器字体，与 SVG 一致）---
-        const source = this.buildSource(contentW, bookInfo);
+        const source = this.buildSource(contentW);
         const sourceSize = Math.max(12, Math.floor(w * 0.024));
         ctx.font = `italic ${sourceSize}px ${fontStack}`;
         ctx.fillStyle = '#666';
@@ -944,9 +921,10 @@ Lumina.ShareCard = {
         
         // --- 品牌 ---
         const brandY = h - Math.floor(h * 0.04);
-        ctx.font = `11px ${fontStack}`;
+        const brandSize = this.getBrandFontSize(fontSize);
+        ctx.font = `${brandSize}px ${fontStack}`;
         ctx.fillStyle = palette.accent;
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.85;
         ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w / 2, brandY);
         ctx.globalAlpha = 1;
     },
@@ -1009,6 +987,22 @@ Lumina.ShareCard = {
         
         // --- 上半部分图案背景（intensity=1.0，与 SVG 一致）---
         this.renderPatternArea(ctx, 0, 0, w, halfH, palette, this.currentSeed, 1.0);
+        
+        // --- 顶部渐变遮罩 + 品牌（右上角，避免与来源重叠）---
+        const topMaskH = Math.floor(h * 0.12);
+        const topGradient = ctx.createLinearGradient(0, 0, 0, topMaskH);
+        topGradient.addColorStop(0, this.hexToRgba(palette.bg, 0.85));
+        topGradient.addColorStop(1, this.hexToRgba(palette.bg, 0));
+        ctx.fillStyle = topGradient;
+        ctx.fillRect(0, 0, w, topMaskH);
+        
+        ctx.textAlign = 'right';
+        const brandSize = this.getBrandFontSize(fontSize);
+        ctx.font = `${brandSize}px ${fontStack}`;
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.85;
+        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, Math.floor(h * 0.04));
+        ctx.globalAlpha = 1;
         
         // --- 下半部分白色背景 ---
         ctx.fillStyle = '#ffffff';
@@ -1088,20 +1082,12 @@ Lumina.ShareCard = {
         const bottomY = h - Math.floor(h * 0.04);
         
         // 来源（左对齐，使用阅读器字体，与 SVG 一致）
-        const source = this.buildSource(contentW, bookInfo);
+        const source = this.buildSource(contentW);
         const sourceSize = Math.max(11, Math.floor(w * 0.022));
         ctx.font = `italic ${sourceSize}px ${fontStack}`;
         ctx.fillStyle = '#888';
         ctx.textAlign = 'left';
         ctx.fillText(source, padding, bottomY);
-        
-        // 品牌（右对齐，使用阅读器字体）
-        ctx.textAlign = 'right';
-        ctx.font = `11px ${fontStack}`;
-        ctx.fillStyle = palette.accent;
-        ctx.globalAlpha = 0.6;
-        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, bottomY);
-        ctx.globalAlpha = 1;
     },
     
     /**
@@ -1229,16 +1215,17 @@ Lumina.ShareCard = {
         ctx.stroke();
         
         // 来源（左对齐，使用阅读器字体，与 SVG 一致）
-        const source = this.buildSource(maxLineWidth, bookInfo);
+        const source = this.buildSource(maxLineWidth);
         ctx.font = `italic ${Math.max(11, Math.floor(w * 0.022))}px ${fontStack}`;
         ctx.fillStyle = '#888';
         ctx.fillText(source, textLeftX, separatorY + Math.floor(h * 0.035));
         
         // 品牌（右对齐，与文本右边界对齐，使用阅读器字体）
         ctx.textAlign = 'right';
-        ctx.font = `11px ${fontStack}`;
+        const brandSize = this.getBrandFontSize(fontSize);
+        ctx.font = `${brandSize}px ${fontStack}`;
         ctx.fillStyle = palette.accent;
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.85;
         ctx.fillText(Lumina.I18n.t('fromLuminaReader'), textRightX, h - Math.floor(h * 0.04));
         ctx.globalAlpha = 1;
     },

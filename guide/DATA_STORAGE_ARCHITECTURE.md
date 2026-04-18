@@ -37,21 +37,21 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 模式选择逻辑 (init.js)
+### 1.2 模式选择逻辑 (db.js)
 
 ```javascript
 const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
-let STORAGE_BACKEND = isCapacitor ? 'capacitor' : 
-                      (location.href.startsWith('http') ? 'sqlite' : 'indexeddb');
+let STORAGE_BACKEND = isCapacitor ? 'capacitor-sqlite' : 
+                      (location.protocol === 'file:' ? 'indexeddb' : 'sqlite');
 ```
 
 | 运行环境 | 自动选择模式 | 数据存储位置 | 文件 |
 |---------|------------|-------------|------|
 | 纯 Web (file://) | `indexeddb` | 浏览器 IndexedDB | `db.js` |
-| Web + Python 后端 | `sqlite` | 后端 SQLite + 浏览器 IndexedDB(缓存) | `db.js` |
-| App (iOS/Android) | `capacitor` | 设备本地 SQLite | `db.js` |
+| Web + Python 后端 (http/https) | `sqlite` | 后端 SQLite + 浏览器 IndexedDB(缓存) | `db.js` |
+| App (iOS/Android) | `capacitor-sqlite` | 设备本地 SQLite | `db.js` |
 
-**注意:** `storage.js` 是历史遗留文件，当前未被使用，所有模式均使用 `db.js`。
+**注意:** 模式选择逻辑位于 `db.js` 的 `StorageAdapter.init()` 中。`db-helpers.js` 提供数据合并、标准化、导入导出等通用逻辑，被所有实现类共用。
 
 ---
 
@@ -69,9 +69,11 @@ let STORAGE_BACKEND = isCapacitor ? 'capacitor' :
     fileKey: "string",           // 文件唯一标识
     fileName: "string",          // 原始文件名
     fileType: "txt|epub|pdf",    // 文件类型
-    fileSize: 12345,             // 字节数
+    fileSize: 12345,             // 原始文件字节数
+    contentSize: 50000,          // 序列化后 content 字节数（用于存储统计）
     content: [...],              // 解析后的章节数组
     wordCount: 50000,            // 字数统计
+    totalItems: 120,             // 章节/item 总数
     lastChapter: 5,              // 最后阅读章节
     lastScrollIndex: 100,        // 滚动位置
     chapterTitle: "第一章",      // 章节标题
@@ -91,17 +93,23 @@ let STORAGE_BACKEND = isCapacitor ? 'capacitor' :
 - 单本大小: 受浏览器限制 (通常 50MB+)
 - 总容量: 受浏览器存储配额限制
 
-**saveFile 合并逻辑 (2026-04-02 修复):**
+**saveFile 合并逻辑 (db-helpers.js):**
+
 ```javascript
 // 关键：查询现有数据并合并，避免重新打开文件时丢失阅读进度
+// 注意：lastChapter / lastScrollIndex / chapterTitle 不在显式保护列表中，
+//       若传入的 data 包含这些字段（即使是 0 或空字符串），会直接覆盖 existing
 const mergedData = existingRecord ? {
     ...existingRecord,  // 保留所有现有字段
     ...data,            // 用新数据覆盖
-    // 特殊处理：如果 data 中某项为 undefined 但 existing 有值，保留 existing
+    // 显式保护：undefined 时保留 existing
     annotations: data.annotations !== undefined ? data.annotations : existingRecord.annotations,
     heatMap: data.heatMap !== undefined ? data.heatMap : existingRecord.heatMap,
     metadata: data.metadata !== undefined ? data.metadata : existingRecord.metadata,
     cover: data.cover !== undefined ? data.cover : existingRecord.cover,
+    content: data.content !== undefined ? data.content : existingRecord.content,
+    customRegex: data.customRegex !== undefined ? data.customRegex : existingRecord.customRegex,
+    chapterNumbering: data.chapterNumbering !== undefined ? data.chapterNumbering : existingRecord.chapterNumbering,
 } : data;
 ```
 
@@ -218,16 +226,9 @@ const record = {
 
 **saveFile 合并逻辑:**
 ```javascript
-// 已有完善的合并逻辑
-const existing = this.cache.get(fileKey) || {};
-const mergedData = {
-    ...existing,
-    ...data,
-    annotations: mergedAnnotations,
-    heatMap: mergedHeatMap,
-    metadata: mergedMetadata,
-    fileKey
-};
+// 复用 db-helpers.js 的 mergeFileData 进行统一合并
+const existing = this.cache.get(fileKey) || await this.getFile(fileKey);
+const mergedData = Lumina.DB.DBHelpers.mergeFileData(existing, data);
 ```
 
 ---
@@ -395,7 +396,8 @@ const stats = await Lumina.DB.adapter.impl.getCacheStats?.();
 console.log('Cache Stats:', stats);
 
 // 清空内存缓存 (调试用)
-Lumina.DB.adapter.impl.cache?.clear();
+// 注意：IndexedDBImpl 没有 cache 属性，仅在 SQLiteImpl / CapacitorSQLiteImpl 下有效
+Lumina.DB.adapter.impl.cache?.clear?.();
 ```
 
 ---
@@ -442,7 +444,7 @@ console.log('Backend:', Lumina.DB.adapter.impl.constructor.name);
 | 方法 | 描述 | IndexedDB | Web SQLite | Capacitor |
 |-----|------|-----------|------------|-----------|
 | `init()` | 初始化存储 | ✅ | ✅ | ✅ |
-| `getFileSmart(fileKey)` | 智能读取 (优先缓存) | ❌ | ✅ | ❌ |
+| `getFileSmart(fileKey)` | 智能读取 (优先缓存) | ✅ | ✅ | ✅ |
 | `getFile(fileKey)` | 直接读取 | ✅ | ✅ | ✅ |
 | `saveFile(fileKey, data)` | 保存文件（带合并） | ✅ | ✅ | ✅ |
 | `deleteFile(fileKey)` | 删除文件 | ✅ | ✅ | ✅ |
@@ -455,10 +457,10 @@ console.log('Backend:', Lumina.DB.adapter.impl.constructor.name);
 
 ```
 app/www/js/modules/
-├── db.js              # 核心存储层 (三种实现 + WebCache)
+├── db.js              # 核心存储层 (StorageAdapter + 三种实现 + WebCache)
+├── db-helpers.js      # 数据合并/标准化/导入导出（被所有实现类共用）
 ├── cache-manager.js   # 缓存管理 UI (Web SQLite 专用)
-├── data-manager.js    # 书库管理 UI
-└── storage.js         # ❌ 历史遗留，未使用
+└── data-manager.js    # 书库管理 UI
 
 app/www/css/
 ├── main.css           # about-panel 样式 (复用)

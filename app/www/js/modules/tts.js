@@ -154,7 +154,11 @@ Lumina.TTS.Manager = class {
         this._longPressTriggered = false;
     }
 
-    // 内部：延迟调度 speakCurrent，自动清理旧定时器
+    /**
+     * 延迟调度 speakCurrent，自动清理旧定时器。
+     * 用于避免多个 setTimeout 并发导致状态混乱。
+     * @param {number} ms - 延迟毫秒数
+     */
     _speakAfter(ms) {
         clearTimeout(this._speakTimer);
         this._speakTimer = setTimeout(() => this.speakCurrent(), ms);
@@ -731,8 +735,13 @@ Lumina.TTS.Manager = class {
         }
     }
     
-    // 检查并提示后台播放设置引导（替代电池优化弹窗）
-    // 持久化标记：仅在首次安装/清除数据后提示一次
+    /**
+     * 检查并提示后台播放设置引导（ROM 电池优化白名单）。
+     * 仅在 APP 端、首次启动时展示一次，通过 meta.romGuideShown 持久化。
+     * 
+     * 注意：不同 ROM（小米/华为/OPPO/vivo/三星）的限制策略不同，
+     * 用户需手动将应用加入白名单才能确保熄屏播放不中断。
+     */
     async checkBatteryOptimization() {
         if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform?.()) return;
         if (this._romGuideShown) return;
@@ -1355,6 +1364,14 @@ Lumina.TTS.Manager = class {
         this.pluginEngine = null;
     }
 
+    /**
+     * TTS 引擎分发入口。按优先级自动选择可用引擎：
+     * 1. Azure TTS 插件（在线/高品质）
+     * 2. 原生 TTS（APP 离线）
+     * 3. Web Speech API（Web 离线/兜底）
+     * 
+     * 每次调用前检查 isPlaying，防止状态错乱。
+     */
     async speakCurrent() {
         if (!this.isPlaying) return;
         

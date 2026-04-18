@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Android-blue)
-![Tech](https://img.shields.io/badge/Tech-Capacitor%206%20%2B%20Vanilla%20JS-green)
+![Tech](https://img.shields.io/badge/Tech-Capacitor%208%20%2B%20Vanilla%20JS-green)
 
 ## 预览
 
@@ -29,7 +29,7 @@
 ```
 LuminaReader/
 ├── app/                          # Android App + Web 共享前端
-│   ├── android/                  # Android 原生项目 (Capacitor 6)
+│   ├── android/                  # Android 原生项目 (Capacitor 8)
 │   │   ├── app/src/main/assets/  # Web 资源打包目录
 │   │   └── build/                # 构建输出（含 APK）
 │   ├── www/                      # 【核心】Web 前端代码（Web/App 共享）
@@ -61,9 +61,16 @@ LuminaReader/
 │   │   │   │   ├── exporter.js          # 导出功能
 │   │   │   │   ├── crypto.js            # AES-256-GCM 加密
 │   │   │   │   ├── font-manager.js      # 字体管理
-│   │   │   │   ├── cover-generator.js   # 封面生成
+│   │   │   │   ├── bibliomorph-cover.js # Bibliomorph 封面生成
+│   │   │   │   ├── pattern-warehouse.js # Pattern Warehouse 图案库
 │   │   │   │   ├── share-card.js        # 分享卡片
 │   │   │   │   ├── book-detail.js       # 书籍详情
+│   │   │   │   ├── about.js             # 关于页面
+│   │   │   │   ├── update-manager.js    # 更新管理
+│   │   │   │   ├── converter.js         # 格式转换
+│   │   │   │   ├── metadata-extractor.js# 元数据提取
+│   │   │   │   ├── db-helpers.js        # 数据库辅助
+│   │   │   │   ├── export-utils.js      # 导出工具
 │   │   │   │   ├── plugin-manager.js    # 插件系统管理器
 │   │   │   │   └── init.js              # 应用初始化
 │   │   │   ├── plugins/          # 插件目录
@@ -77,11 +84,6 @@ LuminaReader/
 │   │   │   │       ├── azure-tts.engine.js
 │   │   │   │       ├── azure-tts.task-manager.js
 │   │   │   │       └── speech-sdk.bundle.js
-│   │   │   └── bridges/          # 桥接模块
-│   │   │       ├── exporter-bridge.js   # 导出桥接
-│   │   │       ├── db-bridge.js         # 数据库桥接
-│   │   │       ├── file-opener-bridge.js # 文件打开桥接
-│   │   │       └── safe-area.js         # 安全区域处理
 │   │   └── assets/               # 静态资源
 │   │       ├── fonts/            # 字体文件（霞鹜文楷等）
 │   │       └── js/lib/           # 前端 JS 库
@@ -91,10 +93,24 @@ LuminaReader/
 │   ├── server.py                 # Python HTTP 服务器
 │   ├── start.bat                 # Windows 启动脚本
 │   └── data/                     # 运行时数据（自动创建，不提交 Git）
-├── guide/                        # 架构文档
-│   ├── ARCHITECTURE.md           # 核心架构文档
-│   ├── APP_ARCHITECTURE.md       # APP 端架构详解
-│   └── DATA_STORAGE_ARCHITECTURE.md # 存储架构详解
+├── guide/                        # 架构文档（17 份）
+│   ├── ARCHITECTURE.md           # 核心架构与开发规范
+│   ├── APP_ARCHITECTURE.md       # APP 端技术架构
+│   ├── APP_BACK_BUTTON_ARCHITECTURE.md # 返回按钮机制
+│   ├── APP_UPDATE_ARCHITECTURE.md # 自动更新机制
+│   ├── AI_ARCHITECTURE.md        # 本地 AI 系统架构
+│   ├── COVER_SYSTEM_ARCHITECTURE.md # 封面系统（Bibliomorph v3.0）
+│   ├── CRYPTO_ARCHITECTURE.md    # 加密机制
+│   ├── CSS_ARCHITECTURE_GUIDE.md # 样式架构
+│   ├── DATA_STORAGE_ARCHITECTURE.md # 数据存储架构
+│   ├── FONT_MANAGEMENT_ARCHITECTURE.md # 字体管理系统
+│   ├── IMPORT_EXPORT_ARCHITECTURE.md # 导入导出系统
+│   ├── LOGGER_USAGE.md           # 日志系统使用
+│   ├── MARKDOWN_PLUGIN_ARCHITECTURE.md # Markdown 插件
+│   ├── PATTERNS_LAYOUT_ARCHITECTURE.md # 封面与书签生成
+│   ├── REFACTORING_ROADMAP.md    # 重构路线图
+│   ├── STORAGE_LAYER_REFACTORING_GUIDE.md # 存储层重构
+│   └── FUTURE_ITERATIONS_EXPLORATION.md # 未来规划
 ├── demo/                         # 演示页面
 └── README.md                     # 项目说明
 ```
@@ -376,10 +392,11 @@ git push
 | 层级 | 技术 | 说明 |
 |------|------|------|
 | 前端 | HTML5 + CSS3 + Vanilla JS（ES6 模块化） | 无重型框架，零运行时开销 |
-| 移动端 | Capacitor 6 + Android SDK | 现代跨平台方案，接近原生性能 |
+| 移动端 | Capacitor 8 + Android SDK | 现代跨平台方案，接近原生性能 |
 | Web 服务器 | Python 3 标准库 | 零依赖，开箱即用 |
 | 存储 | IndexedDB (Web) / SQLite (App) | 存储适配器模式，按需适配 |
 | 加密 | AES-256-GCM (Web Crypto API) | 浏览器原生加密 API |
+| AI 后端 | LM Studio / Ollama（OpenAI 兼容接口）| 本地运行，数据不出设备 |
 | 插件系统 | 基于钩子的事件驱动架构 | 核心与扩展完全解耦 |
 | 代码高亮 | PrismJS | 按需加载，轻量高效 |
 | 构建工具 | browserify | 打包 Azure TTS SDK |
@@ -393,6 +410,7 @@ git push
 - [x] TXT - 纯文本（智能编码检测：UTF-8/GBK/Big5/ANSI）
 - [x] Markdown - 富文本渲染（标题、列表、代码块、表格）
 - [x] HTML - 网页文档（标签清理）
+- [x] EPUB - 电子书解析（ZIP + OPF/XML）
 - [x] PDF - 支持密码保护和文本提取
 
 ### 阅读体验
@@ -415,6 +433,8 @@ git push
 ### 语音朗读
 - [x] 系统 TTS 引擎（离线）
 - [x] Azure TTS 高品质语音（在线）
+- [x] 三层降级（Azure → 原生 → Web Speech）
+- [x] APP 前台服务保活（后台朗读不中断）
 - [x] 语速/音调调节
 - [x] 预加载缓存
 - [x] 定时停止
@@ -424,12 +444,21 @@ git push
 - [x] 阅读进度自动保存
 - [x] 批量导入/导出
 - [x] 加密导出（AES-256-GCM）
-- [x] 哈希封面生成
+- [x] 哈希封面生成（Bibliomorph v3.0 文字排版封面）
+- [x] 书籍详情页（阅读统计、标签管理）
+- [x] 分享卡片（书签）—— 双轨渲染 SVG/Canvas，支持缩放与滑动切换
 
 ### G点热力图
 - [x] 关键词高亮
 - [x] 标签预设管理
 - [x] 一键应用预设
+
+### 本地 AI（离线优先）
+- [x] 接入 LM Studio / Ollama（OpenAI 兼容接口）
+- [x] 划词 AI 交互（翻译 / 解释 / 润色 / 续写）
+- [x] 对话历史与上下文管理
+- [x] 流式响应与 Markdown 渲染
+- [x] 本地运行，数据不出设备
 
 ### 配置管理
 - [x] 统一配置管理器（ConfigManager）
@@ -442,14 +471,6 @@ git push
 - [x] Markdown 富文本插件
 - [x] 代码高亮（16种语言，6种主题）
 - [x] Azure TTS 插件
-
----
-
-## 相关文档
-
-- [ARCHITECTURE.md](guide/ARCHITECTURE.md) - 核心架构文档
-- [APP_ARCHITECTURE.md](guide/APP_ARCHITECTURE.md) - APP 端技术架构
-- [DATA_STORAGE_ARCHITECTURE.md](guide/DATA_STORAGE_ARCHITECTURE.md) - 数据存储架构
 
 ---
 

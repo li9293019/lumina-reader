@@ -3,6 +3,15 @@
 Lumina.Parser.EncodingManager = {
     confidenceThreshold: { HIGH: 85, MEDIUM: 70, LOW: 50 },
 
+    /**
+     * 自动检测文件编码并返回 UTF-8 文本。
+     * 
+     * 检测流程：BOM 优先 → 置信度评分（UTF-8/GBK/Big5/ANSI/EUC-JP/Shift_JIS/EUC-KR）
+     * → 候选排序 → 逐个尝试解码 → 验证 → GB18030 兜底
+     * 
+     * @param {File} file - 原始文件对象
+     * @returns {Promise<{text: string, originalEncoding: string, confidence: number}>}
+     */
     async processFile(file) {
         const buffer = await file.arrayBuffer();
         const uint8 = new Uint8Array(buffer);

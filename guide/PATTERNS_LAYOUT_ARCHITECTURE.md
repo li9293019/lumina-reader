@@ -1,8 +1,7 @@
 # Lumina 封面与书签生成系统架构文档
 
-> **版本**: v2.0  
-> **日期**: 2026-04-06  
-> **作者**: Kimi Code CLI  
+> **版本**: v2.1  
+> **日期**: 2026-04-17  
 > **适用范围**: 流萤阅读器 (Lumina Reader) 封面生成与分享卡片系统
 
 ---
@@ -32,11 +31,12 @@ Lumina 封面与书签生成系统是一个**跨平台视觉生成引擎**，核
 
 ```
 app/www/js/modules/
-├── cover-generator.js    # 封面生成核心 (50图案 + SVGRenderer)
-└── share-card.js         # 分享卡片 (3种版式 + 双轨渲染)
+├── bibliomorph-cover.js  # Bibliomorph 封面生成 (v3.0 文字排版封面)
+├── pattern-warehouse.js  # Pattern Warehouse 图案库 (50图案 + SVGRenderer)
+└── share-card.js         # 分享卡片 (3种版式 + 双轨渲染 + 手势缩放)
 
 demo/
-└── coverStudioV2.3.html  # 图案设计工作室 (原型/调试工具)
+└── coverStudioV3.html    # 图案设计工作室 (原型/调试工具)
 ```
 
 ### 1.3 核心依赖关系
@@ -383,6 +383,70 @@ case 'square': this.renderSquareToCanvas(ctx, baseWidth, height, renderData); br
 
 ```javascript
 // 在 switchLayout() 中确保能循环到新版型
+```
+
+### 5.4 手势交互与缩放系统
+
+**定位**：分享卡（share-card.js）的手势交互层，独立于渲染系统。
+
+**核心机制**
+
+```
+┌─────────────────────────────────────────────┐
+│              手势交互架构                      │
+├─────────────────────────────────────────────┤
+│                                              │
+│  触摸事件层 ──→ 状态机判断 ──→ 动画执行层       │
+│     │              │              │          │
+│     ▼              ▼              ▼          │
+│  touchstart    _isPinching    _updateTransform│
+│  touchmove     _isDragging    CSS transition │
+│  touchend      _isAnimating   requestAnimationFrame
+│  wheel         threshold      transitionend  │
+│                                              │
+└─────────────────────────────────────────────┘
+```
+
+**功能特性**
+
+| 交互 | 触发方式 | 范围 | 回弹策略 |
+|------|---------|------|---------|
+| **双指缩放** | 移动端双指捏合 | 0.5x ~ 4.0x | 松手保持当前缩放 |
+| **滚轮缩放** | PC 鼠标滚轮 | 0.5x ~ 4.0x | 松手保持当前缩放 |
+| **单指拖动** | 移动端单指滑动 | X 轴 ±∞ | 超阈值触发保存/切换；否则回弹 |
+| **缩放回弹** | 缩放 ≠1 时再次触摸/滑动 | — | 先 `_resetScale()` 动画回弹到 1:1 |
+
+**关键设计决策**
+
+1. **Transform 统一管理**：所有 transform（translateX / rotate / scale）通过 `_updateTransform()` 统一管理，避免入场 scale、拖动 translateX/rotate、缩放 scale 互相覆盖
+2. **动画链衔接**：`generateCard()` 入场不关闭 transition，让 `onSwitch()` 退场动画自然延续到入场动画
+3. **`transitionend` 精确时序**：`onSwitch()` / `onSave()` 使用 `transitionend` 事件（而非 `setTimeout`）触发下一步，避免 CSS transition 与 JS 计时器竞态
+4. **`_isAnimating` 锁**：动画期间禁止手势操作，防止冲突
+
+**代码示例**
+
+```javascript
+// 统一 transform 管理器
+_updateTransform({ x = this.currentX, rotate = this.currentX * 0.03, 
+                   scale = this._scale, transition = false } = {}) {
+    this.cardEl.style.transition = transition 
+        ? 'transform 0.3s ease, opacity 0.3s ease' : 'none';
+    this.cardEl.style.transform = `translateX(${x}px) rotate(${rotate}deg) scale(${scale})`;
+}
+
+// 退场动画精确完成后再生成新卡片
+onSwitch() {
+    this._isAnimating = true;
+    this.cardEl.style.transform = 'translateX(-120%) rotate(-15deg) scale(1)';
+    this.cardEl.style.opacity = '0';
+    
+    this.cardEl.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'transform') {
+            this._isAnimating = false;
+            this.generateCard();  // 精确在动画完成后执行
+        }
+    }, { once: true });
+}
 ```
 
 ---

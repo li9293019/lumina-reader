@@ -1,6 +1,6 @@
 # Lumina Reader 技术架构与开发规范白皮书
 
-> **文档版本**：2.0  
+> **文档版本**：2.1  
 > **适用范围**：Lumina Reader 核心开发与插件扩展  
 > **核心原则**：离线优先、隐私至上、轻盈、简约
 
@@ -109,6 +109,7 @@ Lumina 追求**纸质书般的阅读体验**：
 | **PDF** | .pdf | 文本提取、图片嵌入、密码保护 | pdf.js |
 | **纯文本** | .txt | 自动编码检测（UTF-8/GBK/Big5/ANSI） | Encoding API |
 | **Markdown** | .md | 富文本渲染（插件）、代码高亮 | markdown-it + PrismJS |
+| **EPUB** | .epub | 电子书解析（ZIP + OPF/XML） | JSZip + XML 解析 |
 | **HTML** | .html | 标签清理、纯文本提取 | DOMParser |
 | **JSON 配置** | .json | 配置导出/导入 | JSON.parse/stringify |
 | **加密配置** | .lmn | AES-256-GCM 加密配置 | Web Crypto API |
@@ -176,14 +177,35 @@ Lumina 追求**纸质书般的阅读体验**：
 - 角色风格：助手、聊天、新闻、客户服务、 affectionate 等
 - 预加载缓存：提前合成后续段落，消除停顿
 - 任务管理器：智能调度语音合成任务，控制并发
+- ROM 引导弹窗：首次启动检测电池优化，引导用户设置
 
-### 2.5 数据管理
+### 2.5 AI 阅读助手（本地优先）
+
+**划词 AI 交互**
+- 选中文本后弹出 AI 工具栏（翻译 / 解释 / 润色 / 续写）
+- 支持 LM Studio / Ollama（OpenAI 兼容接口）
+- 流式响应，Markdown 渲染
+- 对话历史与上下文引用管理
+
+**架构定位**
+- `ai.js` 作为核心模块（非插件），与阅读器深度集成
+- 配置项：`ai.enabled`、`ai.endpoint`、`ai.model`、`ai.maxTokens` 等
+- 数据不出设备，完全本地运行
+
+### 2.6 数据管理
 
 **本地书库**
-- 书籍存储：支持 TXT、Markdown、HTML 等纯文本格式存储到本地数据库
+- 书籍存储：支持 TXT、Markdown、HTML、EPUB 等纯文本格式存储到本地数据库
 - 元数据：书名、作者、字数、阅读进度、最后阅读时间、封面
 - 去重机制：基于文件名+大小+修改时间的文件键生成
 - 批量导入/导出
+- 书籍详情页：封面展示、阅读统计、标签管理
+
+**分享卡片**
+- 选中文本生成精美书签卡片
+- SVG 实时预览 + Canvas 高清导出（双轨渲染）
+- 支持短/中/长三种自适应版式
+- 手势交互：滑动切换图案、缩放查看细节
 
 **配置管理**
 - 统一配置：通过 `ConfigManager` 集中管理所有设置
@@ -1196,10 +1218,21 @@ const config = {
         }
     },
     
-    // 9. 插件状态
+    // 9. AI 设置
+    ai: {
+        enabled: false,
+        endpoint: 'http://localhost:1234',
+        model: '',
+        apiKey: '',
+        timeout: 30000,
+        systemPrompt: '你是一个 helpful 的阅读助手...',
+        maxTokens: 4096
+    },
+    
+    // 10. 插件状态
     plugins: {},
     
-    // 10. 元数据
+    // 11. 元数据
     meta: {
         firstInstall: Date.now(),
         lastBackup: null,
@@ -1410,7 +1443,7 @@ save() {
 </div>
 ```
 
-**Step 4: 添加翻译** (`i18n.js`)
+**Step 4: 添加翻译** (`i18n/zh.js`、`i18n/zh-TW.js`、`i18n/en.js`)
 
 ```javascript
 zh: {
@@ -1818,26 +1851,49 @@ const importBatch = async (books) => {
 ### 10.1 模块加载顺序
 
 ```
-1. namespace.js       # 创建 Lumina 全局对象
-2. config.js          # 静态配置
-3. utils.js           # 工具函数
-4. i18n.js            # 国际化数据
-5. crypto.js          # 加密模块（ConfigManager 依赖）
-6. config-manager.js  # 配置管理器
-7. plugin-manager.js  # 插件管理器
-8. parser.js          # 解析器
-9. chapter.js         # 章节管理
-10. renderer.js       # 渲染引擎
-11. actions.js        # 操作分发
-12. annotations.js    # 批注系统
-13. db.js             # 存储层
-14. data-manager.js   # 书库管理
-15. tts.js            # 语音朗读
-16. settings.js       # 设置管理
-17. ui.js             # UI 交互
-18. exporter.js       # 导出功能
-19. init.js           # 初始化入口（依赖以上所有模块）
-20. bridges/*.js      # 桥接模块（按需在 init 后加载）
+1.  namespace.js          # 创建 Lumina 全局对象
+2.  loader.js             # 模块加载器
+3.  file-opener-bridge.js # 文件打开桥接（assets/js/app/）
+4.  config.js             # 静态配置
+5.  export-utils.js       # 导出工具
+6.  config-manager.js     # 配置管理器
+7.  utils.js              # 工具函数
+8.  i18n/index.js         # 国际化入口
+9.  i18n/zh.js            # 简体中文
+10. i18n/zh-TW.js         # 繁体中文
+11. i18n/en.js            # 英文
+12. db-helpers.js         # 数据库辅助（合并/标准化）
+13. db.js                 # 存储层（适配器模式）
+14. parser.js             # 文件解析器
+15. metadata-extractor.js # 元数据提取
+16. chapter.js            # 章节管理
+17. converter.js          # 简繁转换
+18. renderer.js           # 渲染引擎（搜索/热图/分页）
+19. search.js             # 搜索模块
+20. cache-manager.js      # 缓存管理（Web SQLite 专用）
+21. password-preset.js    # PDF 密码预设
+22. crypto.js             # AES-256-GCM 加密
+23. tts.js                # 语音朗读（三层降级）
+24. annotations.js        # 批注系统
+25. bibliomorph-cover.js  # Bibliomorph 封面生成
+26. pattern-warehouse.js  # Pattern Warehouse 图案库
+27. data-manager.js       # 书库管理
+28. share-card.js         # 分享卡片
+29. book-detail.js        # 书籍详情
+30. settings.js           # 设置管理
+31. font-manager.js       # 字体管理
+32. legal-content.js      # 法律内容
+33. legal-page.js         # 法律页面
+34. update-manager.js     # 更新管理
+35. about.js              # 关于页面
+36. ui.js                 # UI 交互中枢
+37. actions.js            # 操作事务
+38. exporter.js           # 导出功能
+39. ai.js                 # 本地 AI 阅读助手
+40. plugin-manager.js     # 插件管理器
+41. markdown/*.js         # Markdown 插件
+42. azure-tts/*.js        # Azure TTS 插件
+43. init.js               # 初始化入口（依赖以上所有模块）
 ```
 
 ### 10.2 核心 API 速查表

@@ -341,7 +341,7 @@ Lumina.About = {
                 if (label) label.textContent = t('checkUpdate') || '检查更新';
                 break;
             case 'checking':
-                if (textEl) textEl.innerHTML = `<span data-i18n="checkingUpdate">${t('checkingUpdate') || '正在检查更新'}</span>...`;
+                if (textEl) textEl.innerHTML = `<span data-i18n="checkingUpdate">${t('checkingUpdate') || '正在检查更新'}</span>`;
                 if (label) label.textContent = t('checkUpdate') || '检查更新';
                 if (btn) btn.disabled = true;
                 break;

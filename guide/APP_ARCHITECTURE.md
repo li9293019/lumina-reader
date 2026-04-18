@@ -1,7 +1,7 @@
 # Lumina Reader APP 端技术架构与原生集成指南
 
 > **文档定位**：面向 Android APP 开发的技术深度解析  
-> **技术栈**：Capacitor 6 + Android Native + WebView  
+> **技术栈**：Capacitor 8 + Android Native + WebView  
 > **核心挑战**：Web 与 Native 的无缝融合、离线优先的移动端实现
 
 ---
@@ -9,7 +9,7 @@
 ## 目录
 
 1. [APP 端架构总览](#1-app-端架构总览)
-   - 1.1 Capacitor 6 架构定位
+   - 1.1 Capacitor 8 架构定位
    - 1.2 Web 与 Native 的边界划分
    - 1.3 离线优先的移动端实现
    - 1.4 APP 端特有挑战
@@ -74,9 +74,9 @@
 
 ## 1. APP 端架构总览
 
-### 1.1 Capacitor 6 架构定位
+### 1.1 Capacitor 8 架构定位
 
-Lumina Reader APP 端采用 **Capacitor 6** 作为跨平台桥梁。与 Cordova/Ionic 不同，Capacitor 的设计理念是：
+Lumina Reader APP 端采用 **Capacitor 8** 作为跨平台桥梁。与 Cordova/Ionic 不同，Capacitor 的设计理念是：
 
 > **"Native 是 Native，Web 是 Web，但两者可以优雅协作"**
 

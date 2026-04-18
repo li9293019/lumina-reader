@@ -37,6 +37,17 @@ Lumina.AI = {
         return cfg.enabled && cfg.endpoint;
     },
 
+    /**
+     * 初始化 AI 阅读助手模块。
+     * 
+     * 初始化内容：
+     * - 悬浮操作按钮（FAB）及拖拽定位
+     * - AI 任务面板（划词工具栏：翻译/解释/润色/续写）
+     * - AI 对话面板（聊天历史、流式响应、Markdown 渲染）
+     * - 事件监听：语言切换、文件打开、章节渲染、文本选择
+     * 
+     * 注意：init 应在 Lumina 应用初始化完成后调用（由 init.js 调度）。
+     */
     init() {
         this._initFAB();
         this._initTaskPanel();

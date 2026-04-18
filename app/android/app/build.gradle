@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// 读取 local.properties（存放签名密码，不进入 git）
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { stream -> localProps.load(stream) }
+}
+
+// 签名配置默认值（方便 CI / 命令行构建，实际密码从 local.properties 读取）
+ext.luminaStoreFile = localProps.getProperty('lumina.storeFile') ?: 'lumina-release.keystore'
+ext.luminaStorePassword = localProps.getProperty('lumina.storePassword') ?: ''
+ext.luminaKeyAlias = localProps.getProperty('lumina.keyAlias') ?: 'lumina'
+ext.luminaKeyPassword = localProps.getProperty('lumina.keyPassword') ?: ''
+
 android {
     namespace = "com.lumina.reader"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,8 +32,18 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file(luminaStoreFile)
+            storePassword luminaStorePassword
+            keyAlias luminaKeyAlias
+            keyPassword luminaKeyPassword
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

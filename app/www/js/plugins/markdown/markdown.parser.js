@@ -619,6 +619,9 @@ Lumina.Plugin.Markdown.Parser = {
                     content: content,
                     inlineContent: this.parseInline(content)
                 });
+            } else {
+                // 同样处理：被排除的 match 回退 lastIndex
+                strongRegex.lastIndex = match.index + 1;
             }
         }
 
@@ -635,6 +638,10 @@ Lumina.Plugin.Markdown.Parser = {
                     content: content,
                     inlineContent: this.parseInline(content)
                 });
+            } else {
+                // 被排除的 match 仍会推进 lastIndex，导致中间内容被跳过
+                // 回退到 match.index + 1 重新搜索，避免遗漏
+                emRegex.lastIndex = match.index + 1;
             }
         }
 
@@ -684,6 +691,10 @@ Lumina.Plugin.Markdown.Parser = {
                 item.inlineContent = this.parseInline(m.content);
             } else {
                 item.content = m.content;
+                // 复制递归解析的内部格式（strong/em/del 的嵌套内容）
+                if (m.inlineContent) {
+                    item.inlineContent = m.inlineContent;
+                }
             }
             result.push(item);
             
@@ -723,7 +734,8 @@ Lumina.Plugin.Markdown.Parser = {
         return matches.some(m => {
             if (m.type !== 'strong') return false;
             // em 完全在 strong 的 content 范围内（非标记符位置）→ 允许嵌套
-            if (pos > m.start + 2 && pos + length < m.end - 2) return false;
+            // 使用 <= 确保边界上的 em（如 strong 结束前刚好结束）也能被识别为嵌套
+            if (pos > m.start + 2 && pos + length <= m.end - 2) return false;
             // em 与 strong 的标记符区域重叠 → 排除
             return pos < m.end && pos + length > m.start;
         });

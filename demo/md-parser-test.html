@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Markdown Parser Diagnostic</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 900px; margin: 0 auto; line-height: 1.8; }
+        h2 { border-bottom: 2px solid #ddd; padding-bottom: .3rem; margin-top: 2rem; }
+        .case { margin: 1rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px; }
+        .input { color: #666; font-family: monospace; white-space: pre-wrap; background: #fff; padding: .5rem; border-radius: 4px; margin-bottom: .5rem; border: 1px solid #ddd; }
+        .output { color: #222; background: #e8f5e9; padding: .5rem; border-radius: 4px; white-space: pre-wrap; border: 1px solid #c8e6c9; }
+        .output em { color: #d32f2f; font-style: italic; }
+        .output strong { color: #1976d2; font-weight: 700; }
+        .debug { color: #444; background: #fff3e0; padding: .5rem; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 13px; border: 1px solid #ffe0b2; margin-top: .5rem; }
+        .error { color: #c62828; background: #ffebee; }
+    </style>
+</head>
+<body>
+    <h1>Markdown Parser 诊断测试</h1>
+    <p>请打开浏览器开发者工具（F12 → Console）查看 <code>parseInline</code> 的每一步中间状态。</p>
+    <div id="results"></div>
+
+<script>
+const Lumina = { Plugin: { Markdown: { Parser: {} } } };
+
+Lumina.Plugin.Markdown.Parser = {
+    parseInline(text) {
+        console.log('========== parseInline ==========');
+        console.log('INPUT:', JSON.stringify(text));
+        if (!text) return [];
+        const result = [];
+        const matches = [];
+
+        const codeRegex = /`([^`]+)`/g;
+        let match;
+        while ((match = codeRegex.exec(text)) !== null) {
+            matches.push({ type: 'code', start: match.index, end: match.index + match[0].length, content: match[1] });
+        }
+
+        const imageRegex = /!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/g;
+        while ((match = imageRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({ type: 'image', start: match.index, end: match.index + match[0].length, alt: match[1], src: match[2], title: match[3] || '' });
+            }
+        }
+
+        const linkRegex = /\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/g;
+        while ((match = linkRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({ type: 'link', start: match.index, end: match.index + match[0].length, content: match[1], href: match[2], title: match[3] || '' });
+            }
+        }
+
+        const strongRegex = /\*\*(.+?)\*\*|__(.+?)__/g;
+        while ((match = strongRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                const content = match[1] || match[2];
+                matches.push({ type: 'strong', start: match.index, end: match.index + match[0].length, content, inlineContent: this.parseInline(content) });
+            } else {
+                strongRegex.lastIndex = match.index + 1;
+            }
+        }
+
+        const emRegex = /\*([^\*]+)\*|_([^_]+)_/g;
+        while ((match = emRegex.exec(text)) !== null) {
+            const overlap = this.isOverlappingStrongMarker(match.index, match[0].length, matches);
+            console.log(`  emRegex match: "${match[0]}" at [${match.index}, ${match.index + match[0].length}), content="${match[1]||match[2]}", overlap=${overlap}`);
+            if (!this.isInsideCode(match.index, matches) && !overlap) {
+                const content = match[1] || match[2];
+                matches.push({ type: 'em', start: match.index, end: match.index + match[0].length, content, inlineContent: this.parseInline(content) });
+            } else {
+                emRegex.lastIndex = match.index + 1;
+            }
+        }
+
+        const delRegex = /~~([^~]+)~~/g;
+        while ((match = delRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                const content = match[1];
+                matches.push({ type: 'del', start: match.index, end: match.index + match[0].length, content, inlineContent: this.parseInline(content) });
+            } else {
+                delRegex.lastIndex = match.index + 1;
+            }
+        }
+
+        matches.sort((a, b) => a.start - b.start);
+        console.log('  ALL matches:', matches.map(m => `${m.type}[${m.start}-${m.end}]:"${m.content?.slice(0,30)}"`));
+
+        const merged = this.mergeAdjacentMatches(matches);
+        console.log('  MERGED matches:', merged.map(m => `${m.type}[${m.start}-${m.end}]:"${m.content?.slice(0,30)}"`));
+
+        let lastEnd = 0;
+        for (const m of merged) {
+            if (m.start > lastEnd) {
+                result.push({ type: 'text', content: text.slice(lastEnd, m.start) });
+            }
+            const item = { type: m.type };
+            if (m.type === 'image') {
+                item.alt = m.alt; item.src = m.src; item.title = m.title;
+            } else if (m.type === 'link') {
+                item.content = m.content; item.href = m.href; item.title = m.title;
+                item.inlineContent = this.parseInline(m.content);
+            } else {
+                item.content = m.content;
+                if (m.inlineContent) item.inlineContent = m.inlineContent;
+            }
+            result.push(item);
+            lastEnd = m.end;
+        }
+        if (lastEnd < text.length) {
+            result.push({ type: 'text', content: text.slice(lastEnd) });
+        }
+
+        console.log('  RESULT:', JSON.stringify(result.map(r => r.type==='text' ? {t:r.type,c:r.content} : {t:r.type,c:r.content,hasInline:!!r.inlineContent})));
+        console.log('=================================');
+        return result.length > 0 ? result : [{ type: 'text', content: text }];
+    },
+
+    isInsideCode(pos, matches) {
+        return matches.some(m => m.type === 'code' && pos >= m.start && pos < m.end);
+    },
+
+    isOverlappingStrongMarker(pos, length, matches) {
+        return matches.some(m => {
+            if (m.type !== 'strong') return false;
+            if (pos > m.start + 2 && pos + length <= m.end - 2) return false;
+            return pos < m.end && pos + length > m.start;
+        });
+    },
+
+    mergeAdjacentMatches(matches) {
+        if (matches.length === 0) return matches;
+        const result = [matches[0]];
+        for (let i = 1; i < matches.length; i++) {
+            const current = matches[i];
+            const last = result[result.length - 1];
+            if (current.start < last.end) continue;
+            result.push(current);
+        }
+        return result;
+    }
+};
+
+function inlineToHTML(items) {
+    if (!items) return '';
+    return items.map(item => {
+        switch (item.type) {
+            case 'text': return item.content;
+            case 'strong': return `<strong>${inlineToHTML(item.inlineContent) || item.content}</strong>`;
+            case 'em': return `<em>${inlineToHTML(item.inlineContent) || item.content}</em>`;
+            case 'del': return `<del>${inlineToHTML(item.inlineContent) || item.content}</del>`;
+            case 'code': return `<code>${item.content}</code>`;
+            case 'link': return `<a href="${item.href}">${inlineToHTML(item.inlineContent) || item.content}</a>`;
+            default: return item.content || '';
+        }
+    }).join('');
+}
+
+const tests = [
+    {
+        name: '用户提供的原文段落',
+        input: '**维齐尔（*Visir* / *Vizier*）**：亦作"维齐尔"。宰相。原意为"负重者"。国家大臣。大维齐尔（*Great Visir*）相当于首相（*First Minister*）。'
+    },
+    {
+        name: '粗体内嵌斜体',
+        input: '**商队驿站（*Karuan Saraai* / *Caravansary*）**'
+    }
+];
+
+const container = document.getElementById('results');
+
+tests.forEach((t, i) => {
+    const div = document.createElement('div');
+    div.className = 'case';
+    let html = '';
+    let debug = '';
+    try {
+        const parsed = Lumina.Plugin.Markdown.Parser.parseInline(t.input);
+        html = inlineToHTML(parsed);
+        debug = JSON.stringify(parsed.map(r => r.type==='text' ? {t:r.type,c:r.content} : {t:r.type,c:r.content,hasInline:!!r.inlineContent}), null, 2);
+    } catch (e) {
+        html = `<span class="error">ERROR: ${e.message}</span>`;
+    }
+    div.innerHTML = `<h3>测试 ${i + 1}：${t.name}</h3>
+        <div class="input">${t.input.replace(/</g, '&lt;')}</div>
+        <div class="output">${html}</div>
+        <div class="debug">解析结果对象：\n${debug.replace(/</g, '&lt;')}</div>`;
+    container.appendChild(div);
+});
+</script>
+</body>
+</html>

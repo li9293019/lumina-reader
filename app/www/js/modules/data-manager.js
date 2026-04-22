@@ -380,9 +380,19 @@ Lumina.DataManager = class {
             return;
         }
         
-        // 使用 exportBatchByKeys 方法，确保格式与整库导出一致
-        await this.exportBatchByKeys(Array.from(this.selectedFiles));
-        this.exitBatchMode();
+        const btn = document.getElementById('libBatchExportBtn');
+        if (btn) btn.classList.add('loading');
+        
+        try {
+            // 使用 exportBatchByKeys 方法，确保格式与整库导出一致
+            await this.exportBatchByKeys(Array.from(this.selectedFiles));
+            this.exitBatchMode();
+        } catch (err) {
+            window.logger?.error('DataManager', '批量导出选中失败', { error: err.message });
+            Lumina.UI.showToast(Lumina.I18n.t('batchExportFailed') || '导出失败');
+        } finally {
+            if (btn) btn.classList.remove('loading');
+        }
     }
     
     // 根据文件键列表导出（支持部分导出和整库导出）
@@ -396,13 +406,22 @@ Lumina.DataManager = class {
             const fileData = await Lumina.DB.adapter.getFile(fileKey);
             if (fileData) {
                 books.push(fileData);
+                // 更准确的体积估算：content + cover + metadata + annotations
                 const contentJson = JSON.stringify(fileData.content || []);
+                const metaJson = JSON.stringify({
+                    metadata: fileData.metadata,
+                    annotations: fileData.annotations,
+                    heatMap: fileData.heatMap,
+                    customRegex: fileData.customRegex
+                });
                 estimatedSize += new Blob([contentJson]).size;
+                estimatedSize += new Blob([metaJson]).size;
                 if (fileData.cover) estimatedSize += new Blob([fileData.cover]).size;
                 // 提前检查：超过阈值立即停止读取
                 if (estimatedSize > EXPORT_SIZE_LIMIT) {
+                    const sizeMB = (estimatedSize / 1024 / 1024).toFixed(1);
                     Lumina.UI.showDialog(
-                        Lumina.I18n.t('exportSizeLimit', (estimatedSize / 1024 / 1024).toFixed(1)),
+                        (Lumina.I18n.t('exportSizeLimit') || '导出数据过大（约 $1MB），建议分批导出或减少数据量后再试。').replace('$1', sizeMB),
                         'alert'
                     );
                     return;
@@ -421,7 +440,8 @@ Lumina.DataManager = class {
             exportDate: Lumina.DB.getLocalTimeString(),
             appName: 'Lumina Reader',
             books,
-            totalBooks: books.length
+            totalBooks: books.length,
+            totalSize: estimatedSize
         };
         
         await this.exportBatchData(batchData);

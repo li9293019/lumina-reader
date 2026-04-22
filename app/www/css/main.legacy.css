@@ -5283,10 +5283,16 @@ transform: translate(-50%, -50%) scale(1);
 
 .lib-batch-header .btn-icon {
     color: white;
+    width: 36px;
+    height: 36px;
 }
 
 .lib-batch-header .btn-icon:hover {
     background: rgba(255,255,255,0.2);
+}
+
+.lib-batch-header .header-actions {
+    gap: 2px;
 }
 
 /* 卡片勾选框 */

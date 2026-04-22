@@ -264,6 +264,11 @@ Lumina.DataManager = class {
             this.batchExportSelected();
         });
         
+        // 批量分享选中
+        document.getElementById('libBatchShareBtn')?.addEventListener('click', () => {
+            this.batchShareSelected();
+        });
+        
         // 批量删除选中
         document.getElementById('libBatchDeleteBtn')?.addEventListener('click', () => {
             this.batchDeleteSelected();
@@ -395,8 +400,8 @@ Lumina.DataManager = class {
         }
     }
     
-    // 根据文件键列表导出（支持部分导出和整库导出）
-    async exportBatchByKeys(fileKeys) {
+    // 构建批量导出数据（仅组装数据，不执行保存/分享）
+    async buildBatchData(fileKeys) {
         const books = [];
         let estimatedSize = 0;
         const EXPORT_SIZE_LIMIT = 50 * 1024 * 1024;
@@ -424,17 +429,17 @@ Lumina.DataManager = class {
                         (Lumina.I18n.t('exportSizeLimit') || '导出数据过大（约 $1MB），建议分批导出或减少数据量后再试。').replace('$1', sizeMB),
                         'alert'
                     );
-                    return;
+                    return null;
                 }
             }
         }
         
         if (books.length === 0) {
             Lumina.UI.showToast(Lumina.I18n.t('exportFailed') || '导出失败');
-            return;
+            return null;
         }
         
-        const batchData = {
+        return {
             version: 2,
             exportType: 'batch',
             exportDate: Lumina.DB.getLocalTimeString(),
@@ -443,7 +448,12 @@ Lumina.DataManager = class {
             totalBooks: books.length,
             totalSize: estimatedSize
         };
-        
+    }
+    
+    // 根据文件键列表导出（支持部分导出和整库导出）
+    async exportBatchByKeys(fileKeys) {
+        const batchData = await this.buildBatchData(fileKeys);
+        if (!batchData) return;
         await this.exportBatchData(batchData);
     }
     
@@ -476,6 +486,132 @@ Lumina.DataManager = class {
                 this.exitBatchMode();
             }
         );
+    }
+    
+    async batchShareSelected() {
+        if (this.selectedFiles.size === 0) {
+            Lumina.UI.showToast(Lumina.I18n.t('noFilesSelected') || '请先选择文件');
+            return;
+        }
+        
+        const btn = document.getElementById('libBatchShareBtn');
+        if (btn) btn.classList.add('loading');
+        
+        try {
+            const batchData = await this.buildBatchData(Array.from(this.selectedFiles));
+            if (!batchData) return;
+            
+            await this.shareBatchData(batchData);
+        } catch (err) {
+            window.logger?.error('DataManager', '批量分享选中失败', { error: err.message });
+            Lumina.UI.showToast(Lumina.I18n.t('batchShareFailed') || '分享失败');
+        } finally {
+            if (btn) btn.classList.remove('loading');
+        }
+    }
+    
+    async shareBatchData(batchData) {
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        const encryptedExport = Lumina.State.settings.encryptedExport;
+        
+        let shareContent;
+        let fileName;
+        let mimeType;
+        
+        // 单本带上书名，多本使用 Library 前缀
+        const isSingleBook = batchData.totalBooks === 1;
+        const bookName = isSingleBook
+            ? (batchData.books[0].metadata?.title || batchData.books[0].fileName.replace(/\.[^/.]+$/, ''))
+            : null;
+        
+        if (encryptedExport) {
+            const password = await this.showPasswordDialog();
+            if (password === null) return;
+            
+            const progressDialog = this.showProgressDialog(
+                Lumina.I18n.t('encrypting') || '正在加密...'
+            );
+            
+            try {
+                shareContent = await Lumina.Crypto.encrypt(batchData, password || null);
+                progressDialog.close();
+            } catch (err) {
+                progressDialog.close();
+                throw err;
+            }
+            
+            fileName = bookName
+                ? `Lumina_${bookName}_${Date.now()}.lmn`
+                : `Lumina_Library_${Date.now()}.lmn`;
+            mimeType = 'application/octet-stream';
+        } else {
+            shareContent = JSON.stringify(batchData, null, 2);
+            fileName = bookName
+                ? `Lumina_${bookName}_${Date.now()}.json`
+                : `Lumina_Library_${Date.now()}.json`;
+            mimeType = 'application/json';
+        }
+        
+        if (isApp) {
+            const { Filesystem, Share } = Capacitor.Plugins;
+            
+            // 加密数据为二进制 ArrayBuffer，需转 base64；明文数据直接写入
+            const writeData = encryptedExport
+                ? this.arrayBufferToBase64(shareContent)
+                : shareContent;
+            
+            const result = await Filesystem.writeFile({
+                path: fileName,
+                data: writeData,
+                directory: 'CACHE',
+                recursive: true,
+                encoding: encryptedExport ? undefined : 'utf8'
+            });
+            
+            await Share.share({
+                title: Lumina.I18n.t('shareSelectedTitle') || '分享书籍',
+                text: (Lumina.I18n.t('shareSelectedText') || '来自流萤阅读器的 $1 本书籍').replace('$1', batchData.totalBooks),
+                url: result.uri,
+                dialogTitle: Lumina.I18n.t('shareSelectedDialogTitle') || '分享给好友'
+            });
+            
+            // 分享完成后 60 秒清理临时文件
+            setTimeout(async () => {
+                try {
+                    await Filesystem.deleteFile({ path: fileName, directory: 'CACHE' });
+                } catch (e) {}
+            }, 60000);
+            
+        } else {
+            // Web 端：尝试 Web Share API（文件分享），不支持则降级为 Blob 下载
+            const blob = new Blob([shareContent], { type: mimeType });
+            const file = new File([blob], fileName, { type: mimeType });
+            
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: Lumina.I18n.t('shareSelectedTitle') || '分享书籍',
+                        text: (Lumina.I18n.t('shareSelectedText') || '来自流萤阅读器的 $1 本书籍').replace('$1', batchData.totalBooks)
+                    });
+                    return;
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.warn('[DataManager] Web Share failed:', err);
+                    }
+                }
+            }
+            
+            // 降级：Blob URL 下载
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     }
 
     async preload() {

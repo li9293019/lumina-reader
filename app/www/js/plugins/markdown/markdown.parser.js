@@ -136,6 +136,16 @@ Lumina.Plugin.Markdown.Parser = {
         
         const line = lines[startIndex];
         const nextLine = lines[startIndex + 1];
+        const trimmed = line.trim();
+        
+        // 空行不能作为 Setext 标题内容
+        if (!trimmed) return null;
+        
+        // 阅读器场景优化：长段落末尾的 --- 应作为分隔线而非 Setext 下划线
+        // 如果候选标题行以句子结束标点结尾，或长度超过阈值，则不认为是 Setext 标题
+        if (/[。.！!？?；;…—~～""')）]$/.test(trimmed) || trimmed.length > 80) {
+            return null;
+        }
         
         if (/^={3,}\s*$/.test(nextLine)) {
             const text = line.trim();
@@ -597,28 +607,33 @@ Lumina.Plugin.Markdown.Parser = {
         }
 
         // 粗体
-        const strongRegex = /\*\*([^\*]+)\*\*|__([^_]+)__/g;
+        // 使用 (.+?) 非贪婪匹配，允许 content 内部包含 *（支持嵌套斜体）
+        const strongRegex = /\*\*(.+?)\*\*|__(.+?)__/g;
         while ((match = strongRegex.exec(text)) !== null) {
             if (!this.isInsideCode(match.index, matches)) {
+                const content = match[1] || match[2];
                 matches.push({
                     type: 'strong',
                     start: match.index,
                     end: match.index + match[0].length,
-                    content: match[1] || match[2]
+                    content: content,
+                    inlineContent: this.parseInline(content)
                 });
             }
         }
 
-        // 斜体（但要排除已经是粗体的一部分）
+        // 斜体（但要排除与粗体标记符直接重叠的情况，允许嵌套在粗体内部）
         const emRegex = /\*([^\*]+)\*|_([^_]+)_/g;
         while ((match = emRegex.exec(text)) !== null) {
             if (!this.isInsideCode(match.index, matches) && 
-                !this.isInsideStrong(match.index, match[0].length, matches)) {
+                !this.isOverlappingStrongMarker(match.index, match[0].length, matches)) {
+                const content = match[1] || match[2];
                 matches.push({
                     type: 'em',
                     start: match.index,
                     end: match.index + match[0].length,
-                    content: match[1] || match[2]
+                    content: content,
+                    inlineContent: this.parseInline(content)
                 });
             }
         }
@@ -627,11 +642,13 @@ Lumina.Plugin.Markdown.Parser = {
         const delRegex = /~~([^~]+)~~/g;
         while ((match = delRegex.exec(text)) !== null) {
             if (!this.isInsideCode(match.index, matches)) {
+                const content = match[1];
                 matches.push({
                     type: 'del',
                     start: match.index,
                     end: match.index + match[0].length,
-                    content: match[1]
+                    content: content,
+                    inlineContent: this.parseInline(content)
                 });
             }
         }
@@ -692,10 +709,24 @@ Lumina.Plugin.Markdown.Parser = {
     },
 
     /**
-     * 检查位置是否在粗体内
+     * 检查位置是否在粗体内（完全包含）
      */
     isInsideStrong(pos, length, matches) {
         return matches.some(m => m.type === 'strong' && pos >= m.start && pos + length <= m.end);
+    },
+
+    /**
+     * 检查 em 标记是否与 strong 的标记符（**）直接重叠
+     * 用于避免 ***text*** 被同时解析为 strong 和 em，但允许 **text *em* text**
+     */
+    isOverlappingStrongMarker(pos, length, matches) {
+        return matches.some(m => {
+            if (m.type !== 'strong') return false;
+            // em 完全在 strong 的 content 范围内（非标记符位置）→ 允许嵌套
+            if (pos > m.start + 2 && pos + length < m.end - 2) return false;
+            // em 与 strong 的标记符区域重叠 → 排除
+            return pos < m.end && pos + length > m.start;
+        });
     },
 
     /**

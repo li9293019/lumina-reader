@@ -874,21 +874,33 @@ Lumina.Plugin.Markdown.Renderer = {
                 case 'strong':
                     const strong = document.createElement('strong');
                     strong.className = 'markdown-strong';
-                    strong.textContent = this.getConvertedText(item.content);
+                    if (item.inlineContent) {
+                        this.renderInlineContent(strong, item.inlineContent);
+                    } else {
+                        strong.textContent = this.getConvertedText(item.content);
+                    }
                     container.appendChild(strong);
                     break;
                     
                 case 'em':
                     const em = document.createElement('em');
                     em.className = 'markdown-em';
-                    em.textContent = this.getConvertedText(item.content);
+                    if (item.inlineContent) {
+                        this.renderInlineContent(em, item.inlineContent);
+                    } else {
+                        em.textContent = this.getConvertedText(item.content);
+                    }
                     container.appendChild(em);
                     break;
                     
                 case 'del':
                     const del = document.createElement('del');
                     del.className = 'markdown-del';
-                    del.textContent = this.getConvertedText(item.content);
+                    if (item.inlineContent) {
+                        this.renderInlineContent(del, item.inlineContent);
+                    } else {
+                        del.textContent = this.getConvertedText(item.content);
+                    }
                     container.appendChild(del);
                     break;
                     

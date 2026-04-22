@@ -37,7 +37,7 @@
 /* 段落 */
 .markdown-paragraph {
     margin: var(--paragraph-spacing, 0.8em) 0;
-    text-align: justify;
+    text-align: left;
 }
 
 /* 块引用 - 使用强调色 */

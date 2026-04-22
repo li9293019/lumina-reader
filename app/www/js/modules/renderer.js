@@ -234,6 +234,20 @@ Lumina.Renderer.getCleanText = (txt) => {
         }) : txt;
 };
 
+/**
+ * 去除 Markdown 行内格式标记（用于目录和章节导航显示）
+ * 仅针对 md 文件：去除成对的 **...** 和 *...*，保留不成对的 *
+ */
+Lumina.Renderer.stripMarkdownInlineMarkers = (txt) => {
+    if (!txt || typeof txt !== 'string') return txt || '';
+    if (Lumina.State?.app?.currentFile?.type !== 'md') return txt;
+    // 先去除粗体 **...**（content 中不能包含 *）
+    let result = txt.replace(/\*\*([^*]+?)\*\*/g, '$1');
+    // 再去除斜体 *...*（content 中不能包含 *）
+    result = result.replace(/\*([^*]+)\*/g, '$1');
+    return result;
+};
+
 Lumina.Renderer.addPaginationNav = () => {
     const state = Lumina.State.app;
     const chapterIdx = state.currentChapterIndex;
@@ -399,6 +413,8 @@ Lumina.Renderer.generateTOC = () => {
                 if (Lumina.Converter?.isConverting && content) {
                     content = Lumina.Converter.convert(content);
                 }
+                // 对于 md 文件，去除目录中的成对 *...* / **...** 标记
+                content = Lumina.Renderer.stripMarkdownInlineMarkers(content);
                 content = Lumina.Renderer.getCleanText(content).trim();
                 if (!content) return;
                 li.textContent = content;
@@ -481,6 +497,8 @@ Lumina.Renderer.updateChapterNavInfo = () => {
     if (Lumina.Converter?.isConverting && title) {
         title = Lumina.Converter.convert(title);
     }
+    // 对于 md 文件，去除顶部章节信息中的成对 *...* / **...** 标记
+    title = Lumina.Renderer.stripMarkdownInlineMarkers(title);
     Lumina.DOM.chapterNavInfo.textContent = Lumina.Renderer.getCleanText(title);
 };
 

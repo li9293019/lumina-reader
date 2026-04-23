@@ -2032,7 +2032,7 @@ Lumina.DataManager = class {
             await Lumina.DB.loadHistoryFromDB();
             this.updateSettingsBar();
             Lumina.UI.showToast(Lumina.I18n.t('importSuccess'));
-            return true;
+            return newKey;  // 返回生成的 fileKey，供调用者直接打开
         } catch (err) {
             window.logger?.error('Import', '导入数据到数据库失败', { error: err.message });
             throw err;  // 向上抛出，让调用者处理
@@ -2848,6 +2848,11 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
         const state = Lumina.State.app;
+        // 彻底清空 currentFile，避免上一本书的残留数据（epubMetadata、docxMetadata、cover 等）污染
+        const cf = state.currentFile;
+        for (const key of Object.keys(cf)) {
+            delete cf[key];
+        }
         state.currentFile.name = fileData.fileName;
         state.currentFile.type = fileData.fileType;
         state.currentFile.wordCount = fileData.wordCount;

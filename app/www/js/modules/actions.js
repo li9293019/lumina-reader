@@ -56,6 +56,16 @@ Lumina.Actions = {
     },
 
     async processFileContinue(file, fileKey) {
+        // 彻底重置 currentFile，避免保留上一本书的任何残留数据
+        // （epubMetadata、docxMetadata、cover、coverBrightness 等）
+        const cf = Lumina.State.app.currentFile;
+        for (const key of Object.keys(cf)) {
+            delete cf[key];
+        }
+        cf.fileKey = fileKey;
+        cf.handle = file;
+        cf.skipSave = false;
+
         // 移动端：关闭所有面板（热启动/文件唤醒时也生效）
         const isMobileView = Lumina.Utils.isMobile();
         if (isMobileView) {
@@ -482,10 +492,12 @@ Lumina.Actions = {
                 await Lumina.DataManager.handleBatchImport(data.books);
             } else if (data.exportType === 'single' && Array.isArray(data.books) && data.books.length === 1) {
                 // 单本书籍导入（新格式）
-                await Lumina.DataManager.importDataToDB(data.books[0]);
+                const newKey = await Lumina.DataManager.importDataToDB(data.books[0]);
+                if (newKey) await this._openImportedBook(newKey);
             } else if (data.fileName && Array.isArray(data.content)) {
                 // 单本书籍导入（旧格式，兼容）
-                await Lumina.DataManager.importDataToDB(data);
+                const newKey = await Lumina.DataManager.importDataToDB(data);
+                if (newKey) await this._openImportedBook(newKey);
             } else {
                 throw new Error(Lumina.I18n.t('invalidFileFormat'));
             }
@@ -508,6 +520,23 @@ Lumina.Actions = {
             return bytes;
         } catch (e) {
             throw new Error(Lumina.I18n.t('invalidBase64Encoding'));
+        }
+    },
+
+    // 打开已导入的单本书籍：进入阅读区 + 打开详情页
+    async _openImportedBook(newKey) {
+        try {
+            // 进入阅读区
+            if (Lumina.DataManager?.openFile) {
+                await Lumina.DataManager.openFile(newKey);
+            }
+            // 打开书籍详情页
+            const bookData = await Lumina.DB.adapter.getFile(newKey);
+            if (bookData && Lumina.BookDetail?.open) {
+                Lumina.BookDetail.open([bookData], 0);
+            }
+        } catch (err) {
+            console.error('[Actions] 打开导入书籍失败:', err);
         }
     },
 

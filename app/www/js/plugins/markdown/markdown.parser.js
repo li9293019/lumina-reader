@@ -308,6 +308,9 @@ Lumina.Plugin.Markdown.Parser = {
 
         if (rows.length === 0) return null;
 
+        // 计算智能列宽比例（PC端自适应布局用）
+        const columnWidths = this.calculateColumnWidths(headers, rows);
+
         return {
             item: {
                 type: 'table',
@@ -319,10 +322,104 @@ Lumina.Plugin.Markdown.Parser = {
                     align: aligns[idx] || 'left'
                 })),
                 rows,
+                columnWidths,
                 raw: lines.slice(startIndex, i).join('\n')
             },
             nextIndex: i
         };
+    },
+
+    /**
+     * 智能计算表格列宽比例
+     * 基于每列内容的文本长度（区分中英文宽度）分配比例，
+     * 同时设置上限保护（单列不超过50%）和下限保护（避免过度压缩）
+     */
+    calculateColumnWidths(headers, rows) {
+        const colCount = headers.length;
+        if (colCount === 0) return [];
+
+        // 测量文本的"自然宽度"：中文按1.8、英文/数字/符号按1.0估算
+        const measure = (text) => {
+            if (!text) return 0;
+            let w = 0;
+            for (const c of String(text)) {
+                const code = c.charCodeAt(0);
+                // CJK 统一表意文字及扩展区、全角标点
+                w += (code >= 0x4E00 && code <= 0x9FFF) ||
+                     (code >= 0x3400 && code <= 0x4DBF) ||
+                     (code >= 0xF900 && code <= 0xFAFF) ||
+                     (code >= 0x3000 && code <= 0x303F) ||
+                     (code >= 0xFF00 && code <= 0xFFEF) ? 1.8 : 1.0;
+            }
+            return w;
+        };
+
+        // 收集每列的最大内容宽度
+        const maxWidths = new Array(colCount).fill(0);
+
+        headers.forEach((h, i) => {
+            maxWidths[i] = Math.max(maxWidths[i], measure(h));
+        });
+
+        rows.forEach(row => {
+            row.forEach((cell, i) => {
+                if (i < colCount) {
+                    maxWidths[i] = Math.max(maxWidths[i], measure(cell.text));
+                }
+            });
+        });
+
+        const totalWidth = maxWidths.reduce((a, b) => a + b, 0);
+        if (totalWidth === 0) {
+            return new Array(colCount).fill(parseFloat((100 / colCount).toFixed(1)));
+        }
+
+        // 识别短列（序号、编号、排名等），这类列不应占太多宽度
+        const shortColPattern = /^(序号|编号|排名|索引|序|Rank|No\.?|Index|ID|#)$/i;
+        const isShortCol = headers.map(h => shortColPattern.test(String(h || '').trim()));
+
+        // 初始百分比
+        let percentages = maxWidths.map(w => (w / totalWidth) * 100);
+
+        // 约束策略
+        const MAX_COL_PERCENT = 50;  // 单列上限，防止一列独占
+        const SHORT_COL_MAX = 10;    // 短列（如序号）最大占比，保持紧凑
+        // 动态下限：列数越多，单列最小占比越低，但不低于3%
+        const MIN_COL_PERCENT = Math.min(8, Math.max(3, (100 / colCount) * 0.35));
+
+        let excess = 0;
+        let flexibleCols = 0;
+
+        // 第一轮：应用上下限约束（短列额外限制为 10%）
+        percentages = percentages.map((p, idx) => {
+            const hardMax = isShortCol[idx] ? SHORT_COL_MAX : MAX_COL_PERCENT;
+            if (p > hardMax) {
+                excess += p - hardMax;
+                return hardMax;
+            }
+            if (p < MIN_COL_PERCENT) {
+                excess -= MIN_COL_PERCENT - p;
+                return MIN_COL_PERCENT;
+            }
+            flexibleCols++;
+            return p;
+        });
+
+        // 第二轮：将多余空间重新分配给灵活的列
+        if (excess > 0 && flexibleCols > 0) {
+            const addPerCol = excess / flexibleCols;
+            percentages = percentages.map((p, idx) => {
+                const hardMax = isShortCol[idx] ? SHORT_COL_MAX : MAX_COL_PERCENT;
+                if (p < hardMax && p >= MIN_COL_PERCENT) {
+                    return Math.min(p + addPerCol, hardMax);
+                }
+                return p;
+            });
+        }
+
+        // 归一化到100%，保留一位小数
+        const sum = percentages.reduce((a, b) => a + b, 0);
+        return percentages.map(p => parseFloat(((p / sum) * 100).toFixed(1)));
     },
 
     parseTableRow(line) {

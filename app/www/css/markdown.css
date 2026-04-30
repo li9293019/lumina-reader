@@ -264,3 +264,50 @@
     color: var(--bg-primary) !important;
     text-shadow: none !important;
 }
+
+/* ==================== 响应式表格布局 ====================
+ * PC端（宽屏）：取消横向滚动，按内容比例分配列宽，单元格自动换行
+ * 移动端（窄屏）：保持原有横向滚动策略
+ */
+
+@media (min-width: 769px) {
+    /* PC端：表格作为普通流式块元素展示 */
+    .markdown-table-wrapper {
+        overflow-x: visible;
+        white-space: normal;
+    }
+
+    .markdown-table {
+        table-layout: fixed;   /* 固定布局，严格按 colgroup 比例分配 */
+        width: 100%;
+    }
+
+    /* 覆盖移动端的不换行策略，允许单元格内换行 */
+    .markdown-table-wrapper .markdown-table th,
+    .markdown-table-wrapper .markdown-table td {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* 纯序号/短列保持不换行，避免数字被硬拆断 */
+    .markdown-table-wrapper .markdown-table th.markdown-col-nowrap,
+    .markdown-table-wrapper .markdown-table td.markdown-col-nowrap {
+        white-space: nowrap;
+        word-break: keep-all;
+    }
+}
+
+@media (max-width: 768px) {
+    /* 移动端：保持原有横向滚动 + 单元格不换行策略 */
+    .markdown-table-wrapper {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .markdown-table-wrapper .markdown-table th,
+    .markdown-table-wrapper .markdown-table td {
+        white-space: nowrap;
+        word-break: keep-all;
+    }
+}

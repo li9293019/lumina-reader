@@ -800,6 +800,28 @@ Lumina.Plugin.Markdown.Renderer = {
         const table = document.createElement('table');
         table.className = 'markdown-table';
         
+        // 识别短列（序号、编号等），PC端保持不换行
+        const shortColPattern = /^(序号|编号|排名|索引|序|Rank|No\.?|Index|ID|#)$/i;
+        const nowrapColumns = new Set();
+        if (item.headers) {
+            item.headers.forEach((h, idx) => {
+                if (shortColPattern.test(String(h.text || '').trim())) {
+                    nowrapColumns.add(idx);
+                }
+            });
+        }
+        
+        // 【智能列宽】根据解析阶段计算的内容比例分配列宽
+        if (item.columnWidths && item.columnWidths.length > 0) {
+            const colgroup = document.createElement('colgroup');
+            item.columnWidths.forEach(widthPercent => {
+                const col = document.createElement('col');
+                col.style.width = widthPercent + '%';
+                colgroup.appendChild(col);
+            });
+            table.appendChild(colgroup);
+        }
+        
         // 表头
         if (item.headers && item.headers.length > 0) {
             const thead = document.createElement('thead');
@@ -807,7 +829,8 @@ Lumina.Plugin.Markdown.Renderer = {
             
             item.headers.forEach((header, idx) => {
                 const th = document.createElement('th');
-                th.className = `markdown-th markdown-align-${header.align}`;
+                const nowrapClass = nowrapColumns.has(idx) ? ' markdown-col-nowrap' : '';
+                th.className = `markdown-th markdown-align-${header.align}${nowrapClass}`;
                 if (header.inlineContent) {
                     this.renderInlineContent(th, header.inlineContent);
                 } else {
@@ -829,7 +852,8 @@ Lumina.Plugin.Markdown.Renderer = {
                 
                 row.forEach((cell, idx) => {
                     const td = document.createElement('td');
-                    td.className = `markdown-td markdown-align-${cell.align}`;
+                    const nowrapClass = nowrapColumns.has(idx) ? ' markdown-col-nowrap' : '';
+                    td.className = `markdown-td markdown-align-${cell.align}${nowrapClass}`;
                     if (cell.inlineContent) {
                         this.renderInlineContent(td, cell.inlineContent);
                     } else {

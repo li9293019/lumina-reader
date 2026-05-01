@@ -152,10 +152,15 @@ Lumina.Editor = {
     },
 
     bindEditEvents(textarea, index, item) {
+        const isHeadingItem = item.type && (item.type.startsWith('heading') || item.type === 'title');
+
         const commit = async () => {
             if (!this.activeEdit) return;
             const newText = textarea.value;
             if (newText !== this.activeEdit.originalText) {
+                await this.commitEdit(index, newText);
+            } else if (!isHeadingItem && newText.trim() === '') {
+                // 原本就是空段落，提交后仍为空 → 删除该行
                 await this.commitEdit(index, newText);
             } else {
                 this.cancelEdit();
@@ -164,21 +169,22 @@ Lumina.Editor = {
 
         const cancel = () => this.cancelEdit();
 
+        const isApp = Lumina.Utils.isMobile() || (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.());
+
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                const cursorPos = textarea.selectionStart;
-                const len = textarea.value.length;
-                // 光标在中间 → 分割；在行首/行尾 → 直接提交
-                if (cursorPos > 0 && cursorPos < len) {
-                    this.splitLineAtCursor(index, textarea.value, cursorPos);
-                } else {
-                    commit();
+                if (isApp) {
+                    // App 端：不阻止默认行为，Enter 在 textarea 中就是插入换行
+                    return;
                 }
+                // PC 端：Enter = 提交编辑
+                e.preventDefault();
+                commit();
             } else if (e.key === 'Escape') {
                 e.preventDefault();
                 cancel();
             }
+            // PC 端 Shift+Enter 保持默认行为：在 textarea 内插入换行，继续编辑
         });
 
         // PC端 blur 提交；App端由用户主动操作（回车/取消）
@@ -199,27 +205,97 @@ Lumina.Editor = {
     },
 
     /**
-     * 提交纯文本编辑（无分割）
+     * 提交编辑。若文本含换行符，自动拆分为多个段落（items）。
      */
     async commitEdit(index, newText) {
         const state = Lumina.State.app;
         const item = state.document.items[index];
+        const isHeading = item.type && (item.type.startsWith('heading') || item.type === 'title');
 
+        // 含换行符 → 自动拆分段落
+        if (newText.includes('\n')) {
+            await this.commitSplitEdit(index, newText);
+            return;
+        }
+
+        // 普通段落且内容清空 → 删除该段落
+        if (!isHeading && newText.trim() === '') {
+            state.document.items.splice(index, 1);
+            this.remapIndices(index, -1);
+            state.chapters = Lumina.Parser.buildChapters(state.document.items);
+            if (state.currentChapterIndex >= state.chapters.length) {
+                state.currentChapterIndex = state.chapters.length - 1;
+            }
+            Lumina.Renderer.renderCurrentChapter(index);
+            await this.saveDocument();
+            this.activeEdit = null;
+            return;
+        }
+
+        // 单行编辑（保留或更新）
         item.text = newText;
         if (item.display !== undefined) item.display = newText;
         if (item.cleanText !== undefined) item.cleanText = newText;
 
-        // Markdown inlineContent 重建
         if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
             item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(newText);
         }
         if (item.raw !== undefined) item.raw = newText;
 
-        const isHeading = item.type && (item.type.startsWith('heading') || item.type === 'title');
         if (isHeading) {
             Lumina.Parser.applyNumberingStyle();
         } else {
             Lumina.Renderer.updateDocLineElement(index, item);
+        }
+
+        await this.saveDocument();
+        this.activeEdit = null;
+    },
+
+    /**
+     * 按换行符拆分为多个段落
+     */
+    async commitSplitEdit(index, newText) {
+        const state = Lumina.State.app;
+        const originalItem = state.document.items[index];
+
+        // 按 \n 拆分，去掉末尾空字符串，保留中间空行
+        const lines = newText.split('\n').map(s => s.trimEnd());
+        while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+        if (lines.length === 0) lines.push('');
+
+        // 第一个 item 继承原 type，其余设为普通段落
+        const newItems = lines.map((text, i) => ({
+            type: i === 0 ? originalItem.type : 'paragraph',
+            text,
+            ...(originalItem.display !== undefined && { display: text }),
+            ...(originalItem.cleanText !== undefined && { cleanText: text }),
+            ...(originalItem.inlineContent !== undefined && {
+                inlineContent: Lumina.Plugin?.Markdown?.Parser?.parseInline
+                    ? Lumina.Plugin.Markdown.Parser.parseInline(text)
+                    : originalItem.inlineContent
+            }),
+            ...(originalItem.raw !== undefined && { raw: text })
+        }));
+
+        // 替换原 item
+        state.document.items.splice(index, 1, ...newItems);
+
+        // 索引迁移
+        const delta = newItems.length - 1;
+        if (delta !== 0) this.remapIndices(index + 1, delta);
+
+        // 重建章节
+        state.chapters = Lumina.Parser.buildChapters(state.document.items);
+        if (state.currentChapterIndex >= state.chapters.length) {
+            state.currentChapterIndex = state.chapters.length - 1;
+        }
+
+        // 渲染
+        if (originalItem.type && (originalItem.type.startsWith('heading') || originalItem.type === 'title')) {
+            Lumina.Parser.applyNumberingStyle();
+        } else {
+            Lumina.Renderer.renderCurrentChapter(index);
         }
 
         await this.saveDocument();

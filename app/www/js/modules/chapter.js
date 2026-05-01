@@ -4,12 +4,12 @@ Lumina.Parser.buildChapters = (items) => {
     const newChapters = [];
     let currentChapter = null, buffer = [], globalIndex = 0;
 
-    const flushBuffer = () => {
+    const flushBuffer = (beforeIndex) => {
         if (!buffer.length) return;
-        const startIdx = globalIndex - buffer.length;
+        const startIdx = beforeIndex - buffer.length;
         newChapters.push({
             id: `preface-${newChapters.length}`, title: Lumina.I18n.t('preface'), isPreface: true,
-            startIndex: startIdx, endIndex: globalIndex - 1, items: [...buffer]
+            startIndex: startIdx, endIndex: beforeIndex - 1, items: [...buffer]
         });
         buffer = [];
     };
@@ -17,7 +17,7 @@ Lumina.Parser.buildChapters = (items) => {
     items.forEach((item, index) => {
         globalIndex = index;
         if (Lumina.Parser.isChapterStart(item)) {
-            flushBuffer();
+            flushBuffer(index);
             currentChapter = {
                 id: `chapter-${newChapters.length}`, title: Lumina.Parser.extractChapterTitle(item),
                 isPreface: false, startIndex: index, endIndex: items.length - 1, items: [item]
@@ -29,7 +29,7 @@ Lumina.Parser.buildChapters = (items) => {
         }
     });
 
-    flushBuffer();
+    flushBuffer(items.length);
     return newChapters;
 };
 

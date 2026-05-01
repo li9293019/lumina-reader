@@ -216,6 +216,13 @@ Lumina.I18n.data['en'] = {
         replaceInvalidRegex: 'Invalid regular expression',
         replaceResultsTruncated: '{count} more matches not shown',
 
+    // Clipboard Paste
+        clipboardPasteTitle: 'Paste from Clipboard',
+        clipboardPasteDesc: 'Clipboard access failed, please paste text manually...',
+        clipboardEmpty: 'Please enter text content',
+        clipboardTooShort: 'Clipboard content too short',
+        clipboardNoText: 'No text in clipboard',
+
     // Common Actions
         confirm: 'OK',
         cancel: 'Cancel',

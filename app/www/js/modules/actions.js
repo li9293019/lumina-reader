@@ -4,7 +4,7 @@ Lumina.Actions = {
     // 支持的文件类型
     supportedFormats: ['docx', 'epub', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
     
-    async processFile(file) {
+    async processFile(file, options = {}) {
         if (Lumina.State.app.ui.isProcessing) return false;
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
@@ -25,7 +25,7 @@ Lumina.Actions = {
             }
         }
 
-        const fileKey = Lumina.DB.adapter.generateFileKey(file);
+        const fileKey = options.fileKey || Lumina.DB.adapter.generateFileKey(file);
         Lumina.State.app.currentFile.fileKey = fileKey;
         Lumina.State.app.currentFile.handle = file;
         Lumina.State.app.currentFile.skipSave = false; // 重置保存标记

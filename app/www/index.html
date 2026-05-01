@@ -1178,6 +1178,27 @@
             </div>
         </div>
 
+        <!-- 剪贴板手动粘贴面板 -->
+        <div class="about-panel" id="clipboardPastePanel">
+            <div class="about-content">
+                <div class="about-header">
+                    <span class="about-title" data-i18n="clipboardPasteTitle">从剪贴板粘贴</span>
+                    <button class="btn-icon" id="closeClipboardPaste" data-i18n-tooltip="close">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+                    </button>
+                </div>
+                <div class="about-body clipboard-paste-body">
+                    <div class="clipboard-paste-wrapper">
+                        <textarea id="clipboardPasteTextarea" class="clipboard-paste-textarea" data-i18n-placeholder="clipboardPasteDesc" placeholder="剪贴板读取失败，请手动粘贴文本内容..."></textarea>
+                    </div>
+                </div>
+                <div class="clipboard-paste-footer">
+                    <button class="btn-text" id="clipboardPasteCancel" data-i18n="cancel">取消</button>
+                    <button class="btn-text primary" id="clipboardPasteConfirm" data-i18n="confirm">确认</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 缓存管理面板 -->
         <div class="about-panel" id="cacheManagerPanel">
             <div class="about-content" style="max-width: 720px;">

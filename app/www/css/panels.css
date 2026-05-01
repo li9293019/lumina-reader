@@ -2205,3 +2205,66 @@ margin-top: 4px;
     border-top: 1px dashed var(--border-color);
     margin-top: 4px;
 }
+
+/* ==================== 剪贴板手动粘贴面板 ==================== */
+.clipboard-paste-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 16px;
+}
+.clipboard-paste-wrapper {
+    flex: 1;
+    min-height: 200px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+}
+.clipboard-paste-textarea {
+    flex: 1;
+    min-height: 200px;
+    padding: 12px;
+    border: none;
+    border-radius: 0;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-family-dynamic);
+    font-size: 0.95em;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+.clipboard-paste-wrapper:focus-within {
+    border-color: var(--accent-color);
+}
+.clipboard-paste-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px 0;
+}
+.clipboard-paste-footer .btn-text {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-family-dynamic);
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.clipboard-paste-footer .btn-text:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-color);
+}
+.clipboard-paste-footer .btn-text.primary {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+.clipboard-paste-footer .btn-text.primary:hover {
+    background: var(--accent-hover);
+}

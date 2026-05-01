@@ -216,6 +216,13 @@ Lumina.I18n.data['zh-TW'] = {
         replaceInvalidRegex: '正規表示式無效',
         replaceResultsTruncated: '還有 {count} 處未顯示',
 
+    // 剪貼簿貼上
+        clipboardPasteTitle: '從剪貼簿貼上',
+        clipboardPasteDesc: '剪貼簿讀取失敗，請手動貼上文字內容...',
+        clipboardEmpty: '請輸入文字內容',
+        clipboardTooShort: '剪貼簿內容太短',
+        clipboardNoText: '剪貼簿無文字內容',
+
     // 通用操作
         confirm: '確定',
         cancel: '取消',

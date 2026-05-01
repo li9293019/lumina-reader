@@ -44,11 +44,13 @@ Lumina.UI = {
         d.searchPanelInput = document.getElementById('searchPanelInput');
         d.searchModeContent = document.getElementById('searchModeContent');
         d.replaceModeContent = document.getElementById('replaceModeContent');
+        d.clipboardPastePanel = document.getElementById('clipboardPastePanel');
+        d.clipboardPasteTextarea = document.getElementById('clipboardPasteTextarea');
     },
 
     bindEvents() {
-        document.getElementById('openFileBtn').addEventListener('click', () => Lumina.DOM.fileInput.click());
-        document.getElementById('welcomeOpenBtn').addEventListener('click', () => Lumina.DOM.fileInput.click());
+        this.setupClipboardLongPress('openFileBtn');
+        this.setupClipboardLongPress('welcomeOpenBtn');
         Lumina.DOM.fileInput.addEventListener('change', async (e) => {
             if (e.target.files[0]) {
                 if (e.target.files[0].handle) Lumina.State.app.currentFile.handle = e.target.files[0].handle;
@@ -458,6 +460,188 @@ Lumina.UI = {
             console.log('[Keyboard] Current classes:', document.body.className);
             if (window.refreshSafeArea) window.refreshSafeArea();
         };
+    },
+
+    // ==================== 剪贴板粘贴功能 ====================
+
+    setupClipboardLongPress(btnId) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+
+        let pressTimer = null;
+        let isLongPress = false;
+        const LONG_PRESS_DURATION = 700;
+        let touchTriggered = false;
+
+        const startPress = () => {
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                this.handleClipboardPaste();
+            }, LONG_PRESS_DURATION);
+        };
+
+        const endPress = (e) => {
+            clearTimeout(pressTimer);
+            if (isLongPress) {
+                // 长按已触发，阻止默认行为即可
+                e.preventDefault();
+                e.stopPropagation();
+            } else {
+                // 短按：打开文件选择器
+                Lumina.DOM.fileInput.click();
+            }
+        };
+
+        btn.addEventListener('touchstart', (e) => {
+            touchTriggered = true;
+            startPress();
+        }, { passive: true });
+
+        btn.addEventListener('touchend', (e) => {
+            endPress(e);
+        });
+
+        btn.addEventListener('mousedown', (e) => {
+            if (touchTriggered) return;
+            startPress();
+        });
+
+        btn.addEventListener('mouseup', (e) => {
+            if (touchTriggered) {
+                touchTriggered = false;
+                return;
+            }
+            endPress(e);
+        });
+
+        // 阻止长按后的 click 事件干扰
+        btn.addEventListener('click', (e) => {
+            if (isLongPress) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+    },
+
+    async handleClipboardPaste() {
+        const t = Lumina.I18n.t;
+        let text = null;
+
+        try {
+            // Capacitor 环境
+            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.Clipboard) {
+                const result = await Capacitor.Plugins.Clipboard.read({ type: 'string' });
+                text = result.value;
+            } else if (navigator.clipboard?.readText) {
+                // Web 环境
+                text = await navigator.clipboard.readText();
+            }
+        } catch (e) {
+            console.log('[Clipboard] 读取失败:', e);
+        }
+
+        // 成功读到有效文本
+        if (text && text.trim().length >= 50) {
+            await this.processClipboardText(text);
+            return;
+        }
+
+        // App 端：toast 提示
+        const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+        if (isApp) {
+            Lumina.UI.showToast(text ? t('clipboardTooShort') : t('clipboardNoText'));
+            return;
+        }
+
+        // PC 端：打开手动粘贴面板
+        this.openClipboardPastePanel();
+    },
+
+    detectMarkdown(text) {
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 3) return false;
+
+        const mdPatterns = [
+            /^#{1,6}\s+/,       /^[-*+]\s+/,       /^>\s*/,
+            /```/,              /\[.+?\]\(.+?\)/,  /!\[.+?\]\(.+?\)/,
+            /^\d+\.\s+/,        /\*\*.+?\*\*/,     /\*.+?\*/,
+            /^\|(.+\|)+/,       /^---+/,           /^___+/,
+        ];
+
+        let mdLines = 0;
+        for (const line of lines) {
+            if (mdPatterns.some(p => p.test(line))) mdLines++;
+        }
+        return mdLines / lines.length > 0.15;
+    },
+
+    async generateTextHash(text) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const num = parseInt(hex.substring(0, 8), 16) % 1000000000;
+        return String(num).padStart(9, '0');
+    },
+
+    async processClipboardText(text) {
+        const hash = await this.generateTextHash(text);
+        const fileKey = `clipboard_${hash}`;
+
+        // 检查是否已存在（防重复入库）
+        if (Lumina.State.app.dbReady) {
+            const existing = await Lumina.DB.adapter.getFile(fileKey);
+            if (existing?.content?.length) {
+                Lumina.UI.showToast(Lumina.I18n.t('dbUsingCache') || '该文本已存在，从历史记录打开');
+                await Lumina.DB.restoreFileFromDB(existing);
+                return;
+            }
+        }
+
+        const isMd = this.detectMarkdown(text);
+        const ext = isMd ? 'md' : 'txt';
+        const filename = `TMP${hash.substring(0, 8)}.${ext}`;
+
+        const blob = new Blob([text], { type: isMd ? 'text/markdown' : 'text/plain' });
+        const file = new File([blob], filename, { type: blob.type });
+
+        await Lumina.Actions.processFile(file, { fileKey });
+    },
+
+    openClipboardPastePanel() {
+        const panel = Lumina.DOM.clipboardPastePanel;
+        const textarea = Lumina.DOM.clipboardPasteTextarea;
+        if (!panel) return;
+        panel.classList.add('active');
+        if (textarea) {
+            textarea.value = '';
+            setTimeout(() => textarea.focus(), 50);
+        }
+
+        // 绑定面板事件（只绑定一次）
+        if (!panel._eventsBound) {
+            panel._eventsBound = true;
+            panel.addEventListener('click', (e) => {
+                if (e.target === panel) this.closeClipboardPastePanel();
+            });
+            document.getElementById('closeClipboardPaste')?.addEventListener('click', () => this.closeClipboardPastePanel());
+            document.getElementById('clipboardPasteCancel')?.addEventListener('click', () => this.closeClipboardPastePanel());
+            document.getElementById('clipboardPasteConfirm')?.addEventListener('click', async () => {
+                const text = textarea?.value || '';
+                if (!text.trim()) {
+                    Lumina.UI.showToast(Lumina.I18n.t('clipboardEmpty'));
+                    return;
+                }
+                this.closeClipboardPastePanel();
+                await this.processClipboardText(text);
+            });
+        }
+    },
+
+    closeClipboardPastePanel() {
+        Lumina.DOM.clipboardPastePanel?.classList.remove('active');
     },
 
     // 打开 TTS 使用指南

@@ -216,6 +216,13 @@ Lumina.I18n.data['zh'] = {
         replaceInvalidRegex: '正则表达式无效',
         replaceResultsTruncated: '还有 {count} 处未显示',
 
+    // 剪贴板粘贴
+        clipboardPasteTitle: '从剪贴板粘贴',
+        clipboardPasteDesc: '剪贴板读取失败，请手动粘贴文本内容...',
+        clipboardEmpty: '请输入文本内容',
+        clipboardTooShort: '剪贴板内容太短',
+        clipboardNoText: '剪贴板无文本内容',
+
     // 通用操作
         confirm: '确定',
         cancel: '取消',

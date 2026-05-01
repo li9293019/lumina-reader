@@ -1353,7 +1353,13 @@ Lumina.BookDetail = {
             cover: imageData,
             metadata: this.currentFile.metadata
         });
-        
+
+        // 刷新书库列表和历史记录面板
+        if (window.dataManager) {
+            window.dataManager.refreshStats();
+        }
+        await Lumina.DB.loadHistoryFromDB();
+
         // 立即刷新详情页封面显示
         const coverEl = document.getElementById('bookDetailCover');
         const coverWrapper = document.getElementById('bookDetailCoverWrapper');
@@ -1374,13 +1380,8 @@ Lumina.BookDetail = {
                 coverWrapper?.classList.remove('no-cover');
             }
         }
-        
-        // 刷新书库显示
-        if (window.dataManager) {
-            window.dataManager.refreshStats();
-        }
     },
-    
+
     // 绑定封面滑动操作（移动端）
     bindCoverSwipeActions() {
         const isMobile = Lumina.Utils.isMobile();
@@ -1480,7 +1481,13 @@ Lumina.BookDetail = {
                 cover: null,
                 metadata: this.currentFile.metadata
             });
-            
+
+            // 刷新书库列表和历史记录面板
+            if (window.dataManager) {
+                window.dataManager.refreshStats();
+            }
+            await Lumina.DB.loadHistoryFromDB();
+
             // 如果 hashCover 开启，自动生成 Bibliomorph 封面
             const coverEl = document.getElementById('bookDetailCover');
             const coverWrapper = document.getElementById('bookDetailCoverWrapper');
@@ -1509,14 +1516,9 @@ Lumina.BookDetail = {
                     coverWrapper.classList.add('no-cover');
                 }
             }
-            
-            // 刷新书库显示
-            if (window.dataManager) {
-                window.dataManager.refreshStats();
-            }
         });
     },
-    
+
     // 保存元数据
     async saveMetadata(updates) {
         if (!this.currentFile) return;
@@ -1569,11 +1571,12 @@ Lumina.BookDetail = {
             ...this.currentFile,
             metadata
         });
-        
-        // 刷新书库显示
+
+        // 刷新书库列表和历史记录面板
         if (window.dataManager) {
             window.dataManager.refreshStats();
         }
+        await Lumina.DB.loadHistoryFromDB();
     },
     
     // 开始阅读

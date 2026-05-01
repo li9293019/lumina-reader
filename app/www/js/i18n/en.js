@@ -191,7 +191,32 @@ Lumina.I18n.data['en'] = {
         searchTabLibrary: 'Library',
         switchView: 'Switch View',
 
-    // 通用操作
+    // Text Replace
+        textReplace: 'Text Replace',
+        replaceFind: 'Find',
+        replaceWith: 'Replace with',
+        replaceScopePage: 'Current Page',
+        replaceScopePageShort: 'Page',
+        replaceScopeChapter: 'Current Chapter',
+        replaceScopeChapterShort: 'Chap',
+        replaceScopeDocument: 'Whole Document',
+        replaceScopeDocumentShort: 'Book',
+        replaceIgnoreCase: 'Ignore Case',
+        replaceUseRegex: 'Use Regular Expression',
+        replaceFindNext: 'Find Next',
+        replaceReplace: 'Replace',
+        replaceAll: 'Replace All',
+        replacePreview: 'Preview ({count})',
+        replacePreviewEmpty: 'Enter search text to preview',
+        replacePreviewNoMatch: 'No matches found',
+        replaceConfirmAll: 'Replace all {count} matches?',
+        replaceSuccess: 'Replaced {count} matches',
+        replaceNoMore: 'No more matches',
+        replaceCycleBack: 'Reached end, cycling back',
+        replaceInvalidRegex: 'Invalid regular expression',
+        replaceResultsTruncated: '{count} more matches not shown',
+
+    // Common Actions
         confirm: 'OK',
         cancel: 'Cancel',
         save: 'Save',

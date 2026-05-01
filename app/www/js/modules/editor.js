@@ -78,7 +78,6 @@ Lumina.Editor = {
                     lastTapTime = 0;
                     lastTapTarget = null;
 
-                    if (Lumina.State.app.ui.isImmersive) return;
                     if (e.target.closest('.doc-image')) return;
                     const menu = document.getElementById('annotationContextMenu');
                     if (menu?.classList.contains('show')) return;
@@ -140,6 +139,19 @@ Lumina.Editor = {
         textarea.setAttribute('autocorrect', 'off');
         textarea.setAttribute('autocomplete', 'off');
         textarea.setAttribute('spellcheck', 'false');
+
+        // 精确复制原 div 的排版样式，确保编辑框和原文视觉一致、尺寸不变
+        const computed = window.getComputedStyle(el);
+        textarea.style.fontSize = computed.fontSize;
+        textarea.style.lineHeight = computed.lineHeight;
+        textarea.style.fontFamily = computed.fontFamily;
+        textarea.style.fontWeight = computed.fontWeight;
+        textarea.style.letterSpacing = computed.letterSpacing;
+        textarea.style.textIndent = computed.textIndent;
+        textarea.style.textAlign = computed.textAlign;
+        textarea.style.padding = computed.padding;
+        textarea.style.margin = '0';
+        textarea.style.boxSizing = 'border-box';
 
         el.innerHTML = '';
         el.classList.add('editing');

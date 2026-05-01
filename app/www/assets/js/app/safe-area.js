@@ -338,6 +338,8 @@
         // 键盘打开时底部 padding 为 0
         const isKeyboardOpen = document.body.classList.contains('keyboard-open');
         const bottom = isKeyboardOpen ? '0px' : (safeAreaData.bottom + 'px');
+        // 沉浸模式下工具栏已隐藏，不需要再为其留出 60px 空间
+        const isImmersive = document.body.classList.contains('immersive-mode');
 
         const elements = {
             topBar: document.querySelector('.top-bar'),
@@ -346,28 +348,48 @@
             panels: document.querySelectorAll('.panel')
         };
 
-        // 工具栏：60px + 顶部安全区域
+        // 工具栏
         if (elements.topBar) {
-            elements.topBar.style.paddingTop = top;
-            elements.topBar.style.height = 'calc(60px + ' + top + ')';
+            if (isImmersive) {
+                elements.topBar.style.paddingTop = '0px';
+                elements.topBar.style.height = '0px';
+            } else {
+                elements.topBar.style.paddingTop = top;
+                elements.topBar.style.height = 'calc(60px + ' + top + ')';
+            }
         }
 
-        // 主框架：顶部避开工具栏，底部避开虚拟按键
+        // 主框架
         if (elements.mainFrame) {
-            elements.mainFrame.style.paddingTop = 'calc(60px + ' + top + ')';
-            elements.mainFrame.style.paddingBottom = bottom;
+            if (isImmersive) {
+                elements.mainFrame.style.paddingTop = top;
+                elements.mainFrame.style.paddingBottom = bottom;
+            } else {
+                elements.mainFrame.style.paddingTop = 'calc(60px + ' + top + ')';
+                elements.mainFrame.style.paddingBottom = bottom;
+            }
         }
 
         // 左侧边栏
         if (elements.sidebarLeft) {
-            elements.sidebarLeft.style.top = 'calc(60px + ' + top + ')';
-            elements.sidebarLeft.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
+            if (isImmersive) {
+                elements.sidebarLeft.style.top = top;
+                elements.sidebarLeft.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+            } else {
+                elements.sidebarLeft.style.top = 'calc(60px + ' + top + ')';
+                elements.sidebarLeft.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
+            }
         }
 
         // 右侧面板
         elements.panels.forEach(panel => {
-            panel.style.top = 'calc(60px + ' + top + ')';
-            panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
+            if (isImmersive) {
+                panel.style.top = top;
+                panel.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+            } else {
+                panel.style.top = 'calc(60px + ' + top + ')';
+                panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
+            }
         });
 
         console.log('[SafeArea] 样式已应用:', { top: safeAreaData.top, bottom: safeAreaData.bottom, keyboardOpen: isKeyboardOpen });

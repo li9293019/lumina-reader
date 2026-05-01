@@ -42,6 +42,8 @@ Lumina.UI = {
         d.toast = document.getElementById('toast');
         d.dataManagerPanel = document.getElementById('dataManagerPanel');
         d.searchPanelInput = document.getElementById('searchPanelInput');
+        d.searchModeContent = document.getElementById('searchModeContent');
+        d.replaceModeContent = document.getElementById('replaceModeContent');
     },
 
     bindEvents() {
@@ -147,7 +149,12 @@ Lumina.UI = {
                 // 关闭注释面板
                 document.getElementById('annotationPanel')?.classList.remove('open');
                 if (panel.classList.contains('open') && key === 'search') {
-                    Lumina.DOM.searchPanelInput.focus();
+                    const isReplaceMode = document.getElementById('replaceModeContent')?.style.display !== 'none';
+                    if (isReplaceMode) {
+                        setTimeout(() => document.getElementById('replaceFindInput')?.focus(), 50);
+                    } else {
+                        Lumina.DOM.searchPanelInput.focus();
+                    }
                     // 刷新搜索标签i18n
                     Lumina.Renderer?.updateSearchTabLabels?.();
                 }
@@ -164,6 +171,7 @@ Lumina.UI = {
         document.getElementById('closeSearchPanel').addEventListener('click', () => {
             Lumina.DOM.searchPanel.classList.remove('open');
             Lumina.Search.clearHighlight();
+            this.switchSearchPanelMode('search');
         });
 
         const libraryBtn = document.getElementById('libraryBtn');
@@ -257,6 +265,8 @@ Lumina.UI = {
         if (resetSettingsBtn) resetSettingsBtn.addEventListener('click', () => Lumina.Settings.reset());
 
         Lumina.DOM.searchPanelInput.addEventListener('input', (e) => Lumina.Search.perform(e.target.value));
+
+        this.bindReplaceEvents();
 
         document.addEventListener('click', (e) => {
             // 点击面板、按钮或子面板(about-panel)时不关闭
@@ -690,6 +700,119 @@ Lumina.UI = {
                 toggleImmersive(e);
             }
         });
+    },
+
+    bindReplaceEvents() {
+        // 模式切换
+        const modeTabs = document.getElementById('searchPanelModes');
+        if (modeTabs) {
+            modeTabs.addEventListener('click', (e) => {
+                const tab = e.target.closest('.mode-tab');
+                if (!tab) return;
+                this.switchSearchPanelMode(tab.dataset.mode);
+            });
+        }
+
+        // 替换查找输入框防抖
+        const replaceFindInput = document.getElementById('replaceFindInput');
+        if (replaceFindInput) {
+            replaceFindInput.addEventListener('input', () => {
+                clearTimeout(Lumina.Search.replaceState.previewDebounceTimer);
+                Lumina.Search.replaceState.previewDebounceTimer = setTimeout(() => {
+                    this.updateReplacePreview();
+                }, 300);
+            });
+        }
+
+        // 范围胶囊
+        const scopePills = document.getElementById('replaceScopePills');
+        if (scopePills) {
+            scopePills.addEventListener('click', (e) => {
+                const pill = e.target.closest('.pill');
+                if (!pill) return;
+                scopePills.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                Lumina.Search.replaceState.scope = pill.dataset.scope;
+                this.updateReplacePreview();
+            });
+        }
+
+        // 忽略大小写
+        const ignoreCasePill = document.getElementById('replaceIgnoreCasePill');
+        if (ignoreCasePill) {
+            ignoreCasePill.addEventListener('click', () => {
+                ignoreCasePill.classList.toggle('active');
+                Lumina.Search.replaceState.ignoreCase = ignoreCasePill.classList.contains('active');
+                this.updateReplacePreview();
+            });
+        }
+
+        // 正则
+        const regexPill = document.getElementById('replaceRegexPill');
+        if (regexPill) {
+            regexPill.addEventListener('click', () => {
+                regexPill.classList.toggle('active');
+                Lumina.Search.replaceState.useRegex = regexPill.classList.contains('active');
+                this.updateReplacePreview();
+            });
+        }
+
+        // 操作按钮
+        document.getElementById('replaceFindNextBtn')?.addEventListener('click', () => Lumina.Search.findNextMatch());
+        document.getElementById('replaceSingleBtn')?.addEventListener('click', () => Lumina.Search.replaceCurrentMatch());
+        document.getElementById('replaceAllBtn')?.addEventListener('click', () => Lumina.Search.replaceAllMatches());
+    },
+
+    switchSearchPanelMode(mode) {
+        const searchModeContent = document.getElementById('searchModeContent');
+        const replaceModeContent = document.getElementById('replaceModeContent');
+        const modeTabs = document.querySelectorAll('#searchPanelModes .mode-tab');
+
+        modeTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.mode === mode));
+
+        if (mode === 'replace') {
+            if (searchModeContent) searchModeContent.style.display = 'none';
+            if (replaceModeContent) replaceModeContent.style.display = 'block';
+            setTimeout(() => document.getElementById('replaceFindInput')?.focus(), 50);
+        } else {
+            if (searchModeContent) searchModeContent.style.display = 'block';
+            if (replaceModeContent) replaceModeContent.style.display = 'none';
+            setTimeout(() => Lumina.DOM.searchPanelInput?.focus(), 50);
+        }
+    },
+
+    updateReplacePreview() {
+        const findInput = document.getElementById('replaceFindInput');
+        const withInput = document.getElementById('replaceWithInput');
+        if (!findInput) return;
+
+        const query = findInput.value;
+        const replacement = withInput?.value || '';
+        const state = Lumina.Search.replaceState;
+
+        if (!query) {
+            state.matches = [];
+            state.currentMatchIndex = -1;
+            Lumina.Search.renderReplacePreview([], query, replacement);
+            return;
+        }
+
+        const matches = Lumina.Search.findMatches(state.scope, query, {
+            ignoreCase: state.ignoreCase,
+            useRegex: state.useRegex
+        });
+
+        if (matches.error) {
+            Lumina.UI.showToast(Lumina.I18n.t('replaceInvalidRegex'));
+            state.matches = [];
+            state.currentMatchIndex = -1;
+            Lumina.Search.renderReplacePreview([], query, replacement);
+            return;
+        }
+
+        state.matches = matches;
+        state.currentMatchIndex = -1;
+        Lumina.Search.renderReplacePreview(matches, query, replacement);
     },
 
     setupCustomTooltip() {

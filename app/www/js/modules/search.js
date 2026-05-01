@@ -22,6 +22,7 @@ Lumina.Search = {
     // 初始化
     init() {
         this.bindTabEvents();
+        this.initReplace();
         
         // 初始状态：隐藏选项卡容器
         const tabsContainer = document.getElementById('searchTabs');
@@ -221,6 +222,352 @@ Lumina.Search = {
         return matches;
     },
 
+    // ==================== 文本替换 ====================
+
+    initReplace() {
+        this.replaceState = {
+            scope: 'page',
+            ignoreCase: true,
+            useRegex: false,
+            matches: [],
+            currentMatchIndex: -1,
+            previewDebounceTimer: null
+        };
+    },
+
+    findMatches(scope, query, options = {}) {
+        const { ignoreCase = true, useRegex = false } = options;
+        const state = Lumina.State.app;
+        const items = state.document?.items;
+        if (!items?.length || !query) return [];
+
+        let startIdx = 0, endIdx = items.length;
+
+        // 确定搜索范围
+        if (scope === 'page') {
+            const chapter = state.chapters[state.currentChapterIndex];
+            if (chapter?.pageRanges?.length) {
+                const pageIdx = state.currentPageIdx || 0;
+                const range = chapter.pageRanges[Math.min(pageIdx, chapter.pageRanges.length - 1)];
+                if (range) {
+                    startIdx = chapter.startIndex + range.start;
+                    endIdx = Math.min(items.length, chapter.startIndex + range.end);
+                }
+            } else {
+                // 无分页时回退到当前章节
+                scope = 'chapter';
+            }
+        }
+
+        if (scope === 'chapter') {
+            const chapter = state.chapters[state.currentChapterIndex];
+            if (chapter) {
+                startIdx = chapter.startIndex;
+                endIdx = chapter.endIndex;
+            }
+        }
+
+        // 构建正则
+        let regex;
+        try {
+            if (useRegex) {
+                regex = new RegExp(query, ignoreCase ? 'gi' : 'g');
+            } else {
+                const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                regex = new RegExp(escaped, ignoreCase ? 'gi' : 'g');
+            }
+        } catch (e) {
+            return { error: 'invalidRegex' };
+        }
+
+        const matches = [];
+        for (let i = startIdx; i < endIdx && i < items.length; i++) {
+            const item = items[i];
+            if (!item.text) continue;
+
+            const text = item.text;
+            regex.lastIndex = 0;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                matches.push({
+                    globalIndex: i,
+                    chapterIndex: this._getChapterIndex(i),
+                    offset: match.index,
+                    length: match[0].length,
+                    originalText: match[0],
+                    itemText: text
+                });
+                if (match[0].length === 0) regex.lastIndex++;
+            }
+        }
+
+        return matches;
+    },
+
+    _getChapterIndex(globalIndex) {
+        const chapters = Lumina.State.app.chapters;
+        for (let i = chapters.length - 1; i >= 0; i--) {
+            if (globalIndex >= chapters[i].startIndex) return i;
+        }
+        return 0;
+    },
+
+    renderReplacePreview(matches, query, replacement) {
+        const container = document.getElementById('replacePreviewList');
+        const header = document.getElementById('replacePreviewHeader');
+        if (!container) return;
+
+        if (!query) {
+            if (header) header.textContent = '';
+            container.innerHTML = `<div class="search-empty">${Lumina.I18n.t('replacePreviewEmpty')}</div>`;
+            return;
+        }
+
+        if (!matches || !matches.length) {
+            if (header) header.textContent = '';
+            container.innerHTML = `<div class="search-empty">${Lumina.I18n.t('replacePreviewNoMatch')}</div>`;
+            return;
+        }
+
+        const MAX_PREVIEW = 50;
+        const displayMatches = matches.slice(0, MAX_PREVIEW);
+        const truncated = matches.length > MAX_PREVIEW;
+
+        const t = Lumina.I18n.t;
+        if (header) {
+            header.textContent = t('replacePreview').replace('{count}', matches.length);
+        }
+
+        container.innerHTML = displayMatches.map((match, idx) => {
+            const text = match.itemText;
+            const before = text.substring(Math.max(0, match.offset - 25), match.offset);
+            const after = text.substring(match.offset + match.length, Math.min(text.length, match.offset + match.length + 25));
+
+            const originalContext = Lumina.Utils.escapeHtml(before) +
+                `<span class="search-result-match">${Lumina.Utils.escapeHtml(match.originalText)}</span>` +
+                Lumina.Utils.escapeHtml(after);
+
+            const replacedContext = Lumina.Utils.escapeHtml(before) +
+                `<span class="search-result-match">${Lumina.Utils.escapeHtml(replacement)}</span>` +
+                Lumina.Utils.escapeHtml(after);
+
+            const chapter = Lumina.State.app.chapters[match.chapterIndex];
+            const chapterTitle = chapter?.isPreface ? t('preface') : (chapter?.title || '');
+
+            return `
+                <div class="replace-preview-item" data-index="${idx}" data-global="${match.globalIndex}">
+                    <div class="replace-preview-original">${originalContext}</div>
+                    <div class="replace-preview-arrow"></div>
+                    <div class="replace-preview-result">${replacedContext}</div>
+                    <div class="replace-preview-info">
+                        <span>${this.getItemTypeLabel(Lumina.State.app.document.items[match.globalIndex]?.type)}</span>
+                        <span>${Lumina.Utils.escapeHtml(chapterTitle)}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (truncated) {
+            container.insertAdjacentHTML('beforeend', `<div class="replace-truncated-hint">${t('replaceResultsTruncated').replace('{count}', matches.length - MAX_PREVIEW)}</div>`);
+        }
+
+        // 绑定点击跳转
+        container.querySelectorAll('.replace-preview-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const globalIndex = parseInt(item.dataset.global);
+                const chapterIndex = this._getChapterIndex(globalIndex);
+
+                this.clearHighlight();
+                Lumina.Actions.navigateToChapter(chapterIndex, globalIndex);
+
+                container.querySelectorAll('.replace-preview-item.active').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+    },
+
+    _highlightMatchInReader(match) {
+        const globalIndex = match.globalIndex;
+        const chapterIndex = match.chapterIndex;
+
+        this.clearHighlight();
+        Lumina.Actions.navigateToChapter(chapterIndex, globalIndex);
+
+        setTimeout(() => {
+            const target = Lumina.DOM.contentWrapper.querySelector(`.doc-line[data-index="${globalIndex}"]`);
+            if (target) {
+                target.classList.add('search-highlight');
+                Lumina.State.app.search.highlightedIndex = globalIndex;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, Lumina.Utils.isMobile() ? 400 : 150);
+    },
+
+    findNextMatch() {
+        const matches = this.replaceState.matches;
+        if (!matches.length) {
+            Lumina.UI.showToast(Lumina.I18n.t('replaceNoMore'));
+            return;
+        }
+
+        this.replaceState.currentMatchIndex++;
+        if (this.replaceState.currentMatchIndex >= matches.length) {
+            this.replaceState.currentMatchIndex = 0;
+            Lumina.UI.showToast(Lumina.I18n.t('replaceCycleBack'));
+        }
+
+        this._highlightMatchInReader(matches[this.replaceState.currentMatchIndex]);
+    },
+
+    async replaceCurrentMatch() {
+        const matches = this.replaceState.matches;
+        if (!matches.length) {
+            Lumina.UI.showToast(Lumina.I18n.t('replaceNoMore'));
+            return;
+        }
+
+        const replacement = document.getElementById('replaceWithInput')?.value || '';
+        const match = matches[this.replaceState.currentMatchIndex];
+        if (!match) return;
+
+        await this._doReplaceAtMatch(match, replacement);
+
+        // 计算长度变化，调整同 item 后续匹配 offset
+        const delta = replacement.length - match.length;
+        if (delta !== 0) {
+            for (let i = this.replaceState.currentMatchIndex + 1; i < matches.length; i++) {
+                if (matches[i].globalIndex === match.globalIndex) {
+                    matches[i].offset += delta;
+                }
+            }
+        }
+
+        // 移除当前匹配
+        const replacedGlobalIndex = match.globalIndex;
+        matches.splice(this.replaceState.currentMatchIndex, 1);
+
+        // 更新同 item 中剩余匹配的 itemText，确保预览准确
+        const updatedText = Lumina.State.app.document.items[replacedGlobalIndex]?.text;
+        if (updatedText !== undefined) {
+            for (let i = 0; i < matches.length; i++) {
+                if (matches[i].globalIndex === replacedGlobalIndex) {
+                    matches[i].itemText = updatedText;
+                }
+            }
+        }
+
+        // 刷新预览
+        this.renderReplacePreview(matches, document.getElementById('replaceFindInput')?.value || '', replacement);
+
+        // 高亮下一个（当前 index 已指向下一项，因为移除了当前项）
+        if (matches.length > 0) {
+            if (this.replaceState.currentMatchIndex >= matches.length) {
+                this.replaceState.currentMatchIndex = 0;
+                Lumina.UI.showToast(Lumina.I18n.t('replaceCycleBack'));
+            }
+            this._highlightMatchInReader(matches[this.replaceState.currentMatchIndex]);
+        } else {
+            this.replaceState.currentMatchIndex = -1;
+            Lumina.UI.showToast(Lumina.I18n.t('replaceNoMore'));
+        }
+    },
+
+    async _doReplaceAtMatch(match, replacement) {
+        const state = Lumina.State.app;
+        const item = state.document.items[match.globalIndex];
+        if (!item) return;
+
+        item.text = item.text.substring(0, match.offset) + replacement + item.text.substring(match.offset + match.length);
+        if (item.display !== undefined) item.display = item.text;
+        if (item.cleanText !== undefined) item.cleanText = item.text;
+        if (item.raw !== undefined) item.raw = item.text;
+        if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
+            item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(item.text);
+        }
+
+        const isHeading = item.type?.startsWith('heading') || item.type === 'title';
+        if (isHeading) {
+            state.chapters = Lumina.Parser.buildChapters(state.document.items);
+            Lumina.Parser.applyNumberingStyle();
+        } else {
+            Lumina.Renderer.updateDocLineElement(match.globalIndex, item);
+        }
+
+        await Lumina.Editor.saveDocument();
+    },
+
+    async replaceAllMatches() {
+        const matches = this.replaceState.matches;
+        if (!matches.length) {
+            Lumina.UI.showToast(Lumina.I18n.t('replaceNoMore'));
+            return;
+        }
+
+        const replacement = document.getElementById('replaceWithInput')?.value || '';
+        const t = Lumina.I18n.t;
+
+        Lumina.UI.showDialog(
+            t('replaceConfirmAll').replace('{count}', matches.length),
+            'confirm',
+            async (confirmed) => {
+                if (!confirmed) return;
+
+                // 按 globalIndex 分组，每组内按 offset 从大到小排序
+                const groups = new Map();
+                for (const match of matches) {
+                    if (!groups.has(match.globalIndex)) groups.set(match.globalIndex, []);
+                    groups.get(match.globalIndex).push(match);
+                }
+
+                let hasHeading = false;
+                const replacedIndices = new Set();
+
+                for (const [globalIndex, itemMatches] of groups) {
+                    const item = Lumina.State.app.document.items[globalIndex];
+                    if (!item?.text) continue;
+
+                    // 从后往前替换，避免 offset 漂移
+                    itemMatches.sort((a, b) => b.offset - a.offset);
+
+                    let text = item.text;
+                    for (const match of itemMatches) {
+                        text = text.substring(0, match.offset) + replacement + text.substring(match.offset + match.length);
+                    }
+
+                    item.text = text;
+                    if (item.display !== undefined) item.display = text;
+                    if (item.cleanText !== undefined) item.cleanText = text;
+                    if (item.raw !== undefined) item.raw = text;
+                    if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
+                        item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(text);
+                    }
+
+                    if (item.type?.startsWith('heading') || item.type === 'title') {
+                        hasHeading = true;
+                    }
+                    replacedIndices.add(globalIndex);
+                }
+
+                const state = Lumina.State.app;
+                state.chapters = Lumina.Parser.buildChapters(state.document.items);
+                if (hasHeading) Lumina.Parser.applyNumberingStyle();
+
+                replacedIndices.forEach(idx => {
+                    Lumina.Renderer.updateDocLineElement(idx, state.document.items[idx]);
+                });
+
+                await Lumina.Editor.saveDocument();
+
+                Lumina.UI.showToast(t('replaceSuccess').replace('{count}', matches.length));
+
+                // 清空状态
+                this.replaceState.matches = [];
+                this.replaceState.currentMatchIndex = -1;
+                this.renderReplacePreview([], '', '');
+            }
+        );
+    },
+
     // 显示/隐藏 Loading
     showLoading(show) {
         this.isLoading = show;
@@ -301,8 +648,11 @@ Lumina.Search = {
     // 渲染文档搜索结果
     renderDocumentResults(matches, query) {
         const converter = Lumina.Converter;
+        const MAX_DISPLAY = 50;
+        const displayMatches = matches.slice(0, MAX_DISPLAY);
+        const truncated = matches.length > MAX_DISPLAY;
 
-        document.getElementById('aggregateSearch').innerHTML = matches.map((match, idx) => {
+        let html = displayMatches.map((match, idx) => {
             // 获取显示文本（转换后）
             let text = match.item.text;
             if (converter?.isConverting && text) {
@@ -358,6 +708,11 @@ Lumina.Search = {
     `;
         }).join('');
 
+        if (truncated) {
+            html += `<div class="search-truncated-hint">${Lumina.I18n.t('replaceResultsTruncated').replace('{count}', matches.length - MAX_DISPLAY)}</div>`;
+        }
+
+        document.getElementById('aggregateSearch').innerHTML = html;
         this.bindDocumentResultEvents();
     },
 

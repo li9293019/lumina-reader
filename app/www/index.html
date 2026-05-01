@@ -966,7 +966,10 @@
         <!-- 搜索面板 -->
         <aside class="panel search-panel" id="searchPanel">
             <div class="panel-header">
-                <span class="panel-title" data-i18n="aggregateSearch"></span>
+                <div class="panel-mode-tabs" id="searchPanelModes">
+                    <button class="mode-tab active" data-mode="search" data-i18n="aggregateSearch">聚合搜索</button>
+                    <button class="mode-tab" data-mode="replace" data-i18n="textReplace">文本替换</button>
+                </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <span class="search-stats" id="searchStats"></span>
                     <button class="btn-icon" id="closeSearchPanel" data-i18n-tooltip="close">
@@ -974,19 +977,51 @@
                     </button>
                 </div>
             </div>
-            <div class="search-input-wrapper">
-                <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
+
+            <!-- 聚合搜索模式 -->
+            <div class="mode-content" id="searchModeContent">
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchPanelInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
+                </div>
+                <!-- 搜索类型标签 -->
+                <div class="search-tabs" id="searchTabs">
+                    <button class="search-tab active" data-tab="document">
+                        <span data-i18n="searchTabDocument">全文</span>(<span id="docResultCount">0</span>)
+                    </button>
+                    <button class="search-tab" data-tab="library">
+                        <span data-i18n="searchTabLibrary">书库</span>(<span id="libResultCount">0</span>)
+                    </button>
+                </div>
+                <div class="search-results" id="aggregateSearch"></div>
             </div>
-            <!-- 搜索类型标签 -->
-            <div class="search-tabs" id="searchTabs">
-                <button class="search-tab active" data-tab="document">
-                    <span data-i18n="searchTabDocument">全文</span>(<span id="docResultCount">0</span>)
-                </button>
-                <button class="search-tab" data-tab="library">
-                    <span data-i18n="searchTabLibrary">书库</span>(<span id="libResultCount">0</span>)
-                </button>
+
+            <!-- 文本替换模式 -->
+            <div class="mode-content" id="replaceModeContent" style="display: none;">
+                <div class="replace-form">
+                    <div class="replace-inputs">
+                        <input type="text" id="replaceFindInput" data-i18n-placeholder="replaceFind" placeholder="查找内容">
+                        <input type="text" id="replaceWithInput" data-i18n-placeholder="replaceWith" placeholder="替换为">
+                    </div>
+                    <div class="replace-pills">
+                        <div class="pill-group" id="replaceScopePills">
+                            <button class="pill active" data-scope="page" data-i18n="replaceScopePageShort" data-i18n-tooltip="replaceScopePage">页面</button>
+                            <button class="pill" data-scope="chapter" data-i18n="replaceScopeChapterShort" data-i18n-tooltip="replaceScopeChapter">章节</button>
+                            <button class="pill" data-scope="document" data-i18n="replaceScopeDocumentShort" data-i18n-tooltip="replaceScopeDocument">全书</button>
+                        </div>
+                        <div class="pill-group">
+                            <button class="pill active" id="replaceIgnoreCasePill" data-i18n-tooltip="replaceIgnoreCase">Aa</button>
+                            <button class="pill" id="replaceRegexPill" data-i18n-tooltip="replaceUseRegex">.*</button>
+                        </div>
+                    </div>
+                    <div class="replace-actions">
+                        <button class="btn-text" id="replaceFindNextBtn" data-i18n="replaceFindNext">查找下一处</button>
+                        <button class="btn-text" id="replaceSingleBtn" data-i18n="replaceReplace">替换</button>
+                        <button class="btn-text primary" id="replaceAllBtn" data-i18n="replaceAll">全部替换</button>
+                    </div>
+                </div>
+                <div class="replace-preview-header" id="replacePreviewHeader"></div>
+                <div class="replace-results" id="replacePreviewList"></div>
             </div>
-            <div class="search-results" id="aggregateSearch"></div>
         </aside>
 
         <!-- 注释面板 -->

@@ -205,6 +205,40 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
     return div;
 };
 
+/**
+ * 原位更新单个 doc-line 元素，不触发全页重建
+ * 用于纯文本编辑后保持滚动位置、避免闪烁
+ */
+Lumina.Renderer.updateDocLineElement = (index, item) => {
+    const oldEl = document.querySelector(`.doc-line[data-index="${index}"]`);
+    if (!oldEl) return false;
+
+    const newEl = Lumina.Renderer.createDocLineElement(item, index);
+    oldEl.parentNode.replaceChild(newEl, oldEl);
+
+    // 重新应用 URL 自动链接化
+    if (Lumina.Utils?.linkifyContent && item.type !== 'image') {
+        Lumina.Utils.linkifyContent(newEl);
+    }
+
+    // 重新渲染该行的批注高亮（最小化重绘范围）
+    const chapterIndex = Lumina.State.app.currentChapterIndex;
+    const chapterAnnotations = (Lumina.State.app.annotations || []).filter(
+        a => a.chapterIndex === chapterIndex && (a.lineIndex === index || a.startLine === index)
+    );
+    if (chapterAnnotations.length && Lumina.Annotations) {
+        chapterAnnotations.forEach(anno => {
+            if (anno.type === 'bookmark') {
+                Lumina.Annotations.renderBookmark(anno);
+            } else {
+                Lumina.Annotations.renderAnnotationHighlight(anno);
+            }
+        });
+    }
+
+    return true;
+};
+
 Lumina.Renderer.getCleanText = (txt) => {
     // 防御：确保 txt 是字符串
     if (typeof txt !== 'string') return txt || '';

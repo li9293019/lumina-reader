@@ -9,6 +9,7 @@ Lumina.UI = {
         this.setupCustomTooltip();
         this.setupRegexRealtimeFeedback();
         this.regexToolbar.init();
+        if (Lumina.Editor) Lumina.Editor.init();
     },
 
     cacheElements() {
@@ -681,8 +682,9 @@ Lumina.UI = {
             }
         }, { passive: true });
         
-        // 双击退出（备用方案，如果长按太难用）
+        // 双击退出沉浸（PC端专用；App端通过长按 700ms 进入/退出沉浸）
         readingArea.addEventListener('dblclick', (e) => {
+            if (Lumina.Utils.isMobile()) return;
             // 双击时如果处于沉浸模式，退出
             if (Lumina.State.app.ui.isImmersive) {
                 toggleImmersive(e);

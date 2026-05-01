@@ -214,14 +214,19 @@ Lumina.Settings = {
         Lumina.DOM.sidebarLeft.classList.toggle('visible', sidebarVisible);
         Lumina.DOM.readingArea.classList.toggle('with-sidebar', sidebarVisible);
 
-        if (Lumina.State.app.document.items.length) Lumina.Renderer.renderCurrentChapter(savedScrollIndex);
+        // 正在就地编辑时不重建 DOM，避免销毁 textarea；样式变化通过 CSS 变量实时生效
+        const isEditing = Lumina.Editor?.activeEdit != null;
+
+        if (!isEditing && Lumina.State.app.document.items.length) {
+            Lumina.Renderer.renderCurrentChapter(savedScrollIndex);
+        }
         Lumina.Renderer.updateChapterNavInfo();
 
         Lumina.Config.pagination.enabled = settings.paginationEnabled;
         Lumina.Config.pagination.maxReadingWords = parseInt(settings.paginationMaxWords) || 3000;
         Lumina.Config.pagination.imageEquivalentWords = parseInt(settings.paginationImageWords) || 300;
-        
-        if (Lumina.State.app.document.items.length) {
+
+        if (!isEditing && Lumina.State.app.document.items.length) {
             Lumina.State.app.chapters.forEach(ch => ch.pageRanges = null);
             const currentIdx = Lumina.Renderer.getCurrentVisibleIndex();
             Lumina.Renderer.renderCurrentChapter(currentIdx);

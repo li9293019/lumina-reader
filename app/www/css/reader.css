@@ -824,3 +824,47 @@ position: relative;
 border-radius: 2px;
 background: transparent !important;
 }
+
+
+/* ==================== 就地编辑样式 ==================== */
+.doc-line.editing {
+	margin: var(--paragraph-spacing) 0;
+	padding: 0;
+	background: var(--bg-secondary);
+	border: 2px solid var(--accent-color);
+	border-radius: 6px;
+	box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 139, 123, 100), 0.15);
+}
+
+.doc-line-editor {
+	width: 100%;
+	min-height: 1.8em;
+	padding: 0.5em 0.75em;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-primary);
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	letter-spacing: inherit;
+	resize: none;
+	outline: none;
+	word-break: break-word;
+	white-space: pre-wrap;
+	overflow: hidden;
+}
+
+/* 暗色主题下的编辑框微调 */
+[data-theme="dark"] .doc-line.editing {
+	border-color: var(--accent-color);
+	box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 139, 123, 100), 0.2);
+}
+
+/* 移动端编辑框额外内边距，避免被虚拟键盘遮挡提示 */
+@media (max-width: 768px) {
+	.doc-line-editor {
+		padding: 0.6em 0.8em;
+		font-size: 16px; /* 防止 iOS 自动放大 */
+	}
+}

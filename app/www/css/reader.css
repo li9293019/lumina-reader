@@ -86,6 +86,10 @@ line-height: var(--line-height);
 word-wrap: break-word;
 word-break: break-all;
 }
+/* 忽略空行模式下，空段落完全不占空间 */
+.doc-line.hidden-empty-line {
+margin: 0 !important;
+}
 .doc-line.search-highlight {
 background: var(--bg-tertiary);
 padding: 10px;

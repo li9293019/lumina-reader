@@ -195,6 +195,10 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
             div.classList.add('empty-paragraph');
         } else {
             div.textContent = content.trim();
+            // 忽略空行模式下，空段落去掉 margin，完全不占空间
+            if (!content.trim() && Lumina.State.settings.ignoreEmptyLines) {
+                div.classList.add('hidden-empty-line');
+            }
         }
         
         if (div.classList.contains('paragraph') && Lumina.State.settings.indent) {

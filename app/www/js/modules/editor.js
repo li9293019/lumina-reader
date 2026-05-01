@@ -100,10 +100,17 @@ Lumina.Editor = {
     /**
      * 进入就地编辑模式
      */
+    _isEditableType(type) {
+        if (!type) return true; // 无 type 默认按普通文本处理
+        if (type === 'paragraph' || type === 'title') return true;
+        if (type.startsWith('heading')) return true;
+        return false;
+    },
+
     enterEditMode(index, lineEl = null) {
         const state = Lumina.State.app;
         const item = state.document.items[index];
-        if (!item || item.type === 'image') return;
+        if (!item || !this._isEditableType(item.type)) return;
 
         // TTS 播放中则暂停
         if (Lumina.TTS?.manager?.isPlaying) {

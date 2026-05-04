@@ -750,7 +750,7 @@ Lumina.I18n.data['en'] = {
         deleteFailedRetry: 'Delete failed, please retry',
         exportSystemNotReady: 'Export system not initialized',
         firstLoading: 'First time loading...',
-        fontFileTooLarge: 'Font file too large (max 30MB)',
+        fontFileTooLarge: 'Font file too large (max 35MB)',
         fontInstallFailed: 'Font installation failed',
         operationTimeout: 'Operation timed out, please retry',
         savedAndCopied: 'Saved and copied to clipboard',

@@ -329,7 +329,7 @@ Lumina.FontManager = {
             const file = await this._pickFontFile();
             if (!file) return null;
             
-            if (file.size > 30 * 1024 * 1024) {
+            if (file.size > 35 * 1024 * 1024) {
                 Lumina.UI.showToast(Lumina.I18n.t('fontFileTooLarge'));
                 return null;
             }

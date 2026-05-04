@@ -750,7 +750,7 @@ Lumina.I18n.data['zh-TW'] = {
         deleteFailedRetry: '刪除失敗，請重試',
         exportSystemNotReady: '導出系統未初始化',
         firstLoading: '首次載入中...',
-        fontFileTooLarge: '字體檔案過大（最大 30MB）',
+        fontFileTooLarge: '字體檔案過大（最大 35MB）',
         fontInstallFailed: '字體安裝失敗',
         operationTimeout: '操作逾時，請重試',
         savedAndCopied: '已保存並複製到剪貼簿',

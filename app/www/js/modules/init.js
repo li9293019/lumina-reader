@@ -1,5 +1,5 @@
 // ==================== 20. 初始化入口 ====================
-console.log('[Init] module loaded v2.1.5-ai-fix');
+console.log('[Init] module loaded v2.1.8');
 
 Lumina.init = async () => {
     const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();

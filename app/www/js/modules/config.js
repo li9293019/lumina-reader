@@ -4,8 +4,8 @@
 Lumina.Config.version = {
     major: 2,
     minor: 1,
-    patch: 6,
-    build: '20260501',
+    patch: 8,
+    build: '20260504',
     toString() { return `${this.major}.${this.minor}.${this.patch}`; }
 };
 

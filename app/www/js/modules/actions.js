@@ -792,10 +792,16 @@ Lumina.Actions = {
 Lumina.Actions.nextPage = () => {
     const state = Lumina.State.app;
     const chapter = state.chapters[state.currentChapterIndex];
-    const ranges = state.pageRanges;
+    // 防御：当前章节无效时直接返回
+    if (!chapter) return;
+    
+    const ranges = chapter.pageRanges || Lumina.Pagination.calculateRanges(chapter.items);
     
     if (!ranges || ranges.length <= 1) {
-        // 无分页，直接下一章
+        // 无分页或单页，尝试进入下一章，但必须做边界检查
+        if (state.currentChapterIndex >= state.chapters.length - 1) {
+            return; // 已在最后一章，无法前进
+        }
         state.currentChapterIndex++;
         state.currentPageIdx = 0; // ✅ 确保从第1页开始
         Lumina.Renderer.renderCurrentChapter();
@@ -833,6 +839,12 @@ Lumina.Actions.prevPage = () => {
             state.currentChapterIndex--;
             const prevChapter = state.chapters[state.currentChapterIndex];
             
+            // 防御：确保章节存在
+            if (!prevChapter) {
+                state.currentChapterIndex = 0;
+                return;
+            }
+            
             // 确保有分页数据
             if (!prevChapter.pageRanges) {
                 prevChapter.pageRanges = Lumina.Pagination.calculateRanges(prevChapter.items);
@@ -863,6 +875,9 @@ Lumina.Actions.goToPrevChapterLastPage = () => {
     const prevIdx = state.currentChapterIndex - 1;
     const prevChapter = state.chapters[prevIdx];
     
+    // 防御：确保章节存在
+    if (!prevChapter) return;
+    
     // 确保有分页数据
     if (!prevChapter.pageRanges) {
         prevChapter.pageRanges = Lumina.Pagination.calculateRanges(prevChapter.items);
@@ -870,7 +885,7 @@ Lumina.Actions.goToPrevChapterLastPage = () => {
     
     // 切换到上一章最后一页
     state.currentChapterIndex = prevIdx;
-    state.currentPageIdx = prevChapter.pageRanges.length - 1;
+    state.currentPageIdx = Math.max(0, prevChapter.pageRanges.length - 1);
     Lumina.Renderer.renderCurrentChapter();
     Lumina.DB.updateHistoryProgress();
 };

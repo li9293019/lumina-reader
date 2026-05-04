@@ -69,6 +69,7 @@
                 <data android:mimeType="application/json" />
                 <data android:mimeType="application/epub+zip" />
                 <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="*/*" />
             </intent-filter>
 
             <!-- 支持多文件分享 -->
@@ -80,14 +81,20 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
 
-            <!-- 支持配置/备份文件打开 (.lmn/.json) -->
+            <!-- 支持配置/备份文件打开 (.lmn/.json) - content:// 按 MIME type 匹配 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+
+            <!-- 支持从文件管理器打开 .lmn/.json（file:// URI 时按扩展名匹配） -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="file" />
-                <data android:scheme="content" />
-                <data android:mimeType="application/json" />
-                <data android:mimeType="application/octet-stream" />
                 <data android:pathPattern=".*\.lmn" />
                 <data android:pathPattern=".*\.json" />
             </intent-filter>

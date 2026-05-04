@@ -132,8 +132,12 @@ Lumina.Annotations = {
         
         const contentArea = document.getElementById('contentWrapper');
         if (contentArea) {
-            // 阻止默认的上下文菜单
+            // 阻止默认的上下文菜单（但放行输入框的系统菜单）
             contentArea.addEventListener('contextmenu', (e) => {
+                // 不拦截 textarea、input、contenteditable 的系统上下文菜单（复制/粘贴/全选）
+                if (e.target.closest('textarea, input, [contenteditable="true"]')) {
+                    return;
+                }
                 if (Lumina.Utils.isMobile()) {
                     e.preventDefault();
                 }

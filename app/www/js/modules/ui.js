@@ -808,8 +808,8 @@ Lumina.UI = {
         
         // 触摸开始 - 绑定在阅读区
         readingArea.addEventListener('touchstart', (e) => {
-            // 排除交互元素：按钮、输入框、链接、图片（放大查看）
-            if (e.target.closest('button, input, a, .doc-image, .pagination-nav, .cover-btn')) {
+            // 排除交互元素：按钮、输入框、文本域、链接、图片（放大查看）、可编辑元素
+            if (e.target.closest('button, input, textarea, a, .doc-image, .pagination-nav, .cover-btn, [contenteditable="true"], .doc-line-editor')) {
                 return;
             }
             

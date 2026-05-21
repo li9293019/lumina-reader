@@ -116,13 +116,14 @@ Lumina.Plugin.Markdown.Parser = {
         const level = match[1].length;
         const text = match[2].trim();
         const inlineContent = this.parseInline(text);
+        const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
 
         // 与阅读器章节系统兼容：输出 heading1, heading2 等格式
         return {
             type: `heading${level}`,
             level,
-            text,
-            display: text,
+            text: cleanText,
+            display: cleanText,
             inlineContent,
             raw: line
         };
@@ -150,11 +151,12 @@ Lumina.Plugin.Markdown.Parser = {
         if (/^={3,}\s*$/.test(nextLine)) {
             const text = line.trim();
             const inlineContent = this.parseInline(text);
+            const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
             return {
                 type: 'heading1',
                 level: 1,
-                text,
-                display: text,
+                text: cleanText,
+                display: cleanText,
                 inlineContent,
                 raw: line + '\n' + nextLine
             };
@@ -163,11 +165,12 @@ Lumina.Plugin.Markdown.Parser = {
         if (/^-{3,}\s*$/.test(nextLine)) {
             const text = line.trim();
             const inlineContent = this.parseInline(text);
+            const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
             return {
                 type: 'heading2',
                 level: 2,
-                text,
-                display: text,
+                text: cleanText,
+                display: cleanText,
                 inlineContent,
                 raw: line + '\n' + nextLine
             };
@@ -757,6 +760,75 @@ Lumina.Plugin.Markdown.Parser = {
             }
         }
 
+        // 高亮标记 ==text==（Pixiv 语法）
+        const markRegex = /==([^=\n]+?)==/g;
+        while ((match = markRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({
+                    type: 'mark',
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    content: match[1]
+                });
+            }
+        }
+
+        // 注音 [[rb:汉字 > ruby]]
+        const rubyRegex = /\[\[rb:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
+        while ((match = rubyRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({
+                    type: 'ruby',
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    base: match[1].trim(),
+                    ruby: match[2].trim()
+                });
+            }
+        }
+
+        // 着重号 [[emphasismark:文字 > mark]]
+        const emphasisMarkRegex = /\[\[emphasismark:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
+        while ((match = emphasisMarkRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({
+                    type: 'emphasisMark',
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    content: match[1].trim(),
+                    mark: match[2].trim()
+                });
+            }
+        }
+
+        // 跳转链接 [[jumpuri:文字 > url]]
+        const jumpuriRegex = /\[\[jumpuri:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
+        while ((match = jumpuriRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches)) {
+                matches.push({
+                    type: 'jumpuri',
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    content: match[1].trim(),
+                    href: match[2].trim()
+                });
+            }
+        }
+
+        // 批注 [[type:content]] — 放在最后，排除已匹配区域
+        const annotationRegex = /\[\[(\w+):([^\]]+)\]\]/g;
+        while ((match = annotationRegex.exec(text)) !== null) {
+            if (!this.isInsideCode(match.index, matches) && !this.isOverlappingAny(match.index, match[0].length, matches)) {
+                matches.push({
+                    type: 'annotation',
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    annoType: match[1],
+                    content: match[2].trim()
+                });
+            }
+        }
+
         // 按位置排序
         matches.sort((a, b) => a.start - b.start);
 
@@ -786,6 +858,20 @@ Lumina.Plugin.Markdown.Parser = {
                 item.title = m.title;
                 // 链接内容可能还有行内格式，递归解析
                 item.inlineContent = this.parseInline(m.content);
+            } else if (m.type === 'mark') {
+                item.content = m.content;
+            } else if (m.type === 'ruby') {
+                item.base = m.base;
+                item.ruby = m.ruby;
+            } else if (m.type === 'emphasisMark') {
+                item.content = m.content;
+                item.mark = m.mark;
+            } else if (m.type === 'jumpuri') {
+                item.content = m.content;
+                item.href = m.href;
+            } else if (m.type === 'annotation') {
+                item.annoType = m.annoType;
+                item.content = m.content;
             } else {
                 item.content = m.content;
                 // 复制递归解析的内部格式（strong/em/del 的嵌套内容）
@@ -814,6 +900,13 @@ Lumina.Plugin.Markdown.Parser = {
      */
     isInsideCode(pos, matches) {
         return matches.some(m => m.type === 'code' && pos >= m.start && pos < m.end);
+    },
+
+    /**
+     * 检查是否与任何已匹配区域重叠
+     */
+    isOverlappingAny(pos, length, matches) {
+        return matches.some(m => pos < m.end && pos + length > m.start);
     },
 
     /**

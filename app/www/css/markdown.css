@@ -240,6 +240,47 @@
     border-radius: 2px;
 }
 
+/* 高亮标记 ==text== */
+mark {
+    background: var(--accent-color);
+    color: var(--bg-primary);
+    padding: 0 0.2em;
+    border-radius: 2px;
+}
+
+/* 注音 ruby */
+ruby rt {
+    font-size: 0.6em;
+    color: var(--text-secondary);
+}
+
+/* 着重号（Pixiv） */
+.pixiv-emphasis {
+    text-emphasis: filled circle;
+    text-emphasis-position: under right;
+    -webkit-text-emphasis: filled circle;
+    -webkit-text-emphasis-position: under;
+}
+
+/* 批注 */
+.preview-annotation {
+    display: inline-block;
+    background: var(--accent-color);
+    color: var(--bg-primary);
+    border-radius: 3px;
+    padding: 0 0.4em;
+    font-size: 0.85em;
+    margin: 0 0.1em;
+}
+
+.preview-annotation .pa-type {
+    font-weight: 600;
+    margin-right: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    opacity: 0.9;
+}
+
 /* 代码块基础样式 - 配色在 markdown-code.css 中定义 */
 .markdown-pre code[class*="language-"],
 .markdown-pre pre[class*="language-"] {

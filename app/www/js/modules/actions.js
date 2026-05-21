@@ -1,15 +1,17 @@
 // ==================== 19. 操作分发器 ====================
 
 Lumina.Actions = {
-    // 支持的文件类型
-    supportedFormats: ['docx', 'epub', 'txt', 'md', 'html', 'json', 'pdf', 'lmn'],
+    // 支持的文件类型（lwN 如 lw1/lw2 等通过正则匹配）
+    supportedFormats: ['docx', 'epub', 'txt', 'md', 'html', 'json', 'pdf', 'lmn', 'lw'],
     
     async processFile(file, options = {}) {
         if (Lumina.State.app.ui.isProcessing) return false;
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();
 
         // 检查文件类型是否支持
-        const fileExt = file.name.split('.').pop().toLowerCase();
+        let fileExt = file.name.split('.').pop().toLowerCase();
+        // 支持 .lwN 分卷格式（lw1, lw2, ...）
+        if (/^lw\d+$/.test(fileExt)) fileExt = 'lw';
         if (!this.supportedFormats.includes(fileExt)) {
             Lumina.UI.showDialog(Lumina.I18n.t('supportedFileFormatTip', fileExt.toUpperCase(), this.supportedFormats.join(', ').toUpperCase()));
             return false;
@@ -130,11 +132,14 @@ Lumina.Actions = {
 
         try {
             let result, wordCount = 0;
-            const fileType = file.name.split('.').pop().toLowerCase();
+            let fileType = file.name.split('.').pop().toLowerCase();
+            // 统一 .lwN 分卷格式的类型为 lw
+            if (/^lw\d+$/.test(fileType)) fileType = 'lw';
             Lumina.State.app.currentFile.type = fileType;
             let cover = null;
 
-            if (fileType === 'docx' || fileType === 'epub' || fileType === 'pdf') {
+            const isLWFormat = fileType === 'lw' || /^lw\d+$/.test(fileType);
+            if (fileType === 'docx' || fileType === 'epub' || fileType === 'pdf' || isLWFormat) {
                 const arrayBuffer = await file.arrayBuffer();
                 if (fileType === 'docx') {
                     // DOCX 解析，支持加密文件
@@ -159,6 +164,46 @@ Lumina.Actions = {
                     // EPUB 可能包含书名和作者元数据
                     if (result.epubMetadata?.title) {
                         Lumina.State.app.currentFile.epubMetadata = result.epubMetadata;
+                    }
+                } else if (isLWFormat) {
+                    // .lw / .lwN 解析（ZIP 容器）
+                    result = await Lumina.Parser.parseLW(arrayBuffer, file.name);
+                    // 提取 lw 伴侣文件元数据
+                    if (result._lwMeta) {
+                        const meta = result._lwMeta;
+                        if (meta.title) {
+                            Lumina.State.app.currentFile.name = meta.title;
+                        }
+                        if (meta.coverBitmap) {
+                            cover = meta.coverBitmap;
+                        } else if (meta.coverParams) {
+                            // 使用 coverParams 生成封面
+                            Lumina.State.app.currentFile.coverParams = meta.coverParams;
+                            if (Lumina.BibliomorphCover?.generate) {
+                                const generated = Lumina.BibliomorphCover.generate(
+                                    meta.coverParams.title || meta.title,
+                                    meta.coverParams.author || ''
+                                );
+                                if (generated) cover = generated;
+                            }
+                        }
+                        if (meta.frontmatter) {
+                            Lumina.State.app.currentFile.metadata = {
+                                ...Lumina.State.app.currentFile.metadata,
+                                title: meta.title,
+                                author: meta.frontmatter.author || '',
+                                tags: meta.frontmatter.tags || [],
+                                language: meta.frontmatter.language || '',
+                                description: meta.frontmatter.description || ''
+                            };
+                        }
+                        // 词典数据在打开时加载
+                        if (meta.dictionaries && meta.dictionaries.length > 0) {
+                            Lumina.State.app.currentFile.dictionaries = meta.dictionaries;
+                            if (Lumina.Dictionary) {
+                                Lumina.Dictionary.init(meta.dictionaries);
+                            }
+                        }
                     }
                 } else {
                     // PDF 解析带进度显示，传入文件名用于密码预设器
@@ -190,7 +235,7 @@ Lumina.Actions = {
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
 
-                if (firstImage) {
+                if (firstImage && !cover) {
                     cover = firstImage.data;
                     // 异步检测亮度存入 metadata（不阻塞）
                     if (Lumina.BibliomorphCover?.detectCoverBrightness) {
@@ -213,7 +258,10 @@ Lumina.Actions = {
             Lumina.State.app.document = result;
             Lumina.State.app.currentFile.wordCount = wordCount;
             Lumina.State.app.currentFile.totalItems = totalItems;
-            Lumina.State.app.currentFile.name = file.name;
+            // .lw / .lwN 文件使用 manifest 中的标题，不覆盖为原始文件名
+            if (!isLWFormat) {
+                Lumina.State.app.currentFile.name = file.name;
+            }
             Lumina.State.app.currentFile.file = file;
 
             // 提取元数据（书名、作者）
@@ -275,6 +323,15 @@ Lumina.Actions = {
             // 重置注释/书签
             Lumina.State.app.annotations = [];
             Lumina.Annotations.renderAnnotations();
+
+            // 控制词典按钮显示
+            const dictionaryBtn = document.getElementById('dictionaryBtn');
+            if (dictionaryBtn) {
+                const hasDictionaries = Lumina.State.app.currentFile.dictionaries && Lumina.State.app.currentFile.dictionaries.length > 0;
+                dictionaryBtn.style.display = hasDictionaries ? '' : 'none';
+            }
+            // 关闭词典面板
+            document.getElementById('dictionaryPanel')?.classList.remove('open');
 
             const isMobileView = Lumina.Utils.isMobile();
             if (!isMobileView) {

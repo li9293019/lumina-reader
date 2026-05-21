@@ -21,7 +21,14 @@ Lumina.BookDetail = {
         html: '#E34C26',
         epub: '#10B981',
         json: '#F59E0B',
-        pdf: '#DC2626'
+        pdf: '#DC2626',
+        lwn: '#D4A575'
+    },
+
+    // 归一化文件类型（lw1, lw2... → lwn）
+    normalizeFileType(type) {
+        if (!type) return 'default';
+        return /^lw\d*$/.test(type) ? 'lwn' : type;
     },
     
     // 初始化（只执行一次，创建框架和绑定事件）
@@ -485,7 +492,7 @@ Lumina.BookDetail = {
     
     // 生成新书封面区域完整 HTML（包含胶囊）
     generateCoverAreaHTML(bookData) {
-        const fileType = bookData.fileType || 'default';
+        const fileType = this.normalizeFileType(bookData.fileType);
         const badgeText = fileType.toUpperCase();
         
         // 生成胶囊 HTML
@@ -669,7 +676,7 @@ Lumina.BookDetail = {
         
         // 文件类型胶囊
         if (el.formatBadge) {
-            const fileType = data.fileType || 'default';
+            const fileType = this.normalizeFileType(data.fileType);
             el.formatBadge.textContent = fileType.toUpperCase();
             el.formatBadge.dataset.type = fileType;
         }

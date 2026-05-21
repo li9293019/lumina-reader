@@ -392,6 +392,22 @@ Lumina.Parser.RegexCache = {
     }
 };
 
+/**
+ * 去除 Markdown 行内格式标记（粗体、斜体、代码、删除线、链接、图片等）
+ */
+Lumina.Parser.stripInlineMarkdown = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    return text
+        .replace(/(\*\*|__)(.*?)\1/g, '$2')           // 粗体 **text** __text__
+        .replace(/(\*|_)(.*?)\1/g, '$2')              // 斜体 *text* _text_
+        .replace(/`([^`]+)`/g, '$1')                   // 行内代码 `text`
+        .replace(/~~(.*?)~~/g, '$1')                   // 删除线 ~~text~~
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')     // 图片 ![alt](url)
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')      // 链接 [text](url)
+        .replace(/<[^>]+>/g, '')                       // HTML 标签
+        .trim();
+};
+
 Lumina.Parser.processHeading = (level, rawText, cleanText = null) => {
     level = Math.max(1, Math.min(6, level));
     Lumina.State.sectionCounters[level - 1]++;
@@ -2086,6 +2102,139 @@ Lumina.Parser.imageDataToBase64 = (data) => {
     }
 };
 
+Lumina.Parser.arrayBufferToBase64 = (buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
+
+Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
+    if (!window.JSZip) {
+        throw new Error('JSZip not loaded');
+    }
+    const zip = await window.JSZip.loadAsync(arrayBuffer);
+
+    // 1. 读取 manifest
+    const manifestFile = zip.file('manifest.json');
+    if (!manifestFile) {
+        throw new Error('Invalid .lw file: manifest.json not found');
+    }
+    const manifest = JSON.parse(await manifestFile.async('text'));
+    if (manifest.format !== 'lumina-writing-document') {
+        throw new Error('Invalid .lw file: format mismatch');
+    }
+
+    // 2. 读取 content.md
+    const contentFile = zip.file('content.md');
+    let content = contentFile ? await contentFile.async('text') : '';
+
+    // 3. 构建资产映射表
+    const assetMap = {};
+    if (manifest.assets && manifest.assets.length > 0) {
+        for (const meta of manifest.assets) {
+            const assetZipFile = zip.file(meta.path);
+            if (assetZipFile) {
+                const buffer = await assetZipFile.async('arraybuffer');
+                const base64 = Lumina.Parser.arrayBufferToBase64(buffer);
+                assetMap[meta.id] = `data:${meta.mimeType};base64,${base64}`;
+            }
+        }
+    }
+
+    // 4. 替换 content 中的 asset:// 引用
+    content = content.replace(
+        /!\[([^\]]*)\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/g,
+        (match, alt, id) => assetMap[id] ? `![${alt}](${assetMap[id]})` : match
+    );
+    content = content.replace(
+        /\[([^\]]*)\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/g,
+        (match, label, id) => assetMap[id] ? `[${label}](${assetMap[id]})` : match
+    );
+
+    // 5. 过滤音视频块（reader 不处理）
+    content = content
+        .replace(/::audio\{[^}]*\}/g, '')
+        .replace(/::video\{[^}]*\}/g, '');
+
+    // 6. 提取 [tags:...] 合并到 frontmatter
+    const tagMatch = content.match(/\[tags:([^\]]+)\]/);
+    const extractedTags = tagMatch ? tagMatch[1].split(',').map(t => t.trim()).filter(Boolean) : [];
+    const tags = [...new Set([...(manifest.frontmatter?.tags || []), ...extractedTags])];
+    const frontmatter = { ...manifest.frontmatter, tags };
+
+    // 7. 读取伴侣文件
+    const companions = manifest.companions || {};
+
+    // 7.1 封面参数 .cv
+    let coverParams = null;
+    const cvName = companions.cover || Object.keys(zip.files).find(n => n.endsWith('.cv') && !n.includes('/'));
+    if (cvName) {
+        const cvFile = zip.file(cvName);
+        if (cvFile) {
+            try {
+                coverParams = JSON.parse(await cvFile.async('text'));
+            } catch (e) {
+                console.warn('[LW] Failed to parse .cv:', e);
+            }
+        }
+    }
+
+    // 7.2 封面位图 .cvb
+    let coverBitmap = null;
+    const cvbName = companions.coverBitmap || Object.keys(zip.files).find(n => n.endsWith('.cvb') && !n.includes('/'));
+    if (cvbName) {
+        const cvbFile = zip.file(cvbName);
+        if (cvbFile) {
+            const cvbContent = await cvbFile.async('text');
+            const match = cvbContent.match(/!\[.*?\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/);
+            if (match && assetMap[match[1]]) {
+                coverBitmap = assetMap[match[1]];
+            }
+        }
+    }
+
+    // 7.3 词典 .dic
+    const dictionaries = [];
+    const dicNames = companions.dictionaries || Object.keys(zip.files).filter(n => n.endsWith('.dic') && !n.includes('/'));
+    for (const dicName of dicNames) {
+        const dicFile = zip.file(dicName);
+        if (dicFile) {
+            const dicContent = await dicFile.async('text');
+            if (dicContent.trim()) {
+                dictionaries.push({ source: dicName, content: dicContent });
+            }
+        }
+    }
+
+    // 8. 解析正文（复用 Markdown 插件）
+    let parsed;
+    if (Lumina.Plugin?.Markdown?.Parser) {
+        parsed = Lumina.Plugin.Markdown.Parser.parse(content);
+    } else {
+        // 降级：使用通用文本解析
+        parsed = Lumina.Parser.parseTextFile(content, 'md');
+    }
+
+    // 9. 组装元数据
+    const rawTitle = manifest.title || fileName.replace(/\.lw\d?$/i, '');
+    parsed._lwMeta = {
+        title: Lumina.Parser.stripInlineMarkdown(rawTitle),
+        frontmatter: frontmatter,
+        wordCount: manifest.wordCount || Lumina.Utils.calculateWordCount(parsed.items),
+        modified: manifest.modified,
+        coverParams: coverParams,
+        coverBitmap: coverBitmap,
+        dictionaries: dictionaries,
+        assetMap: assetMap
+    };
+
+    return parsed;
+};
+
 Lumina.Parser.parseTextFile = (content, ext, file = null) => {
     if (typeof content !== 'string') return { items: [], type: ext };
     
@@ -2128,7 +2277,13 @@ Lumina.Parser.parseTextFile = (content, ext, file = null) => {
                 item = { type: 'subtitle', text: trimmed.replace(p.subtitleTag, ''), display: trimmed };
             } else if (ext === 'md' && trimmed.startsWith('#')) {
                 const match = trimmed.match(p.mdHeading);
-                item = match ? Lumina.Parser.processHeading(match[1].length, match[2].trim()) : { type: 'paragraph', text: trimmed, display: trimmed };
+                if (match) {
+                    const rawHeadingText = match[2].trim();
+                    const cleanHeadingText = Lumina.Parser.stripInlineMarkdown(rawHeadingText);
+                    item = Lumina.Parser.processHeading(match[1].length, rawHeadingText, cleanHeadingText);
+                } else {
+                    item = { type: 'paragraph', text: trimmed, display: trimmed };
+                }
             } else {
                 const chapterInfo = Lumina.Parser.RegexCache.detectChapter(trimmed, true);
                 item = chapterInfo ? Lumina.Parser.processHeading(chapterInfo.level, chapterInfo.raw, chapterInfo.text) : { type: 'paragraph', text: trimmed, display: trimmed };

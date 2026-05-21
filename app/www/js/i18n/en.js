@@ -26,6 +26,18 @@ Lumina.I18n.data['en'] = {
         textCleaning: 'Text Cleaning',
         autoConvertSC: 'Auto SC/TC Conversion',
         autoConvertSCDesc: 'Auto convert content based on UI language',
+        dictionary: 'Dictionary',
+        dictionaryEnabled: 'Enable Dictionary Highlight',
+        dictionaryEnabledDesc: 'Highlight dictionary terms in reading text',
+        dictionaryMatchAllLevels: 'Match All Level Terms',
+        dictionaryMatchAllLevelsDesc: 'Match parent-level terms in addition to deepest level',
+        dictionarySearchPlaceholder: 'Search terms...',
+        dictionaryFrequencyAll: 'Highlight Every Occurrence',
+        dictionaryFrequencyDesc: 'Turn off to highlight only the first occurrence per page',
+        dictionaryAliasPrefix: 'Also known as: ',
+        dictionaryEmpty: 'No dictionary data for this book',
+        dictionaryNoMatch: 'No matching terms found',
+        searchResultsHeader: '{count} matches found',
 
     // 导出与加密
         regex: 'Chapters Patterns',

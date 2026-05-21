@@ -883,3 +883,207 @@ background: transparent !important;
 		font-size: inherit;
 	}
 }
+
+/* ========== 词典面板 ========== */
+.dictionary-panel {
+    right: -400px;
+}
+@media (max-width: 768px) {
+    .dictionary-panel {
+        right: -100%;
+    }
+}
+.dictionary-panel.open {
+    right: 0;
+}
+.dictionary-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.dictionary-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.9em;
+    outline: none;
+}
+.dictionary-search-input:focus {
+    border-color: var(--accent-color);
+}
+.dictionary-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+.dictionary-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+.dictionary-empty svg {
+    width: 48px;
+    height: 48px;
+    stroke: var(--text-muted);
+    stroke-width: 1.5;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+.dict-tree-folder-name {
+    font-weight: 600;
+    font-size: 1em;
+    color: var(--text-secondary);
+    padding: 6px 0;
+    margin-top: 4px;
+}
+.dict-tree-entry {
+    padding: 6px 0;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1em;
+    color: var(--text-primary);
+    transition: background 0.15s;
+}
+.dict-tree-entry:hover {
+    background: var(--bg-secondary);
+}
+
+/* ========== 词典高亮与 Tooltip / Drawer ========== */
+.dict-entry {
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
+    border-bottom: 1px dashed var(--accent-color);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.15s;
+}
+.dict-entry:hover {
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.3);
+}
+
+/* ========== 词典高亮与 Tooltip ========== */
+.dict-entry {
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
+    border-bottom: 1px dashed var(--accent-color);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.15s;
+}
+.dict-entry:hover {
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.3);
+}
+.dict-tooltip {
+    position: fixed;
+    z-index: 10000;
+    max-width: 360px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 14px 18px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: var(--text-primary);
+    pointer-events: auto;
+}
+.dict-tooltip img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 6px 0;
+}
+.dict-detail-path {
+    font-size: 0.95em;
+    color: var(--accent-color);
+    margin-top: 12px;
+    margin-bottom: 6px;
+    opacity: 0.9;
+}
+.dict-detail-alias {
+    font-size: 0.95em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+.dict-detail-content {
+    color: var(--text-secondary);
+}
+.dict-detail-content img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 6px 0;
+}
+.dict-detail-content p {
+    margin: 0.4em 0;
+}
+
+/* ========== 移动端 Drawer ========== */
+.dict-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+}
+.dict-drawer.open {
+    display: flex;
+}
+.dict-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.dict-drawer.open .dict-drawer-backdrop {
+    opacity: 1;
+}
+.dict-drawer-panel {
+    position: relative;
+    width: 100%;
+    max-height: 75vh;
+    background: var(--bg-primary);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.dict-drawer.open .dict-drawer-panel {
+    transform: translateY(0);
+}
+.dict-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.dict-drawer-title {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: var(--text-primary);
+}
+.dict-drawer-close {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.dict-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 24px;
+    -webkit-overflow-scrolling: touch;
+}
+.dict-drawer-body img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 8px 0;
+}

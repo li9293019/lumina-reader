@@ -963,6 +963,46 @@ Lumina.Plugin.Markdown.Renderer = {
                     container.appendChild(img);
                     break;
                     
+                case 'mark':
+                    const mark = document.createElement('mark');
+                    mark.textContent = this.getConvertedText(item.content);
+                    container.appendChild(mark);
+                    break;
+                    
+                case 'ruby':
+                    const ruby = document.createElement('ruby');
+                    ruby.textContent = this.getConvertedText(item.base);
+                    const rt = document.createElement('rt');
+                    rt.textContent = item.ruby;
+                    ruby.appendChild(rt);
+                    container.appendChild(ruby);
+                    break;
+                    
+                case 'emphasisMark':
+                    const emSpan = document.createElement('span');
+                    emSpan.className = 'pixiv-emphasis';
+                    emSpan.dataset.mark = item.mark;
+                    emSpan.textContent = this.getConvertedText(item.content);
+                    container.appendChild(emSpan);
+                    break;
+                    
+                case 'jumpuri':
+                    const ja = document.createElement('a');
+                    ja.className = 'markdown-link';
+                    ja.href = item.href;
+                    ja.target = '_blank';
+                    ja.rel = 'noopener noreferrer';
+                    ja.textContent = this.getConvertedText(item.content);
+                    container.appendChild(ja);
+                    break;
+                    
+                case 'annotation':
+                    const anno = document.createElement('span');
+                    anno.className = `preview-annotation preview-annotation-${item.annoType.replace(/[^\w-]/g, '')}`;
+                    anno.innerHTML = `<span class="pa-type">${item.annoType}</span>${this.getConvertedText(item.content)}`;
+                    container.appendChild(anno);
+                    break;
+                    
                 default:
                     container.appendChild(document.createTextNode(this.getConvertedText(item.content) || ''));
             }

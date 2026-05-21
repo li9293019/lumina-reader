@@ -47,7 +47,7 @@
 <link rel="stylesheet" href="./css/reset.css">
 <link rel="stylesheet" href="./css/themes.css">
 <link rel="stylesheet" href="./css/layout.css">
-<link rel="stylesheet" href="./css/components.css?v=2.1.5-ai-fix3">
+<link rel="stylesheet" href="./css/components.css">
 <link rel="stylesheet" href="./css/ai.css">
 <link rel="stylesheet" href="./css/reader.css">
 <link rel="stylesheet" href="./css/panels.css">
@@ -94,6 +94,8 @@
 <script src="./js/modules/tts.js"></script>
 <!-- 批注系统 -->
 <script src="./js/modules/annotations.js"></script>
+<!-- 词典系统 -->
+<script src="./js/modules/dictionary.js"></script>
 <!-- 封面生成器 -->
 <script src="./js/modules/bibliomorph-cover.js?v=11"></script>
 <script src="./js/modules/pattern-warehouse.js"></script>
@@ -101,7 +103,7 @@
 <script src="./js/modules/data-manager.js"></script>
 <script src="./js/modules/share-card.js"></script>
 <script src="./js/modules/book-detail.js"></script>
-<script src="./js/modules/settings.js?v=2.1.5-ai-fix3"></script>
+<script src="./js/modules/settings.js"></script>
 <script src="./js/modules/font-manager.js"></script>
 <script src="./js/modules/legal-content.js"></script>
 <script src="./js/modules/legal-page.js"></script>
@@ -128,7 +130,7 @@
 <script src="./js/plugins/azure-tts/azure-tts.plugin.js"></script>
 
 <script src="./version.js"></script>
-<script src="./js/modules/init.js?v=2.1.5-ai-fix3"></script>
+<script src="./js/modules/init.js"></script>
 </head>
 
 <body>
@@ -220,7 +222,7 @@
 <div id="global-tooltip"></div>
 
 <!-- 文件输入（隐藏） -->
-<input type="file" id="fileInput" accept=".docx,.epub,.txt,.md,.html,.json,.pdf,.lmn" style="display: none;">
+<input type="file" id="fileInput" accept=".docx,.epub,.txt,.md,.html,.json,.pdf,.lmn,.lw,.lw1,.lw2,.lw3,.lw4,.lw5" style="display: none;">
 
 <!-- Toast 提示 -->
 <div class="toast" id="toast"></div>
@@ -422,6 +424,9 @@
             </div>
             <button class="btn-icon" id="annotationBtn" data-i18n-tooltip="annotations">
                 <svg class="icon"><use href="#icon-bookmark" /></svg>
+            </button>
+            <button class="btn-icon" id="dictionaryBtn" data-i18n-tooltip="dictionary" style="display: none;">
+                <svg class="icon"><use href="#icon-book" /></svg>
             </button>
             <button class="btn-icon" id="historyBtn" data-i18n-tooltip="history">
                 <svg class="icon"><use href="#icon-history" /></svg>
@@ -688,6 +693,24 @@
                     </div>
                     <div class="toggle-switch" data-setting-toggle="autoConvertSC" data-i18n-tooltip="autoConvertSCDesc">
                         <span class="toggle-label" data-i18n="autoConvertSC"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" data-setting-toggle="dictionaryEnabled" data-i18n-tooltip="dictionaryEnabledDesc">
+                        <span class="toggle-label" data-i18n="dictionaryEnabled"></span>
+                        <div class="toggle-track active">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" data-setting-toggle="dictionaryMatchAllLevels" data-i18n-tooltip="dictionaryMatchAllLevelsDesc">
+                        <span class="toggle-label" data-i18n="dictionaryMatchAllLevels"></span>
+                        <div class="toggle-track active">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" data-setting-toggle="dictionaryFrequencyAll" data-i18n-tooltip="dictionaryFrequencyDesc">
+                        <span class="toggle-label" data-i18n="dictionaryFrequencyAll"></span>
                         <div class="toggle-track">
                             <div class="toggle-thumb"></div>
                         </div>
@@ -992,6 +1015,7 @@
                         <span data-i18n="searchTabLibrary">书库</span>(<span id="libResultCount">0</span>)
                     </button>
                 </div>
+                <div class="search-results-header" id="searchResultsHeader"></div>
                 <div class="search-results" id="aggregateSearch"></div>
             </div>
 
@@ -1040,6 +1064,38 @@
                 </div>
             </div>
         </aside>
+
+        <!-- 词典面板 -->
+        <aside class="panel dictionary-panel" id="dictionaryPanel">
+            <div class="panel-header">
+                <span class="panel-title" data-i18n="dictionary">词典</span>
+                <button class="btn-icon" id="closeDictionaryPanel" data-i18n-tooltip="close">
+                    <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
+                </button>
+            </div>
+            <div class="dictionary-search">
+                <input type="text" class="dictionary-search-input" id="dictionarySearchInput" placeholder="搜索词条..." data-i18n-placeholder="dictionarySearchPlaceholder">
+            </div>
+            <div class="dictionary-list" id="dictionaryList">
+                <div class="dictionary-empty">
+                    <svg class="icon"><use href="#icon-book"/></svg>
+                    <div data-i18n="noDictionary">暂无词典数据</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 词条详情面板 -->
+        <div class="about-panel" id="dictDetailPanel">
+            <div class="about-content">
+                <div class="about-header">
+                    <span class="about-title" id="dictDetailTitle"></span>
+                    <button class="btn-icon" id="closeDictDetail" data-i18n-tooltip="close">
+                        <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
+                    </button>
+                </div>
+                <div class="about-body" id="dictDetailBody"></div>
+            </div>
+        </div>
 
         <!-- 关于面板 -->
         <div class="about-panel" id="aboutPanel">

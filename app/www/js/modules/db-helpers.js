@@ -19,7 +19,7 @@
 
     function generateFileKey(file) {
         if (!file || !file.name) return null;
-        const base = file.name.replace(/\.(docx|epub|txt|md|html|json|pdf|lmn)$/i, '');
+        const base = file.name.replace(/\.(docx|epub|txt|md|html|json|pdf|lmn|lw\d*|lw)$/i, '');
         const type = file.name.split('.').pop().toLowerCase();
         return `${base}_${Date.now()}.${type}`;
     }
@@ -36,6 +36,8 @@
             content: incoming.content !== undefined ? incoming.content : existing.content,
             customRegex: incoming.customRegex !== undefined ? incoming.customRegex : existing.customRegex,
             chapterNumbering: incoming.chapterNumbering !== undefined ? incoming.chapterNumbering : existing.chapterNumbering,
+            coverParams: incoming.coverParams !== undefined ? incoming.coverParams : existing.coverParams,
+            dictionaries: incoming.dictionaries !== undefined ? incoming.dictionaries : existing.dictionaries,
         };
     }
 
@@ -60,6 +62,8 @@
             cover: mergedData.cover || null,
             heatMap: mergedData.heatMap || null,
             metadata: mergedData.metadata || null,
+            coverParams: mergedData.coverParams || null,
+            dictionaries: mergedData.dictionaries || [],
         };
     }
 
@@ -82,6 +86,8 @@
             annotations: book.annotations || [],
             heatMap: book.heatMap || null,
             metadata: book.metadata || null,
+            coverParams: book.coverParams || null,
+            dictionaries: book.dictionaries || [],
             lastChapter: book.lastChapter || 0,
             lastScrollIndex: book.lastScrollIndex || 0,
             chapterTitle: book.chapterTitle || '',
@@ -107,6 +113,8 @@
             annotations: file.annotations || [],
             heatMap: file.heatMap || null,
             metadata: file.metadata || null,
+            coverParams: file.coverParams || null,
+            dictionaries: file.dictionaries || [],
             lastChapter: file.lastChapter || 0,
             lastScrollIndex: file.lastScrollIndex || 0,
             chapterTitle: file.chapterTitle || '',

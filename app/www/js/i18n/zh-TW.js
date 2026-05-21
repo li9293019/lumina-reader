@@ -26,6 +26,18 @@ Lumina.I18n.data['zh-TW'] = {
         textCleaning: '文字清潔',
         autoConvertSC: '自動簡繁轉換',
         autoConvertSCDesc: '根據介面語言自動轉換書籍簡繁體',
+        dictionary: '詞典',
+        dictionaryEnabled: '啟用詞典高亮',
+        dictionaryEnabledDesc: '在閱讀正文中高亮顯示詞典詞條',
+        dictionaryMatchAllLevels: '匹配所有層級詞條',
+        dictionaryMatchAllLevelsDesc: '不僅匹配最深層級詞條，也匹配父級詞條',
+        dictionarySearchPlaceholder: '搜索詞條...',
+        dictionaryFrequencyAll: '詞條每次出現都高亮',
+        dictionaryFrequencyDesc: '關閉則每頁僅高亮首次出現',
+        dictionaryAliasPrefix: '別名: ',
+        dictionaryEmpty: '本書暫無詞典數據',
+        dictionaryNoMatch: '未找到匹配詞條',
+        searchResultsHeader: '共匹配 {count} 個結果',
 
     // 导出与加密
         regex: '章節匹配規則',

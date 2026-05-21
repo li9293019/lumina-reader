@@ -43,7 +43,8 @@ Lumina.Config.fileTypes = {
     txt: { icon: 'icon-file-text', parser: 'parseTextFile' },
     md: { icon: 'icon-file-markdown', parser: 'parseTextFile' },
     html: { icon: 'icon-file-code', parser: 'parseTextFile' },
-    json: { icon: 'icon-file-json', parser: null }
+    json: { icon: 'icon-file-json', parser: null },
+    lw: { icon: 'icon-file-markdown', parser: 'parseLW' }
 };
 
 Lumina.Config.fontConfig = (() => {

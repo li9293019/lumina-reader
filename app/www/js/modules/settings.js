@@ -21,6 +21,9 @@ Lumina.Settings = {
             encryptedExport: config.export.encrypted,
             includeFonts: config.export?.includeFonts ?? false,
             hashCover: config.library?.hashCover ?? true,
+            dictionaryEnabled: config.dictionary?.enabled ?? true,
+            dictionaryMatchAllLevels: config.dictionary?.matchAllLevels ?? true,
+            dictionaryFrequencyAll: (config.dictionary?.frequency || 'first') === 'all',
             pdfExtractImages: config.pdf.extractImages,
             pdfPasswordPreset: config.pdf.passwordPreset.enabled,
             pdfSmartGuess: config.pdf.passwordPreset.smartGuess,
@@ -82,6 +85,11 @@ Lumina.Settings = {
         Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
         Lumina.ConfigManager.set('export.includeFonts', settings.includeFonts);
         Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
+        Lumina.ConfigManager.set('dictionary', {
+            enabled: settings.dictionaryEnabled ?? true,
+            matchAllLevels: settings.dictionaryMatchAllLevels ?? true,
+            frequency: settings.dictionaryFrequencyAll ? 'all' : 'first',
+        });
         Lumina.ConfigManager.set('pdf.extractImages', settings.pdfExtractImages);
         Lumina.ConfigManager.set('pdf.passwordPreset', {
             enabled: settings.pdfPasswordPreset,
@@ -178,6 +186,13 @@ Lumina.Settings = {
             if (wasConverting !== Lumina.Converter.isConverting && Lumina.State.app.document.items.length > 0) {
                 savedScrollIndex = Lumina.Renderer.getCurrentVisibleIndex();
             }
+        }
+        
+        // 同步词典配置
+        if (Lumina.Dictionary) {
+            Lumina.Dictionary.config.enabled = settings.dictionaryEnabled !== false;
+            Lumina.Dictionary.config.matchAllLevels = settings.dictionaryMatchAllLevels !== false;
+            Lumina.Dictionary.config.frequency = settings.dictionaryFrequencyAll ? 'all' : 'first';
         }
         
         // 同步 AI 配置面板显示状态

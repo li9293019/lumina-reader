@@ -281,8 +281,9 @@ Lumina.Parser.MetadataExtractor = {
             
             // 书名：检查前3行，直到找到有效标题（顺延机制）
             if (!result.title && i < 3) {
-                if (this.isValidTitle(line)) {
-                    const cleaned = this.cleanTitle(line);
+                const strippedLine = this.stripInlineMarkdown(line);
+                if (this.isValidTitle(strippedLine)) {
+                    const cleaned = this.cleanTitle(strippedLine);
                     if (cleaned && cleaned.length <= 50) {
                         result.title = cleaned;
                     }
@@ -540,6 +541,7 @@ Lumina.Parser.MetadataExtractor = {
      */
     truncateDescription(text) {
         if (!text) return '';
+        text = this.stripInlineMarkdown(text);
         if (text.length <= 1000) return text;
         
         // 尝试在1000字符内找最后一个句号
@@ -685,8 +687,23 @@ Lumina.Parser.MetadataExtractor = {
         return fileName.substring(0, lastDotIndex);
     },
     
+    // 去除 Markdown 行内格式标记
+    stripInlineMarkdown(text) {
+        if (!text || typeof text !== 'string') return text;
+        return text
+            .replace(/(\\*\\*|__)(.*?)\1/g, '$2')
+            .replace(/(\\*|_)(.*?)\1/g, '$2')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/~~(.*?)~~/g, '$1')
+            .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/<[^>]+>/g, '')
+            .trim();
+    },
+
     cleanTitle(title) {
         if (!title) return null;
+        title = this.stripInlineMarkdown(title);
         return title
             .replace(/^[<#\s\[\](){}【】「」『』"'`]+|[>#\s\[\](){}【】「」『』"'`]+$/g, '')
             .replace(/\s+/g, ' ')
@@ -695,6 +712,7 @@ Lumina.Parser.MetadataExtractor = {
     
     cleanAuthor(author) {
         if (!author) return null;
+        author = this.stripInlineMarkdown(author);
         return author
             .replace(/^[\s\[\](){}【】「」『』"'`\-–—:]+|[\s\[\](){}【】「」『』"'`\-–—:]+$/g, '')
             .replace(/\s+/g, ' ')

@@ -652,6 +652,13 @@ Lumina.Search = {
         const displayMatches = matches.slice(0, MAX_DISPLAY);
         const truncated = matches.length > MAX_DISPLAY;
 
+        const header = document.getElementById('searchResultsHeader');
+        if (header) {
+            header.textContent = matches.length > 0
+                ? Lumina.I18n.t('searchResultsHeader').replace('{count}', matches.length)
+                : '';
+        }
+
         let html = displayMatches.map((match, idx) => {
             // 获取显示文本（转换后）
             let text = match.item.text;

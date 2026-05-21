@@ -86,6 +86,11 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
         // 渲染注释/书签高亮
         Lumina.Annotations.renderAnnotations();
         
+        // 词典高亮
+        if (Lumina.Dictionary?.isEnabled()) {
+            Lumina.Dictionary.highlightCurrentPage();
+        }
+        
         // 预加载下一页的图片（提升翻页体验）
         Lumina.Renderer.preloadNextPageImages(chapter, pageIdx);
     });

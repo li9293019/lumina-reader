@@ -585,6 +585,11 @@ html, body {
     color: white;
 }
 
+.book-detail-format-badge[data-type="lwn"] {
+    background: #D4A575;
+    color: white;
+}
+
 .book-detail-format-badge[data-type="default"] {
     background: var(--accent-color);
     color: white;

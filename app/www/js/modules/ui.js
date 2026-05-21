@@ -148,8 +148,9 @@ Lumina.UI = {
                 if (toggle) panel.classList.toggle('open');
                 else panel.classList.add('open');
                 Object.values(panels).forEach(({ panel: p }) => { if (p !== panel) p.classList.remove('open'); });
-                // 关闭注释面板
+                // 关闭注释面板和词典面板
                 document.getElementById('annotationPanel')?.classList.remove('open');
+                document.getElementById('dictionaryPanel')?.classList.remove('open');
                 if (panel.classList.contains('open') && key === 'search') {
                     const isReplaceMode = document.getElementById('replaceModeContent')?.style.display !== 'none';
                     if (isReplaceMode) {
@@ -175,6 +176,32 @@ Lumina.UI = {
             Lumina.Search.clearHighlight();
             this.switchSearchPanelMode('search');
         });
+
+        // 词典面板
+        const dictionaryBtn = document.getElementById('dictionaryBtn');
+        const dictionaryPanel = document.getElementById('dictionaryPanel');
+        if (dictionaryBtn && dictionaryPanel) {
+            dictionaryBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dictionaryPanel.classList.toggle('open');
+                // 关闭其他面板
+                Object.values(panels).forEach(({ panel: p }) => p?.classList.remove('open'));
+                document.getElementById('annotationPanel')?.classList.remove('open');
+                if (dictionaryPanel.classList.contains('open') && Lumina.Dictionary) {
+                    Lumina.Dictionary.renderPanel();
+                }
+            });
+            document.getElementById('closeDictionaryPanel')?.addEventListener('click', () => {
+                dictionaryPanel.classList.remove('open');
+            });
+            // 搜索输入
+            const dictionarySearchInput = document.getElementById('dictionarySearchInput');
+            if (dictionarySearchInput) {
+                dictionarySearchInput.addEventListener('input', (e) => {
+                    if (Lumina.Dictionary) Lumina.Dictionary.filterPanel(e.target.value);
+                });
+            }
+        }
 
         const libraryBtn = document.getElementById('libraryBtn');
         if (libraryBtn) {
@@ -275,6 +302,7 @@ Lumina.UI = {
             if (!e.target.closest('.panel, .btn-icon, .about-panel')) {
                 Object.values(panels).forEach(({ panel }) => panel?.classList.remove('open'));
                 document.getElementById('annotationPanel')?.classList.remove('open');
+                document.getElementById('dictionaryPanel')?.classList.remove('open');
                 Lumina.Search.clearHighlight();
             }
         });
@@ -956,10 +984,10 @@ Lumina.UI = {
 
         if (mode === 'replace') {
             if (searchModeContent) searchModeContent.style.display = 'none';
-            if (replaceModeContent) replaceModeContent.style.display = 'block';
+            if (replaceModeContent) replaceModeContent.style.display = '';
             setTimeout(() => document.getElementById('replaceFindInput')?.focus(), 50);
         } else {
-            if (searchModeContent) searchModeContent.style.display = 'block';
+            if (searchModeContent) searchModeContent.style.display = '';
             if (replaceModeContent) replaceModeContent.style.display = 'none';
             setTimeout(() => Lumina.DOM.searchPanelInput?.focus(), 50);
         }

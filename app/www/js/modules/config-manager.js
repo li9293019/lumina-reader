@@ -140,7 +140,14 @@ Lumina.ConfigManager = {
                 // 'plugin-id': true/false
             },
             
-            // ========== 10. AI 设置 ==========
+            // ========== 10. 词典设置 ==========
+            dictionary: {
+                enabled: true,           // 是否启用词典高亮
+                matchAllLevels: true,    // 是否匹配所有层级词条
+                frequency: 'first',      // 'first' = 每页首次出现, 'all' = 每次出现
+            },
+            
+            // ========== 11. AI 设置 ==========
             ai: {
                 enabled: false,
                 endpoint: 'http://localhost:1234',

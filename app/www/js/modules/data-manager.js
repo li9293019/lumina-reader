@@ -2295,6 +2295,8 @@ Lumina.DB.HistoryDataBuilder = {
             chapterNumbering: Lumina.State.settings.chapterNumbering,
             annotations: [],
             cover: overrides.cover || null,
+            coverParams: state.currentFile.coverParams || null,
+            dictionaries: state.currentFile.dictionaries || [],
 
             heatMap: state.currentFile.heatMap, // 保存热力图数据（未设置时为 undefined，便于合并逻辑判断）
             metadata: _metadata // 新增：书籍元数据
@@ -2422,6 +2424,14 @@ Lumina.DB.saveHistory = async (fileName, fileType, wordCount = 0, cover = null, 
         // 保留 annotations（批注）
         if (existingData.annotations && existingData.annotations.length > 0) {
             data.annotations = existingData.annotations;
+        }
+        // 保留 coverParams（.lw 封面参数）
+        if (existingData.coverParams && !data.coverParams) {
+            data.coverParams = existingData.coverParams;
+        }
+        // 保留 dictionaries（.lw 词典数据）
+        if (existingData.dictionaries && existingData.dictionaries.length > 0 && (!data.dictionaries || data.dictionaries.length === 0)) {
+            data.dictionaries = existingData.dictionaries;
         }
     }
     
@@ -2736,11 +2746,14 @@ Lumina.Renderer.renderHistoryFromDB = (files) => {
         docx: { letter: 'W', color: '#4472C4' }, txt: { letter: 'T', color: '#6B7280' },
         md: { letter: 'M', color: '#8B5CF6' }, html: { letter: 'H', color: '#E34C26' },
         epub: { letter: 'E', color: '#10B981' }, json: { letter: 'J', color: '#F59E0B' },
-        pdf: { letter: 'P', color: '#DC2626' }
+        pdf: { letter: 'P', color: '#DC2626' },
+        lwn: { letter: 'L', color: '#D4A575' }
     };
 
     const getFileIcon = (type) => {
-        const { letter = '?', color = '#999' } = fileIcons[type] || {};
+        // lw, lw1, lw2... 统一归一化为 lwn
+        const normalizedType = type && /^lw\d*$/.test(type) ? 'lwn' : type;
+        const { letter = '?', color = '#999' } = fileIcons[normalizedType] || {};
         return `<svg viewBox="0 0 20.83 25.92" style="color:${color}"><path fill="currentColor" d="M3 2h12l6 6v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path fill="rgba(255,255,255,0.5)" d="M15 2v6h6"/><text x="11" y="14" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">${letter}</text></svg>`;
     };
 
@@ -2859,6 +2872,8 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         state.currentFile.fileKey = fileData.fileKey;
         state.currentFile.metadata = fileData.metadata;
         state.currentFile.skipSave = false; // 从书库打开的文件允许自动保存
+        state.currentFile.coverParams = fileData.coverParams || null;
+        state.currentFile.dictionaries = fileData.dictionaries || [];
 
         state.document = { items: fileData.content, type: fileData.fileType };
 
@@ -2994,6 +3009,20 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         // 加载注释/书签
         Lumina.State.app.annotations = fileData.annotations || [];
         Lumina.Annotations.renderAnnotations();
+
+        // 加载词典数据
+        const dictionaryBtn = document.getElementById('dictionaryBtn');
+        if (fileData.dictionaries && fileData.dictionaries.length > 0) {
+            if (Lumina.Dictionary) {
+                Lumina.Dictionary.init(fileData.dictionaries);
+            }
+            if (dictionaryBtn) dictionaryBtn.style.display = '';
+        } else {
+            if (Lumina.Dictionary) Lumina.Dictionary.clear();
+            if (dictionaryBtn) dictionaryBtn.style.display = 'none';
+        }
+        // 关闭词典面板
+        document.getElementById('dictionaryPanel')?.classList.remove('open');
         
         // 触发文件打开事件（用于简繁转换等模块）
         window.dispatchEvent(new CustomEvent('fileOpened', { 

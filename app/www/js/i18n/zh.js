@@ -8,6 +8,8 @@ Lumina.I18n.data['zh'] = {
         appName: '流萤阅读器',
         noFile: '未打开文件',
         toc: '目录',
+        chapters: '章节',
+        materials: '素材',
         settings: '阅读设置',
         language: '语言',
         theme: '主题配色',
@@ -37,6 +39,7 @@ Lumina.I18n.data['zh'] = {
         dictionaryAliasPrefix: '别名: ',
         dictionaryEmpty: '本书暂无词典数据',
         dictionaryNoMatch: '未找到匹配词条',
+        materialsEmpty: '本书没有素材',
         searchResultsHeader: '共匹配 {count} 个结果',
 
     // 导出与加密

@@ -189,6 +189,7 @@
 <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></symbol>
 <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></symbol>
 <symbol id="icon-file-json" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 12h.01M14 12h.01M8 15h.01M12 15h.01M16 15h.01M10 18h.01M14 18h.01"></path></symbol>
+<symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="2"/><polyline points="21 15 16 10 5 21"/></symbol>
 <symbol id="icon-config" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></symbol>
 <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></symbol>
 <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></symbol>
@@ -403,30 +404,14 @@
             <span class="chapter-nav-info" id="chapterNavInfo"></span>
         </div>
         <div class="toolbar-right">
-            <div class="header-btn-container">
-                <button class="btn-icon" id="libraryBtn" data-i18n-tooltip="localLibrary" style="display: none;">
-                    <svg class="icon"><use href="#icon-library" /></svg>
-                </button>
-                <button class="btn-icon" id="searchToggle" data-i18n-tooltip="search">
-                    <svg class="icon"><use href="#icon-search" /></svg>
-                </button>
-                <div class="search-box" id="searchBox">
-                    <input type="text" class="search-input" id="searchInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
-                    <button class="search-close" id="searchClose">
-                        <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-close" /></svg>
-                    </button>
-                </div>
-            </div>
-            <div class="header-btn-container">
-                <button class="btn-icon" id="ttsToggle" data-i18n-tooltip="tts">
-                    <svg class="icon"><use href="#icon-volume" /></svg>
-                </button>
-            </div>
-            <button class="btn-icon" id="annotationBtn" data-i18n-tooltip="annotations">
-                <svg class="icon"><use href="#icon-bookmark" /></svg>
+            <button class="btn-icon" id="libraryBtn" data-i18n-tooltip="localLibrary" style="display: none;">
+                <svg class="icon"><use href="#icon-library" /></svg>
             </button>
-            <button class="btn-icon" id="dictionaryBtn" data-i18n-tooltip="dictionary" style="display: none;">
-                <svg class="icon"><use href="#icon-book" /></svg>
+            <button class="btn-icon" id="searchToggle" data-i18n-tooltip="search">
+                <svg class="icon"><use href="#icon-search" /></svg>
+            </button>
+            <button class="btn-icon" id="ttsToggle" data-i18n-tooltip="tts">
+                <svg class="icon"><use href="#icon-volume" /></svg>
             </button>
             <button class="btn-icon" id="historyBtn" data-i18n-tooltip="history">
                 <svg class="icon"><use href="#icon-history" /></svg>
@@ -443,6 +428,12 @@
                 <svg class="icon"><use href="#icon-info" /></svg>
             </button>
         </div>
+        <div class="search-box" id="searchBox">
+            <input type="text" class="search-input" id="searchInput" placeholder="" data-i18n-placeholder="searchPlaceholder">
+            <button class="search-close" id="searchClose">
+                <svg class="icon" style="width: 16px; height: 16px;"><use href="#icon-close" /></svg>
+            </button>
+        </div>
     </header>
 
     <!-- 主体区域 -->
@@ -450,13 +441,49 @@
         <!-- 左侧目录 -->
         <aside class="sidebar-left" id="sidebarLeft">
             <div class="sidebar-header">
-                <span class="sidebar-title" data-i18n="toc"></span>
+                <span class="sidebar-title" id="sidebarPanelTitle" data-i18n="toc"></span>
+                <span class="sidebar-count" id="sidebarCount"></span>
                 <button class="btn-icon" id="collapseToc" data-i18n-tooltip="close">
                     <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close" /></svg>
                 </button>
             </div>
-            <div class="toc-container" id="tocContainer">
-                <ul class="toc-list" id="tocList"></ul>
+            <!-- 导航面板 Tab 切换 -->
+            <div class="sidebar-tabs" id="sidebarTabs">
+                <button class="sidebar-tab active" data-tab="toc"><span data-i18n="toc">大纲</span></button>
+                <button class="sidebar-tab" data-tab="annotations"><span data-i18n="annotations">批注</span><span class="tab-badge" id="tabBadgeAnnotations"></span></button>
+                <button class="sidebar-tab" data-tab="dictionary"><span data-i18n="dictionary">词典</span><span class="tab-badge" id="tabBadgeDictionary"></span></button>
+                <button class="sidebar-tab" data-tab="materials"><span data-i18n="materials">素材</span><span class="tab-badge" id="tabBadgeMaterials"></span></button>
+            </div>
+            <!-- Tab 内容区域 -->
+            <div class="sidebar-tab-contents" id="sidebarTabContents">
+                <div class="sidebar-tab-content active" data-tab-content="toc">
+                    <div class="toc-container" id="tocContainer">
+                        <ul class="toc-list" id="tocList"></ul>
+                    </div>
+                </div>
+                <div class="sidebar-tab-content" data-tab-content="annotations">
+                    <div class="annotation-list" id="sidebarAnnotationList">
+                        <div class="annotation-empty">
+                            <svg class="icon"><use href="#icon-bookmark"/></svg>
+                            <div data-i18n="noAnnotations">暂无注释或书签</div>
+                            <div class="annotation-hint" data-i18n="annotationHint">选中文本添加注释，或点击添加书签</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-tab-content" data-tab-content="dictionary">
+                    <div class="dictionary-search">
+                        <input type="text" class="dictionary-search-input" id="sidebarDictionarySearchInput" placeholder="搜索词条..." data-i18n-placeholder="dictionarySearchPlaceholder">
+                    </div>
+                    <div class="dictionary-list" id="sidebarDictionaryList">
+                        <div class="dictionary-empty">
+                            <svg class="icon"><use href="#icon-book"/></svg>
+                            <div data-i18n="noDictionary">暂无词典数据</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-tab-content" data-tab-content="materials">
+                    <div class="materials-grid" id="materialsGrid"></div>
+                </div>
             </div>
         </aside>
 
@@ -1045,42 +1072,6 @@
                 </div>
                 <div class="replace-preview-header" id="replacePreviewHeader"></div>
                 <div class="replace-results" id="replacePreviewList"></div>
-            </div>
-        </aside>
-
-        <!-- 注释面板 -->
-        <aside class="panel annotation-panel" id="annotationPanel">
-            <div class="panel-header">
-                <span class="panel-title" data-i18n="annotations">注释与书签</span>
-                <button class="btn-icon" id="closeAnnotationPanel" data-i18n-tooltip="close">
-                    <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
-                </button>
-            </div>
-            <div class="annotation-list" id="annotationList">
-                <div class="annotation-empty">
-                    <svg class="icon"><use href="#icon-bookmark"/></svg>
-                    <div data-i18n="noAnnotations">暂无注释或书签</div>
-                    <div class="annotation-hint" data-i18n="annotationHint">选中文本添加注释，或点击添加书签</div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- 词典面板 -->
-        <aside class="panel dictionary-panel" id="dictionaryPanel">
-            <div class="panel-header">
-                <span class="panel-title" data-i18n="dictionary">词典</span>
-                <button class="btn-icon" id="closeDictionaryPanel" data-i18n-tooltip="close">
-                    <svg class="icon" style="width: 18px; height: 18px;"><use href="#icon-close"/></svg>
-                </button>
-            </div>
-            <div class="dictionary-search">
-                <input type="text" class="dictionary-search-input" id="dictionarySearchInput" placeholder="搜索词条..." data-i18n-placeholder="dictionarySearchPlaceholder">
-            </div>
-            <div class="dictionary-list" id="dictionaryList">
-                <div class="dictionary-empty">
-                    <svg class="icon"><use href="#icon-book"/></svg>
-                    <div data-i18n="noDictionary">暂无词典数据</div>
-                </div>
             </div>
         </aside>
 

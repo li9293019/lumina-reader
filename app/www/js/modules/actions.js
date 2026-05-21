@@ -75,7 +75,6 @@ Lumina.Actions = {
             Lumina.DOM.historyPanel?.classList.remove('open');
             Lumina.DOM.searchPanel?.classList.remove('open');
             Lumina.DOM.aboutPanel?.classList.remove('active');
-            document.getElementById('annotationPanel')?.classList.remove('open');
         }
         
         // 重置章节正则表达式设置
@@ -324,14 +323,10 @@ Lumina.Actions = {
             Lumina.State.app.annotations = [];
             Lumina.Annotations.renderAnnotations();
 
-            // 控制词典按钮显示
-            const dictionaryBtn = document.getElementById('dictionaryBtn');
-            if (dictionaryBtn) {
-                const hasDictionaries = Lumina.State.app.currentFile.dictionaries && Lumina.State.app.currentFile.dictionaries.length > 0;
-                dictionaryBtn.style.display = hasDictionaries ? '' : 'none';
+            // 控制词典 Tab 显示（通过初始化 Dictionary 系统）
+            if (Lumina.State.app.currentFile.dictionaries?.length > 0) {
+                if (Lumina.Dictionary) Lumina.Dictionary.init(Lumina.State.app.currentFile.dictionaries);
             }
-            // 关闭词典面板
-            document.getElementById('dictionaryPanel')?.classList.remove('open');
 
             const isMobileView = Lumina.Utils.isMobile();
             if (!isMobileView) {
@@ -355,6 +350,16 @@ Lumina.Actions = {
             window.dispatchEvent(new CustomEvent('fileOpened', { 
                 detail: { fileKey: Lumina.State.app.currentFile.fileKey }
             }));
+
+            // 主动清空侧边栏面板，避免旧书数据残留
+            const annoList = document.getElementById('sidebarAnnotationList');
+            if (annoList) annoList.innerHTML = '';
+            const dictList = document.getElementById('sidebarDictionaryList');
+            if (dictList) dictList.innerHTML = '';
+            const matGrid = document.getElementById('materialsGrid');
+            if (matGrid) matGrid.innerHTML = '';
+
+            Lumina.UI?.updateSidebarTabBadges?.();
 
             if (Lumina.State.app.currentFile.encoding && !['UTF-8', 'UTF8'].includes(Lumina.State.app.currentFile.encoding)) {
                 Lumina.UI.showToast(`${Lumina.State.app.currentFile.encoding} → UTF-8`, 2000);
@@ -843,6 +848,17 @@ Lumina.Actions = {
         Lumina.Search.clearResults();
         
         Lumina.DOM.contentScroll.scrollTop = 0;
+        
+        // 清空侧边栏各面板内容并重置 badge
+        Lumina.DOM.tocList.innerHTML = '';
+        const annoList = document.getElementById('sidebarAnnotationList');
+        if (annoList) annoList.innerHTML = '';
+        const dictList = document.getElementById('sidebarDictionaryList');
+        if (dictList) dictList.innerHTML = '';
+        const matGrid = document.getElementById('materialsGrid');
+        if (matGrid) matGrid.innerHTML = '';
+        Lumina.UI?.updateSidebarTabBadges?.();
+        Lumina.UI?.switchSidebarTab?.('toc');
     }
 };
 

@@ -76,6 +76,141 @@ Lumina.UI = {
             Lumina.State.settings.sidebarVisible = isVisible;
             Lumina.Settings.save();
         };
+
+        // 侧边栏 Tab 切换
+        this.switchSidebarTab = (tabName) => {
+            const tabs = document.querySelectorAll('#sidebarTabs .sidebar-tab');
+            const contents = document.querySelectorAll('#sidebarTabContents .sidebar-tab-content');
+            const titleEl = document.getElementById('sidebarPanelTitle');
+            const countEl = document.getElementById('sidebarCount');
+
+            tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabName));
+            contents.forEach(content => content.classList.toggle('active', content.dataset.tabContent === tabName));
+
+            // 更新标题和统计
+            if (titleEl) {
+                const tabEl = document.querySelector(`#sidebarTabs .sidebar-tab[data-tab="${tabName}"]`);
+                titleEl.textContent = tabEl ? (Lumina.I18n.t(tabName) || tabName) : tabName;
+            }
+            if (countEl) {
+                let count = '';
+                if (tabName === 'toc') {
+                    const chapters = Lumina.State.app.chapters;
+                    count = chapters ? `${chapters.length} ${Lumina.I18n.t('chapters') || '章节'}` : '';
+                }
+                countEl.textContent = count;
+            }
+
+            // 触发渲染
+            if (tabName === 'annotations' && Lumina.Annotations) {
+                Lumina.Annotations.renderAnnotationList();
+            } else if (tabName === 'dictionary' && Lumina.Dictionary) {
+                Lumina.Dictionary.renderPanel();
+            } else if (tabName === 'materials') {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => this.renderMaterialsPanel());
+                });
+            }
+        };
+
+        // 更新侧边栏各 Tab 的徽标数字
+        this.updateSidebarTabBadges = () => {
+            const annotations = Lumina.State.app.annotations || [];
+            const annoBadge = document.getElementById('tabBadgeAnnotations');
+            if (annoBadge) annoBadge.textContent = annotations.length > 0 ? annotations.length : '';
+
+            const dictEntries = Lumina.Dictionary?.index?.entries;
+            const dictBadge = document.getElementById('tabBadgeDictionary');
+            if (dictBadge) dictBadge.textContent = dictEntries?.length > 0 ? dictEntries.length : '';
+
+            const imageCount = this.countDocumentImages();
+            const matBadge = document.getElementById('tabBadgeMaterials');
+            if (matBadge) matBadge.textContent = imageCount > 0 ? imageCount : '';
+
+            // 如果素材面板当前可见，同步刷新网格
+            const matContent = document.querySelector('.sidebar-tab-content.active[data-tab-content="materials"]');
+            if (matContent) this.renderMaterialsPanel();
+        };
+
+        // 统计文档中的图片数量
+        this.countDocumentImages = () => {
+            let count = 0;
+            const items = Lumina.State.app.document?.items || [];
+            items.forEach(item => {
+                if (item.type === 'image') {
+                    count++;
+                } else if (item.type === 'paragraph' && item.inlineContent) {
+                    item.inlineContent.forEach(ic => {
+                        if (ic.type === 'image') count++;
+                    });
+                } else if (item.type && item.type.startsWith('heading') && item.inlineContent) {
+                    item.inlineContent.forEach(ic => {
+                        if (ic.type === 'image') count++;
+                    });
+                }
+            });
+            return count;
+        };
+
+        // 渲染素材面板（图片网格）
+        this.renderMaterialsPanel = () => {
+            const grid = document.getElementById('materialsGrid');
+            if (!grid) return;
+
+            const images = [];
+            const items = Lumina.State.app.document?.items || [];
+            items.forEach(item => {
+                if (item.type === 'image') {
+                    images.push({ src: item.src || item.data, alt: item.alt || '', name: item.alt || 'image' });
+                } else if (item.type === 'paragraph' && item.inlineContent) {
+                    item.inlineContent.forEach(ic => {
+                        if (ic.type === 'image') {
+                            images.push({ src: ic.src, alt: ic.alt || '', name: ic.alt || 'image' });
+                        }
+                    });
+                } else if (item.type && item.type.startsWith('heading') && item.inlineContent) {
+                    item.inlineContent.forEach(ic => {
+                        if (ic.type === 'image') {
+                            images.push({ src: ic.src, alt: ic.alt || '', name: ic.alt || 'image' });
+                        }
+                    });
+                }
+            });
+
+            if (images.length === 0) {
+                const emptyText = Lumina.I18n?.t('materialsEmpty') || '素材面板';
+                grid.innerHTML = `<div class="materials-empty"><svg class="icon"><use href="#icon-image"/></svg><div>${emptyText}</div></div>`;
+                return;
+            }
+
+            grid.innerHTML = images.map((img, idx) => `
+                <div class="materials-grid-item" data-index="${idx}" data-src="${Lumina.Utils.escapeHtml(img.src)}">
+                    <div class="materials-grid-item__sizer"></div>
+                    <img class="materials-grid-item__thumb" src="${Lumina.Utils.escapeHtml(img.src)}" alt="${Lumina.Utils.escapeHtml(img.alt)}" loading="lazy">
+                    <div class="materials-grid-item__name">${Lumina.Utils.escapeHtml(img.name)}</div>
+                </div>
+            `).join('');
+
+            grid.querySelectorAll('.materials-grid-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const src = item.dataset.src;
+                    const alt = item.querySelector('img')?.alt || '';
+                    if (src && Lumina.UI?.viewImageFull) {
+                        Lumina.UI.viewImageFull(src, alt);
+                    }
+                });
+            });
+        };
+
+        // 绑定 Tab 点击
+        const sidebarTabs = document.getElementById('sidebarTabs');
+        if (sidebarTabs) {
+            sidebarTabs.addEventListener('click', (e) => {
+                const tab = e.target.closest('.sidebar-tab');
+                if (!tab) return;
+                this.switchSidebarTab(tab.dataset.tab);
+            });
+        }
         
         // PC Web: 点击 fileInfo 打开/关闭书籍详情页
         const fileInfoEl = document.getElementById('fileInfo');
@@ -148,9 +283,6 @@ Lumina.UI = {
                 if (toggle) panel.classList.toggle('open');
                 else panel.classList.add('open');
                 Object.values(panels).forEach(({ panel: p }) => { if (p !== panel) p.classList.remove('open'); });
-                // 关闭注释面板和词典面板
-                document.getElementById('annotationPanel')?.classList.remove('open');
-                document.getElementById('dictionaryPanel')?.classList.remove('open');
                 if (panel.classList.contains('open') && key === 'search') {
                     const isReplaceMode = document.getElementById('replaceModeContent')?.style.display !== 'none';
                     if (isReplaceMode) {
@@ -177,32 +309,6 @@ Lumina.UI = {
             this.switchSearchPanelMode('search');
         });
 
-        // 词典面板
-        const dictionaryBtn = document.getElementById('dictionaryBtn');
-        const dictionaryPanel = document.getElementById('dictionaryPanel');
-        if (dictionaryBtn && dictionaryPanel) {
-            dictionaryBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dictionaryPanel.classList.toggle('open');
-                // 关闭其他面板
-                Object.values(panels).forEach(({ panel: p }) => p?.classList.remove('open'));
-                document.getElementById('annotationPanel')?.classList.remove('open');
-                if (dictionaryPanel.classList.contains('open') && Lumina.Dictionary) {
-                    Lumina.Dictionary.renderPanel();
-                }
-            });
-            document.getElementById('closeDictionaryPanel')?.addEventListener('click', () => {
-                dictionaryPanel.classList.remove('open');
-            });
-            // 搜索输入
-            const dictionarySearchInput = document.getElementById('dictionarySearchInput');
-            if (dictionarySearchInput) {
-                dictionarySearchInput.addEventListener('input', (e) => {
-                    if (Lumina.Dictionary) Lumina.Dictionary.filterPanel(e.target.value);
-                });
-            }
-        }
-
         const libraryBtn = document.getElementById('libraryBtn');
         if (libraryBtn) {
             libraryBtn.addEventListener('click', () => {
@@ -218,8 +324,13 @@ Lumina.UI = {
         document.getElementById('closeAbout').addEventListener('click', () => Lumina.DOM.aboutPanel.classList.remove('active'));
         Lumina.DOM.aboutPanel.addEventListener('click', (e) => { if (e.target === Lumina.DOM.aboutPanel) Lumina.DOM.aboutPanel.classList.remove('active'); });
         
-        // 注释/书签按钮
-        document.getElementById('annotationBtn').addEventListener('click', () => Lumina.Annotations.togglePanel());
+        // 侧边栏词典搜索输入
+        const sidebarDictionarySearchInput = document.getElementById('sidebarDictionarySearchInput');
+        if (sidebarDictionarySearchInput) {
+            sidebarDictionarySearchInput.addEventListener('input', (e) => {
+                if (Lumina.Dictionary) Lumina.Dictionary.filterPanel(e.target.value);
+            });
+        }
 
         Lumina.DOM.sidebarRight.addEventListener('click', async (e) => {
             const btn = e.target.closest('[data-setting-group] .option-btn, [data-setting-group] .numbering-btn');
@@ -299,10 +410,8 @@ Lumina.UI = {
 
         document.addEventListener('click', (e) => {
             // 点击面板、按钮或子面板(about-panel)时不关闭
-            if (!e.target.closest('.panel, .btn-icon, .about-panel')) {
+            if (!e.target.closest('.panel, .btn-icon, .about-panel, .sidebar-left')) {
                 Object.values(panels).forEach(({ panel }) => panel?.classList.remove('open'));
-                document.getElementById('annotationPanel')?.classList.remove('open');
-                document.getElementById('dictionaryPanel')?.classList.remove('open');
                 Lumina.Search.clearHighlight();
             }
         });

@@ -529,6 +529,7 @@ Lumina.Annotations = {
         await this.saveAnnotations();
         this.renderAnnotations();
         this.renderAnnotationList();
+        Lumina.UI?.updateSidebarTabBadges?.();
     },
     
     // 更新注释
@@ -539,6 +540,7 @@ Lumina.Annotations = {
             await this.saveAnnotations();
             this.renderAnnotations();
             this.renderAnnotationList();
+            Lumina.UI?.updateSidebarTabBadges?.();
         }
     },
     
@@ -548,6 +550,7 @@ Lumina.Annotations = {
         await this.saveAnnotations();
         this.renderAnnotations();
         this.renderAnnotationList();
+        Lumina.UI?.updateSidebarTabBadges?.();
     },
     
     // 保存注释到数据库
@@ -989,22 +992,12 @@ Lumina.Annotations = {
     
     // 设置注释面板事件
     setupPanel() {
-        // 面板已在 HTML 中静态创建，这里只绑定事件
-        const panel = document.getElementById('annotationPanel');
-        if (!panel) {
-            console.warn('[Annotations] 注释面板元素未找到');
-            return;
-        }
-        
-        // 关闭按钮
-        document.getElementById('closeAnnotationPanel').addEventListener('click', () => {
-            panel.classList.remove('open');
-        });
+        // 批注已整合到侧边栏导航面板，无需独立面板初始化
     },
     
     // 渲染注释列表
     renderAnnotationList() {
-        const list = document.getElementById('annotationList');
+        const list = document.getElementById('sidebarAnnotationList');
         const annotations = Lumina.State.app.annotations;
         const t = Lumina.I18n.t;
         
@@ -1073,7 +1066,8 @@ Lumina.Annotations = {
                 if (e.target.closest('.annotation-actions')) return;
                 if (anno) {
                     Lumina.Actions.navigateToChapter(anno.chapterIndex, anno.lineIndex || anno.startLine);
-                    document.getElementById('annotationPanel').classList.remove('open');
+                    document.getElementById('sidebarLeft')?.classList.remove('visible');
+                    document.getElementById('readingArea')?.classList.remove('with-sidebar');
                 }
             });
             
@@ -1100,28 +1094,35 @@ Lumina.Annotations = {
         });
     },
     
-    // 打开面板
+    // 打开批注 Tab（打开侧边栏并切换 Tab）
     openPanel() {
-        const panel = document.getElementById('annotationPanel');
-        if (!panel) return;
+        const sidebar = document.getElementById('sidebarLeft');
+        if (!sidebar) return;
         this.renderAnnotationList();
-        panel.classList.add('open');
+        sidebar.classList.add('visible');
+        document.getElementById('readingArea')?.classList.add('with-sidebar');
+        // 切换 Tab
+        const tabBtn = document.querySelector('#sidebarTabs .sidebar-tab[data-tab="annotations"]');
+        if (tabBtn) tabBtn.click();
     },
-    
-    // 切换面板（toggle）
+
+    // 切换批注 Tab
     togglePanel() {
-        const panel = document.getElementById('annotationPanel');
-        if (!panel) return;
-        if (panel.classList.contains('open')) {
-            panel.classList.remove('open');
+        const sidebar = document.getElementById('sidebarLeft');
+        if (!sidebar) return;
+        const isAnnotationsActive = document.querySelector('#sidebarTabs .sidebar-tab[data-tab="annotations"]')?.classList.contains('active');
+        if (sidebar.classList.contains('visible') && isAnnotationsActive) {
+            sidebar.classList.remove('visible');
+            document.getElementById('readingArea')?.classList.remove('with-sidebar');
         } else {
             this.openPanel();
         }
     },
-    
-    // 关闭面板
+
+    // 关闭侧边栏
     closePanel() {
-        document.getElementById('annotationPanel')?.classList.remove('open');
+        document.getElementById('sidebarLeft')?.classList.remove('visible');
+        document.getElementById('readingArea')?.classList.remove('with-sidebar');
     }
 };
 

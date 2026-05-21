@@ -383,7 +383,7 @@ Lumina.Dictionary = {
     // ========== 面板 ==========
 
     renderPanel() {
-        const container = document.getElementById('dictionaryList');
+        const container = document.getElementById('sidebarDictionaryList');
         if (!container) return;
         if (!this.index) {
             const emptyText = Lumina.I18n?.t('dictionaryEmpty') || '本书暂无词典数据';
@@ -447,7 +447,7 @@ Lumina.Dictionary = {
     },
 
     filterPanel(query) {
-        const container = document.getElementById('dictionaryList');
+        const container = document.getElementById('sidebarDictionaryList');
         if (!container || !this.index) return;
         const q = (query || '').trim().toLowerCase();
         if (!q) {

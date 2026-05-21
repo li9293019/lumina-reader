@@ -952,26 +952,24 @@ background: transparent !important;
 
 /* ========== 词典高亮与 Tooltip / Drawer ========== */
 .dict-entry {
-    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
     border-bottom: 1px dashed var(--accent-color);
     cursor: pointer;
     border-radius: 2px;
     transition: background 0.15s;
 }
 .dict-entry:hover {
-    background: rgba(var(--accent-rgb, 139, 123, 100), 0.3);
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
 }
 
 /* ========== 词典高亮与 Tooltip ========== */
 .dict-entry {
-    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
     border-bottom: 1px dashed var(--accent-color);
     cursor: pointer;
     border-radius: 2px;
     transition: background 0.15s;
 }
 .dict-entry:hover {
-    background: rgba(var(--accent-rgb, 139, 123, 100), 0.3);
+    background: rgba(var(--accent-rgb, 139, 123, 100), 0.15);
 }
 .dict-tooltip {
     position: fixed;
@@ -1086,4 +1084,173 @@ background: transparent !important;
     max-width: 100%;
     border-radius: 8px;
     margin: 8px 0;
+}
+
+/* ========== 侧边栏导航面板 Tab 系统 ========== */
+
+.sidebar-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.sidebar-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.sidebar-tab {
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-family-dynamic);
+    font-size: 0.85em;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+}
+.sidebar-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+.sidebar-tab.active {
+    color: var(--accent-color);
+    background: var(--bg-secondary);
+    font-weight: 600;
+}
+.sidebar-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 10%;
+    width: 80%;
+    height: 2px;
+    background: var(--accent-color);
+    border-radius: 1px;
+}
+
+.sidebar-count {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-left: auto;
+    margin-right: 8px;
+    font-weight: 500;
+}
+
+.sidebar-tab-contents {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.sidebar-tab-content {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.sidebar-tab-content.active {
+    display: flex;
+}
+
+/* 素材面板空状态 */
+.materials-empty {
+    grid-column: 1 / -1;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+.materials-empty svg {
+    width: 48px;
+    height: 48px;
+    stroke: var(--text-muted);
+    stroke-width: 1.5;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+.materials-empty div {
+    white-space: nowrap;
+}
+
+/* ========== Tab 徽标 badge ========== */
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 4px;
+    background: var(--accent-color);
+    color: white;
+    font-size: 0.75em;
+    font-weight: 600;
+    border-radius: 9px;
+    line-height: 1;
+}
+.tab-badge:empty {
+    display: none;
+}
+
+/* ========== 素材面板网格 ========== */
+.materials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-width: 0;
+    justify-items: center;
+    align-items: start;
+    align-content: start;
+}
+.materials-grid-item {
+    position: relative;
+    width: 100%;
+    min-width: 68px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+    transition: transform 0.15s, border-color 0.15s;
+}
+.materials-grid-item__sizer {
+    display: block;
+    padding-bottom: 100%;
+}
+.materials-grid-item:hover {
+    transform: scale(1.03);
+    border-color: var(--accent-color);
+}
+.materials-grid-item__thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.materials-grid-item__name {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 6px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.6));
+    color: white;
+    font-size: 0.7em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
 }

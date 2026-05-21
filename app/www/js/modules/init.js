@@ -1167,8 +1167,7 @@ Lumina.BackButtonHandler = {
         const rightPanels = [
             { id: 'sidebarRight', close: (el) => el.classList.remove('open') },
             { id: 'historyPanel', close: (el) => el.classList.remove('open') },
-            { id: 'searchPanel', close: (el) => el.classList.remove('open') },
-            { id: 'annotationPanel', close: (el) => el.classList.remove('open') }
+            { id: 'searchPanel', close: (el) => el.classList.remove('open') }
         ];
         
         for (const panel of rightPanels) {

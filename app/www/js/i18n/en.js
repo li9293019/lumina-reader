@@ -8,6 +8,8 @@ Lumina.I18n.data['en'] = {
         appName: 'Lumina',
         noFile: 'No file opened',
         toc: 'Contents',
+        chapters: 'Chapters',
+        materials: 'Materials',
         settings: 'Settings',
         language: 'Language',
         theme: 'Theme',
@@ -37,6 +39,7 @@ Lumina.I18n.data['en'] = {
         dictionaryAliasPrefix: 'Also known as: ',
         dictionaryEmpty: 'No dictionary data for this book',
         dictionaryNoMatch: 'No matching terms found',
+        materialsEmpty: 'No materials in this book',
         searchResultsHeader: '{count} matches found',
 
     // 导出与加密

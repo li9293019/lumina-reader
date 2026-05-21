@@ -2945,7 +2945,6 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
             Lumina.DOM.historyPanel?.classList.remove('open');
             Lumina.DOM.searchPanel?.classList.remove('open');
             Lumina.DOM.aboutPanel?.classList.remove('active');
-            document.getElementById('annotationPanel')?.classList.remove('open');
         }
 
         if (savedScrollIndex !== undefined && savedScrollIndex !== null) {
@@ -3011,23 +3010,28 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         Lumina.Annotations.renderAnnotations();
 
         // 加载词典数据
-        const dictionaryBtn = document.getElementById('dictionaryBtn');
         if (fileData.dictionaries && fileData.dictionaries.length > 0) {
             if (Lumina.Dictionary) {
                 Lumina.Dictionary.init(fileData.dictionaries);
             }
-            if (dictionaryBtn) dictionaryBtn.style.display = '';
         } else {
             if (Lumina.Dictionary) Lumina.Dictionary.clear();
-            if (dictionaryBtn) dictionaryBtn.style.display = 'none';
         }
-        // 关闭词典面板
-        document.getElementById('dictionaryPanel')?.classList.remove('open');
         
         // 触发文件打开事件（用于简繁转换等模块）
         window.dispatchEvent(new CustomEvent('fileOpened', { 
             detail: { fileKey: fileData.fileKey }
         }));
+        
+        // 主动清空侧边栏面板，避免旧书数据残留
+        const annoList = document.getElementById('sidebarAnnotationList');
+        if (annoList) annoList.innerHTML = '';
+        const dictList = document.getElementById('sidebarDictionaryList');
+        if (dictList) dictList.innerHTML = '';
+        const matGrid = document.getElementById('materialsGrid');
+        if (matGrid) matGrid.innerHTML = '';
+        
+        Lumina.UI?.updateSidebarTabBadges?.();
         
     } catch (err) {
         throw err;

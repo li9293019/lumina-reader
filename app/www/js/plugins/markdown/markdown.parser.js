@@ -92,6 +92,10 @@ Lumina.Plugin.Markdown.Parser = {
                 item = consumed.item;
                 i = consumed.nextIndex;
             }
+            // 块级图片（独占一行的图片）
+            else if ((item = this.parseBlockImage(line))) {
+                i++;
+            }
             // 普通段落
             else {
                 item = this.parseParagraph(lines, i);
@@ -644,8 +648,38 @@ Lumina.Plugin.Markdown.Parser = {
             line.match(/^\d+\.\s/) ||             // 有序列表
             line.match(/^[\*\-\+]\s/) ||         // 无序列表
             line.match(/^(?:\*{3,}|-{3,}|_{3,})\s*$/) ||  // 分隔线
-            line.match(/^\|/)                     // 表格
+            line.match(/^\|/) ||                  // 表格
+            line.match(/^\s*!\[[^\]]*\]\([^)]+\)\s*$/)  // 块级图片
         );
+    },
+
+    /**
+     * 解析块级图片（独占一行的图片）
+     */
+    parseBlockImage(line) {
+        const match = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+        if (!match) return null;
+
+        const alt = match[1];
+        const srcAndTitle = match[2].trim();
+
+        // 提取 URL 和可选 title
+        let src = srcAndTitle;
+        let title = '';
+        const titleMatch = srcAndTitle.match(/^([^\s"]+)\s+"([^"]*)"$/);
+        if (titleMatch) {
+            src = titleMatch[1];
+            title = titleMatch[2];
+        }
+
+        return {
+            type: 'image',
+            src: src,
+            data: src,
+            alt: alt,
+            title: title,
+            raw: line
+        };
     },
 
     /**

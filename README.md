@@ -369,6 +369,15 @@ npx cap sync android  # 完整同步（安装新插件时用）
 # GitHub
 git clone https://github.com/li9293019/lumina-reader.git
 
+# 设置或取消代理
+## 更新代理
+git config --global http.proxy http://127.0.0.1:新端口
+git config --global https.proxy http://127.0.0.1:新端口
+
+## 或者彻底取消（回直连）
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+
 # 日常提交
 git add .
 git commit -m "feat: xxx"

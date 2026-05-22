@@ -653,11 +653,13 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().evaluateJavascript(
                 "javascript:(function() { " +
                 "  if (document.querySelector('.share-card-overlay')) return 'shareCard'; " +  // 分享卡片（最高优先级）
+                "  if (document.querySelector('.image-viewer-overlay')) return 'imagePreview'; " +
                 "  if (document.getElementById('aiChatOverlay')?.classList.contains('active')) return 'aiChat'; " +
                 "  if (document.getElementById('aiPanel')?.classList.contains('active')) return 'aiTask'; " +
                 "  if (document.getElementById('bookDetailPanel')?.classList.contains('active')) return 'bookDetail'; " +
                 "  if (document.getElementById('fileBrowserPanel')?.classList.contains('active')) return 'fileBrowser'; " +
                 "  if (document.getElementById('dataManagerPanel')?.classList.contains('active')) return 'dataManager'; " +
+                "  if (document.getElementById('dictDetailPanel')?.classList.contains('active')) return 'dictDetail'; " +
                 "  if (document.getElementById('aboutPanel')?.classList.contains('active')) return 'about'; " +
                 "  if (document.getElementById('cacheManagerPanel')?.classList.contains('active')) return 'cacheManager'; " +
                 "  if (document.getElementById('regexHelpPanel')?.classList.contains('active')) return 'regexHelp'; " +
@@ -689,10 +691,12 @@ public class MainActivity extends BridgeActivity {
         
         switch (state) {
             case "shareCard":
+            case "imagePreview":
             case "aiChat":
             case "aiTask":
             case "bookDetail":
             case "dataManager":
+            case "dictDetail":
             case "about":
             case "cacheManager":
             case "regexHelp":

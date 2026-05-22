@@ -1744,86 +1744,146 @@ Lumina.UI = {
 
 
     // 全屏查看图片
-    viewImageFull(src, alt = '') {
+    viewImageFull(src, alt = '', gallery = null, currentIndex = 0) {
+        // 如果没有传入 gallery，从当前文档自动收集
+        if (!gallery) {
+            gallery = this._collectDocumentImages();
+            const idx = gallery.findIndex(img => img.src === src);
+            currentIndex = idx >= 0 ? idx : 0;
+        }
+        if (!gallery.length) gallery = [{ src, alt }];
+        let currentIdx = Math.max(0, Math.min(currentIndex, gallery.length - 1));
+
         // 创建全屏遮罩
         const overlay = document.createElement('div');
         overlay.className = 'image-viewer-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.9);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: zoom-out;
-            opacity: 0;
-            transition: opacity 0.3s;
-        `;
-        
+
         // 创建图片
         const img = document.createElement('img');
-        img.src = src;
-        img.alt = alt;
-        img.style.cssText = `
-            max-width: 95vw;
-            max-height: 95vh;
-            object-fit: contain;
-            transform: scale(0.9);
-            transition: transform 0.3s;
-        `;
-        
-        // 关闭按钮
+        img.className = 'image-viewer-overlay__img';
+
+        const showImage = (idx) => {
+            const item = gallery[idx];
+            if (!item) return;
+            img.src = item.src;
+            img.alt = item.alt || '';
+            currentIdx = idx;
+        };
+        showImage(currentIdx);
+
+        // 关闭按钮（使用 SVG icon）
         const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '✕';
-        closeBtn.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 44px;
-            height: 44px;
-            border: none;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            font-size: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        `;
-        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
-        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
-        
+        closeBtn.className = 'image-viewer-overlay__close';
+        closeBtn.innerHTML = '<svg class="icon"><use href="#icon-close"/></svg>';
+        closeBtn.onclick = (e) => { e.stopPropagation(); close(); };
+
         overlay.appendChild(img);
         overlay.appendChild(closeBtn);
+
+        // 左右导航按钮（多图时显示）
+        let prevBtn = null, nextBtn = null;
+        if (gallery.length > 1) {
+            prevBtn = document.createElement('button');
+            prevBtn.className = 'image-viewer-overlay__nav image-viewer-overlay__nav--prev';
+            prevBtn.innerHTML = '<svg class="icon"><use href="#icon-chevron-left"/></svg>';
+            prevBtn.onclick = (e) => { e.stopPropagation(); showPrev(); };
+
+            nextBtn = document.createElement('button');
+            nextBtn.className = 'image-viewer-overlay__nav image-viewer-overlay__nav--next';
+            nextBtn.innerHTML = '<svg class="icon"><use href="#icon-chevron-right"/></svg>';
+            nextBtn.onclick = (e) => { e.stopPropagation(); showNext(); };
+
+            overlay.appendChild(prevBtn);
+            overlay.appendChild(nextBtn);
+        }
+
         document.body.appendChild(overlay);
-        
+
         // 动画显示
-        requestAnimationFrame(() => {
-            overlay.style.opacity = '1';
-            img.style.transform = 'scale(1)';
-        });
-        
+        requestAnimationFrame(() => overlay.classList.add('active'));
+
+        // 切换函数
+        const showPrev = () => {
+            if (gallery.length <= 1) return;
+            const newIdx = (currentIdx - 1 + gallery.length) % gallery.length;
+            showImage(newIdx);
+        };
+        const showNext = () => {
+            if (gallery.length <= 1) return;
+            const newIdx = (currentIdx + 1) % gallery.length;
+            showImage(newIdx);
+        };
+
         // 关闭函数
         const close = () => {
-            overlay.style.opacity = '0';
-            img.style.transform = 'scale(0.9)';
+            overlay.classList.remove('active');
             setTimeout(() => overlay.remove(), 300);
+            document.removeEventListener('keydown', keyHandler);
+            overlay.removeEventListener('touchstart', touchStartHandler);
+            overlay.removeEventListener('touchend', touchEndHandler);
         };
-        
-        overlay.onclick = close;
-        closeBtn.onclick = (e) => { e.stopPropagation(); close(); };
-        
-        // ESC 关闭
-        const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                close();
-                document.removeEventListener('keydown', escHandler);
+
+        // PC端：点击遮罩区域 —— 左1/4上一张，右1/4下一张，中间关闭
+        overlay.onclick = (e) => {
+            if (e.target.closest('.image-viewer-overlay__close')) return;
+            if (e.target.closest('.image-viewer-overlay__nav')) return;
+            const rect = overlay.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const width = rect.width;
+            if (gallery.length > 1) {
+                if (x < width * 0.25) { showPrev(); return; }
+                if (x > width * 0.75) { showNext(); return; }
+            }
+            close();
+        };
+
+        // 移动端：触摸滑动
+        let touchStartX = 0, touchStartY = 0;
+        const touchStartHandler = (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        };
+        const touchEndHandler = (e) => {
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            if (gallery.length > 1 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+                dx > 0 ? showPrev() : showNext();
             }
         };
-        document.addEventListener('keydown', escHandler);
+        overlay.addEventListener('touchstart', touchStartHandler, { passive: true });
+        overlay.addEventListener('touchend', touchEndHandler, { passive: true });
+
+        // 键盘：左右箭头切换（ESC 由 BackButtonHandler 统一处理）
+        const keyHandler = (e) => {
+            if (gallery.length > 1 && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                showPrev();
+                return;
+            }
+            if (gallery.length > 1 && e.key === 'ArrowRight') {
+                e.preventDefault();
+                showNext();
+                return;
+            }
+        };
+        document.addEventListener('keydown', keyHandler);
+    },
+
+    _collectDocumentImages() {
+        const images = [];
+        const items = Lumina.State.app.document?.items || [];
+        items.forEach(item => {
+            if (item.type === 'image' && (item.src || item.data)) {
+                images.push({ src: item.src || item.data, alt: item.alt || '' });
+            } else if (item.inlineContent) {
+                item.inlineContent.forEach(ic => {
+                    if (ic.type === 'image' && ic.src) {
+                        images.push({ src: ic.src, alt: ic.alt || '' });
+                    }
+                });
+            }
+        });
+        return images;
     },
 
     showDialog(message, type = 'alert', callback = null, options = {}) {

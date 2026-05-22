@@ -775,6 +775,7 @@ Lumina.Actions = {
             'arrowup': () => { e.preventDefault(); Lumina.Actions.prevChapter(); },
             'arrowdown': () => { e.preventDefault(); Lumina.Actions.nextChapter(); },
             'arrowleft': () => {
+                if (document.querySelector('.image-viewer-overlay')) return;
                 e.preventDefault();
                 if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
                     Lumina.TTS.manager.pauseForAction(() => {
@@ -785,6 +786,7 @@ Lumina.Actions = {
                 }
             },
             'arrowright': () => {
+                if (document.querySelector('.image-viewer-overlay')) return;
                 e.preventDefault();
                 if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
                     Lumina.TTS.manager.pauseForAction(() => {

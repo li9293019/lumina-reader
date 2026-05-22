@@ -1118,6 +1118,13 @@ Lumina.BackButtonHandler = {
             return true;
         }
         
+        // 优先级1.2: 关闭图片预览层 (z-index 10000)
+        const imageViewer = document.querySelector('.image-viewer-overlay');
+        if (imageViewer) {
+            imageViewer.remove();
+            return true;
+        }
+        
         // 优先级1.5: 关闭法律协议页面 (z-index 9999)
         const legalPage = document.getElementById('legalPage');
         if (legalPage?.style.display === 'flex') {
@@ -1142,6 +1149,13 @@ Lumina.BackButtonHandler = {
         const dataManagerPanel = document.getElementById('dataManagerPanel');
         if (dataManagerPanel?.classList.contains('active')) {
             Lumina.DataManager.close();
+            return true;
+        }
+        
+        // 优先级3: 关闭词典详情面板
+        const dictDetailPanel = document.getElementById('dictDetailPanel');
+        if (dictDetailPanel?.classList.contains('active')) {
+            Lumina.Dictionary.hideTermDetail();
             return true;
         }
         

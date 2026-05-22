@@ -261,6 +261,11 @@ Lumina.Editor = {
         }
         if (item.raw !== undefined) item.raw = newText;
 
+        // 清除简繁转换缓存（index 没变但内容已变）
+        if (Lumina.Converter?.currentCache?.itemCache) {
+            Lumina.Converter.currentCache.itemCache.delete(index);
+        }
+
         if (isHeading) {
             Lumina.Parser.applyNumberingStyle();
         } else {
@@ -464,6 +469,11 @@ Lumina.Editor = {
             if (Lumina.TTS.manager.isPlaying) {
                 Lumina.TTS.manager.pause();
             }
+        }
+
+        // 8. Converter 缓存：索引映射发生变化，清空缓存
+        if (Lumina.Converter?.currentCache?.itemCache) {
+            Lumina.Converter.currentCache.itemCache.clear();
         }
     }
 };

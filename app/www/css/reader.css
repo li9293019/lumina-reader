@@ -1198,6 +1198,13 @@ background: transparent !important;
     display: none;
 }
 
+/* 素材面板：将 flex 嵌套 grid 改为 block 嵌套 grid，避免 flex item 与 grid container
+   的尺寸计算冲突导致 grid track 高度坍缩为 0（图片垂直重叠） */
+.sidebar-tab-content[data-tab-content="materials"],
+.sidebar-tab-content.active[data-tab-content="materials"] {
+    display: block;
+}
+
 /* ========== 素材面板网格 ========== */
 .materials-grid {
     display: grid;
@@ -1205,7 +1212,7 @@ background: transparent !important;
     gap: 8px;
     padding: 12px;
     overflow-y: auto;
-    flex: 1;
+    height: 100%;
     min-width: 0;
     justify-items: center;
     align-items: start;
@@ -1214,7 +1221,8 @@ background: transparent !important;
 .materials-grid-item {
     position: relative;
     width: 100%;
-    min-width: 68px;
+    min-width: 70px;
+    min-height: 100px;
     overflow: hidden;
     border-radius: 8px;
     background: var(--bg-secondary);
@@ -1222,6 +1230,12 @@ background: transparent !important;
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     transition: transform 0.15s, border-color 0.15s;
+    aspect-ratio: 1 / 1;
+}
+@supports (aspect-ratio: 1 / 1) {
+    .materials-grid-item__sizer {
+        display: none;
+    }
 }
 .materials-grid-item__sizer {
     display: block;

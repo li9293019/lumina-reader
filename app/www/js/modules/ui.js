@@ -184,7 +184,7 @@ Lumina.UI = {
             }
 
             grid.innerHTML = images.map((img, idx) => `
-                <div class="materials-grid-item" data-index="${idx}" data-src="${Lumina.Utils.escapeHtml(img.src)}">
+                <div class="materials-grid-item" data-index="${idx}">
                     <div class="materials-grid-item__sizer"></div>
                     <img class="materials-grid-item__thumb" src="${Lumina.Utils.escapeHtml(img.src)}" alt="${Lumina.Utils.escapeHtml(img.alt)}" loading="lazy">
                     <div class="materials-grid-item__name">${Lumina.Utils.escapeHtml(img.name)}</div>
@@ -193,8 +193,9 @@ Lumina.UI = {
 
             grid.querySelectorAll('.materials-grid-item').forEach(item => {
                 item.addEventListener('click', () => {
-                    const src = item.dataset.src;
-                    const alt = item.querySelector('img')?.alt || '';
+                    const img = item.querySelector('img');
+                    const src = img?.src;
+                    const alt = img?.alt || '';
                     if (src && Lumina.UI?.viewImageFull) {
                         Lumina.UI.viewImageFull(src, alt);
                     }

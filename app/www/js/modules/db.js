@@ -279,7 +279,7 @@
 
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(fileKey, merged, contentSize);
                 record.created_at = existing?.created_at || data.created_at || H.getLocalTimeString();
 
@@ -390,7 +390,7 @@
                 await this.deleteFile(oldKey);
                 const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(newKey, merged, contentSize);
                 record.lastReadTime = H.getLocalTimeString();
                 record.created_at = oldData?.created_at || H.getLocalTimeString();
@@ -413,7 +413,7 @@
             let totalSize = 0;
             files.forEach(file => {
                 const contentJson = JSON.stringify(file.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const coverSize = file.cover ? new Blob([file.cover]).size : 0;
                 totalSize += contentSize + coverSize;
                 file.estimatedSize = contentSize + coverSize;
@@ -492,7 +492,7 @@
 
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(fileKey, merged, contentSize);
                 record.created_at = existing?.created_at || data.created_at || H.getLocalTimeString();
 
@@ -620,7 +620,7 @@
                 await this.deleteFile(oldKey);
                 const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(newKey, merged, contentSize);
                 record.created_at = oldData?.created_at || H.getLocalTimeString();
 
@@ -770,7 +770,7 @@
                 existing = existing || {};
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(fileKey, merged, contentSize);
                 record.created_at = existing.created_at || data.created_at || H.getLocalTimeString();
 
@@ -863,7 +863,7 @@
                 await this.deleteFile(oldKey);
                 const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(newKey, merged, contentSize);
                 record.lastReadTime = H.getLocalTimeString();
                 record.created_at = oldData?.created_at || H.getLocalTimeString();
@@ -977,7 +977,7 @@
                 const existing = await this.getFile(fileKey);
                 const merged = H.mergeFileData(existing, data);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(fileKey, merged, contentSize);
                 record.created_at = existing?.created_at || data.created_at || H.getLocalTimeString();
 
@@ -1051,7 +1051,7 @@
                 await this.deleteFile(oldKey);
                 const merged = H.mergeFileData(oldData, newData);
                 const contentJson = JSON.stringify(merged.content || []);
-                const contentSize = new Blob([contentJson]).size;
+                const contentSize = new TextEncoder().encode(contentJson).length;
                 const record = H.normalizeRecord(newKey, merged, contentSize);
                 record.lastReadTime = H.getLocalTimeString();
                 record.created_at = oldData?.created_at || H.getLocalTimeString();

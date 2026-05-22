@@ -2145,15 +2145,9 @@ Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
         }
     }
 
-    // 4. 替换 content 中的 asset:// 引用
-    content = content.replace(
-        /!\[([^\]]*)\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/g,
-        (match, alt, id) => assetMap[id] ? `![${alt}](${assetMap[id]})` : match
-    );
-    content = content.replace(
-        /\[([^\]]*)\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/g,
-        (match, label, id) => assetMap[id] ? `[${label}](${assetMap[id]})` : match
-    );
+    // 4. 保留 asset:// 引用，不在 content 中内联 base64
+    //    避免同一张图片被多次引用时 base64 在 content 字符串中被复制多份导致内存爆炸
+    //    解析后再对 items 进行后处理替换，assetMap 中只保留一份 base64
 
     // 5. 过滤音视频块（reader 不处理）
     content = content
@@ -2190,9 +2184,9 @@ Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
         const cvbFile = zip.file(cvbName);
         if (cvbFile) {
             const cvbContent = await cvbFile.async('text');
-            const match = cvbContent.match(/!\[.*?\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/);
-            if (match && assetMap[match[1]]) {
-                coverBitmap = assetMap[match[1]];
+            const cvbMatch = cvbContent.match(/!\[.*?\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/);
+            if (cvbMatch && assetMap[cvbMatch[1]]) {
+                coverBitmap = assetMap[cvbMatch[1]];
             }
         }
     }
@@ -2217,6 +2211,27 @@ Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
     } else {
         // 降级：使用通用文本解析
         parsed = Lumina.Parser.parseTextFile(content, 'md');
+    }
+
+    // 8.1 解析后替换 asset://id 为实际 base64（避免 content 字符串中复制多份）
+    if (assetMap && Object.keys(assetMap).length > 0) {
+        const assetRegex = /^asset:\/\/([a-zA-Z0-9_-]+)$/;
+        const replaceAsset = (target) => {
+            if (!target || typeof target.src !== 'string') return;
+            const m = target.src.match(assetRegex);
+            if (m && assetMap[m[1]]) {
+                target.src = assetMap[m[1]];
+                if (target.data !== undefined) target.data = assetMap[m[1]];
+            }
+        };
+        parsed.items.forEach(item => {
+            if (item.type === 'image') replaceAsset(item);
+            if (item.inlineContent) {
+                item.inlineContent.forEach(ic => {
+                    if (ic.type === 'image') replaceAsset(ic);
+                });
+            }
+        });
     }
 
     // 9. 组装元数据

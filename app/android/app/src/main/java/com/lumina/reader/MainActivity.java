@@ -57,8 +57,8 @@ public class MainActivity extends BridgeActivity {
     private Handler mainHandler;
     private ExecutorService executor;
     
-    // 静态标记：是否有主实例正在运行
-    private static MainActivity sActiveInstance = null;
+    // 静态标记：是否有主实例正在运行（volatile 确保多线程可见性）
+    private static volatile MainActivity sActiveInstance = null;
     private static Intent sPendingIntent = null;
     
     /**
@@ -198,6 +198,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        
+        // 非主实例不处理外部 Intent（防止任务重定位竞态导致重复处理）
+        if (sActiveInstance != this) {
+            Log.w(TAG, "onNewIntent: 非主实例，忽略");
+            return;
+        }
+        
         setIntent(intent);
         bridge.onNewIntent(intent);
         
@@ -266,6 +273,7 @@ public class MainActivity extends BridgeActivity {
             
             // 创建新的 Intent，添加 NEW_TASK 标志
             Intent newIntent = new Intent(intent);
+            newIntent.setFlags(0); // 清除原始 flags，避免外部应用的 flags 干扰路由
             newIntent.setClass(this, MainActivity.class);
             newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
                               Intent.FLAG_ACTIVITY_CLEAR_TOP |

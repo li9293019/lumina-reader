@@ -50,24 +50,8 @@
     }
 
     // ==================== 获取层（只在初始化时调用一次） ====================
-    async function fetchSafeAreaFromPlugin() {
-        try {
-            const Device = Capacitor.Plugins.Device;
-            if (!Device) return null;
-            const info = await Device.getInfo();
-            if (info && info.safeAreaInsets) {
-                return {
-                    top: info.safeAreaInsets.top || 0,
-                    bottom: info.safeAreaInsets.bottom || 0,
-                    left: info.safeAreaInsets.left || 0,
-                    right: info.safeAreaInsets.right || 0
-                };
-            }
-        } catch (e) {
-            console.warn('[SafeArea] 插件获取失败:', e);
-        }
-        return null;
-    }
+    // 已移除：Capacitor Device 插件在 Android 上不返回 safeAreaInsets，该路径无效。
+    // 主力方案改为 CSS env() + 屏幕估算兜底。
 
     function getSafeAreaFromCSS() {
         if (!document.body) return { top: 0, bottom: 0, left: 0, right: 0 };
@@ -132,35 +116,11 @@
         return { top, bottom, left: 0, right: 0 };
     }
 
-    // ==================== 初始化（仅执行一次） ====================
+    // ==================== 初始化（每次启动都重新检测，避免缓存错误值） ====================
     async function initSafeArea() {
         if (_initComplete) return;
 
-        // 1. 优先读 localStorage（之前保存的准确值）
-        const stored = loadCachedSafeAreaFromStorage();
-        if (stored && (stored.top > 0 || stored.bottom > 0)) {
-            safeAreaData = stored;
-            _initComplete = true;
-            applySafeArea();
-            return;
-        }
-
-        // 2. 尝试插件（可能未就绪，等 500ms 再试一次）
-        let pluginData = await fetchSafeAreaFromPlugin();
-        if (!pluginData || (pluginData.top === 0 && pluginData.bottom === 0)) {
-            await new Promise(r => setTimeout(r, 500));
-            pluginData = await fetchSafeAreaFromPlugin();
-        }
-
-        if (pluginData && (pluginData.top > 0 || pluginData.bottom > 0)) {
-            safeAreaData = pluginData;
-            saveSafeAreaToStorage(safeAreaData);
-            _initComplete = true;
-            applySafeArea();
-            return;
-        }
-
-        // 3. CSS env()
+        // 主力：CSS env() —— 每次启动都重新读取，避免初次安装记录错误值
         if (document.body) {
             const cssData = getSafeAreaFromCSS();
             if (cssData && (cssData.top > 0 || cssData.bottom > 0)) {
@@ -172,7 +132,7 @@
             }
         }
 
-        // 4. 屏幕估算（不保存，下次启动再试）
+        // 兜底：屏幕比例估算
         safeAreaData = calculateSafeAreaFromScreen();
         _initComplete = true;
         applySafeArea();

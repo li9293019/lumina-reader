@@ -230,6 +230,7 @@ Lumina.I18n.data['zh'] = {
         replaceCycleBack: '已到达末尾，从开头继续',
         replaceInvalidRegex: '正则表达式无效',
         replaceResultsTruncated: '还有 {count} 处未显示',
+        loadMoreResults: '还有 {count} 条，点击加载更多',
 
     // 剪贴板粘贴
         clipboardPasteTitle: '从剪贴板粘贴',

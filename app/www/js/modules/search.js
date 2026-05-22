@@ -295,7 +295,8 @@ Lumina.Search = {
                     offset: match.index,
                     length: match[0].length,
                     originalText: match[0],
-                    itemText: text
+                    itemText: text,
+                    groups: Array.from(match)  // 保存捕获组 [$0, $1, $2, ...]
                 });
                 if (match[0].length === 0) regex.lastIndex++;
             }
@@ -329,7 +330,14 @@ Lumina.Search = {
             return;
         }
 
-        const MAX_PREVIEW = 50;
+        // 新查询或替换内容变化时重置显示限制
+        if (this._lastPreviewQuery !== query || this._lastPreviewReplacement !== replacement) {
+            this._lastPreviewQuery = query;
+            this._lastPreviewReplacement = replacement;
+            this._replacePreviewLimit = 50;
+        }
+
+        const MAX_PREVIEW = this._replacePreviewLimit;
         const displayMatches = matches.slice(0, MAX_PREVIEW);
         const truncated = matches.length > MAX_PREVIEW;
 
@@ -347,8 +355,9 @@ Lumina.Search = {
                 `<span class="search-result-match">${Lumina.Utils.escapeHtml(match.originalText)}</span>` +
                 Lumina.Utils.escapeHtml(after);
 
+            const resolvedReplacement = this._resolveReplacement(replacement, match);
             const replacedContext = Lumina.Utils.escapeHtml(before) +
-                `<span class="search-result-match">${Lumina.Utils.escapeHtml(replacement)}</span>` +
+                `<span class="search-result-match">${Lumina.Utils.escapeHtml(resolvedReplacement)}</span>` +
                 Lumina.Utils.escapeHtml(after);
 
             const chapter = Lumina.State.app.chapters[match.chapterIndex];
@@ -368,7 +377,23 @@ Lumina.Search = {
         }).join('');
 
         if (truncated) {
-            container.insertAdjacentHTML('beforeend', `<div class="replace-truncated-hint">${t('replaceResultsTruncated').replace('{count}', matches.length - MAX_PREVIEW)}</div>`);
+            const remaining = matches.length - MAX_PREVIEW;
+            container.insertAdjacentHTML('beforeend', `<div class="replace-truncated-hint search-load-more" data-action="load-more-replace">
+                ${t('loadMoreResults').replace('{count}', remaining) || `还有 ${remaining} 条，点击加载更多`}
+            </div>`);
+
+            const loadMore = container.querySelector('[data-action="load-more-replace"]');
+            if (loadMore) {
+                loadMore.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._replacePreviewLimit = (this._replacePreviewLimit || 50) + 100;
+                    const scrollTop = container.scrollTop;
+                    this.renderReplacePreview(matches, query, replacement);
+                    requestAnimationFrame(() => {
+                        container.scrollTop = scrollTop;
+                    });
+                });
+            }
         }
 
         // 绑定点击跳转
@@ -430,28 +455,40 @@ Lumina.Search = {
         const match = matches[this.replaceState.currentMatchIndex];
         if (!match) return;
 
-        await this._doReplaceAtMatch(match, replacement);
+        const didSplit = await this._doReplaceAtMatch(match, replacement);
 
-        // 计算长度变化，调整同 item 后续匹配 offset
-        const delta = replacement.length - match.length;
-        if (delta !== 0) {
-            for (let i = this.replaceState.currentMatchIndex + 1; i < matches.length; i++) {
+        if (didSplit) {
+            // 拆分后原 item 已不存在，移除所有同 globalIndex 的 match
+            let removedBeforeCurrent = 0;
+            for (let i = matches.length - 1; i >= 0; i--) {
                 if (matches[i].globalIndex === match.globalIndex) {
-                    matches[i].offset += delta;
+                    matches.splice(i, 1);
+                    if (i < this.replaceState.currentMatchIndex) removedBeforeCurrent++;
                 }
             }
-        }
+            this.replaceState.currentMatchIndex -= removedBeforeCurrent;
+        } else {
+            // 普通替换：调整同 item 后续匹配 offset
+            const delta = replacement.length - match.length;
+            if (delta !== 0) {
+                for (let i = this.replaceState.currentMatchIndex + 1; i < matches.length; i++) {
+                    if (matches[i].globalIndex === match.globalIndex) {
+                        matches[i].offset += delta;
+                    }
+                }
+            }
 
-        // 移除当前匹配
-        const replacedGlobalIndex = match.globalIndex;
-        matches.splice(this.replaceState.currentMatchIndex, 1);
+            // 移除当前匹配
+            const replacedGlobalIndex = match.globalIndex;
+            matches.splice(this.replaceState.currentMatchIndex, 1);
 
-        // 更新同 item 中剩余匹配的 itemText，确保预览准确
-        const updatedText = Lumina.State.app.document.items[replacedGlobalIndex]?.text;
-        if (updatedText !== undefined) {
-            for (let i = 0; i < matches.length; i++) {
-                if (matches[i].globalIndex === replacedGlobalIndex) {
-                    matches[i].itemText = updatedText;
+            // 更新同 item 中剩余匹配的 itemText，确保预览准确
+            const updatedText = Lumina.State.app.document.items[replacedGlobalIndex]?.text;
+            if (updatedText !== undefined) {
+                for (let i = 0; i < matches.length; i++) {
+                    if (matches[i].globalIndex === replacedGlobalIndex) {
+                        matches[i].itemText = updatedText;
+                    }
                 }
             }
         }
@@ -472,17 +509,79 @@ Lumina.Search = {
         }
     },
 
+    /**
+     * 解析替换字符串中的捕获组引用
+     * 支持：$1~$99 捕获组、$& 完整匹配、$$ 字面量 $
+     */
+    _resolveReplacement(replacement, match) {
+        if (!match.groups || match.groups.length <= 1) return replacement;
+        return replacement.replace(/\$(\$|&|(\d{1,2}))/g, (m, p1) => {
+            if (p1 === '$') return '$';                    // $$ → $
+            if (p1 === '&') return match.originalText;     // $& → 完整匹配
+            const idx = parseInt(p1, 10);
+            return match.groups[idx] !== undefined ? match.groups[idx] : m;
+        });
+    },
+
+    /**
+     * 将包含换行符的文本拆分为多个 items
+     * 第一个 item 保留原 type，其余为 paragraph
+     */
+    _splitItem(originalItem, text) {
+        const lines = text.split('\n').map(s => s.trimEnd());
+        while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+        if (lines.length === 0) lines.push('');
+
+        return lines.map((line, i) => ({
+            type: i === 0 ? originalItem.type : 'paragraph',
+            text: line,
+            ...(originalItem.display !== undefined && { display: line }),
+            ...(originalItem.cleanText !== undefined && { cleanText: line }),
+            ...(originalItem.inlineContent !== undefined && {
+                inlineContent: Lumina.Plugin?.Markdown?.Parser?.parseInline
+                    ? Lumina.Plugin.Markdown.Parser.parseInline(line)
+                    : originalItem.inlineContent
+            }),
+            ...(originalItem.raw !== undefined && { raw: line })
+        }));
+    },
+
     async _doReplaceAtMatch(match, replacement) {
         const state = Lumina.State.app;
         const item = state.document.items[match.globalIndex];
-        if (!item) return;
+        if (!item) return false;
 
-        item.text = item.text.substring(0, match.offset) + replacement + item.text.substring(match.offset + match.length);
-        if (item.display !== undefined) item.display = item.text;
-        if (item.cleanText !== undefined) item.cleanText = item.text;
-        if (item.raw !== undefined) item.raw = item.text;
+        const resolved = this._resolveReplacement(replacement, match);
+        const newText = item.text.substring(0, match.offset) + resolved + item.text.substring(match.offset + match.length);
+
+        if (newText.includes('\n')) {
+            // 拆分模式
+            const newItems = this._splitItem(item, newText);
+            state.document.items.splice(match.globalIndex, 1, ...newItems);
+
+            const delta = newItems.length - 1;
+            if (delta !== 0) {
+                Lumina.Editor.remapIndices(match.globalIndex + 1, delta, { invalidateSearch: false });
+            }
+
+            state.chapters = Lumina.Parser.buildChapters(state.document.items);
+            if (item.type?.startsWith('heading') || item.type === 'title') {
+                Lumina.Parser.applyNumberingStyle();
+            } else {
+                Lumina.Renderer.renderCurrentChapter(match.globalIndex);
+            }
+
+            await Lumina.Editor.saveDocument();
+            return true;
+        }
+
+        // 普通模式
+        item.text = newText;
+        if (item.display !== undefined) item.display = newText;
+        if (item.cleanText !== undefined) item.cleanText = newText;
+        if (item.raw !== undefined) item.raw = newText;
         if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
-            item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(item.text);
+            item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(newText);
         }
 
         const isHeading = item.type?.startsWith('heading') || item.type === 'title';
@@ -494,6 +593,7 @@ Lumina.Search = {
         }
 
         await Lumina.Editor.saveDocument();
+        return false;
     },
 
     async replaceAllMatches() {
@@ -520,9 +620,13 @@ Lumina.Search = {
                 }
 
                 let hasHeading = false;
+                let hasSplit = false;
                 const replacedIndices = new Set();
 
-                for (const [globalIndex, itemMatches] of groups) {
+                // 按 globalIndex 从大到小处理，避免拆分影响未处理 item 的索引
+                const sortedEntries = Array.from(groups.entries()).sort((a, b) => b[0] - a[0]);
+
+                for (const [globalIndex, itemMatches] of sortedEntries) {
                     const item = Lumina.State.app.document.items[globalIndex];
                     if (!item?.text) continue;
 
@@ -531,30 +635,52 @@ Lumina.Search = {
 
                     let text = item.text;
                     for (const match of itemMatches) {
-                        text = text.substring(0, match.offset) + replacement + text.substring(match.offset + match.length);
+                        const resolved = this._resolveReplacement(replacement, match);
+                        text = text.substring(0, match.offset) + resolved + text.substring(match.offset + match.length);
                     }
 
-                    item.text = text;
-                    if (item.display !== undefined) item.display = text;
-                    if (item.cleanText !== undefined) item.cleanText = text;
-                    if (item.raw !== undefined) item.raw = text;
-                    if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
-                        item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(text);
-                    }
+                    if (text.includes('\n')) {
+                        // 拆分模式
+                        const newItems = this._splitItem(item, text);
+                        Lumina.State.app.document.items.splice(globalIndex, 1, ...newItems);
+                        const delta = newItems.length - 1;
+                        if (delta !== 0) {
+                            Lumina.Editor.remapIndices(globalIndex + 1, delta, { invalidateSearch: false });
+                        }
+                        hasSplit = true;
+                        if (item.type?.startsWith('heading') || item.type === 'title') {
+                            hasHeading = true;
+                        }
+                        replacedIndices.add(globalIndex);
+                    } else {
+                        // 普通模式
+                        item.text = text;
+                        if (item.display !== undefined) item.display = text;
+                        if (item.cleanText !== undefined) item.cleanText = text;
+                        if (item.raw !== undefined) item.raw = text;
+                        if (item.inlineContent && Lumina.Plugin?.Markdown?.Parser?.parseInline) {
+                            item.inlineContent = Lumina.Plugin.Markdown.Parser.parseInline(text);
+                        }
 
-                    if (item.type?.startsWith('heading') || item.type === 'title') {
-                        hasHeading = true;
+                        if (item.type?.startsWith('heading') || item.type === 'title') {
+                            hasHeading = true;
+                        }
+                        replacedIndices.add(globalIndex);
                     }
-                    replacedIndices.add(globalIndex);
                 }
 
                 const state = Lumina.State.app;
                 state.chapters = Lumina.Parser.buildChapters(state.document.items);
                 if (hasHeading) Lumina.Parser.applyNumberingStyle();
 
-                replacedIndices.forEach(idx => {
-                    Lumina.Renderer.updateDocLineElement(idx, state.document.items[idx]);
-                });
+                if (hasSplit) {
+                    // 有拆分，索引已变化，需要整章重渲染
+                    Lumina.Renderer.renderCurrentChapter();
+                } else {
+                    replacedIndices.forEach(idx => {
+                        Lumina.Renderer.updateDocLineElement(idx, state.document.items[idx]);
+                    });
+                }
 
                 await Lumina.Editor.saveDocument();
 
@@ -647,8 +773,14 @@ Lumina.Search = {
 
     // 渲染文档搜索结果
     renderDocumentResults(matches, query) {
+        // 新查询时重置显示限制
+        if (this._lastDocQuery !== query) {
+            this._lastDocQuery = query;
+            this._docDisplayLimit = 50;
+        }
+
         const converter = Lumina.Converter;
-        const MAX_DISPLAY = 50;
+        const MAX_DISPLAY = this._docDisplayLimit;
         const displayMatches = matches.slice(0, MAX_DISPLAY);
         const truncated = matches.length > MAX_DISPLAY;
 
@@ -694,7 +826,7 @@ Lumina.Search = {
             
             const lowerHighlightQuery = matchedQuery.toLowerCase();
             const start = Math.max(0, matchIndex - 30);
-            const end = Math.min(text.length, matchedQuery.length + 30);
+            const end = Math.min(text.length, matchIndex + matchedQuery.length + 30);
             let context = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
             context = context.replace(new RegExp(`(${Lumina.Utils.escapeRegex(lowerHighlightQuery)})`, 'gi'), '<span class="search-result-match">$1</span>');
 
@@ -716,11 +848,29 @@ Lumina.Search = {
         }).join('');
 
         if (truncated) {
-            html += `<div class="search-truncated-hint">${Lumina.I18n.t('replaceResultsTruncated').replace('{count}', matches.length - MAX_DISPLAY)}</div>`;
+            const remaining = matches.length - MAX_DISPLAY;
+            html += `<div class="search-truncated-hint search-load-more" data-action="load-more-doc">
+                ${Lumina.I18n.t('loadMoreResults').replace('{count}', remaining) || `还有 ${remaining} 条，点击加载更多`}
+            </div>`;
         }
 
-        document.getElementById('aggregateSearch').innerHTML = html;
+        const container = document.getElementById('aggregateSearch');
+        container.innerHTML = html;
         this.bindDocumentResultEvents();
+
+        // 绑定"加载更多"
+        const loadMore = container.querySelector('[data-action="load-more-doc"]');
+        if (loadMore) {
+            loadMore.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._docDisplayLimit = (this._docDisplayLimit || 50) + 100;
+                const scrollTop = container.scrollTop;
+                this.renderDocumentResults(matches, query);
+                requestAnimationFrame(() => {
+                    container.scrollTop = scrollTop;
+                });
+            });
+        }
     },
 
     // 绑定文档结果点击事件

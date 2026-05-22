@@ -230,6 +230,7 @@ Lumina.I18n.data['en'] = {
         replaceCycleBack: 'Reached end, cycling back',
         replaceInvalidRegex: 'Invalid regular expression',
         replaceResultsTruncated: '{count} more matches not shown',
+        loadMoreResults: '{count} more, click to load',
 
     // Clipboard Paste
         clipboardPasteTitle: 'Paste from Clipboard',

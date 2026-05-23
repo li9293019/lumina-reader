@@ -410,6 +410,7 @@ Lumina.DataManager = class {
             // 直接使用 getFile 获取完整数据，确保与 exportBatch 格式一致
             const fileData = await Lumina.DB.adapter.getFile(fileKey);
             if (fileData) {
+                if (!fileData.dictionaries) fileData.dictionaries = [];
                 books.push(fileData);
                 // 更准确的体积估算：content + cover + metadata + annotations
                 const contentJson = JSON.stringify(fileData.content || []);
@@ -2017,6 +2018,7 @@ Lumina.DataManager = class {
                 annotations: data.annotations || [],
                 heatMap: data.heatMap || null,
                 metadata: data.metadata || null,  // 导入元数据
+                dictionaries: data.dictionaries || [],
                 lastChapter: data.lastChapter || 0,
                 lastScrollIndex: data.lastScrollIndex || 0,
                 chapterTitle: data.chapterTitle || '',
@@ -2110,6 +2112,7 @@ Lumina.DataManager = class {
                 annotations: data.annotations || [],
                 heatMap: data.heatMap || null,
                 metadata: data.metadata || null,  // 导入元数据
+                dictionaries: data.dictionaries || [],
                 lastChapter: data.lastChapter || 0,
                 lastScrollIndex: data.lastScrollIndex || 0,
                 chapterTitle: data.chapterTitle || '',

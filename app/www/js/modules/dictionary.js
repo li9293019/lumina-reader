@@ -560,9 +560,17 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// 点击面板背景关闭
-document.getElementById('dictDetailPanel')?.addEventListener('click', (e) => {
-    if (e.target.id === 'dictDetailPanel') {
-        Lumina.Dictionary.hideTermDetail();
+// 点击面板背景关闭（延迟绑定，确保 DOM 已就绪）
+function bindDictDetailOverlay() {
+    const panel = document.getElementById('dictDetailPanel');
+    if (!panel) {
+        setTimeout(bindDictDetailOverlay, 50);
+        return;
     }
-});
+    panel.addEventListener('click', (e) => {
+        if (e.target.id === 'dictDetailPanel') {
+            Lumina.Dictionary.hideTermDetail();
+        }
+    });
+}
+bindDictDetailOverlay();

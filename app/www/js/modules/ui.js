@@ -920,6 +920,15 @@ Lumina.UI = {
                 if (window.toggleImmersiveSafeArea) {
                     window.toggleImmersiveSafeArea(true);
                 }
+                // 导航栏半透明：主题色 + 低透明度，内容延伸到下方
+                if (window.NavigationBarInterface) {
+                    const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+                    const isDark = darkThemes.includes(Lumina.State.settings.theme);
+                    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+                    if (bg) {
+                        window.NavigationBarInterface.setNavigationBarTranslucent(bg, 40, !isDark);
+                    }
+                }
                 showHint(true);
             } else {
                 // 退出沉浸
@@ -932,6 +941,13 @@ Lumina.UI = {
                 } else if (window.SafeArea) {
                     window.SafeArea.apply();
                 }
+                // 恢复导航栏配色
+                const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+                const isDark = darkThemes.includes(Lumina.State.settings.theme);
+                const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+                if (bg && window.NavigationBarInterface) {
+                    window.NavigationBarInterface.setNavigationBar(bg, !isDark);
+                }
             }
         };
         
@@ -941,6 +957,19 @@ Lumina.UI = {
             if (!document.fullscreenElement && state.isImmersive) {
                 state.isImmersive = false;
                 document.body.classList.remove('immersive-mode');
+                // 恢复安全区域（底部边距）
+                if (window.toggleImmersiveSafeArea) {
+                    window.toggleImmersiveSafeArea(false);
+                } else if (window.SafeArea) {
+                    window.SafeArea.apply();
+                }
+                // 恢复导航栏配色
+                const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+                const isDark = darkThemes.includes(Lumina.State.settings.theme);
+                const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+                if (bg && window.NavigationBarInterface) {
+                    window.NavigationBarInterface.setNavigationBar(bg, !isDark);
+                }
             }
         });
         

@@ -191,7 +191,7 @@
         if (elements.mainFrame) {
             if (isImmersive) {
                 elements.mainFrame.style.paddingTop = top;
-                elements.mainFrame.style.paddingBottom = bottom;
+                elements.mainFrame.style.paddingBottom = '0px';
             } else {
                 elements.mainFrame.style.paddingTop = 'calc(60px + ' + top + ')';
                 elements.mainFrame.style.paddingBottom = bottom;
@@ -202,7 +202,7 @@
         if (elements.sidebarLeft) {
             if (isImmersive) {
                 elements.sidebarLeft.style.top = top;
-                elements.sidebarLeft.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+                elements.sidebarLeft.style.height = 'calc(100vh - ' + top + ')';
             } else {
                 elements.sidebarLeft.style.top = 'calc(60px + ' + top + ')';
                 elements.sidebarLeft.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
@@ -213,7 +213,7 @@
         elements.panels.forEach(panel => {
             if (isImmersive) {
                 panel.style.top = top;
-                panel.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+                panel.style.height = 'calc(100vh - ' + top + ')';
             } else {
                 panel.style.top = 'calc(60px + ' + top + ')';
                 panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottom + ')';
@@ -247,16 +247,16 @@
             }
             if (elements.mainFrame) {
                 elements.mainFrame.style.paddingTop = top;
-                elements.mainFrame.style.paddingBottom = bottom;
+                elements.mainFrame.style.paddingBottom = '0px';
                 elements.mainFrame.style.backgroundColor = 'var(--bg-primary)';
             }
             if (elements.sidebarLeft) {
                 elements.sidebarLeft.style.top = top;
-                elements.sidebarLeft.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+                elements.sidebarLeft.style.height = 'calc(100vh - ' + top + ')';
             }
             elements.panels.forEach(panel => {
                 panel.style.top = top;
-                panel.style.height = 'calc(100vh - ' + top + ' - ' + bottom + ')';
+                panel.style.height = 'calc(100vh - ' + top + ')';
             });
         } else {
             if (elements.mainFrame) {
@@ -264,6 +264,17 @@
             }
             _lastAppliedKey = null; // 强制让 applySafeArea 重新生效
             applySafeArea();
+            // 保险：显式恢复底部安全边距，避免 applySafeArea 去重或缓存导致遗漏
+            const bottomPx = safeAreaData.bottom + 'px';
+            if (elements.mainFrame) {
+                elements.mainFrame.style.paddingBottom = bottomPx;
+            }
+            if (elements.sidebarLeft) {
+                elements.sidebarLeft.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottomPx + ')';
+            }
+            elements.panels.forEach(panel => {
+                panel.style.height = 'calc(100vh - 60px - ' + top + ' - ' + bottomPx + ')';
+            });
         }
     };
 

@@ -14,6 +14,7 @@ import android.webkit.WebView;
 import android.webkit.JavascriptInterface;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.JSObject;
@@ -133,6 +134,8 @@ public class MainActivity extends BridgeActivity {
         
         // 添加 JS 接口支持退出应用
         bridge.getWebView().addJavascriptInterface(new ExitAppInterface(), "ExitAppInterface");
+        // 添加 JS 接口支持设置导航栏颜色
+        bridge.getWebView().addJavascriptInterface(new NavigationBarInterface(), "NavigationBarInterface");
     }
     
     /**
@@ -151,6 +154,57 @@ public class MainActivity extends BridgeActivity {
                 System.exit(0);
             });
         }
+    }
+
+    public class NavigationBarInterface {
+        @JavascriptInterface
+        public void setNavigationBar(String colorHex, boolean lightIcons) {
+            applyNavigationBar(colorHex, lightIcons);
+        }
+
+        @JavascriptInterface
+        public void setNavigationBarTranslucent(String colorHex, int alpha, boolean lightIcons) {
+            applyNavigationBarTranslucent(colorHex, alpha, lightIcons);
+        }
+    }
+
+    private void applyNavigationBar(String navBarColor, boolean navBarLightIcons) {
+        runOnUiThread(() -> {
+            try {
+                android.view.Window window = getWindow();
+                android.view.View decorView = window.getDecorView();
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                window.setNavigationBarColor(android.graphics.Color.parseColor(navBarColor));
+                WindowInsetsControllerCompat controller =
+                    new WindowInsetsControllerCompat(window, decorView);
+                controller.setAppearanceLightNavigationBars(navBarLightIcons);
+            } catch (Exception e) {
+                Log.e(TAG, "applyNavigationBar failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private void applyNavigationBarTranslucent(String colorHex, int alpha, boolean lightIcons) {
+        runOnUiThread(() -> {
+            try {
+                android.view.Window window = getWindow();
+                android.view.View decorView = window.getDecorView();
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                // 解析 #RRGGBB 为 ARGB（alpha 在前）
+                int color = android.graphics.Color.parseColor(colorHex);
+                int r = android.graphics.Color.red(color);
+                int g = android.graphics.Color.green(color);
+                int b = android.graphics.Color.blue(color);
+                window.setNavigationBarColor(android.graphics.Color.argb(alpha, r, g, b));
+                WindowInsetsControllerCompat controller =
+                    new WindowInsetsControllerCompat(window, decorView);
+                controller.setAppearanceLightNavigationBars(lightIcons);
+            } catch (Exception e) {
+                Log.e(TAG, "applyNavigationBarTranslucent failed: " + e.getMessage());
+            }
+        });
     }
     
     /**

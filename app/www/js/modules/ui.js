@@ -2133,7 +2133,7 @@ Lumina.UI.showStorageInfo = async () => {
     const btn = document.getElementById('storageIndicator');
     if (!btn || btn.disabled) return;
     
-    const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+    const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
     const t = Lumina.I18n.t;
     
     btn.disabled = true;

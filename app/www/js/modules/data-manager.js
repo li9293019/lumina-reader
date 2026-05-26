@@ -643,7 +643,7 @@ Lumina.DataManager = class {
     }
 
     async open() {
-        const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+        const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
         const panel = document.getElementById('dataManagerPanel');
         
         panel.classList.add('active');
@@ -1221,7 +1221,7 @@ Lumina.DataManager = class {
     async openFile(fileKey) {
         console.log('[openFile] 正在打开:', fileKey);  // 添加这行确认执行
         
-        const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+        const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
         
         if (isSQLite) {
             Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = 
@@ -2501,7 +2501,7 @@ Lumina.DB.updateHistoryProgress = () => {
 Lumina.DB.loadHistoryFromDB = async () => {
     const t = Lumina.I18n.t;
     const list = Lumina.DOM.historyList;
-    const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+    const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
     
     // SQLite 模式：先显示骨架屏（4条占位）
     if (isSQLite && !list.querySelector('.history-item')) {
@@ -2531,7 +2531,7 @@ Lumina.HistoryActions = {
     async openFile(fileKey) {
         console.log('[openFile] 正在打开:', fileKey);
         
-        const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+        const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
         
         if (isSQLite) {
             Lumina.DOM.loadingScreen.querySelector('.loading-text').textContent = Lumina.I18n.t('loadingFile');
@@ -2867,7 +2867,7 @@ Lumina.Renderer.renderHistoryFromDB = (files) => {
 Lumina.DB.restoreFileFromDB = async (fileData) => {
     // console.log(fileData)
     const t = Lumina.I18n.t;
-    const isSQLite = Lumina.DB.adapter.impl instanceof Lumina.DB.SQLiteImpl;
+    const isSQLite = Lumina.DB.adapter.mode === 'sqlite';
     
     try {
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) Lumina.TTS.manager.stop();

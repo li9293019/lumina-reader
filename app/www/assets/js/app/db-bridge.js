@@ -118,6 +118,7 @@ class DatabaseBridge {
         await this.addColumnIfNotExists('files', 'metadata', 'TEXT');
         await this.addColumnIfNotExists('files', 'total_items', 'INTEGER DEFAULT 0');
         await this.addColumnIfNotExists('files', 'content_size', 'INTEGER DEFAULT 0');
+        await this.addColumnIfNotExists('files', 'dictionaries', 'TEXT');
     }
 
     async addColumnIfNotExists(table, column, type) {
@@ -193,12 +194,15 @@ class DatabaseBridge {
             const contentJson = JSON.stringify(data.content || []);
             const contentSize = new Blob([contentJson]).size;
 
+            const dictionariesJson = data.dictionaries && data.dictionaries.length > 0
+                ? JSON.stringify(data.dictionaries) : null;
+
             const sql = `
                 INSERT OR REPLACE INTO files (
                     file_key, file_name, file_type, file_size, content_size, content, word_count, total_items,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
-                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, dictionaries, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
@@ -218,6 +222,7 @@ class DatabaseBridge {
                 data.cover || data.cover_data_url || null,
                 data.heatMap ? JSON.stringify(data.heatMap) : null,
                 data.metadata ? JSON.stringify(data.metadata) : null,
+                dictionariesJson,
                 createdAt
             ];
             await this.db.run(sql, params);
@@ -282,6 +287,7 @@ class DatabaseBridge {
                 cover: 'cover_data_url',
                 heatMap: 'heat_map',
                 metadata: 'metadata',
+                dictionaries: 'dictionaries',
                 created_at: 'created_at'
             };
 
@@ -457,6 +463,14 @@ class DatabaseBridge {
                     file.metadata = JSON.parse(row.metadata);
                 } catch (e) {
                     file.metadata = null;
+                }
+            }
+            // 解析 dictionaries
+            if (row.dictionaries) {
+                try {
+                    file.dictionaries = JSON.parse(row.dictionaries);
+                } catch (e) {
+                    file.dictionaries = [];
                 }
             }
             return file;

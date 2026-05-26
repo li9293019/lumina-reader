@@ -225,7 +225,7 @@ Lumina.init = async () => {
     // 显示缓存管理按钮（仅Web SQLite模式）
     const cacheManagerBtn = document.getElementById('openCacheManager');
     if (cacheManagerBtn) {
-        const isWebSQLite = Lumina.DB.adapter?.impl instanceof Lumina.DB.SQLiteImpl;
+        const isWebSQLite = Lumina.DB.adapter?.mode === 'sqlite';
         cacheManagerBtn.style.display = isWebSQLite ? 'block' : 'none';
     }
     

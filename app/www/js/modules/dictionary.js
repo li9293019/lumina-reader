@@ -91,17 +91,29 @@ Lumina.Dictionary = {
                 }
 
                 const entryContent = lines.slice(contentStart, contentEnd).join('\n');
+
+                // 旧格式：> 别名：xxx, yyy
                 const aliasMatch = entryContent.match(/^>\s*别名[:：]\s*(.+)$/m);
-                const aliases = aliasMatch
-                    ? aliasMatch[1].split(/[,，、]/).map(s => this.stripInlineMarkdown(s.trim())).filter(Boolean)
-                    : [];
+                // 新格式：[aka:xxx, yyy] 或 [aka：xxx, yyy]
+                const akaMatch = entryContent.match(/\[aka[:：]\s*([^\]]+)\]/i);
+
+                const aliases = [];
+                if (aliasMatch) {
+                    aliasMatch[1].split(/[,，、]/).map(s => this.stripInlineMarkdown(s.trim())).filter(Boolean)
+                        .forEach(a => aliases.push(a));
+                }
+                if (akaMatch) {
+                    akaMatch[1].split(/[,，、]\s*/).map(s => this.stripInlineMarkdown(s.trim())).filter(Boolean)
+                        .forEach(a => aliases.push(a));
+                }
+                const uniqueAliases = [...new Set(aliases)];
 
                 entries.push({
                     name,
                     path,
                     level,
                     content: entryContent.trim(),
-                    aliases,
+                    aliases: uniqueAliases,
                     line: idx
                 });
             }
@@ -338,7 +350,9 @@ Lumina.Dictionary = {
         // 内容：使用 Markdown 渲染
         const contentEl = document.createElement('div');
         contentEl.className = 'dict-detail-content markdown-body';
-        this._renderMarkdown(contentEl, entry.content);
+        // 过滤 aka 标签行，避免显示在释义中
+        const cleanContent = entry.content.replace(/^\[aka[:：][^\]]+\]$/gim, '').trim();
+        this._renderMarkdown(contentEl, cleanContent);
         container.appendChild(contentEl);
     },
 

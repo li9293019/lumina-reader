@@ -946,6 +946,13 @@
                             <div class="toggle-thumb"></div>
                         </div>
                     </div>
+                    <div style="margin: -4px 0 12px 0; display: none;" id="defaultExportPasswordWrapper">
+                        <div class="setting-label" style="font-size: 0.85em; opacity: 0.8;" data-i18n="defaultExportPassword"></div>
+                        <form onsubmit="return false" style="margin:0;padding:0;border:none;display:block;">
+                            <input type="text" name="username" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" autocomplete="username" />
+                            <input type="password" class="regex-input" id="defaultExportPasswordInput" autocomplete="new-password" data-i18n-placeholder="defaultExportPasswordPlaceholder" placeholder="默认导出密码（留空则每次询问）">
+                        </form>
+                    </div>
                     <div class="toggle-switch" data-setting-toggle="hashCover" style="margin-bottom: 8px;">
                         <span class="toggle-label" data-i18n="hashCover"></span>
                         <div class="toggle-track">

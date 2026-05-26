@@ -123,14 +123,13 @@ Lumina.Plugin.Markdown.Parser = {
         const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
 
         // 与阅读器章节系统兼容：输出 heading1, heading2 等格式
-        return {
-            type: `heading${level}`,
-            level,
-            text: cleanText,
-            display: cleanText,
-            inlineContent,
-            raw: line
-        };
+        // 复用 processHeading 以应用章节编号策略
+        const heading = Lumina.Parser?.processHeading
+            ? Lumina.Parser.processHeading(level, text, cleanText)
+            : { type: `heading${level}`, level, text: cleanText, display: cleanText, cleanText };
+        heading.inlineContent = inlineContent;
+        heading.raw = line;
+        return heading;
     },
 
     /**
@@ -156,28 +155,24 @@ Lumina.Plugin.Markdown.Parser = {
             const text = line.trim();
             const inlineContent = this.parseInline(text);
             const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
-            return {
-                type: 'heading1',
-                level: 1,
-                text: cleanText,
-                display: cleanText,
-                inlineContent,
-                raw: line + '\n' + nextLine
-            };
+            const heading = Lumina.Parser?.processHeading
+                ? Lumina.Parser.processHeading(1, text, cleanText)
+                : { type: 'heading1', level: 1, text: cleanText, display: cleanText, cleanText };
+            heading.inlineContent = inlineContent;
+            heading.raw = line + '\n' + nextLine;
+            return heading;
         }
         
         if (/^-{3,}\s*$/.test(nextLine)) {
             const text = line.trim();
             const inlineContent = this.parseInline(text);
             const cleanText = Lumina.Parser?.stripInlineMarkdown ? Lumina.Parser.stripInlineMarkdown(text) : text;
-            return {
-                type: 'heading2',
-                level: 2,
-                text: cleanText,
-                display: cleanText,
-                inlineContent,
-                raw: line + '\n' + nextLine
-            };
+            const heading = Lumina.Parser?.processHeading
+                ? Lumina.Parser.processHeading(2, text, cleanText)
+                : { type: 'heading2', level: 2, text: cleanText, display: cleanText, cleanText };
+            heading.inlineContent = inlineContent;
+            heading.raw = line + '\n' + nextLine;
+            return heading;
         }
         
         return null;
@@ -701,6 +696,10 @@ Lumina.Plugin.Markdown.Parser = {
         const codeRegex = /`([^`]+)`/g;
         let match;
         while ((match = codeRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                codeRegex.lastIndex = match.index + 1;
+                continue;
+            }
             matches.push({
                 type: 'code',
                 start: match.index,
@@ -712,6 +711,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 图片（在链接之前）
         const imageRegex = /!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/g;
         while ((match = imageRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                imageRegex.lastIndex = match.index + 1;
+                continue;
+            }
             // 检查是否与代码冲突
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
@@ -728,6 +731,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 链接
         const linkRegex = /\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/g;
         while ((match = linkRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                linkRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
                     type: 'link',
@@ -744,6 +751,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 使用 (.+?) 非贪婪匹配，允许 content 内部包含 *（支持嵌套斜体）
         const strongRegex = /\*\*(.+?)\*\*|__(.+?)__/g;
         while ((match = strongRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                strongRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 const content = match[1] || match[2];
                 matches.push({
@@ -762,6 +773,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 斜体（但要排除与粗体标记符直接重叠的情况，允许嵌套在粗体内部）
         const emRegex = /\*([^\*]+)\*|_([^_]+)_/g;
         while ((match = emRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                emRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches) && 
                 !this.isOverlappingStrongMarker(match.index, match[0].length, matches)) {
                 const content = match[1] || match[2];
@@ -782,6 +797,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 删除线
         const delRegex = /~~([^~]+)~~/g;
         while ((match = delRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                delRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 const content = match[1];
                 matches.push({
@@ -797,6 +816,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 高亮标记 ==text==（Pixiv 语法）
         const markRegex = /==([^=\n]+?)==/g;
         while ((match = markRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                markRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
                     type: 'mark',
@@ -810,6 +833,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 注音 [[rb:汉字 > ruby]]
         const rubyRegex = /\[\[rb:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
         while ((match = rubyRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                rubyRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
                     type: 'ruby',
@@ -824,6 +851,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 着重号 [[emphasismark:文字 > mark]]
         const emphasisMarkRegex = /\[\[emphasismark:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
         while ((match = emphasisMarkRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                emphasisMarkRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
                     type: 'emphasisMark',
@@ -838,6 +869,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 跳转链接 [[jumpuri:文字 > url]]
         const jumpuriRegex = /\[\[jumpuri:([^>]+?)\s*>\s*([^\]]+?)\]\]/g;
         while ((match = jumpuriRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                jumpuriRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches)) {
                 matches.push({
                     type: 'jumpuri',
@@ -852,6 +887,10 @@ Lumina.Plugin.Markdown.Parser = {
         // 批注 [[type:content]] — 放在最后，排除已匹配区域
         const annotationRegex = /\[\[(\w+):([^\]]+)\]\]/g;
         while ((match = annotationRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                annotationRegex.lastIndex = match.index + 1;
+                continue;
+            }
             if (!this.isInsideCode(match.index, matches) && !this.isOverlappingAny(match.index, match[0].length, matches)) {
                 matches.push({
                     type: 'annotation',
@@ -937,6 +976,45 @@ Lumina.Plugin.Markdown.Parser = {
     },
 
     /**
+     * 检查位置是否被反斜杠转义
+     * 例：\* 中 * 的位置会被视为已转义
+     */
+    isEscaped(text, pos) {
+        let count = 0;
+        for (let i = pos - 1; i >= 0 && text[i] === '\\'; i--) {
+            count++;
+        }
+        return count % 2 === 1;
+    },
+
+    /**
+     * 去除 Markdown 行内转义符
+     * \\ -> \, \* -> *, \_ -> _, 等等
+     */
+    unescapeMarkdown(text) {
+        if (!text || typeof text !== 'string') return text;
+        const specialChars = new Set(['\\', '`', '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!', '|']);
+        let result = '';
+        let i = 0;
+        while (i < text.length) {
+            if (text[i] === '\\' && i + 1 < text.length && specialChars.has(text[i + 1])) {
+                let backslashCount = 1;
+                for (let j = i - 1; j >= 0 && text[j] === '\\'; j--) {
+                    backslashCount++;
+                }
+                if (backslashCount % 2 === 1) {
+                    result += text[i + 1];
+                    i += 2;
+                    continue;
+                }
+            }
+            result += text[i];
+            i++;
+        }
+        return result;
+    },
+
+    /**
      * 检查是否与任何已匹配区域重叠
      */
     isOverlappingAny(pos, length, matches) {
@@ -999,6 +1077,10 @@ Lumina.Plugin.Markdown.Parser = {
         let match;
         
         while ((match = simpleRegex.exec(text)) !== null) {
+            if (this.isEscaped(text, match.index)) {
+                simpleRegex.lastIndex = match.index + 1;
+                continue;
+            }
             // 添加前面的普通文本
             if (match.index > lastEnd) {
                 result.push({

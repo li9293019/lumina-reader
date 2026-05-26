@@ -197,5 +197,35 @@ Lumina.Crypto = {
         if (arrayBuffer.byteLength < 4) return false;
         const view = new Uint8Array(arrayBuffer);
         return this.arrayEquals(view.slice(0, 4), this.MAGIC);
+    },
+
+    /**
+     * ArrayBuffer → Base64（用于 Web 端下载/上传文本化存储）
+     * @param {ArrayBuffer} buffer
+     * @returns {string}
+     */
+    arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 65536;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, chunk);
+        }
+        return btoa(binary);
+    },
+
+    /**
+     * Base64 → ArrayBuffer（用于 Web 端读取文本化 .lmn 文件）
+     * @param {string} base64
+     * @returns {ArrayBuffer}
+     */
+    base64ToArrayBuffer(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
     }
 };

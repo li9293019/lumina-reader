@@ -1090,18 +1090,18 @@ background: transparent !important;
 
 .sidebar-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 2px;
     padding: 4px 12px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
 }
 .sidebar-tabs::-webkit-scrollbar {
     display: none;
 }
 
 .sidebar-tab {
+    display: flex;
     padding: 6px 10px;
     border: none;
     background: transparent;

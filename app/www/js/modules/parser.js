@@ -397,7 +397,11 @@ Lumina.Parser.RegexCache = {
  */
 Lumina.Parser.stripInlineMarkdown = (text) => {
     if (!text || typeof text !== 'string') return text;
-    return text
+    // 先去除 Markdown 转义符，避免转义的格式标记被错误处理
+    const unescaped = Lumina.Plugin?.Markdown?.Parser?.unescapeMarkdown
+        ? Lumina.Plugin.Markdown.Parser.unescapeMarkdown(text)
+        : text;
+    return unescaped
         .replace(/(\*\*|__)(.*?)\1/g, '$2')           // 粗体 **text** __text__
         .replace(/(\*|_)(.*?)\1/g, '$2')              // 斜体 *text* _text_
         .replace(/`([^`]+)`/g, '$1')                   // 行内代码 `text`
@@ -1350,12 +1354,8 @@ Lumina.Parser.parsePDF = async (arrayBuffer, onProgress = null, fileName = '') =
                 if (item.type === 'text') {
                     // 检查是否是标题
                     if (item.isHeading) {
-                        results.push({
-                            type: `heading${item.level || 1}`,
-                            level: item.level || 1,
-                            text: item.content,
-                            display: item.content
-                        });
+                        const level = item.level || 1;
+                        results.push(Lumina.Parser.processHeading(level, item.content));
                     } else {
                         // 将 PDF 文本转换为段落
                         results.push({
@@ -2112,11 +2112,26 @@ Lumina.Parser.arrayBufferToBase64 = (buffer) => {
     return btoa(binary);
 };
 
-Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
+Lumina.Parser.parseLW = async (arrayBuffer, fileName, password = null) => {
     if (!window.JSZip) {
         throw new Error('JSZip not loaded');
     }
-    const zip = await window.JSZip.loadAsync(arrayBuffer);
+
+    // 检测 LMNA 加密头
+    let buffer = arrayBuffer;
+    const first4 = new Uint8Array(buffer).slice(0, 4);
+    const LMNA_MAGIC = new Uint8Array([0x4C, 0x4D, 0x4E, 0x41]);
+    const isEncrypted = first4.length === 4 && first4.every((v, i) => v === LMNA_MAGIC[i]);
+
+    if (isEncrypted) {
+        const decrypted = await Lumina.Crypto.decrypt(buffer, password);
+        if (!decrypted || !decrypted.lwBase64) {
+            throw new Error('Invalid encrypted .lw file');
+        }
+        buffer = Lumina.Crypto.base64ToArrayBuffer(decrypted.lwBase64);
+    }
+
+    const zip = await window.JSZip.loadAsync(buffer);
 
     // 1. 读取 manifest
     const manifestFile = zip.file('manifest.json');
@@ -2205,6 +2220,7 @@ Lumina.Parser.parseLW = async (arrayBuffer, fileName) => {
     }
 
     // 8. 解析正文（复用 Markdown 插件）
+    Lumina.State.sectionCounters = [0, 0, 0, 0, 0, 0];
     let parsed;
     if (Lumina.Plugin?.Markdown?.Parser) {
         parsed = Lumina.Plugin.Markdown.Parser.parse(content);

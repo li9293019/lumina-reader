@@ -103,6 +103,7 @@ Lumina.ConfigManager = {
             export: {
                 encrypted: false,
                 includeFonts: false,  // 是否包含字体备份
+                defaultExportPassword: '',  // 默认导出密码（空表示每次弹窗）
             },
             
             // ========== 7. 书库设置 ==========

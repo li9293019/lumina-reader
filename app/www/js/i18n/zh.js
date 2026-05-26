@@ -51,6 +51,8 @@ Lumina.I18n.data['zh'] = {
         history: '最近打开',
         encryptedExport: '加密导出',
         encryptedExportDesc: '导出为 .lmn 格式，需要密码才能打开',
+        defaultExportPassword: '默认导出密码',
+        defaultExportPasswordPlaceholder: '默认导出密码（留空则每次询问）',
         includeFonts: '包含字体文件',
         includeFontsDesc: '导出配置时包含自定义字体（会增加文件大小）',
         hashCover: '启用哈希封面',

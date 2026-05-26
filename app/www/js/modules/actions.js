@@ -166,7 +166,26 @@ Lumina.Actions = {
                     }
                 } else if (isLWFormat) {
                     // .lw / .lwN 解析（ZIP 容器）
-                    result = await Lumina.Parser.parseLW(arrayBuffer, file.name);
+                    let password = null;
+                    let attempts = 0;
+                    const maxAttempts = 3;
+                    while (attempts < maxAttempts) {
+                        try {
+                            result = await Lumina.Parser.parseLW(arrayBuffer, file.name, password);
+                            break;
+                        } catch (err) {
+                            const isPasswordError = err.message === '此文件需要密码才能打开' ||
+                                                   err.message === 'Password required' ||
+                                                   err.message.includes('密码错误');
+                            if (isPasswordError && attempts < maxAttempts - 1) {
+                                password = await this._requestDecryptPassword();
+                                if (password === null) throw new Error('Password cancelled');
+                                attempts++;
+                            } else {
+                                throw err;
+                            }
+                        }
+                    }
                     // 提取 lw 伴侣文件元数据
                     if (result._lwMeta) {
                         const meta = result._lwMeta;

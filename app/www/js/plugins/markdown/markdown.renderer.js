@@ -13,10 +13,13 @@ Lumina.Plugin.Markdown.Renderer = {
      * 获取转换后的文本（支持简繁转换）
      */
     getConvertedText(text, index) {
-        if (!text || !Lumina.Converter?.isConverting) return text;
-        // 对于 Markdown，我们使用 Converter.convert 而不是 getConvertedText
-        // 因为 item 结构不同
-        return Lumina.Converter.convert(text);
+        if (!text) return text;
+        // 去除 Markdown 转义符（\* -> *, \\ -> \ 等）
+        const unescaped = Lumina.Plugin?.Markdown?.Parser?.unescapeMarkdown
+            ? Lumina.Plugin.Markdown.Parser.unescapeMarkdown(text)
+            : text;
+        if (!Lumina.Converter?.isConverting) return unescaped;
+        return Lumina.Converter.convert(unescaped);
     },
     // 代码高亮状态
     highlightState: {
@@ -279,8 +282,10 @@ Lumina.Plugin.Markdown.Renderer = {
         const h = document.createElement(`h${item.level}`);
         h.className = `markdown-heading markdown-h${item.level}`;
         
-        // 渲染行内内容（支持简繁转换）
-        if (item.inlineContent) {
+        // 优先使用 display（包含章节编号），回退到 inlineContent / text
+        if (item.display) {
+            h.textContent = this.getConvertedText(item.display);
+        } else if (item.inlineContent) {
             this.renderInlineContent(h, item.inlineContent);
         } else {
             h.textContent = this.getConvertedText(item.text);

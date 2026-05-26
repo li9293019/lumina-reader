@@ -526,8 +526,11 @@ Lumina.DataManager = class {
             : null;
         
         if (encryptedExport) {
-            const password = await this.showPasswordDialog();
-            if (password === null) return;
+            let password = Lumina.State.settings.defaultExportPassword || '';
+            if (!password) {
+                password = await this.showPasswordDialog();
+                if (password === null) return;
+            }
             
             const progressDialog = this.showProgressDialog(
                 Lumina.I18n.t('encrypting') || '正在加密...'
@@ -1375,8 +1378,11 @@ Lumina.DataManager = class {
             // 如果需要加密，先获取密码
             let password = null;
             if (Lumina.State.settings.encryptedExport) {
-                password = await this.showPasswordDialog();
-                if (password === null) return; // 用户取消，不执行导出
+                password = Lumina.State.settings.defaultExportPassword || '';
+                if (!password) {
+                    password = await this.showPasswordDialog();
+                    if (password === null) return; // 用户取消，不执行导出
+                }
             }
             
             const result = await Lumina.ExportUtils.exportBooks(
@@ -1567,8 +1573,11 @@ Lumina.DataManager = class {
     
     // 加密批量导出 - 使用 ExportUtils
     async batchExportEncrypted(batchData) {
-        const password = await this.showPasswordDialog();
-        if (password === null) return;
+        let password = Lumina.State.settings.defaultExportPassword || '';
+        if (!password) {
+            password = await this.showPasswordDialog();
+            if (password === null) return;
+        }
         
         const progressDialog = Lumina.ExportUtils.showProgressDialog(
             Lumina.I18n.t('encrypting') || '正在加密...'

@@ -364,6 +364,20 @@ Lumina.UI = {
                 toggle.querySelector('.toggle-track').classList.toggle('active', Lumina.State.settings[key]);
                 Lumina.Settings.apply();
             }
+
+            const passwordInput = e.target.closest('#defaultExportPasswordInput');
+            if (passwordInput) {
+                Lumina.State.settings.defaultExportPassword = passwordInput.value;
+                Lumina.Settings.save();
+            }
+        });
+
+        Lumina.DOM.sidebarRight.addEventListener('input', (e) => {
+            const passwordInput = e.target.closest('#defaultExportPasswordInput');
+            if (passwordInput) {
+                Lumina.State.settings.defaultExportPassword = passwordInput.value;
+                Lumina.Settings.save();
+            }
         });
 
         Lumina.DOM.sidebarRight.addEventListener('change', (e) => {

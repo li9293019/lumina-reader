@@ -19,6 +19,7 @@ Lumina.Settings = {
             paginationMaxWords: config.pagination.maxWords,
             paginationImageWords: config.pagination.imageWords,
             encryptedExport: config.export.encrypted,
+            defaultExportPassword: config.export?.defaultExportPassword ?? '',
             includeFonts: config.export?.includeFonts ?? false,
             hashCover: config.library?.hashCover ?? true,
             dictionaryEnabled: config.dictionary?.enabled ?? true,
@@ -83,6 +84,7 @@ Lumina.Settings = {
         });
         
         Lumina.ConfigManager.set('export.encrypted', settings.encryptedExport);
+        Lumina.ConfigManager.set('export.defaultExportPassword', settings.defaultExportPassword || '');
         Lumina.ConfigManager.set('export.includeFonts', settings.includeFonts);
         Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
         Lumina.ConfigManager.set('dictionary', {
@@ -198,6 +200,16 @@ Lumina.Settings = {
             Lumina.Dictionary.config.frequency = settings.dictionaryFrequencyAll ? 'all' : 'first';
         }
         
+        // 同步默认导出密码输入框显示状态
+        const passwordWrapper = document.getElementById('defaultExportPasswordWrapper');
+        const passwordInput = document.getElementById('defaultExportPasswordInput');
+        if (passwordWrapper) {
+            passwordWrapper.style.display = settings.encryptedExport ? 'block' : 'none';
+        }
+        if (passwordInput && document.activeElement !== passwordInput) {
+            passwordInput.value = settings.defaultExportPassword || '';
+        }
+
         // 同步 AI 配置面板显示状态
         const aiConfigPanel = document.getElementById('aiConfigPanel');
         if (aiConfigPanel) {

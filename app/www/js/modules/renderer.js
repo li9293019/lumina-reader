@@ -423,21 +423,20 @@ Lumina.Renderer.updateDocumentStyles = () => {
 Lumina.Renderer.generateTOC = () => {
     Lumina.DOM.tocList.innerHTML = '';
     const state = Lumina.State.app;
-    
-    // 关键优化：使用 DocumentFragment 批量操作
     const fragment = document.createDocumentFragment();
 
+    // 1. 收集所有目录项
+    const tocItems = [];
     state.chapters.forEach((chapter, chIdx) => {
         if (chapter.isPreface) {
-            const prefaceLi = document.createElement('li');
-            prefaceLi.className = 'toc-item level-0 preface-item';
-            prefaceLi.dataset.index = chapter.startIndex;
-            prefaceLi.dataset.chapterIndex = chIdx;  // 章节索引（用于热力图）
-            prefaceLi.textContent = Lumina.I18n.t('preface');
-            prefaceLi.addEventListener('click', () => Lumina.Actions.navigateToChapter(chIdx));
-            fragment.appendChild(prefaceLi);
+            tocItems.push({
+                type: 'preface',
+                level: 1,
+                content: Lumina.I18n.t('preface'),
+                chapterIndex: chIdx,
+                globalIndex: chapter.startIndex
+            });
         }
-
         chapter.items.forEach((item, itemIdx) => {
             const globalIndex = chapter.startIndex + itemIdx;
             let level = -1;
@@ -447,27 +446,110 @@ Lumina.Renderer.generateTOC = () => {
 
             if (level >= 0) {
                 if (chapter.isPreface && itemIdx === 0 && item.type === 'title') return;
-                const li = document.createElement('li');
-                li.className = `toc-item level-${level}`;
-                li.dataset.index = globalIndex;
-                li.dataset.chapterIndex = chIdx;  // 章节索引（用于热力图）
                 let content = item.display || item.text;
-                // 简繁转换
                 if (Lumina.Converter?.isConverting && content) {
                     content = Lumina.Converter.convert(content);
                 }
-                // 对于 md 文件，去除目录中的成对 *...* / **...** 标记
                 content = Lumina.Renderer.stripMarkdownInlineMarkers(content);
                 content = Lumina.Renderer.getCleanText(content).trim();
                 if (!content) return;
-                li.textContent = content;
-                li.addEventListener('click', () => Lumina.Actions.navigateToChapter(chIdx, globalIndex));
-                fragment.appendChild(li);
+                tocItems.push({
+                    type: 'heading',
+                    level,
+                    content,
+                    chapterIndex: chIdx,
+                    globalIndex
+                });
             }
         });
     });
-    
-    // 一次性插入，只触发一次重排
+
+    // 2. 构建嵌套树
+    const root = { children: [], level: -1 };
+    const stack = [root];
+    tocItems.forEach(item => {
+        while (stack.length > 1 && stack[stack.length - 1].level >= item.level) {
+            stack.pop();
+        }
+        const parent = stack[stack.length - 1];
+        const node = { ...item, children: [] };
+        parent.children.push(node);
+        stack.push(node);
+    });
+
+    // 3. 递归渲染
+    const renderNode = (node) => {
+        const li = document.createElement('li');
+        li.className = 'toc-node';
+
+        const div = document.createElement('div');
+        div.className = `toc-item level-${node.level} ${node.type === 'preface' ? 'preface-item' : ''}`;
+        div.dataset.index = node.globalIndex;
+        div.dataset.chapterIndex = node.chapterIndex;
+
+        const hasChildren = node.children.length > 0;
+
+        if (hasChildren) {
+            const foldBtn = document.createElement('span');
+            foldBtn.className = 'toc-fold-btn';
+            foldBtn.innerHTML = `<svg class="icon"><use href="#icon-caret-down"/></svg>`;
+            div.appendChild(foldBtn);
+        }
+
+        const textNode = document.createTextNode(node.content);
+        div.appendChild(textNode);
+        li.appendChild(div);
+
+        if (hasChildren) {
+            const ul = document.createElement('ul');
+            ul.className = 'toc-children';
+            node.children.forEach(child => ul.appendChild(renderNode(child)));
+            li.appendChild(ul);
+
+            let touchStartX = 0, touchStartY = 0, isSwipe = false;
+            div.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isSwipe = false;
+            }, { passive: true });
+            div.addEventListener('touchend', (e) => {
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                const dy = e.changedTouches[0].clientY - touchStartY;
+                if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isSwipe = true;
+                    if (dx > 0) {
+                        li.classList.remove('collapsed');
+                    } else {
+                        li.classList.add('collapsed');
+                    }
+                }
+            });
+            div.addEventListener('click', (e) => {
+                if (isSwipe) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isSwipe = false;
+                    return;
+                }
+                if (e.target.closest('.toc-fold-btn')) {
+                    e.stopPropagation();
+                    li.classList.toggle('collapsed');
+                } else {
+                    Lumina.Actions.navigateToChapter(node.chapterIndex, node.globalIndex);
+                }
+            });
+        } else {
+            div.addEventListener('click', () => {
+                Lumina.Actions.navigateToChapter(node.chapterIndex, node.globalIndex);
+            });
+        }
+
+        return li;
+    };
+
+    root.children.forEach(node => fragment.appendChild(renderNode(node)));
     Lumina.DOM.tocList.appendChild(fragment);
 };
 

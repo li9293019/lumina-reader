@@ -34,6 +34,7 @@ Lumina.Dictionary = {
         });
         this.index = this.buildIndex(allEntries);
         this.seenTerms.clear();
+        this.renderPanel();
     },
 
     clear() {
@@ -416,6 +417,43 @@ Lumina.Dictionary = {
         const tree = this.buildTree(entries);
         container.innerHTML = this.renderTreeNodes(tree);
 
+        // 绑定折叠事件
+        container.querySelectorAll('.dict-tree-folder-header').forEach(header => {
+            let touchStartX = 0, touchStartY = 0, isSwipe = false;
+            header.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isSwipe = false;
+            }, { passive: true });
+            header.addEventListener('touchend', (e) => {
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                const dy = e.changedTouches[0].clientY - touchStartY;
+                if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isSwipe = true;
+                    const folder = header.closest('.dict-tree-folder');
+                    if (folder) {
+                        if (dx > 0) {
+                            folder.classList.remove('collapsed');
+                        } else {
+                            folder.classList.add('collapsed');
+                        }
+                    }
+                }
+            });
+            header.addEventListener('click', (e) => {
+                if (isSwipe) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isSwipe = false;
+                    return;
+                }
+                const folder = header.closest('.dict-tree-folder');
+                if (folder) folder.classList.toggle('collapsed');
+            });
+        });
+
         // 绑定词条点击事件
         container.querySelectorAll('.dict-tree-entry').forEach(el => {
             el.addEventListener('click', () => {
@@ -444,17 +482,24 @@ Lumina.Dictionary = {
 
     renderTreeNodes(node, level = 0) {
         let html = '';
+        const childNames = new Set(node.children.keys());
+
         node.children.forEach((child, name) => {
             const padding = level * 12;
             html += `<div class="dict-tree-folder" style="padding-left:${padding}px">
-                <div class="dict-tree-folder-name">${name}</div>`;
+                <div class="dict-tree-folder-header">
+                    <span class="dict-fold-btn"><svg class="icon"><use href="#icon-caret-down"/></svg></span>
+                    <span class="dict-tree-folder-name">${name}</span>
+                </div>
+                <div class="dict-tree-folder-children">`;
             html += this.renderTreeNodes(child, level + 1);
-            html += '</div>';
+            html += '</div></div>';
         });
         node.entries.forEach(e => {
+            if (childNames.has(e.name)) return; // 去重：跳过同时是 children 的 entry
             const padding = level * 12;
             html += `<div class="dict-tree-entry" data-term="${e.name}" style="padding-left:${padding}px">
-                <span class="dict-tree-dot" style="margin-right:6px;color:var(--accent-color);">•</span>${e.name}
+                ${e.name}
             </div>`;
         });
         return html;
@@ -481,7 +526,7 @@ Lumina.Dictionary = {
         matched.forEach(e => {
             const pathStr = e.path.join(' / ');
             html += `<div class="dict-tree-entry" data-term="${e.name}">
-                <span class="dict-tree-dot" style="margin-right:6px;color:var(--accent-color);">•</span>${e.name}
+                ${e.name}
                 <span class="dict-tree-path" style="opacity:0.6;font-size:0.85em;margin-left:8px;">${pathStr}</span>
             </div>`;
         });

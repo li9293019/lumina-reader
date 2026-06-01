@@ -3021,6 +3021,14 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         Lumina.State.app.annotations = fileData.annotations || [];
         Lumina.Annotations.renderAnnotations();
 
+        // 主动清空侧边栏面板，避免旧书数据残留
+        const annoList = document.getElementById('sidebarAnnotationList');
+        if (annoList) annoList.innerHTML = '';
+        const dictList = document.getElementById('sidebarDictionaryList');
+        if (dictList) dictList.innerHTML = '';
+        const matGrid = document.getElementById('materialsGrid');
+        if (matGrid) matGrid.innerHTML = '';
+
         // 加载词典数据
         if (fileData.dictionaries && fileData.dictionaries.length > 0) {
             if (Lumina.Dictionary) {
@@ -3034,14 +3042,6 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         window.dispatchEvent(new CustomEvent('fileOpened', { 
             detail: { fileKey: fileData.fileKey }
         }));
-        
-        // 主动清空侧边栏面板，避免旧书数据残留
-        const annoList = document.getElementById('sidebarAnnotationList');
-        if (annoList) annoList.innerHTML = '';
-        const dictList = document.getElementById('sidebarDictionaryList');
-        if (dictList) dictList.innerHTML = '';
-        const matGrid = document.getElementById('materialsGrid');
-        if (matGrid) matGrid.innerHTML = '';
         
         Lumina.UI?.updateSidebarTabBadges?.();
         

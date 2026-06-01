@@ -212,7 +212,74 @@ Lumina.UI = {
                 this.switchSidebarTab(tab.dataset.tab);
             });
         }
-        
+
+        // 大纲/词典 全部展开/收缩手势
+        const bindToggleAllGesture = (container, nodeSelector) => {
+            if (!container) return;
+            let gestureTriggered = false;
+
+            // 捕获阶段拦截 click，避免手势误触发子元素点击
+            container.addEventListener('click', (e) => {
+                if (gestureTriggered) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    gestureTriggered = false;
+                }
+            }, true);
+
+            // 移动端双指
+            let twoFingerActive = false;
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    twoFingerActive = true;
+                }
+            }, { passive: true });
+            container.addEventListener('touchend', (e) => {
+                if (twoFingerActive && e.touches.length === 0) {
+                    twoFingerActive = false;
+                    gestureTriggered = true;
+                    toggleAll(container, nodeSelector);
+                } else if (e.touches.length === 0) {
+                    twoFingerActive = false;
+                }
+            });
+
+            // PC端长按
+            let longPressTimer = null;
+            const LONG_PRESS_MS = 800;
+            container.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                gestureTriggered = false;
+                longPressTimer = setTimeout(() => {
+                    longPressTimer = null;
+                    gestureTriggered = true;
+                    toggleAll(container, nodeSelector);
+                }, LONG_PRESS_MS);
+            });
+            container.addEventListener('mouseup', () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+            container.addEventListener('mouseleave', () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+        };
+
+        const toggleAll = (container, nodeSelector) => {
+            const nodes = container.querySelectorAll(nodeSelector);
+            if (nodes.length === 0) return;
+            const allCollapsed = Array.from(nodes).every(n => n.classList.contains('collapsed'));
+            nodes.forEach(n => n.classList.toggle('collapsed', !allCollapsed));
+        };
+
+        bindToggleAllGesture(document.getElementById('tocList'), '.toc-node');
+        bindToggleAllGesture(document.getElementById('sidebarDictionaryList'), '.dict-tree-folder');
+
         // PC Web: 点击 fileInfo 打开/关闭书籍详情页
         const fileInfoEl = document.getElementById('fileInfo');
         if (fileInfoEl) {

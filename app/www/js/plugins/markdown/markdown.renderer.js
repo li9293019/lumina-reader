@@ -267,12 +267,31 @@ Lumina.Plugin.Markdown.Renderer = {
             case 'hr':
                 this.renderHR(div);
                 break;
+            case 'image':
+                this.renderImage(div, item);
+                break;
             default:
                 // 未知类型，按纯文本处理（支持简繁转换）
                 div.textContent = this.getConvertedText(item.text) || '';
         }
 
         return div;
+    },
+
+    /**
+     * 渲染块级图片
+     */
+    renderImage(container, item) {
+        const figure = document.createElement('figure');
+        figure.className = 'markdown-figure';
+        const img = document.createElement('img');
+        img.src = item.src;
+        img.alt = this.getConvertedText(item.alt);
+        img.className = 'markdown-image';
+        if (item.title) img.title = this.getConvertedText(item.title);
+        img.loading = 'lazy';
+        figure.appendChild(img);
+        container.appendChild(figure);
     },
 
     /**
@@ -897,7 +916,18 @@ Lumina.Plugin.Markdown.Renderer = {
         inlineContent.forEach(item => {
             switch (item.type) {
                 case 'text':
-                    container.appendChild(document.createTextNode(this.getConvertedText(item.content)));
+                    const textContent = this.getConvertedText(item.content) || '';
+                    const parts = textContent.split('\n');
+                    parts.forEach((part, idx) => {
+                        if (idx > 0) {
+                            container.appendChild(document.createElement('br'));
+                        }
+                        if (part) container.appendChild(document.createTextNode(part));
+                    });
+                    break;
+                    
+                case 'br':
+                    container.appendChild(document.createElement('br'));
                     break;
                     
                 case 'strong':

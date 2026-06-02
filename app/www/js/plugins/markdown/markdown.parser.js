@@ -621,7 +621,18 @@ Lumina.Plugin.Markdown.Parser = {
             i++;
         }
 
-        const text = content.join(' ').trim();
+        // 处理行末两个空格的硬换行（Markdown 标准语法）
+        const processed = [];
+        for (let j = 0; j < content.length; j++) {
+            const line = content[j];
+            if (/  $/.test(line) && j < content.length - 1) {
+                processed.push(line.slice(0, -2) + '\n');
+            } else {
+                processed.push(line);
+            }
+        }
+
+        const text = processed.join(' ').trim();
         
         return {
             type: 'paragraph',
@@ -705,6 +716,16 @@ Lumina.Plugin.Markdown.Parser = {
                 start: match.index,
                 end: match.index + match[0].length,
                 content: match[1]
+            });
+        }
+
+        // HTML 换行标签 <br> / <br/>
+        const brRegex = /<br\s*\/?>/gi;
+        while ((match = brRegex.exec(text)) !== null) {
+            matches.push({
+                type: 'br',
+                start: match.index,
+                end: match.index + match[0].length
             });
         }
 

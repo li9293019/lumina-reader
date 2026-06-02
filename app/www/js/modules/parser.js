@@ -2248,6 +2248,19 @@ Lumina.Parser.parseLW = async (arrayBuffer, fileName, password = null) => {
                 });
             }
         });
+
+        // 替换词典 .dic 中的 asset:// 图片引用
+        if (dictionaries && dictionaries.length > 0) {
+            const dicAssetRegex = /!\[([^\]]*)\]\(asset:\/\/([a-zA-Z0-9_-]+)\)/g;
+            dictionaries.forEach(dic => {
+                if (dic.content) {
+                    dic.content = dic.content.replace(dicAssetRegex, (match, alt, assetId) => {
+                        const dataUrl = assetMap[assetId];
+                        return dataUrl ? `![${alt}](${dataUrl})` : match;
+                    });
+                }
+            });
+        }
     }
 
     // 9. 组装元数据

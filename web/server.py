@@ -86,6 +86,7 @@ class Database:
                     cover TEXT,
                     heatMap TEXT,
                     metadata TEXT,
+                    dictionaries TEXT,
                     created_at TEXT,
                     updated_at TEXT
                 )
@@ -118,6 +119,13 @@ class Database:
             try:
                 conn.execute("ALTER TABLE books ADD COLUMN totalItems INTEGER DEFAULT 0")
                 print("[SQLite] 已添加 totalItems 字段")
+            except sqlite3.OperationalError:
+                pass  # 字段已存在
+            
+            # 为已存在的表添加 dictionaries 字段（兼容旧数据库）
+            try:
+                conn.execute("ALTER TABLE books ADD COLUMN dictionaries TEXT")
+                print("[SQLite] 已添加 dictionaries 字段")
             except sqlite3.OperationalError:
                 pass  # 字段已存在
             
@@ -157,12 +165,14 @@ class Database:
                 content_json = JSON_ENCODE(data.get('content', []))
                 content_size = len(content_json.encode('utf-8'))
                 
+                dictionaries_json = JSON_ENCODE(data.get('dictionaries')) if data.get('dictionaries') is not None else None
+                
                 conn.execute("""
                     INSERT OR REPLACE INTO books (
                         fileKey, fileName, fileType, fileSize, contentSize, content, wordCount, totalItems,
                         lastChapter, lastScrollIndex, chapterTitle, lastReadTime,
-                        customRegex, chapterNumbering, annotations, cover, heatMap, metadata, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        customRegex, chapterNumbering, annotations, cover, heatMap, metadata, dictionaries, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     fileKey,
                     data.get('fileName', ''),
@@ -182,6 +192,7 @@ class Database:
                     data.get('cover', None),
                     heat_map_json,
                     metadata_json,
+                    dictionaries_json,
                     created_at,
                     updated_at
                 ))
@@ -218,6 +229,8 @@ class Database:
                 result['heatMap'] = JSON_DECODE(result['heatMap'])
             if result.get('metadata'):
                 result['metadata'] = JSON_DECODE(result['metadata'])
+            if result.get('dictionaries'):
+                result['dictionaries'] = JSON_DECODE(result['dictionaries'])
             return result
             
         except sqlite3.Error as e:

@@ -411,7 +411,7 @@ Lumina.DataManager = class {
             const fileData = await Lumina.DB.adapter.getFile(fileKey);
             if (fileData) {
                 if (!fileData.dictionaries) fileData.dictionaries = [];
-                books.push(fileData);
+                books.push(Lumina.DB.Helpers.createExportRecord(fileData));
                 // 更准确的体积估算：content + cover + metadata + annotations
                 const contentJson = JSON.stringify(fileData.content || []);
                 const metaJson = JSON.stringify({
@@ -2879,7 +2879,7 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
             delete cf[key];
         }
         state.currentFile.name = fileData.fileName;
-        state.currentFile.type = fileData.fileType;
+        state.currentFile.type = Lumina.DB.Helpers.normalizeFileType(fileData.fileName, fileData.fileType);
         state.currentFile.wordCount = fileData.wordCount;
         state.currentFile.fileKey = fileData.fileKey;
         state.currentFile.metadata = fileData.metadata;

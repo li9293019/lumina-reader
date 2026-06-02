@@ -24,6 +24,27 @@
         return `${base}_${Date.now()}.${type}`;
     }
 
+    // 根据文件名扩展名归一化 fileType（修复旧数据错误）
+    function normalizeFileType(fileName, fileType) {
+        if (!fileName) return fileType || 'txt';
+        const ext = fileName.split('.').pop().toLowerCase();
+        // .lw / .lwN 统一为 lw
+        if (/^lw\d*$/.test(ext)) return 'lw';
+        // 其他扩展名映射
+        const extMap = {
+            md: 'md', markdown: 'md', mdown: 'md', mkd: 'md',
+            txt: 'txt',
+            html: 'html', htm: 'html',
+            docx: 'docx',
+            epub: 'epub',
+            pdf: 'pdf',
+            json: 'json',
+            lmn: 'lmn'
+        };
+        if (extMap[ext]) return extMap[ext];
+        return fileType || ext || 'txt';
+    }
+
     function mergeFileData(existing, incoming) {
         if (!existing) return incoming || {};
         return {
@@ -45,7 +66,7 @@
         return {
             fileKey,
             fileName: mergedData.fileName,
-            fileType: mergedData.fileType,
+            fileType: normalizeFileType(mergedData.fileName, mergedData.fileType),
             fileSize: mergedData.fileSize || 0,
             contentSize: contentSize || 0,
             content: mergedData.content,
@@ -76,7 +97,7 @@
     function createImportRecord(book) {
         return {
             fileName: book.fileName,
-            fileType: book.fileType || 'txt',
+            fileType: normalizeFileType(book.fileName, book.fileType),
             fileSize: book.fileSize || 0,
             content: book.content,
             wordCount: book.wordCount || 0,
@@ -97,13 +118,14 @@
     }
 
     function createExportRecord(file) {
+        const normalizedType = normalizeFileType(file.fileName, file.fileType);
         return {
             version: 2,
             exportType: 'single',
             exportDate: getLocalTimeString(),
             appName: 'Lumina Reader',
             fileName: file.fileName,
-            fileType: file.fileType,
+            fileType: /^lw\d*$/.test(normalizedType) ? 'lwn' : normalizedType,
             fileSize: file.fileSize || 0,
             content: file.content,
             wordCount: file.wordCount,
@@ -159,7 +181,7 @@
         const books = [];
         for (const file of files) {
             const fullData = await adapter.getFile(file.fileKey);
-            if (fullData) books.push(fullData);
+            if (fullData) books.push(createExportRecord(fullData));
         }
         return {
             version: 2,
@@ -190,6 +212,7 @@
         generateFileKey,
         mergeFileData,
         normalizeRecord,
+        normalizeFileType,
         validateBookData,
         createImportRecord,
         createExportRecord,

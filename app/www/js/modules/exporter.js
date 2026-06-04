@@ -283,8 +283,6 @@ Lumina.Exporter = {
             font-size: 18px;
             overflow-x: hidden;
             transition: background 0.3s, color 0.3s;
-            scrollbar-width: thin;
-            scrollbar-color: var(--scroll-thumb) var(--scroll-track);
             font-synthesis: none;
             text-rendering: optimizeLegibility;
             -webkit-font-smoothing: antialiased;
@@ -318,9 +316,20 @@ Lumina.Exporter = {
             font-display: swap;
         }
         
-        body::-webkit-scrollbar { width: 8px; }
-        body::-webkit-scrollbar-track { background: var(--scroll-track); }
-        body::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--scroll-track);;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--scroll-thumb); 
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
         
         .header {
             position: fixed;
@@ -379,13 +388,9 @@ Lumina.Exporter = {
             z-index: 999;
             transition: transform 0.3s ease;
             transform: translateX(-100%);
-            scrollbar-width: thin;
-            scrollbar-color: var(--scroll-thumb) transparent;
         }
         
         .sidebar.open { transform: translateX(0); }
-        .sidebar::-webkit-scrollbar { width: 6px; }
-        .sidebar::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
         
         .toc-list { list-style: none; padding: 16px 0; }
         

@@ -345,11 +345,13 @@ Lumina.TTS.Manager = class {
     setupKeepAliveListener() {
         // 仅 APP 环境
         if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform?.()) return;
+        // 防重复创建
+        if (this._keepAliveInterval) return;
         
         // 使用 Capacitor 插件监听广播
         try {
             // 注册广播接收器（通过自定义插件或定期检查）
-            setInterval(() => {
+            this._keepAliveInterval = setInterval(() => {
                 if (this.isPlaying && this.synth) {
                     // 定期唤醒 speechSynthesis，防止被系统暂停
                     if (this.synth.paused) {
@@ -429,7 +431,10 @@ Lumina.TTS.Manager = class {
     }
 
     startFileChangeMonitor() {
-        setInterval(() => {
+        // 防重复创建
+        if (this._fileMonitorInterval) return;
+        
+        this._fileMonitorInterval = setInterval(() => {
             const currentKey = Lumina.State.app.currentFile?.fileKey;
             if (this.isPlaying && currentKey && this.currentFileKey && currentKey !== this.currentFileKey) {
                 console.log('检测到文件切换，停止朗读');
@@ -868,6 +873,17 @@ Lumina.TTS.Manager = class {
         
         clearTimeout(this._speakTimer);
         this._speakTimer = null;
+        
+        // 清理保活和文件监控定时器
+        if (this._keepAliveInterval) {
+            clearInterval(this._keepAliveInterval);
+            this._keepAliveInterval = null;
+        }
+        if (this._fileMonitorInterval) {
+            clearInterval(this._fileMonitorInterval);
+            this._fileMonitorInterval = null;
+        }
+        
         window.getSelection().removeAllRanges();
     }
 
@@ -1450,9 +1466,18 @@ Lumina.TTS.Manager = class {
         
         this.currentParagraphEl = document.querySelector(`.doc-line[data-index="${this.currentItemIndex}"]`);
         if (!this.currentParagraphEl) {
+            // 防御：避免同一索引无限重试（DOM 缺失时最多重试 3 次）
+            this._speakRetryCount = (this._speakRetryCount || 0) + 1;
+            if (this._speakRetryCount > 3) {
+                console.warn('[TTS] DOM 元素缺失，跳过当前项:', this.currentItemIndex);
+                this._speakRetryCount = 0;
+                this.currentItemIndex++;
+                this.currentSentenceIndex = 0;
+            }
             this._speakAfter(300);
             return;
         }
+        this._speakRetryCount = 0;
         
         // 使用 extractItemText 获取要朗读的文本（支持所有 Markdown 元素类型）
         const textForSplit = itemText;

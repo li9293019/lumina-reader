@@ -33,6 +33,12 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
     // 1.5 清空 TOC 同步缓存（布局已变化）
     Lumina.Renderer.invalidateTocSpyCache();
     
+    // 1.6 断开旧的图片懒加载 Observer，避免内存泄漏
+    if (Lumina.Renderer._lazyImageObserver) {
+        Lumina.Renderer._lazyImageObserver.disconnect();
+        Lumina.Renderer._lazyImageObserver = null;
+    }
+    
     // 2. 构建片段（批量写，不读取布局）
     const fragment = document.createDocumentFragment();
     for (let i = range.start; i <= range.end; i++) {
@@ -165,22 +171,24 @@ Lumina.Renderer.createDocLineElement = (item, index) => {
         img.style.cursor = 'zoom-in';
         img.onclick = () => Lumina.UI.viewImageFull(item.data, item.alt);
         
-        // 使用 Intersection Observer 延迟加载
+        // 使用全局单例 Intersection Observer，避免每次翻页创建大量 observer 导致内存泄漏
         if ('IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        img.src = img.dataset.src;
-                        img.onload = () => {
-                            img.style.backgroundColor = 'transparent';
-                            img.style.minHeight = 'auto';
-                        };
-                        observer.unobserve(img);
-                    }
-                });
-            }, { rootMargin: '100px' });
-            observer.observe(img);
+            if (!Lumina.Renderer._lazyImageObserver) {
+                Lumina.Renderer._lazyImageObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            img.src = img.dataset.src;
+                            img.onload = () => {
+                                img.style.backgroundColor = 'transparent';
+                                img.style.minHeight = 'auto';
+                            };
+                            Lumina.Renderer._lazyImageObserver.unobserve(img);
+                        }
+                    });
+                }, { rootMargin: '100px' });
+            }
+            Lumina.Renderer._lazyImageObserver.observe(img);
         } else {
             // 不支持 Intersection Observer 的浏览器直接加载
             img.src = img.dataset.src;
@@ -601,6 +609,11 @@ function _buildTocSpyCache() {
 Lumina.Renderer.invalidateTocSpyCache = () => {
     _tocSpyCache = null;
     _lastTocActiveIndex = -1;
+    // 取消 pending 的 RAF 回调，避免访问已移除的 DOM
+    if (_tocSpyRafId) {
+        cancelAnimationFrame(_tocSpyRafId);
+        _tocSpyRafId = null;
+    }
 };
 
 Lumina.Renderer.updateTocSpy = () => {

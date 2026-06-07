@@ -156,10 +156,11 @@ Lumina.DataManager = class {
             });
         });
         
-        // 点击外部关闭
-        document.addEventListener('click', () => {
-            sortMenu.classList.remove('open');
-        });
+        // 点击外部关闭（防重复绑定）
+        if (!this._sortOutsideHandler) {
+            this._sortOutsideHandler = () => sortMenu.classList.remove('open');
+            document.addEventListener('click', this._sortOutsideHandler);
+        }
     }
     
     setSort(sortBy) {
@@ -2731,7 +2732,7 @@ Lumina.HistoryActions = {
         container.addEventListener('touchmove', handleTouchMove, { passive: false });
         container.addEventListener('touchend', handleTouchEnd);
         
-        // 点击外部复位
+        // 点击外部复位（使用 { once: true } 避免累积）
         document.addEventListener('click', (e) => {
             // 如果正在显示对话框，不复位
             if (item._showingDialog) return;
@@ -2742,7 +2743,7 @@ Lumina.HistoryActions = {
                 content.style.transform = '';
                 item.classList.remove('swiped-left', 'swiped-right');
             }
-        });
+        }, { once: true });
     }
 };
 

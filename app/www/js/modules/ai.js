@@ -894,6 +894,11 @@ Lumina.AI = {
             });
         }
         if (panel && typeof ResizeObserver !== 'undefined') {
+            // 防重复创建：断开旧的 observer
+            if (this._resizeObserver) {
+                this._resizeObserver.disconnect();
+                this._resizeObserver = null;
+            }
             let resizeTimer = null;
             this._resizeObserver = new ResizeObserver(() => {
                 if (!panel.classList.contains('draggable')) return;
@@ -966,6 +971,11 @@ Lumina.AI = {
         document.body.style.overflow = '';
         this.cancel();
         this._removeChatThinking();
+        // 断开 ResizeObserver，避免内存泄漏
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = null;
+        }
     },
 
     _toggleQuotePopover() {

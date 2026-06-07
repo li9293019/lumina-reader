@@ -52,7 +52,10 @@ Lumina.Annotations = {
             }
         };
         document.addEventListener('click', handleClickOutside);
-        document.addEventListener('scroll', hideMenu, true);
+        // 监听阅读区滚动来隐藏菜单（不使用 capture，避免拦截所有滚动事件）
+        if (Lumina.DOM.contentScroll) {
+            Lumina.DOM.contentScroll.addEventListener('scroll', hideMenu, { passive: true });
+        }
         
         // 菜单点击事件
         menu.addEventListener('click', async (e) => {

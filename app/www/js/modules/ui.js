@@ -509,7 +509,12 @@ Lumina.UI = {
             else scrollTimeout = setTimeout(Lumina.DB.updateHistoryProgress, 1500);
         }, { passive: true });
 
-        window.addEventListener('resize', () => setTimeout(() => Lumina.Settings.apply(), 250));
+        // resize 防抖：APP 环境下键盘弹出/收起会高频触发 resize
+        let resizeDebounceTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeDebounceTimer);
+            resizeDebounceTimer = setTimeout(() => Lumina.Settings.apply(), 300);
+        });
 
         // 键盘显示/隐藏检测（APP 环境）
         this.setupKeyboardDetection();

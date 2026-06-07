@@ -255,18 +255,17 @@ Lumina.Settings = {
         // 正在就地编辑时不重建 DOM，避免销毁 textarea；样式变化通过 CSS 变量实时生效
         const isEditing = Lumina.Editor?.activeEdit != null;
 
-        if (!isEditing && Lumina.State.app.document.items.length) {
-            Lumina.Renderer.renderCurrentChapter(savedScrollIndex);
-        }
         Lumina.Renderer.updateChapterNavInfo();
 
         Lumina.Config.pagination.enabled = settings.paginationEnabled;
         Lumina.Config.pagination.maxReadingWords = parseInt(settings.paginationMaxWords) || 3000;
         Lumina.Config.pagination.imageEquivalentWords = parseInt(settings.paginationImageWords) || 300;
 
+        // 只在必要时重新渲染当前章节（避免重复调用）
         if (!isEditing && Lumina.State.app.document.items.length) {
+            // 如果分页配置变化，需要清空 pageRanges 并重新计算
             Lumina.State.app.chapters.forEach(ch => ch.pageRanges = null);
-            const currentIdx = Lumina.Renderer.getCurrentVisibleIndex();
+            const currentIdx = savedScrollIndex ?? Lumina.Renderer.getCurrentVisibleIndex();
             Lumina.Renderer.renderCurrentChapter(currentIdx);
         }
         

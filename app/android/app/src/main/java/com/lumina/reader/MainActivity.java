@@ -83,11 +83,24 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         mainHandler = new Handler(Looper.getMainLooper());
         
-        // 允许混合内容：HTTPS 页面加载 HTTP 资源（本地 AI 服务通常是 HTTP）
+        // WebView 渲染优化配置
         if (bridge != null && bridge.getWebView() != null) {
-            bridge.getWebView().getSettings().setMixedContentMode(
-                android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            );
+            android.webkit.WebView webView = bridge.getWebView();
+            android.webkit.WebSettings settings = webView.getSettings();
+            
+            // 允许混合内容：HTTPS 页面加载 HTTP 资源（本地 AI 服务通常是 HTTP）
+            settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            
+            // 启用 DOM storage 和数据库缓存
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            
+            // 启用应用缓存
+            settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+            
+            // 禁用自动适配视口（避免不必要的重排）
+            settings.setUseWideViewPort(true);
+            settings.setLoadWithOverviewMode(true);
         }
         
         if (BuildConfig.DEBUG) {

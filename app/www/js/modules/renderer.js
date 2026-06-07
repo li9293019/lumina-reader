@@ -30,6 +30,9 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
     // 1. 先清空（写操作）
     Lumina.DOM.contentWrapper.innerHTML = '';
     
+    // 1.5 清空 TOC 同步缓存（布局已变化）
+    Lumina.Renderer.invalidateTocSpyCache();
+    
     // 2. 构建片段（批量写，不读取布局）
     const fragment = document.createDocumentFragment();
     for (let i = range.start; i <= range.end; i++) {
@@ -553,40 +556,85 @@ Lumina.Renderer.generateTOC = () => {
     Lumina.DOM.tocList.appendChild(fragment);
 };
 
+let _lastActiveTocItem = null;
+
 Lumina.Renderer.updateTocActive = (index) => {
     const tocItems = [...document.querySelectorAll('.toc-item')].filter(item => parseInt(item.dataset.index, 10) <= index);
     const tocItem = tocItems.pop();
-    if (tocItem) {
-        document.querySelectorAll('.toc-item.active').forEach(el => el.classList.remove('active'));
-        tocItem.classList.add('active');
+    if (!tocItem) return;
+    
+    // 如果已经是当前激活项，跳过 DOM 操作
+    if (_lastActiveTocItem === tocItem) return;
+    
+    // 移除上一个激活项
+    if (_lastActiveTocItem) {
+        _lastActiveTocItem.classList.remove('active');
+    }
+    
+    // 激活新项
+    tocItem.classList.add('active');
+    _lastActiveTocItem = tocItem;
+    
+    // 只在必要时滚动到视口（避免每次滚动都触发滚动动画）
+    const tocList = Lumina.DOM.tocList;
+    const tocRect = tocList.getBoundingClientRect();
+    const itemRect = tocItem.getBoundingClientRect();
+    if (itemRect.top < tocRect.top || itemRect.bottom > tocRect.bottom) {
         tocItem.scrollIntoView({ behavior: 'auto', block: 'nearest' });
     }
+};
+
+// TOC 滚动同步缓存（避免每次滚动都触发重排）
+let _tocSpyCache = null;
+let _tocSpyRafId = null;
+let _lastTocActiveIndex = -1;
+
+function _buildTocSpyCache() {
+    const headings = Array.from(Lumina.DOM.contentWrapper.querySelectorAll('.doc-line[data-index]'));
+    _tocSpyCache = headings.map(el => ({
+        index: parseInt(el.dataset.index, 10),
+        offsetTop: el.offsetTop,
+        offsetHeight: el.offsetHeight
+    }));
+}
+
+Lumina.Renderer.invalidateTocSpyCache = () => {
+    _tocSpyCache = null;
+    _lastTocActiveIndex = -1;
 };
 
 Lumina.Renderer.updateTocSpy = () => {
     const state = Lumina.State.app;
     if (!state.chapters.length) return;
 
-    const scrollTop = Lumina.DOM.contentScroll.scrollTop;
-    const clientHeight = Lumina.DOM.contentScroll.clientHeight;
-    const scrollMiddle = scrollTop + clientHeight / 2;
-
-    const headings = Array.from(Lumina.DOM.contentWrapper.querySelectorAll('.doc-line[data-index]'));
-    const headingData = headings.map(el => ({
-        index: parseInt(el.dataset.index),
-        offsetTop: el.offsetTop,
-        offsetHeight: el.offsetHeight
-    }));
-
-    let closestIndex = -1, minDistance = Infinity;
-
-    headingData.forEach(({ index, offsetTop, offsetHeight }) => {
-        const elCenter = offsetTop + offsetHeight / 2;
-        const distance = Math.abs(elCenter - scrollMiddle);
-        if (distance < minDistance) { minDistance = distance; closestIndex = index; }
+    // 使用 RAF 节流，避免滚动期间高频触发重排
+    if (_tocSpyRafId) return;
+    _tocSpyRafId = requestAnimationFrame(() => {
+        _tocSpyRafId = null;
+        
+        // 缓存未命中时重建（仅在布局变化后）
+        if (!_tocSpyCache) {
+            _buildTocSpyCache();
+        }
+        
+        const scrollTop = Lumina.DOM.contentScroll.scrollTop;
+        const clientHeight = Lumina.DOM.contentScroll.clientHeight;
+        const scrollMiddle = scrollTop + clientHeight / 2;
+        
+        let closestIndex = -1, minDistance = Infinity;
+        
+        _tocSpyCache.forEach(({ index, offsetTop, offsetHeight }) => {
+            const elCenter = offsetTop + offsetHeight / 2;
+            const distance = Math.abs(elCenter - scrollMiddle);
+            if (distance < minDistance) { minDistance = distance; closestIndex = index; }
+        });
+        
+        // 只在真正变化时才更新 DOM，减少重绘
+        if (closestIndex >= 0 && closestIndex !== _lastTocActiveIndex) {
+            _lastTocActiveIndex = closestIndex;
+            Lumina.Renderer.updateTocActive(closestIndex);
+        }
     });
-
-    if (closestIndex >= 0) Lumina.Renderer.updateTocActive(closestIndex);
 };
 
 Lumina.Renderer.getCurrentVisibleIndex = () => {

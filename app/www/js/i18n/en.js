@@ -57,6 +57,8 @@ Lumina.I18n.data['en'] = {
         includeFontsDesc: 'Include custom fonts in config export (increases file size)',
         hashCover: 'Enable Hash Cover',
         hashCoverDesc: 'Auto-generate hash covers for books without covers',
+        geoPattern: 'Enable Geometric Pattern',
+        geoPatternDesc: 'Overlay geometric patterns on hash covers',
         passwordDialogTitle: 'Set Export Password',
         passwordDialogDesc: 'Set a password for this file (leave empty for default key)',
         passwordPlaceholder: 'Enter password (optional)',

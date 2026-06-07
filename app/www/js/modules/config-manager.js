@@ -108,7 +108,8 @@ Lumina.ConfigManager = {
             
             // ========== 7. 书库设置 ==========
             library: {
-                hashCover: true,  // 启用哈希封面（默认开启）
+                hashCover: true,   // 启用哈希封面（默认开启）
+                geoPattern: true,  // 启用几何图案（默认开启）
             },
             
             // ========== 8. 热力图预设 ==========

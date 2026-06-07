@@ -764,26 +764,166 @@
         };
     }
 
+    // ==================== 图案层（借鉴二代 Cover Studio）====================
+
+    /**
+     * 图案透明度修正系数
+     * 基于二代 Cover Studio 对 49 种图案的逐个微调经验：
+     * - 调低：线条密集 / 大面积填充的图案，在小尺寸封面上容易过浓
+     * - 调高：单条稀疏 / 本身很淡的图案，需要更明显才能被感知
+     */
+    const PATTERN_ALPHA_SCALES = {
+        // === 调低：密集 / 大面积填充 ===
+        'spiral': 0.55,          // Reader用fill实心圆(0~0.25)，Writing改用stroke空心线(0.10~0.24)
+        'goldenSpiral': 0.65,    // 螺旋线从0.95降至0.5，但网格从0.12升至0.3，整体需降低
+        'koch': 0.75,            // 雪花边数指数增长，小尺寸下大面积stroke容易过浓
+        'maze': 0.80,            // 密集路径网络
+        'voronoi': 0.80,         // 多点连线，密集
+        'tree': 0.85,            // 分形树枝，递归填充
+        'fractalTree': 0.85,     // 自适应分形树
+        'galaxy': 0.85,          // 螺旋星系，粒子密集
+        'attractor': 0.85,       // 奇异吸引子，轨迹密集
+        'tessellation': 0.85,    // 密铺镶嵌
+        'dendrite': 0.85,        // 枝晶生长
+        'mycelium': 0.85,        // 菌丝网络
+        'gol': 0.85,             // 细胞自动机
+        'holographic': 0.85,     // 全息干涉
+        'interference': 0.85,    // 波干涉
+        'islamicTile': 0.85,     // 伊斯兰密铺
+        'perforation': 0.85,     // 邮票齿孔
+        'genitalTile': 0.85,     // 几何图腾
+
+        // === 调高：稀疏 / 本身很淡 ===
+        'dragonCurve': 1.25,     // 单条居中路径，需要更明显
+        'rectTiling': 1.30,      // 随机矩形，平均alpha偏低(0.15~0.50)，需要更清晰
+        'circuit': 1.30,         // 电路板，线条较粗但alpha仅0.25，偏淡
+        'halftone': 1.20,        // 半调网点，0.6但半径小，封面尺寸下偏淡
+        'paperplane': 1.20,      // 纸飞机群，分散且稀疏
+        'constellation': 1.15,   // 星座连线，点和线都偏细
+        'trails': 1.15,          // 粒子轨迹
+        'droste': 1.15,          // 递归画框
+        'kintsugi': 1.15,        // 金缮裂纹
+        'bridge': 1.10,          // 悬索桥梁
+        'sunburst': 1.10,        // 太阳光芒
+        'lattice': 1.10,         // 中式窗棂
+        'cardioid': 1.10,        // 心形线
+        'rose': 1.10,            // 玫瑰花瓣
+        'phyllotaxis': 1.10,     // 叶序螺旋
+        'superellipse': 1.10,    // 超椭圆
+        'knots': 1.10,           // 拓扑绳结
+        'spermatozoa': 1.10,     // 游动细胞
+
+        // 其余图案保持 1.0（精确移植，无需修正）
+    };
+
+    /**
+     * 调整 SVG 片段中的透明度值
+     * 对 opacity / fill-opacity / stroke-opacity 统一乘以 scale
+     */
+    function adjustPatternAlpha(svgStr, scale) {
+        if (!svgStr || scale === 1.0) return svgStr;
+        const clamp = (v) => Math.min(1, Math.max(0, v));
+        return svgStr
+            .replace(/\sopacity="([\d.]+)"/g, (m, v) => ` opacity="${clamp(parseFloat(v) * scale).toFixed(3)}"`)
+            .replace(/\sfill-opacity="([\d.]+)"/g, (m, v) => ` fill-opacity="${clamp(parseFloat(v) * scale).toFixed(3)}"`)
+            .replace(/\sstroke-opacity="([\d.]+)"/g, (m, v) => ` stroke-opacity="${clamp(parseFloat(v) * scale).toFixed(3)}"`);
+    }
+
+    /**
+     * 生成图案层 SVG 片段
+     * 利用 PatternWarehouse 的 PatternDrawers + SVGRenderer，只绘制图案元素
+     * @param {number} width - 封面宽度
+     * @param {number} height - 封面高度
+     * @param {string|number} patternCode - 'auto'|具体code|索引，undefined/'none' 不生成
+     * @param {string} title - 书名（用于计算种子）
+     * @param {string} author - 作者（用于计算种子）
+     * @param {string} textColor - 文字颜色（图案继承此色）
+     * @param {number} density - 图案密度（默认1.0）
+     * @param {number} idSuffix - SVG唯一后缀（避免defs ID冲突）
+     * @returns {{defs:string, html:string}|null}
+     */
+    function generatePatternLayer(width, height, patternCode, title, author, textColor, density, idSuffix) {
+        const PW = window.Lumina?.PatternWarehouse;
+        if (!PW) return null;
+
+        try {
+            const CoverCore = PW.CoverCore;
+            const PatternDrawers = CoverCore.PatternDrawers;
+            const PATTERNS = CoverCore.PATTERNS;
+            const extractParams = CoverCore.extractParams;
+
+            // 与 generateHashGradient 使用相同的种子计算方式
+            const seedStr = `${(title || Lumina.I18n.t('untitled')).trim()}|${(author || Lumina.I18n.t('anonymousAuthor')).trim()}`;
+            const seed = djb2(seedStr);
+
+            // 解析图案索引
+            let patternIdx = -1;
+            if (typeof patternCode === 'number') {
+                patternIdx = patternCode;
+            } else if (typeof patternCode === 'string' && patternCode !== '' && patternCode !== 'auto' && patternCode !== 'none') {
+                patternIdx = PW.findPatternIndex(patternCode);
+            }
+
+            // auto 模式或无效值：用 hash 自动选择
+            if (patternIdx < 0 || patternIdx >= PATTERNS.length) {
+                patternIdx = Math.abs(seed) % PATTERNS.length;
+            }
+
+            const pattern = PATTERNS[patternIdx];
+            const drawer = PatternDrawers[pattern.code];
+            if (!drawer) return null;
+
+            // 创建 SVGRenderer，偏移 defId 避免与 Bibliomorph 的 defs ID 冲突
+            const renderer = new PW.SVGRenderer(width, height);
+            renderer.defId = 10000 + (idSuffix || 0) * 1000;
+
+            // 设置图案颜色为文字颜色（不绘制背景填充，Bibliomorph 已有渐变背景）
+            renderer.fillStyle = textColor;
+            renderer.strokeStyle = textColor;
+
+            const p = extractParams(seed, 40);
+            drawer(renderer, width, height, p, density);
+
+            // 应用透明度修正（基于二代逐个微调经验）
+            const alphaScale = PATTERN_ALPHA_SCALES[pattern.code] || 1.0;
+            const defs = adjustPatternAlpha(renderer.defs.length > 0 ? renderer.defs.join('') : '', alphaScale);
+            const elements = adjustPatternAlpha(renderer.elements.join(''), alphaScale);
+            if (!elements) return null;
+
+            return { defs, elements };
+        } catch (e) {
+            console.warn('[BibliomorphCover] Pattern layer generation failed:', e);
+            return null;
+        }
+    }
+
     // ==================== SVG渲染 ====================
 
     // 用于生成唯一ID的计数器
     let svgIdCounter = 0;
-    
+
     function renderSVG(titleLayout, authorLayout, gradient, options) {
         options = options || {};
         const width = options.width || CONFIG.width;
         const height = options.height || CONFIG.height;
         const titleFont = options.titleFont || 'Noto Serif SC';
         const authorFont = options.authorFont || 'Noto Sans SC';
-        
+
         // 生成唯一的ID后缀，避免多个SVG在同一页面时ID冲突
         const idSuffix = svgIdCounter++;
         const gradId = `bgGrad-${idSuffix}`;
         const spineId = `spineGrad-${idSuffix}`;
         const noiseId = `noise-${idSuffix}`;
-        
+
         const isDark = gradient.isDark;
         const textColor = isDark ? '#ffffff' : '#0f172a';
+
+        // 图案层参数（新增，借鉴二代 Cover Studio）
+        const pattern = options.pattern;
+        const density = options.density !== undefined ? options.density : 1.0;
+        const patternOpacity = options.patternOpacity !== undefined ? options.patternOpacity : (isDark ? 0.32 : 0.28);
+        const title = options.title || '';
+        const author = options.author || '';
         
         // 构建渐变定义
         const rad = (gradient.angle * Math.PI) / 180;
@@ -825,7 +965,7 @@
         ).join('');
         
         // 纸张噪点滤镜（简化版）
-        const noiseFilter = isDark 
+        const noiseFilter = isDark
             ? `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%">
                 <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0"/>
@@ -834,7 +974,19 @@
                 <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0.04 0"/>
                </filter>`;
-        
+
+        // 生成图案层（新增，借鉴二代 Cover Studio）
+        let patternDefs = '';
+        let patternHtml = '';
+        if (pattern !== 'none' && pattern !== false && window.Lumina?.PatternWarehouse) {
+            const pat = generatePatternLayer(width, height, pattern, title, author, textColor, density, idSuffix);
+            if (pat) {
+                patternDefs = pat.defs;
+                // 使用 color="currentColor" 让图案继承 textColor，opacity 控制整体浓淡
+                patternHtml = `<g opacity="${patternOpacity}" color="${textColor}">${pat.elements}</g>`;
+            }
+        }
+
         // 渲染标题
         let titleHtml = '';
         if (titleLayout.mode === 'vertical-cjk') {
@@ -844,10 +996,10 @@
         } else {
             titleHtml = renderHorizontalSVG(titleLayout, textColor, titleFont, false);
         }
-        
+
         // 渲染作者
         const authorHtml = renderHorizontalSVG(authorLayout, textColor, authorFont, true);
-        
+
         return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
     <defs>
         <linearGradient id="${gradId}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">
@@ -857,8 +1009,10 @@
             ${spineStopsHtml}
         </linearGradient>
         ${noiseFilter}
+        ${patternDefs}
     </defs>
     <rect width="${width}" height="${height}" fill="url(#${gradId})"/>
+    ${patternHtml}
     ${titleHtml}
     ${authorHtml}
     <rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode: ${isDark ? 'overlay' : 'multiply'}; opacity: 0.6;"/>
@@ -981,6 +1135,12 @@
     function generate(title, author, options) {
         try {
             options = options || {};
+
+            // 如果未指定 pattern，跟随设置面板的「启用几何图案」开关
+            if (options.pattern === undefined && window.Lumina?.State?.settings) {
+                options.pattern = window.Lumina.State.settings.geoPattern ? 'auto' : 'none';
+            }
+
             // 使用阅读器当前字体作为默认值
             const readerFont = getReaderFont();
             const titleFont = options.titleFont || readerFont;
@@ -1060,12 +1220,17 @@
                 return null;
             }
             
-            // 渲染SVG
+            // 渲染SVG（传入图案参数，借鉴二代 Cover Studio）
             return renderSVG(titleLayout, authorLayout, gradient, {
-                width: width, 
-                height: height, 
-                titleFont: titleFont, 
-                authorFont: authorFont
+                width: width,
+                height: height,
+                titleFont: titleFont,
+                authorFont: authorFont,
+                title: title,
+                author: author,
+                pattern: options.pattern,
+                density: options.density !== undefined ? options.density : 1.0,
+                patternOpacity: options.patternOpacity !== undefined ? options.patternOpacity : undefined
             });
         } catch (error) {
             console.error('[BibliomorphCover] Generate failed:', error);

@@ -57,6 +57,8 @@ Lumina.I18n.data['zh'] = {
         includeFontsDesc: '导出配置时包含自定义字体（会增加文件大小）',
         hashCover: '启用哈希封面',
         hashCoverDesc: '为没有封面的书籍自动生成哈希封面',
+        geoPattern: '启用几何图案',
+        geoPatternDesc: '在哈希封面上叠加几何图案',
         passwordDialogTitle: '设置导出密码',
         passwordDialogDesc: '请为此文件设置密码（留空则使用默认密钥）',
         passwordPlaceholder: '输入密码（可选）',

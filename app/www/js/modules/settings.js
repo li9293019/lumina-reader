@@ -22,6 +22,7 @@ Lumina.Settings = {
             defaultExportPassword: config.export?.defaultExportPassword ?? '',
             includeFonts: config.export?.includeFonts ?? false,
             hashCover: config.library?.hashCover ?? true,
+            geoPattern: config.library?.geoPattern ?? true,
             dictionaryEnabled: config.dictionary?.enabled ?? true,
             dictionaryMatchAllLevels: config.dictionary?.matchAllLevels ?? true,
             dictionaryFrequencyAll: (config.dictionary?.frequency || 'first') === 'all',
@@ -87,6 +88,7 @@ Lumina.Settings = {
         Lumina.ConfigManager.set('export.defaultExportPassword', settings.defaultExportPassword || '');
         Lumina.ConfigManager.set('export.includeFonts', settings.includeFonts);
         Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
+        Lumina.ConfigManager.set('library.geoPattern', settings.geoPattern);
         Lumina.ConfigManager.set('dictionary', {
             enabled: settings.dictionaryEnabled ?? true,
             matchAllLevels: settings.dictionaryMatchAllLevels ?? true,

@@ -176,6 +176,23 @@ Lumina.init = async () => {
     
     await Lumina.Settings.apply();
     Lumina.I18n.updateUI();
+    
+    // 注册 APP 前后台切换监听器：从后台恢复时重新应用状态栏/导航栏颜色
+    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins?.App) {
+        try {
+            Capacitor.Plugins.App.addListener('appStateChange', ({ isActive }) => {
+                if (isActive) {
+                    console.log('[Init] APP 回到前台，恢复状态栏/导航栏颜色');
+                    // 延迟一小段时间确保 WebView 已完全恢复
+                    setTimeout(() => {
+                        Lumina.Settings.applySystemBars();
+                    }, 100);
+                }
+            });
+        } catch (e) {
+            console.warn('[Init] 注册 appStateChange 监听器失败:', e);
+        }
+    }
 
     Lumina.DataManager = new Lumina.DataManager();
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用

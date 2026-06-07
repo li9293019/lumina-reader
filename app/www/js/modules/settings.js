@@ -116,12 +116,9 @@ Lumina.Settings = {
         });
     },
 
-    async apply() {
+    // 单独应用状态栏和导航栏颜色（用于 APP 从后台恢复时）
+    applySystemBars() {
         const settings = Lumina.State.settings;
-        document.documentElement.lang = settings.language;
-        document.documentElement.setAttribute('data-theme', settings.theme);
-        
-        // 设置状态栏与导航栏颜色（APP 环境）
         const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
         const isDarkTheme = darkThemes.includes(settings.theme);
         
@@ -132,7 +129,7 @@ Lumina.Settings = {
                     const style = isDarkTheme ? 'DARK' : 'LIGHT';
                     StatusBar.setStyle({ style: style }).catch(() => {});
                 }
-                // 同步导航栏配色：跟随主题背景色（无延迟，立即生效）
+                // 同步导航栏配色：跟随主题背景色
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg && window.NavigationBarInterface) {
                     window.NavigationBarInterface.setNavigationBar(bg, !isDarkTheme);
@@ -141,6 +138,15 @@ Lumina.Settings = {
         }
         
         window.__isDarkTheme = isDarkTheme;
+    },
+
+    async apply() {
+        const settings = Lumina.State.settings;
+        document.documentElement.lang = settings.language;
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        
+        // 设置状态栏与导航栏颜色（APP 环境）
+        this.applySystemBars();
 
         let savedScrollIndex = null;
         const wasReading = Lumina.State.app.document.items.length > 0 &&

@@ -169,15 +169,37 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    // 保存最后一次设置的状态栏/导航栏颜色配置（用于后台恢复时重新应用）
+    private String lastStatusBarColor = null;
+    private boolean lastStatusBarLightIcons = false;
+    private String lastNavBarColor = null;
+    private boolean lastNavBarLightIcons = false;
+    private boolean lastNavBarTranslucent = false;
+    private int lastNavBarAlpha = 255;
+
     public class NavigationBarInterface {
         @JavascriptInterface
         public void setNavigationBar(String colorHex, boolean lightIcons) {
+            lastNavBarColor = colorHex;
+            lastNavBarLightIcons = lightIcons;
+            lastNavBarTranslucent = false;
             applyNavigationBar(colorHex, lightIcons);
         }
 
         @JavascriptInterface
         public void setNavigationBarTranslucent(String colorHex, int alpha, boolean lightIcons) {
+            lastNavBarColor = colorHex;
+            lastNavBarLightIcons = lightIcons;
+            lastNavBarTranslucent = true;
+            lastNavBarAlpha = alpha;
             applyNavigationBarTranslucent(colorHex, alpha, lightIcons);
+        }
+
+        @JavascriptInterface
+        public void setStatusBar(String colorHex, boolean lightIcons) {
+            lastStatusBarColor = colorHex;
+            lastStatusBarLightIcons = lightIcons;
+            applyStatusBar(colorHex, lightIcons);
         }
     }
 
@@ -218,6 +240,48 @@ public class MainActivity extends BridgeActivity {
                 Log.e(TAG, "applyNavigationBarTranslucent failed: " + e.getMessage());
             }
         });
+    }
+
+    private void applyStatusBar(String colorHex, boolean lightIcons) {
+        runOnUiThread(() -> {
+            try {
+                android.view.Window window = getWindow();
+                android.view.View decorView = window.getDecorView();
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                window.setStatusBarColor(android.graphics.Color.parseColor(colorHex));
+                WindowInsetsControllerCompat controller =
+                    new WindowInsetsControllerCompat(window, decorView);
+                controller.setAppearanceLightStatusBars(lightIcons);
+            } catch (Exception e) {
+                Log.e(TAG, "applyStatusBar failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // APP 从后台恢复时，系统可能重置状态栏/导航栏颜色
+        // 延迟 200ms 确保 WebView 已完全恢复，然后重新应用保存的颜色配置
+        mainHandler.postDelayed(() -> {
+            try {
+                if (lastStatusBarColor != null) {
+                    applyStatusBar(lastStatusBarColor, lastStatusBarLightIcons);
+                    Log.d(TAG, "onResume 恢复状态栏颜色: " + lastStatusBarColor + " light=" + lastStatusBarLightIcons);
+                }
+                if (lastNavBarColor != null) {
+                    if (lastNavBarTranslucent) {
+                        applyNavigationBarTranslucent(lastNavBarColor, lastNavBarAlpha, lastNavBarLightIcons);
+                    } else {
+                        applyNavigationBar(lastNavBarColor, lastNavBarLightIcons);
+                    }
+                    Log.d(TAG, "onResume 恢复导航栏颜色: " + lastNavBarColor);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "onResume 恢复系统栏颜色失败: " + e.getMessage());
+            }
+        }, 200);
     }
     
     /**

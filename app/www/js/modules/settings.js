@@ -124,17 +124,24 @@ Lumina.Settings = {
         
         if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
             try {
+                // 方式1：Capacitor StatusBar 插件
                 const StatusBar = Capacitor.Plugins.StatusBar;
                 if (StatusBar && StatusBar.setStyle) {
                     const style = isDarkTheme ? 'DARK' : 'LIGHT';
                     StatusBar.setStyle({ style: style }).catch(() => {});
                 }
-                // 同步导航栏配色：跟随主题背景色
+                
+                // 方式2：直接通过 Android JSBridge 设置（更可靠，后台恢复时仍有效）
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
-                if (bg && window.NavigationBarInterface) {
-                    window.NavigationBarInterface.setNavigationBar(bg, !isDarkTheme);
+                if (bg) {
+                    if (window.NavigationBarInterface) {
+                        window.NavigationBarInterface.setNavigationBar(bg, !isDarkTheme);
+                        window.NavigationBarInterface.setStatusBar(bg, !isDarkTheme);
+                    }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[Settings] applySystemBars 失败:', e);
+            }
         }
         
         window.__isDarkTheme = isDarkTheme;

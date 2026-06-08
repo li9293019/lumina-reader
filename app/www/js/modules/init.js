@@ -183,16 +183,33 @@ Lumina.init = async () => {
             Capacitor.Plugins.App.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
                     console.log('[Init] APP 回到前台，恢复状态栏/导航栏颜色');
-                    // 延迟一小段时间确保 WebView 已完全恢复
-                    setTimeout(() => {
-                        Lumina.Settings.applySystemBars();
-                    }, 100);
+                    // 多次重试：系统恢复状态栏颜色可能有延迟
+                    [100, 300, 600].forEach(delay => {
+                        setTimeout(() => {
+                            Lumina.Settings.applySystemBars();
+                        }, delay);
+                    });
                 }
             });
         } catch (e) {
             console.warn('[Init] 注册 appStateChange 监听器失败:', e);
         }
     }
+
+    // 额外使用 document.visibilitychange 作为备用恢复机制
+    // 在某些深度休眠场景下，Capacitor 的 appStateChange 事件可能不可靠
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            console.log('[Init] 页面重新可见，恢复状态栏/导航栏颜色');
+            [100, 300, 600].forEach(delay => {
+                setTimeout(() => {
+                    if (Lumina.Settings && Lumina.Settings.applySystemBars) {
+                        Lumina.Settings.applySystemBars();
+                    }
+                }, delay);
+            });
+        }
+    });
 
     Lumina.DataManager = new Lumina.DataManager();
     window.dataManager = Lumina.DataManager; // 暴露到全局供 HistoryActions 使用

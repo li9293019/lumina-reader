@@ -1016,13 +1016,15 @@ Lumina.UI = {
                 if (window.toggleImmersiveSafeArea) {
                     window.toggleImmersiveSafeArea(true);
                 }
-                // 导航栏半透明：主题色 + 低透明度，内容延伸到下方
+                // 导航栏半透明：主题色按明度调整后 + 低透明度，内容延伸到下方
                 if (window.NavigationBarInterface) {
                     const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
                     const isDark = darkThemes.includes(Lumina.State.settings.theme);
                     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                     if (bg) {
-                        window.NavigationBarInterface.setNavigationBarTranslucent(bg, 40, !isDark);
+                        const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
+                        const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
+                        window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 40, !isDark);
                     }
                 }
                 showHint(true);
@@ -1037,12 +1039,14 @@ Lumina.UI = {
                 } else if (window.SafeArea) {
                     window.SafeArea.apply();
                 }
-                // 恢复导航栏配色
+                // 恢复导航栏配色（按明度调整）
                 const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
                 const isDark = darkThemes.includes(Lumina.State.settings.theme);
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg && window.NavigationBarInterface) {
-                    window.NavigationBarInterface.setNavigationBar(bg, !isDark);
+                    const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
+                    const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
+                    window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
                 }
             }
         };
@@ -1059,12 +1063,14 @@ Lumina.UI = {
                 } else if (window.SafeArea) {
                     window.SafeArea.apply();
                 }
-                // 恢复导航栏配色
+                // 恢复导航栏配色（按明度调整）
                 const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
                 const isDark = darkThemes.includes(Lumina.State.settings.theme);
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg && window.NavigationBarInterface) {
-                    window.NavigationBarInterface.setNavigationBar(bg, !isDark);
+                    const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
+                    const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
+                    window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
                 }
             }
         });

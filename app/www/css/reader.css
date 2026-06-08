@@ -318,6 +318,73 @@ font-family: var(--font-mono);
     height: 36px;
 }
 }
+/* ==================== 分页扩展面板 ==================== */
+.about-body.page-panel-body {
+    padding: 20px !important;
+    overflow-y: auto !important;
+    max-height: 60vh;
+}
+.page-panel-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    padding-top: 8px;
+}
+.page-panel-btn {
+    min-width: 48px;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1em;
+    font-weight: 500;
+    font-family: var(--font-family-dynamic, inherit);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.page-panel-btn:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+}
+.page-panel-btn:active {
+    transform: scale(0.95);
+}
+.page-panel-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+@media (max-width: 768px) {
+    .page-panel-content {
+        width: 92%;
+        max-width: none;
+    }
+    .about-body.page-panel-body {
+        padding: 16px !important;
+        max-height: 65vh;
+    }
+    .page-panel-grid {
+        gap: 8px;
+        padding-top: 6px;
+    }
+    .page-panel-btn {
+        min-width: 44px;
+        height: 40px;
+        padding: 0 10px;
+        font-size: 0.95em;
+    }
+}
+
 .annotation-context-menu {
 -webkit-touch-callout: none;
 -webkit-user-select: none;

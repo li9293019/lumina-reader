@@ -581,6 +581,16 @@ Lumina.UI = {
             }
         });
 
+        // 分页扩展面板：关闭按钮 + 遮罩点击关闭
+        document.getElementById('closePagePanel')?.addEventListener('click', () => {
+            Lumina.Actions.closePagePanel();
+        });
+        document.getElementById('pagePanel')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('pagePanel')) {
+                Lumina.Actions.closePagePanel();
+            }
+        });
+
         // TTS 帮助按钮 - 打开语音朗读指南
         document.getElementById('ttsHelpBtn')?.addEventListener('click', async () => {
             await this.openTTSGuide();

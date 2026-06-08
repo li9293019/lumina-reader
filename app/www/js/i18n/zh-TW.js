@@ -494,6 +494,7 @@ Lumina.I18n.data['zh-TW'] = {
         lastPage: '最後一頁',
         pageInfo: '第$1/$2頁',
         jumpToPage: '跳轉到第$1頁',
+        pageJumpTitle: '頁碼跳轉',
         atBeginning: '已經是開頭',
         atEnd: '已經是結尾',
         prevChapterTooltip: '上一章：$1',

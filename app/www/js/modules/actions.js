@@ -1004,3 +1004,23 @@ Lumina.Actions.togglePageRange = () => {
     Lumina.Renderer.addPaginationNav(); // 重新渲染
 };
 
+// ========== 分页扩展面板控制 ==========
+
+Lumina.Actions.goToPageFromPanel = (pageIdx) => {
+    Lumina.Actions.closePagePanel();
+    Lumina.Actions.goToPage(pageIdx);
+};
+
+Lumina.Actions.closePagePanel = () => {
+    document.getElementById('pagePanel')?.classList.remove('active');
+};
+
+Lumina.Actions.togglePagePanel = () => {
+    const panel = document.getElementById('pagePanel');
+    if (panel?.classList.contains('active')) {
+        Lumina.Actions.closePagePanel();
+    } else {
+        Lumina.Renderer.openPagePanel();
+    }
+};
+

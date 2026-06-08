@@ -494,6 +494,7 @@ Lumina.I18n.data['en'] = {
         lastPage: 'Last',
         pageInfo: 'Page $1/$2',
         jumpToPage: 'Jumpto Page $1',
+        pageJumpTitle: 'Page Jump',
         atBeginning: 'At Beginning',
         atEnd: 'At End',
         prevChapterTooltip: 'Previous Chapter: $1',

@@ -391,6 +391,54 @@ Lumina.Renderer.addPaginationNav = () => {
     
     Lumina.DOM.contentWrapper.appendChild(nav);
     Lumina.UI.setupPaginationTooltip?.(nav);
+
+    // PC 端：双击分页栏打开页码面板
+    nav.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        Lumina.Renderer.openPagePanel();
+    });
+
+    // 移动端：双指短按分页栏打开页码面板
+    let pagePanelTouchStartTime = 0;
+    let pagePanelTouchStartDist = 0;
+    let pagePanelTouchStartPos = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+
+    nav.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            pagePanelTouchStartTime = Date.now();
+            pagePanelTouchStartPos = [
+                { x: e.touches[0].clientX, y: e.touches[0].clientY },
+                { x: e.touches[1].clientX, y: e.touches[1].clientY }
+            ];
+            const dx = pagePanelTouchStartPos[0].x - pagePanelTouchStartPos[1].x;
+            const dy = pagePanelTouchStartPos[0].y - pagePanelTouchStartPos[1].y;
+            pagePanelTouchStartDist = Math.hypot(dx, dy);
+        }
+    }, { passive: true });
+
+    nav.addEventListener('touchend', (e) => {
+        if (pagePanelTouchStartTime === 0) return;
+        const duration = Date.now() - pagePanelTouchStartTime;
+        const changed = e.changedTouches;
+        // 判定：双指、短按(<500ms)、几乎没移动(<20px)
+        if (duration < 500 && changed.length >= 1) {
+            let maxMove = 0;
+            for (let i = 0; i < Math.min(changed.length, 2); i++) {
+                const start = pagePanelTouchStartPos[i];
+                if (start) {
+                    const move = Math.hypot(changed[i].clientX - start.x, changed[i].clientY - start.y);
+                    maxMove = Math.max(maxMove, move);
+                }
+            }
+            if (maxMove < 20) {
+                e.preventDefault();
+                e.stopPropagation();
+                Lumina.Renderer.openPagePanel();
+            }
+        }
+        pagePanelTouchStartTime = 0;
+    }, { passive: false });
 };
 
 // 页码生成逻辑（折叠中间）
@@ -421,6 +469,53 @@ Lumina.Renderer.generatePageNumbers = (current, total) => {
     }
     
     return pages;
+};
+
+// 打开分页扩展面板（显示当前章节全部页码）
+Lumina.Renderer.openPagePanel = () => {
+    const state = Lumina.State.app;
+    const chapter = state.chapters[state.currentChapterIndex];
+    if (!chapter) return;
+
+    const ranges = chapter.pageRanges || Lumina.Pagination.calculateRanges(chapter.items);
+    const totalPages = ranges.length;
+    const currentPage = state.currentPageIdx;
+
+    // 更新标题
+    const titleEl = document.getElementById('pagePanelTitle');
+    if (titleEl) {
+        titleEl.textContent = Lumina.I18n.t('pageJumpTitle') || '页码跳转';
+    }
+
+    // 渲染页码网格
+    const grid = document.getElementById('pagePanelGrid');
+    if (!grid) return;
+
+    let html = '';
+    if (totalPages <= 1) {
+        html += `<div style="color:var(--text-secondary);padding:24px 0;text-align:center;">${Lumina.I18n.t('singlePage') || '本章只有一页'}</div>`;
+    } else {
+        for (let i = 0; i < totalPages; i++) {
+            const isActive = i === currentPage;
+            html += `<button class="page-panel-btn ${isActive ? 'active' : ''}" ` +
+                    `onclick="Lumina.Actions.goToPageFromPanel(${i})" ` +
+                    `data-page="${i}">${i + 1}</button>`;
+        }
+    }
+    grid.innerHTML = html;
+
+    // 显示面板
+    const panel = document.getElementById('pagePanel');
+    if (panel) {
+        panel.classList.add('active');
+        // 视觉焦点：滚动到当前页按钮所在位置
+        requestAnimationFrame(() => {
+            const activeBtn = grid.querySelector('.page-panel-btn.active');
+            if (activeBtn) {
+                activeBtn.scrollIntoView({ block: 'center', behavior: 'instant' });
+            }
+        });
+    }
 };
 
 Lumina.Renderer.updateDocumentStyles = () => {

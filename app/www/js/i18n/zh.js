@@ -494,6 +494,7 @@ Lumina.I18n.data['zh'] = {
         lastPage: '最后一页',
         pageInfo: '第$1/$2页',
         jumpToPage: '跳转到第$1页',
+        pageJumpTitle: '页码跳转',
         atBeginning: '已经是开头',
         atEnd: '已经是结尾',
         prevChapterTooltip: '上一章：$1',

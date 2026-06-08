@@ -1195,6 +1195,7 @@ Lumina.BackButtonHandler = {
         
         // 优先级4: 关闭关于面板类 (z-index 200)
         const aboutPanels = [
+            document.getElementById('pagePanel'),
             document.getElementById('aboutPanel'),
             document.getElementById('cacheManagerPanel'),
             document.getElementById('regexHelpPanel'),

@@ -15,10 +15,12 @@
         <item name="android:background">@null</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowTranslucentNavigation">false</item>
-        <!-- 默认透明状态栏，由 JS 控制实际颜色 -->
+        <!-- 状态栏和导航栏颜色由 JS 动态控制 -->
         <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- 浅色状态栏图标（默认深色背景） -->
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 

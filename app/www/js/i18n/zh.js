@@ -17,6 +17,7 @@ Lumina.I18n.data['zh'] = {
         typography: '排版选项',
         indent: '首行缩进',
         dropCap: '首字下沉',
+        brightness: '明度',
         fontSize: '字号大小',
         lineHeight: '行间距',
         paragraphSpacing: '段落间距',

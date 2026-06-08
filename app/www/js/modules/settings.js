@@ -63,6 +63,7 @@ Lumina.Settings = {
             sidebarVisible: settings.sidebarVisible,
             chapterNumbering: settings.chapterNumbering,
             autoConvertSC: settings.autoConvertSC,
+            brightness: settings.brightness ?? 100,
         });
         
         // TTS 设置保存到新路径
@@ -116,6 +117,19 @@ Lumina.Settings = {
         });
     },
 
+    // 根据明度因子调整 #RRGGBB 颜色（与 CSS filter: brightness() 的 sRGB 乘法对齐）
+    adjustColorForBrightness(colorHex, factor) {
+        const hex = colorHex.replace('#', '');
+        if (hex.length !== 6) return colorHex;
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        const newR = Math.min(255, Math.max(0, Math.round(r * factor)));
+        const newG = Math.min(255, Math.max(0, Math.round(g * factor)));
+        const newB = Math.min(255, Math.max(0, Math.round(b * factor)));
+        return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+    },
+
     // 单独应用状态栏和导航栏颜色（用于 APP 从后台恢复时）
     applySystemBars() {
         const settings = Lumina.State.settings;
@@ -124,19 +138,22 @@ Lumina.Settings = {
         
         if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
             try {
-                // 方式1：Capacitor StatusBar 插件
+                // Capacitor StatusBar 插件（控制图标颜色）
                 const StatusBar = Capacitor.Plugins.StatusBar;
                 if (StatusBar && StatusBar.setStyle) {
                     const style = isDarkTheme ? 'DARK' : 'LIGHT';
                     StatusBar.setStyle({ style: style }).catch(() => {});
                 }
                 
-                // 方式2：直接通过 Android JSBridge 设置（更可靠，后台恢复时仍有效）
+                // Android JSBridge：按明度因子预先调整颜色，使原生系统栏与 WebView filter 渲染一致
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg) {
+                    const brightnessFactor = ((settings.brightness ?? 100) / 100);
+                    const adjustedBg = this.adjustColorForBrightness(bg, brightnessFactor);
+                    
                     if (window.NavigationBarInterface) {
-                        window.NavigationBarInterface.setNavigationBar(bg, !isDarkTheme);
-                        window.NavigationBarInterface.setStatusBar(bg, !isDarkTheme);
+                        window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDarkTheme);
+                        window.NavigationBarInterface.setStatusBar(adjustedBg, !isDarkTheme);
                     }
                 }
             } catch (e) {
@@ -152,9 +169,6 @@ Lumina.Settings = {
         document.documentElement.lang = settings.language;
         document.documentElement.setAttribute('data-theme', settings.theme);
         
-        // 设置状态栏与导航栏颜色（APP 环境）
-        this.applySystemBars();
-
         let savedScrollIndex = null;
         const wasReading = Lumina.State.app.document.items.length > 0 &&
             Lumina.DOM.contentWrapper.querySelector('.doc-line[data-index]');
@@ -170,6 +184,10 @@ Lumina.Settings = {
         document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`);
         document.documentElement.style.setProperty('--line-height', (settings.lineHeight / 10).toString());
         document.documentElement.style.setProperty('--paragraph-spacing', `${settings.paragraphSpacing / 10}em`);
+        document.documentElement.style.setProperty('--brightness', ((settings.brightness ?? 100) / 100).toString());
+        
+        // 设置状态栏与导航栏颜色（在 brightness 之后，确保颜色与 filter 一致）
+        this.applySystemBars();
 
         const isMobileView = Lumina.Utils.isMobile();
         document.documentElement.style.setProperty('--content-max-width', isMobileView ? '100%' : `${settings.pageWidth}%`);

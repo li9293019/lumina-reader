@@ -17,6 +17,7 @@ Lumina.I18n.data['en'] = {
         typography: 'Typography',
         indent: 'First Line Indent',
         dropCap: 'Drop Cap',
+        brightness: 'Brightness',
         fontSize: 'Font Size',
         lineHeight: 'Line Height',
         paragraphSpacing: 'Paragraph Spacing',

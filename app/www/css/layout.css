@@ -465,6 +465,9 @@ font-family: var(--font-mono);
 display: none;
 }
 
+html {
+filter: brightness(var(--brightness, 1));
+}
 #contentWrapper {
 -webkit-user-select: text;
 -moz-user-select: text;

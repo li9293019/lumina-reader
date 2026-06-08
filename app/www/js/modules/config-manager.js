@@ -58,6 +58,7 @@ Lumina.ConfigManager = {
                 paragraphSpacing: 3,
                 pageWidth: 80,
                 margin: 40,
+                brightness: 100,
                 ignoreEmptyLines: false,
                 textCleaning: true,
                 smoothScroll: true,

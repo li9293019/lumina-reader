@@ -38,22 +38,7 @@
 
 当 `html { filter: brightness(0.8) }` 生效时，WebView 内所有像素都会变暗。但 **Android 原生状态栏和导航栏是独立于 WebView 的渲染层**，CSS filter 无法穿透到原生组件。
 
-如果不做同步：
-
-```
-+-----------------------------+
-|  状态栏  <-- 亮色（未变暗）  |  <-- 色差明显
-+-----------------------------+
-|                             |
-|      WebView 内容           |  <-- 已变暗
-|      （受 filter 影响）      |
-|                             |
-+-----------------------------+
-|  导航栏  <-- 亮色（未变暗）  |  <-- 色差明显
-+-----------------------------+
-```
-
-因此需要前端计算调整后的颜色，通过 JSBridge 同步设置原生系统栏背景色，使其与 WebView 渲染效果一致。
+如果不做同步，状态栏和导航栏会保持原始颜色，与变暗的页面内容形成明显色差。因此需要前端计算调整后的颜色，通过 JSBridge 同步设置原生系统栏背景色，使其与 WebView 渲染效果一致。
 
 ---
 
@@ -80,26 +65,15 @@ html {
 
 ```
 settings.brightness (JS, 50~150)
-    +-- /100
+    -> /100
 --brightness (CSS 变量, 0.5~1.5)
-    +--
+    ->
 filter: brightness(var(--brightness, 1))
 ```
 
 `--brightness` 默认值 `1` 确保即使变量未定义也不会破坏布局。
 
 ### 2.3 滑块控制
-
-```html
-<!-- index.html -->
-<div class="slider-control" data-setting-slider="brightness" data-min="50" data-max="150" data-unit="%">
-    <div class="setting-label" data-i18n="brightness"></div>
-    <div class="slider-container">
-        <input type="range" class="slider">
-        <span class="slider-value"></span>
-    </div>
-</div>
-```
 
 复用现有 slider 控件系统，`data-setting-slider="brightness"` 自动绑定到 `Lumina.State.settings.brightness`。
 
@@ -111,11 +85,11 @@ filter: brightness(var(--brightness, 1))
 
 ```
 用户拖动滑块
-    +--
+    ->
 Lumina.State.settings.brightness 更新
-    +--
-Lumina.Settings.save() --> ConfigManager.set('reading', { brightness })
-    +--
+    ->
+Lumina.Settings.save() -> ConfigManager.set('reading', { brightness })
+    ->
 localStorage (luminaConfig)
 ```
 
@@ -139,18 +113,7 @@ reading: {
 
 ### 4.1 架构概览
 
-```
-前端 (WebView)
-    |-- 读取 --bg-primary
-    |-- 读取 settings.brightness
-    |-- adjustColorForBrightness(bg, factor) --> adjustedBg
-    +-- JSBridge --> setStatusBar(adjustedBg, lightIcons)
-                    setNavigationBar(adjustedBg, lightIcons)
-                        +--
-原生 (Android)
-    |-- window.setStatusBarColor(Color.parseColor(adjustedBg))
-    +-- window.setNavigationBarColor(Color.parseColor(adjustedBg))
-```
+前端读取 `--bg-primary` 和 `settings.brightness`，通过 `adjustColorForBrightness()` 计算调整后的颜色，经 JSBridge 同步给原生 `setStatusBarColor()` / `setNavigationBarColor()`。
 
 ### 4.2 颜色调整算法
 
@@ -191,7 +154,7 @@ this.applySystemBars();
 
 ### 4.4 图标颜色控制
 
-系统栏**文字/图标颜色**只能设置为 **浅色或深色**（Android/iOS 系统限制），无法自定义颜色：
+系统栏 **文字/图标颜色** 只能设置为 **浅色或深色**（Android/iOS 系统限制），无法自定义颜色：
 
 ```java
 // Android
@@ -237,38 +200,25 @@ window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
 
 ### 6.1 理想方案
 
-理论上，如果状态栏和导航栏都是透明的，WebView 内容延伸到它们下方，CSS `filter: brightness()` 会自动影响这些区域，无需任何颜色同步。
-
-```
-+-----------------------------+
-|  状态栏（透明）               | <-- 显示 WebView 内容（已 filter）
-+-----------------------------+
-|      WebView 内容             | <-- 已变暗
-+-----------------------------+
-|  导航栏（透明）               | <-- 显示 WebView 内容（已 filter）
-+-----------------------------+
-```
+如果状态栏和导航栏都是透明的，WebView 内容延伸到它们下方，CSS `filter: brightness()` 会自动影响这些区域，无需颜色同步。
 
 ### 6.2 尝试过程与失败原因
 
 | 尝试 | 方案 | 结果 | 失败原因 |
 |------|------|------|---------|
-| 1 | `windowTranslucentNavigation=true` | 黑色半透明遮罩 | Android 系统会给半透明导航栏强制叠加黑色背景 |
-| 2 | `FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS + Color.TRANSPARENT` | 白色背景 | WebView 未延伸到导航栏下方，透明后露出白色默认背景 |
-| 3 | + `SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION` | 同上 | WebView 渲染机制限制，延伸区域不渲染页面内容 |
-| 4 | + `WindowCompat.setDecorFitsSystemWindows(false)` | 白色背景 | 虽然 WebView 延伸了，但 CSS filter 不影响延伸区域 |
+| 1 | `windowTranslucentNavigation=true` | 黑色半透明遮罩 | Android 系统强制叠加黑色背景 |
+| 2 | `FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS + Color.TRANSPARENT` | 白色背景 | WebView 未延伸到导航栏下方 |
+| 3 | + `SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION` | 同上 | 延伸区域不渲染页面内容 |
+| 4 | + `WindowCompat.setDecorFitsSystemWindows(false)` | 白色背景 | CSS filter 不影响延伸区域 |
 
 ### 6.3 为什么状态栏透明可以而导航栏不行
 
-- **状态栏**：`styles.xml` 中默认 `statusBarColor="@android:color/transparent"`，且 WebView 天然延伸到状态栏下方（Capacitor 默认行为），CSS filter 正常覆盖。
-- **导航栏**：Android 对导航栏的透明处理更严格。`windowTranslucentNavigation` 会强制叠加黑色半透明层；`setNavigationBarColor(TRANSPARENT)` 需要配合 `setDecorFitsSystemWindows(false)`，但即使延伸了，WebView 在导航栏区域的渲染内容不保证受 CSS filter 影响。
+- **状态栏**：Capacitor 默认行为使 WebView 延伸到状态栏下方，CSS filter 正常覆盖。
+- **导航栏**：Android 对导航栏透明处理更严格，`windowTranslucentNavigation` 强制叠加黑色层；`setNavigationBarColor(TRANSPARENT)` 即使配合延伸 API，WebView 在导航栏区域的渲染内容也不保证受 CSS filter 影响。
 
 ### 6.4 最终决策
 
-放弃透明方案，采用**颜色同步方案**：
-- 前端按明度因子计算调整后的颜色
-- 通过 JSBridge 同步给原生系统栏
-- 状态栏和导航栏行为一致
+放弃透明方案，采用 **颜色同步方案**：前端计算调整后的颜色，经 JSBridge 同步给原生系统栏。
 
 ---
 
@@ -276,21 +226,21 @@ window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
 
 ### 7.1 色差限制
 
-RGB 乘法算法与 CSS `filter: brightness()` 在数学上是对齐的，但实际显示可能存在**微小色差**，原因包括：
+RGB 乘法算法与 CSS `filter: brightness()` 在数学上对齐，但实际显示可能存在 **微小色差**，原因包括：
 
-- WebView GPU 渲染管线的 gamma 曲线与原生颜色渲染管线的细微差异
-- 不同 Android 版本/厂商系统对 `setStatusBarColor`/`setNavigationBarColor` 的实现差异
-- OLED 屏幕的像素自发光特性导致暗色区域的视觉差异
+- WebView GPU 渲染管线与原生颜色渲染管线的 gamma 差异
+- 不同 Android 版本/厂商系统的实现差异
+- OLED 屏幕像素自发光特性
 
-**结论**：普通模式下色差通常在可接受范围内；极端明度值（< 60% 或 > 130%）色差可能更明显。
+**结论**：普通模式下色差可接受；极端明度值（< 60% 或 > 130%）色差可能更明显。
 
 ### 7.2 系统栏图标颜色限制
 
-状态栏和导航栏的文字/图标颜色**只能为浅色或深色**，无法设置为自定义颜色（如红色、蓝色图标）。这是 Android 和 iOS 的原生 API 限制，非技术栈问题。
+状态栏和导航栏文字/图标颜色 **只能为浅色或深色**，无法自定义。这是 Android/iOS 原生 API 限制。
 
 ### 7.3 沉浸模式限制
 
-沉浸模式下导航栏使用半透明背景（alpha=40），此时 WebView 内容会部分透过来。如果页面底部有复杂图案或文字，可能与导航栏按钮产生视觉冲突。`safe-area.js` 会确保内容不被遮挡，但视觉层面的融合无法完全消除。
+沉浸模式下导航栏使用半透明背景（alpha=40），WebView 内容会部分透过来。如果页面底部有复杂图案，可能与导航栏按钮产生视觉冲突。
 
 ---
 
@@ -302,12 +252,12 @@ RGB 乘法算法与 CSS `filter: brightness()` 在数学上是对齐的，但实
 
 1. `settings.js` 中 `applySystemBars()` 是否在 `--brightness` 设置之后调用
 2. `adjustColorForBrightness()` 是否使用了正确的 `factor`
-3. `MainActivity.java` 中 `applyNavigationBar()` 是否正常执行（无异常日志）
-4. `ui.js` 沉浸模式下的导航栏设置是否使用了 `adjustedBg` 而非原始 `bg`
+3. `MainActivity.java` 中 `applyNavigationBar()` 是否正常执行
+4. `ui.js` 沉浸模式下的导航栏设置是否使用了 `adjustedBg`
 
 ### 8.2 底部出现白条
 
-如果 `filter: brightness()` 放在 `body` 上而非 `html` 上，会干扰 WebView 安全区域计算。检查 `layout.css`：
+检查 `layout.css`，确保 `filter` 在 `html` 上而非 `body` 上：
 
 ```css
 /* 正确 */
@@ -319,8 +269,30 @@ body { filter: brightness(var(--brightness, 1)); }
 
 ### 8.3 从后台恢复后颜色丢失
 
-`MainActivity.onResume()` 会延迟 200ms 后恢复保存的系统栏颜色。如果恢复逻辑异常，检查：
+检查 `MainActivity.onResume()` 中的延迟恢复逻辑，以及 `init.js` 中的 `appStateChange` / `visibilitychange` 监听器。
 
-- `lastStatusBarColor` / `lastNavBarColor` 是否正确保存
-- `onResume()` 中的 `applyStatusBar()` / `applyNavigationBar()` 调用是否成功
-- `init.js` 中的 `appStateChange` 和 `visibilitychange` 监听
+### 8.4 日志定位
+
+```javascript
+// 前端
+console.warn('[Settings] applySystemBars 失败:', e);
+
+// 原生
+Log.e(TAG, "applyNavigationBar failed: " + e.getMessage());
+Log.e(TAG, "applyStatusBar failed: " + e.getMessage());
+```
+
+---
+
+## 附录：关键文件速查
+
+| 文件 | 职责 |
+|------|------|
+| `app/www/css/layout.css` | `html { filter: brightness(var(--brightness)) }` |
+| `app/www/index.html` | 明度滑块 DOM |
+| `app/www/js/modules/settings.js` | `adjustColorForBrightness()`, `applySystemBars()` |
+| `app/www/js/modules/config-manager.js` | `brightness: 100` 默认值 |
+| `app/www/js/modules/ui.js` | 沉浸模式导航栏颜色 |
+| `app/www/js/i18n/zh.js` / `zh-TW.js` / `en.js` | `brightness` 翻译键 |
+| `app/android/.../MainActivity.java` | `applyStatusBar()`, `applyNavigationBar()`, `NavigationBarInterface` |
+| `app/android/app/src/main/res/values/styles.xml` | `statusBarColor` / `navigationBarColor` 初始值 |

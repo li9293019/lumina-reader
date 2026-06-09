@@ -481,6 +481,8 @@ Lumina.Renderer.openPagePanel = () => {
     const totalPages = ranges.length;
     const currentPage = state.currentPageIdx;
 
+    if (totalPages < 7) return;
+
     // 更新标题
     const titleEl = document.getElementById('pagePanelTitle');
     if (titleEl) {
@@ -492,15 +494,11 @@ Lumina.Renderer.openPagePanel = () => {
     if (!grid) return;
 
     let html = '';
-    if (totalPages <= 1) {
-        html += `<div style="color:var(--text-secondary);padding:24px 0;text-align:center;">${Lumina.I18n.t('singlePage') || '本章只有一页'}</div>`;
-    } else {
-        for (let i = 0; i < totalPages; i++) {
-            const isActive = i === currentPage;
-            html += `<button class="page-panel-btn ${isActive ? 'active' : ''}" ` +
-                    `onclick="Lumina.Actions.goToPageFromPanel(${i})" ` +
-                    `data-page="${i}">${i + 1}</button>`;
-        }
+    for (let i = 0; i < totalPages; i++) {
+        const isActive = i === currentPage;
+        html += `<button class="page-panel-btn ${isActive ? 'active' : ''}" ` +
+                `onclick="Lumina.Actions.goToPageFromPanel(${i})" ` +
+                `data-page="${i}">${i + 1}</button>`;
     }
     grid.innerHTML = html;
 

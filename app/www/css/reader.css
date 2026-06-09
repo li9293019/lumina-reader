@@ -323,12 +323,13 @@ font-family: var(--font-mono);
     padding: 20px !important;
     overflow-y: auto !important;
     max-height: 60vh;
+    display: flex;
 }
 .page-panel-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    justify-content: center;
+    justify-content: space-between;
     padding-top: 8px;
 }
 .page-panel-btn {
@@ -362,7 +363,6 @@ font-family: var(--font-mono);
     color: white;
     border-color: var(--accent-color);
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 @media (max-width: 768px) {
     .page-panel-content {

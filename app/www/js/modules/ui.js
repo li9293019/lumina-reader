@@ -1297,8 +1297,9 @@ Lumina.UI = {
         let initialFontSize = 0;
         let lastScale = 1;
         let pinchStartTime = 0;
+        let tripleTapStartTime = 0;
         // 暴露到全局，供其他模块检查双指缩放状态
-        window.LuminaPinchState = { isPinching: false };
+        window.LuminaPinchState = { isPinching: false, isTripleTap: false };
         
         const MIN_FONT_SIZE = 14;
         const MAX_FONT_SIZE = 32;
@@ -1383,6 +1384,11 @@ Lumina.UI = {
                 
                 e.preventDefault();
                 e.stopPropagation();
+            } else if (e.touches.length === 3) {
+                window.LuminaPinchState.isTripleTap = true;
+                tripleTapStartTime = Date.now();
+                console.log('[PinchZoom] 三指按下，准备短按检测');
+                // 不阻止默认行为，避免与系统三指手势（截屏等）冲突
             }
         }, { passive: false });
         
@@ -1406,25 +1412,40 @@ Lumina.UI = {
             }
         }, { passive: false });
         
-        // 触摸结束 - 关键修复：使用 lastScale 而不是重新计算
+        // 触摸结束
         readingArea.addEventListener('touchend', (e) => {
+            // 优先处理三指短按
+            if (window.LuminaPinchState.isTripleTap) {
+                if (e.touches.length < 3) {
+                    const tapDuration = Date.now() - tripleTapStartTime;
+                    window.LuminaPinchState.isTripleTap = false;
+                    console.log('[PinchZoom] 三指抬起，持续时间:', tapDuration, 'ms');
+                    
+                    // 三指短按重置字号：三指按下很快抬起（< 350ms），重置为默认字号
+                    if (tapDuration < 350) {
+                        const defaultFontSize = Lumina.Config?.defaultSettings?.fontSize || 20;
+                        const finalSize = applyFontSize(defaultFontSize);
+                        showFontSizeToast(finalSize);
+                        console.log('[PinchZoom] 三指短按触发，恢复默认字号:', finalSize);
+                    }
+                    
+                    // 三指操作期间可能同时激活了双指状态，一并重置避免后续 touchend 误触发
+                    if (window.LuminaPinchState.isPinching) {
+                        window.LuminaPinchState.isPinching = false;
+                        initialPinchDistance = 0;
+                        lastScale = 1;
+                    }
+                }
+                return; // 已处理三指，不再执行双指逻辑
+            }
+            
             if (window.LuminaPinchState.isPinching) {
                 // 双指变单指或全部抬起
                 if (e.touches.length < 2) {
-                    const pinchDuration = Date.now() - pinchStartTime;
                     window.LuminaPinchState.isPinching = false;
                     
-                    // 7.3 双指短按重置字号：双指按下很快抬起（< 300ms）且几乎没移动，重置为默认字号
-                    const defaultFontSize = Lumina.Config?.defaultSettings?.fontSize || 20;
-                    const isQuickTap = pinchDuration < 300; // 短按判定：小于300ms
-                    const isMinimalMove = lastScale >= 0.95 && lastScale <= 1.05; // 几乎没移动
-                    
-                    if (isQuickTap && isMinimalMove) {
-                        // 短按重置字号
-                        const finalSize = applyFontSize(defaultFontSize);
-                        showFontSizeToast(finalSize);
-                    } else if (lastScale > 0 && initialFontSize > 0 && !isQuickTap) {
-                        // 有效缩放（不是短按），应用新字号
+                    if (lastScale > 0 && initialFontSize > 0) {
+                        // 有效缩放，应用新字号
                         const finalSize = applyFontSize(initialFontSize * lastScale);
                         showFontSizeToast(finalSize);
                     } else {
@@ -1439,8 +1460,22 @@ Lumina.UI = {
             }
         });
         
-        // 触摸取消
+        // 触摸取消（系统手势介入时可能触发 touchcancel 而非 touchend）
         readingArea.addEventListener('touchcancel', () => {
+            // 三指短按备选：部分系统在三指截屏等手势时会发送 touchcancel
+            if (window.LuminaPinchState.isTripleTap) {
+                const tapDuration = Date.now() - tripleTapStartTime;
+                window.LuminaPinchState.isTripleTap = false;
+                console.log('[PinchZoom] touchcancel，三指持续时间:', tapDuration, 'ms');
+                
+                if (tapDuration < 350) {
+                    const defaultFontSize = Lumina.Config?.defaultSettings?.fontSize || 20;
+                    const finalSize = applyFontSize(defaultFontSize);
+                    showFontSizeToast(finalSize);
+                    console.log('[PinchZoom] touchcancel 触发三指短按，恢复默认字号:', finalSize);
+                }
+            }
+            
             if (window.LuminaPinchState.isPinching) {
                 window.LuminaPinchState.isPinching = false;
                 // 恢复原字体

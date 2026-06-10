@@ -150,8 +150,8 @@ Lumina.Annotations = {
             contentArea.addEventListener('touchstart', (e) => {
                 // 写死单指操作：只有单指触摸才触发标注
                 if (e.touches.length !== 1) return;
-                // 双指缩放时不触发标注
-                if (window.LuminaPinchState?.isPinching) return;
+                // 双指缩放或三指短按时不触发标注
+                if (window.LuminaPinchState?.isPinching || window.LuminaPinchState?.isTripleTap) return;
                 // 排除页码导航区域
                 if (e.target.closest('.pagination-nav, .pagination-main, .pagination-arrow, .pagination-num')) {
                     return;
@@ -374,6 +374,12 @@ Lumina.Annotations = {
         
         // 必须在 contentWrapper 内
         if (el.closest('#contentWrapper') === null) return false;
+        
+        // 排除欢迎页面（未打开文档时不应触发批注）
+        if (el.closest('#welcomeScreen')) return false;
+        
+        // 必须有打开的文档
+        if (!Lumina.State.app.document.items.length) return false;
         
         // 排除页码导航区域
         if (el.closest('.pagination-nav, .pagination-main, .pagination-arrow, .pagination-num, .pagination-pages, .pagination-ellipsis')) {

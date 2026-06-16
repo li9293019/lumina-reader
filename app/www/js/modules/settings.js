@@ -156,7 +156,7 @@ Lumina.Settings = {
                         if (isImmersive) {
                             // 沉浸模式：状态栏/导航栏半透明，状态栏下方是复杂文字，需要更高不透明度
                             window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 120, !isDarkTheme);
-                            window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 140, !isDarkTheme);
+                            window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 180, !isDarkTheme);
                         } else {
                             window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDarkTheme);
                             window.NavigationBarInterface.setStatusBar(adjustedBg, !isDarkTheme);

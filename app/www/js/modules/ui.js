@@ -1027,7 +1027,7 @@ Lumina.UI = {
                         const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
                         // 状态栏与导航栏半透明：状态栏下方是复杂文字，需要更高不透明度
                         window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 120, !isDark);
-                        window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 140, !isDark);
+                        window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 180, !isDark);
                     }
                 }
                 showHint(true);

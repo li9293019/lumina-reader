@@ -150,10 +150,17 @@ Lumina.Settings = {
                 if (bg) {
                     const brightnessFactor = ((settings.brightness ?? 100) / 100);
                     const adjustedBg = this.adjustColorForBrightness(bg, brightnessFactor);
+                    const isImmersive = Lumina.State.app.ui.isImmersive;
                     
                     if (window.NavigationBarInterface) {
-                        window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDarkTheme);
-                        window.NavigationBarInterface.setStatusBar(adjustedBg, !isDarkTheme);
+                        if (isImmersive) {
+                            // 沉浸模式：状态栏/导航栏半透明，状态栏下方是复杂文字，需要更高不透明度
+                            window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 120, !isDarkTheme);
+                            window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 140, !isDarkTheme);
+                        } else {
+                            window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDarkTheme);
+                            window.NavigationBarInterface.setStatusBar(adjustedBg, !isDarkTheme);
+                        }
                     }
                 }
             } catch (e) {

@@ -10,8 +10,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.JavascriptInterface;
+import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -172,10 +176,15 @@ public class MainActivity extends BridgeActivity {
     // 保存最后一次设置的状态栏/导航栏颜色配置（用于后台恢复时重新应用）
     private String lastStatusBarColor = null;
     private boolean lastStatusBarLightIcons = false;
+    private boolean lastStatusBarTranslucent = false;
+    private int lastStatusBarAlpha = 255;
     private String lastNavBarColor = null;
     private boolean lastNavBarLightIcons = false;
     private boolean lastNavBarTranslucent = false;
     private int lastNavBarAlpha = 255;
+    
+    // 自定义状态栏半透明遮罩（解决 Android 系统不绘制半透明状态栏背景的问题）
+    private View statusBarOverlay = null;
 
     public class NavigationBarInterface {
         @JavascriptInterface
@@ -199,8 +208,73 @@ public class MainActivity extends BridgeActivity {
         public void setStatusBar(String colorHex, boolean lightIcons) {
             lastStatusBarColor = colorHex;
             lastStatusBarLightIcons = lightIcons;
+            lastStatusBarTranslucent = false;
             applyStatusBar(colorHex, lightIcons);
         }
+
+        @JavascriptInterface
+        public void setStatusBarTranslucent(String colorHex, int alpha, boolean lightIcons) {
+            lastStatusBarColor = colorHex;
+            lastStatusBarLightIcons = lightIcons;
+            lastStatusBarTranslucent = true;
+            lastStatusBarAlpha = alpha;
+            applyStatusBarTranslucent(colorHex, alpha, lightIcons);
+        }
+
+        @JavascriptInterface
+        public void setImmersiveLayout(boolean immersive) {
+            applyImmersiveLayout(immersive);
+        }
+    }
+
+    private void applyImmersiveLayout(boolean immersive) {
+        runOnUiThread(() -> {
+            try {
+                android.view.Window window = getWindow();
+                android.view.View decorView = window.getDecorView();
+                if (immersive) {
+                    // 让 WebView 内容延伸到状态栏和导航栏下方，但保持系统栏可见
+                    decorView.setSystemUiVisibility(
+                        android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    );
+                } else {
+                    decorView.setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+                    // 退出沉浸时隐藏自定义状态栏遮罩
+                    if (statusBarOverlay != null) {
+                        statusBarOverlay.setVisibility(View.GONE);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "applyImmersiveLayout failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private int getStatusBarHeight() {
+        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            return getResources().getDimensionPixelSize(resourceId);
+        }
+        return 0;
+    }
+
+    private void ensureStatusBarOverlay() {
+        if (statusBarOverlay != null) return;
+        ViewGroup contentView = findViewById(android.R.id.content);
+        if (contentView == null) return;
+        statusBarOverlay = new View(this);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            getStatusBarHeight()
+        );
+        params.gravity = Gravity.TOP;
+        statusBarOverlay.setLayoutParams(params);
+        statusBarOverlay.setClickable(false);
+        statusBarOverlay.setFocusable(false);
+        statusBarOverlay.setVisibility(View.GONE);
+        contentView.addView(statusBarOverlay);
     }
 
     private void applyNavigationBar(String navBarColor, boolean navBarLightIcons) {
@@ -250,11 +324,49 @@ public class MainActivity extends BridgeActivity {
                 window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
                 window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                 window.setStatusBarColor(android.graphics.Color.parseColor(colorHex));
+                // 实色模式下隐藏自定义状态栏遮罩
+                if (statusBarOverlay != null) {
+                    statusBarOverlay.setVisibility(View.GONE);
+                }
                 WindowInsetsControllerCompat controller =
                     new WindowInsetsControllerCompat(window, decorView);
                 controller.setAppearanceLightStatusBars(lightIcons);
             } catch (Exception e) {
                 Log.e(TAG, "applyStatusBar failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private void applyStatusBarTranslucent(String colorHex, int alpha, boolean lightIcons) {
+        runOnUiThread(() -> {
+            try {
+                android.view.Window window = getWindow();
+                android.view.View decorView = window.getDecorView();
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                int color = android.graphics.Color.parseColor(colorHex);
+                int r = android.graphics.Color.red(color);
+                int g = android.graphics.Color.green(color);
+                int b = android.graphics.Color.blue(color);
+                // 系统状态栏背景设为透明，由自定义 View 精确控制半透明效果
+                window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+                // 使用自定义 View 作为状态栏半透明背景，解决系统不绘制半透明状态栏背景的问题
+                ensureStatusBarOverlay();
+                if (statusBarOverlay != null) {
+                    // 更新高度（旋转屏幕后可能变化）
+                    android.view.ViewGroup.LayoutParams params = statusBarOverlay.getLayoutParams();
+                    if (params != null) {
+                        params.height = getStatusBarHeight();
+                        statusBarOverlay.setLayoutParams(params);
+                    }
+                    statusBarOverlay.setBackgroundColor(android.graphics.Color.argb(alpha, r, g, b));
+                    statusBarOverlay.setVisibility(View.VISIBLE);
+                }
+                WindowInsetsControllerCompat controller =
+                    new WindowInsetsControllerCompat(window, decorView);
+                controller.setAppearanceLightStatusBars(lightIcons);
+            } catch (Exception e) {
+                Log.e(TAG, "applyStatusBarTranslucent failed: " + e.getMessage());
             }
         });
     }
@@ -267,8 +379,12 @@ public class MainActivity extends BridgeActivity {
         mainHandler.postDelayed(() -> {
             try {
                 if (lastStatusBarColor != null) {
-                    applyStatusBar(lastStatusBarColor, lastStatusBarLightIcons);
-                    Log.d(TAG, "onResume 恢复状态栏颜色: " + lastStatusBarColor + " light=" + lastStatusBarLightIcons);
+                    if (lastStatusBarTranslucent) {
+                        applyStatusBarTranslucent(lastStatusBarColor, lastStatusBarAlpha, lastStatusBarLightIcons);
+                    } else {
+                        applyStatusBar(lastStatusBarColor, lastStatusBarLightIcons);
+                    }
+                    Log.d(TAG, "onResume 恢复状态栏颜色: " + lastStatusBarColor + " light=" + lastStatusBarLightIcons + " translucent=" + lastStatusBarTranslucent);
                 }
                 if (lastNavBarColor != null) {
                     if (lastNavBarTranslucent) {

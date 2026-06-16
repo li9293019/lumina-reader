@@ -57,7 +57,13 @@ transition: transform 0.35s var(--ease-out-expo),
     padding-top 0.35s ease;
 }
 @media (max-width:768px) {
+    :root {
+        --header-height: 48px;
+        --header-offset: 48px;
+    }
+
     .top-bar {
+        height: calc(48px + var(--safe-area-top, 0px));
         padding-left: 8px;
         padding-right: 8px;
     }
@@ -308,6 +314,7 @@ body.immersive-mode {
 }
 body.immersive-mode .main-frame {
 padding-top: 0;
+padding-bottom: 0;
 }
 body.immersive-mode .top-bar {
 transform: translateY(-100%);
@@ -335,8 +342,8 @@ transition: transform 0.4s var(--ease-out-expo);
 }
 body.immersive-mode .sidebar-left,
 body.immersive-mode .panel {
-top: var(--safe-area-top, 0px);
-height: calc(100vh - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
+top: 0;
+height: 100vh;
 transition: top 0.35s var(--ease-out-expo), height 0.35s var(--ease-out-expo);
 }
 

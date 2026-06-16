@@ -1000,7 +1000,8 @@ Lumina.UI = {
             if (state.isImmersive) {
                 // 进入沉浸
                 document.body.classList.add('immersive-mode');
-                document.documentElement.requestFullscreen?.().catch(() => {});
+                // 使用原生沉浸布局替代 requestFullscreen，确保系统栏保持半透明可见
+                window.NavigationBarInterface?.setImmersiveLayout(true);
                 // 关闭所有面板
                 Lumina.DOM.sidebarRight?.classList.remove('open');
                 Lumina.DOM.historyPanel?.classList.remove('open');
@@ -1016,7 +1017,7 @@ Lumina.UI = {
                 if (window.toggleImmersiveSafeArea) {
                     window.toggleImmersiveSafeArea(true);
                 }
-                // 导航栏半透明：主题色按明度调整后 + 低透明度，内容延伸到下方
+                // 状态栏与导航栏半透明：主题色按明度调整后 + 低透明度，内容延伸到下方
                 if (window.NavigationBarInterface) {
                     const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
                     const isDark = darkThemes.includes(Lumina.State.settings.theme);
@@ -1024,14 +1025,16 @@ Lumina.UI = {
                     if (bg) {
                         const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
                         const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
-                        window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 40, !isDark);
+                        // 状态栏与导航栏半透明：状态栏下方是复杂文字，需要更高不透明度
+                        window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 120, !isDark);
+                        window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 140, !isDark);
                     }
                 }
                 showHint(true);
             } else {
                 // 退出沉浸
                 document.body.classList.remove('immersive-mode');
-                document.exitFullscreen?.().catch(() => {});
+                window.NavigationBarInterface?.setImmersiveLayout(false);
                 showHint(false);
                 // 恢复安全区域
                 if (window.toggleImmersiveSafeArea) {
@@ -1039,42 +1042,20 @@ Lumina.UI = {
                 } else if (window.SafeArea) {
                     window.SafeArea.apply();
                 }
-                // 恢复导航栏配色（按明度调整）
+                // 恢复状态栏与导航栏配色（按明度调整）
                 const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
                 const isDark = darkThemes.includes(Lumina.State.settings.theme);
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg && window.NavigationBarInterface) {
                     const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
                     const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
+                    window.NavigationBarInterface.setStatusBar(adjustedBg, !isDark);
                     window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
                 }
             }
         };
         
-        // 监听全屏变化（用户按 ESC 或系统手势退出时同步）
-        document.addEventListener('fullscreenchange', () => {
-            const state = Lumina.State.app.ui;
-            if (!document.fullscreenElement && state.isImmersive) {
-                state.isImmersive = false;
-                document.body.classList.remove('immersive-mode');
-                // 恢复安全区域（底部边距）
-                if (window.toggleImmersiveSafeArea) {
-                    window.toggleImmersiveSafeArea(false);
-                } else if (window.SafeArea) {
-                    window.SafeArea.apply();
-                }
-                // 恢复导航栏配色（按明度调整）
-                const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
-                const isDark = darkThemes.includes(Lumina.State.settings.theme);
-                const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
-                if (bg && window.NavigationBarInterface) {
-                    const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
-                    const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
-                    window.NavigationBarInterface.setNavigationBar(adjustedBg, !isDark);
-                }
-            }
-        });
-        
+
         // 触摸开始 - 绑定在阅读区
         readingArea.addEventListener('touchstart', (e) => {
             // 排除交互元素：按钮、输入框、文本域、链接、图片（放大查看）、可编辑元素

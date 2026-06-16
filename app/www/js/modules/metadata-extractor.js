@@ -179,7 +179,20 @@ Lumina.Parser.MetadataExtractor = {
             }
         }
         
-        // 2. EPUB/DOCX metadata
+        // 2. lwN manifest metadata（Lumina 自有格式，优先级最高）
+        if (parseResult?._lwMeta) {
+            const meta = parseResult._lwMeta;
+            candidates.push({
+                meta: {
+                    title: meta.title || meta.frontmatter?.title || null,
+                    author: meta.frontmatter?.author || null
+                },
+                source: 'lw-manifest',
+                priority: 6
+            });
+        }
+        
+        // 3. EPUB/DOCX metadata
         if (parseResult?.epubMetadata) {
             candidates.push({
                 meta: {
@@ -205,7 +218,7 @@ Lumina.Parser.MetadataExtractor = {
             });
         }
         
-        // 3. 文件名提取
+        // 4. 文件名提取
         const fileNameMeta = this.extractFromFileName(fileName);
         candidates.push({
             meta: fileNameMeta,
@@ -214,7 +227,7 @@ Lumina.Parser.MetadataExtractor = {
             _collectionSource: fileNameMeta._collectionSource || false  // 传递标记
         });
         
-        // 4. 文档结构
+        // 5. 文档结构
         if (parseResult?.items?.length > 0) {
             candidates.push({
                 meta: this.extractFromStructure(parseResult.items),
@@ -272,6 +285,7 @@ Lumina.Parser.MetadataExtractor = {
         // 逐行解析元数据区块（直到遇到结束标记）
         let inDescription = false;
         let descLines = [];
+        let heuristicAuthor = null;  // 标题后下一行启发式作者候选
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -286,6 +300,22 @@ Lumina.Parser.MetadataExtractor = {
                     const cleaned = this.cleanTitle(strippedLine);
                     if (cleaned && cleaned.length <= 50) {
                         result.title = cleaned;
+                        
+                        // 标题后的下一行作为作者候选（启发式）
+                        if (!result.author && i + 1 < lines.length) {
+                            const nextLine = lines[i + 1];
+                            const strippedNext = this.stripInlineMarkdown(nextLine);
+                            if (strippedNext.length <= 20 &&
+                                !this.isChapterTitle(strippedNext) &&
+                                !/^\d{4}[-年/]|^\d{4}$/.test(strippedNext) &&
+                                !/^(?:https?:\/\/|www\.)/i.test(strippedNext) &&
+                                !/^[#\-=\*]/.test(strippedNext)) {
+                                const authorCandidate = this.cleanAuthor(strippedNext);
+                                if (this.isValidAuthor(authorCandidate)) {
+                                    heuristicAuthor = authorCandidate;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -358,6 +388,11 @@ Lumina.Parser.MetadataExtractor = {
         
         // 标签去重（保留顺序）
         result.tags = [...new Set(result.tags)].slice(0, 20);
+        
+        // 没有明确作者标记时，使用标题后下一行的启发式候选
+        if (!result.author && heuristicAuthor) {
+            result.author = heuristicAuthor;
+        }
         
         return result;
     },
@@ -497,8 +532,11 @@ Lumina.Parser.MetadataExtractor = {
     extractTags(line) {
         const tags = [];
         
-        // 格式1: #标签1 #标签2
-        const hashTags = line.match(/#([\w\u4e00-\u9fa5]+(?:\s[\w\u4e00-\u9fa5]+)?)/g);
+        // 排除 Markdown 标题行（# 标题 / ## 标题 等），避免把标题误当标签
+        if (/^#{1,6}\s+/.test(line)) return tags;
+        
+        // 格式1: #标签1 #标签2（严格匹配 # 后紧跟的单词/中文字符，避免吞掉正文）
+        const hashTags = line.match(/#([\w\u4e00-\u9fa5]+)/g);
         if (hashTags) {
             hashTags.forEach(tag => {
                 const clean = tag.slice(1).trim(); // 去掉#
@@ -518,17 +556,6 @@ Lumina.Parser.MetadataExtractor = {
             parts.forEach(tag => {
                 if (tag && !this.TAG_FILTER.includes(tag.toLowerCase())) {
                     tags.push(tag);
-                }
-            });
-        }
-        
-        // 格式3: #标签1, #标签2（逗号分隔的hash标签）
-        const commaHashMatch = line.match(/^(#[^#]+)$/);
-        if (commaHashMatch) {
-            line.split(/[,，]/).forEach(part => {
-                const clean = part.trim().replace(/^#/, '');
-                if (clean && !this.TAG_FILTER.includes(clean.toLowerCase())) {
-                    tags.push(clean);
                 }
             });
         }
@@ -691,8 +718,8 @@ Lumina.Parser.MetadataExtractor = {
     stripInlineMarkdown(text) {
         if (!text || typeof text !== 'string') return text;
         return text
-            .replace(/(\\*\\*|__)(.*?)\1/g, '$2')
-            .replace(/(\\*|_)(.*?)\1/g, '$2')
+            .replace(/(\*\*|__)(.*?)\1/g, '$2')
+            .replace(/(\*|_)(.*?)\1/g, '$2')
             .replace(/`([^`]+)`/g, '$1')
             .replace(/~~(.*?)~~/g, '$1')
             .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')

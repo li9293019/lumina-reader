@@ -688,4 +688,4 @@ const logger = {
 
 // 全局导出
 window.logger = logger;
-console.log('[logger] 日志系统已加载');
+// console.log('[logger] 日志系统已加载');

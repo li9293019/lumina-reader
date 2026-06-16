@@ -1,5 +1,4 @@
 // ==================== 20. 初始化入口 ====================
-console.log('[Init] module loaded v2.1.8');
 
 Lumina.init = async () => {
     const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
@@ -41,12 +40,12 @@ Lumina.init = async () => {
         // 优先使用 <script> 预加载的 version.js（解决 file:// 模式下 fetch 的 CORS 问题）
         if (typeof window.AppVersion !== 'undefined' && window.AppVersion?.version) {
             versionData = window.AppVersion;
-            console.log('[Init] 版本已从 version.js 同步');
+            // console.log('[Init] 版本已从 version.js 同步');
         } else {
             const versionRes = await fetch('version.json', { cache: 'no-store' });
             if (versionRes.ok) {
                 versionData = await versionRes.json();
-                console.log('[Init] 版本已从 version.json 同步');
+                // console.log('[Init] 版本已从 version.json 同步');
             }
         }
         if (versionData?.version) {
@@ -55,7 +54,7 @@ Lumina.init = async () => {
             Lumina.Config.version.minor = parts[1] || 0;
             Lumina.Config.version.patch = parts[2] || 0;
             Lumina.Config.version.build = versionData.build || Lumina.Config.version.build;
-            console.log('[Init] 版本已同步:', Lumina.Config.version.toString());
+            // console.log('[Init] 版本已同步:', Lumina.Config.version.toString());
         }
     } catch (e) {
         console.log('[Init] 读取 version.json 失败，使用内置版本');
@@ -199,8 +198,8 @@ Lumina.init = async () => {
     // 额外使用 document.visibilitychange 作为备用恢复机制
     // 在某些深度休眠场景下，Capacitor 的 appStateChange 事件可能不可靠
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            console.log('[Init] 页面重新可见，恢复状态栏/导航栏颜色');
+        if (typeof Capacitor !== 'undefined' && !document.hidden) {
+            // console.log('[Init] 页面重新可见，恢复状态栏/导航栏颜色');
             [100, 300, 600].forEach(delay => {
                 setTimeout(() => {
                     if (Lumina.Settings && Lumina.Settings.applySystemBars) {

@@ -105,4 +105,4 @@ const FileExporter = {
 
 // 挂载到全局
 window.FileExporter = FileExporter;
-console.log('[Exporter] 桥接模块已加载，APP 环境:', isNative);
+//console.log('[Exporter] 桥接模块已加载，APP 环境:', isNative);

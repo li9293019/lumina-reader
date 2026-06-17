@@ -113,6 +113,13 @@ Lumina.ConfigManager = {
                 geoPattern: true,  // 启用几何图案（默认开启）
             },
             
+            // ========== 7.5 阅读分享卡片设置 ==========
+            shareCard: {
+                exportQuality: 'high',   // 导出质量：'standard' | 'high' | 'ultra'
+                roundedCorners: true,    // 是否使用圆角样式
+                watermark: '',           // 自定义水印内容（空则使用默认）
+            },
+            
             // ========== 8. 热力图预设 ==========
             heatMap: {
                 presets: [], // {id, name, tags: []}

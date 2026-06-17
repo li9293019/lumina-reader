@@ -445,6 +445,12 @@ Lumina.UI = {
                 Lumina.State.settings.defaultExportPassword = passwordInput.value;
                 Lumina.Settings.save();
             }
+
+            const watermarkInput = e.target.closest('#shareCardWatermarkInput');
+            if (watermarkInput) {
+                Lumina.State.settings.shareCardWatermark = watermarkInput.value;
+                Lumina.Settings.save();
+            }
         });
 
         Lumina.DOM.sidebarRight.addEventListener('change', (e) => {
@@ -2178,7 +2184,7 @@ Lumina.UI = {
     },
 
     updateActiveButtons() {
-        const groups = ['language', 'theme', 'font', 'chapterNumbering'];
+        const groups = ['language', 'theme', 'font', 'chapterNumbering', 'shareCardExportQuality'];
         groups.forEach(group => {
             document.querySelectorAll(`[data-setting-group="${group}"] .option-btn, [data-setting-group="${group}"] .numbering-btn`).forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.value === Lumina.State.settings[group]);

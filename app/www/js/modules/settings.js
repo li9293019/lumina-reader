@@ -23,6 +23,9 @@ Lumina.Settings = {
             includeFonts: config.export?.includeFonts ?? false,
             hashCover: config.library?.hashCover ?? true,
             geoPattern: config.library?.geoPattern ?? true,
+            shareCardExportQuality: config.shareCard?.exportQuality ?? 'high',
+            shareCardRoundedCorners: config.shareCard?.roundedCorners ?? true,
+            shareCardWatermark: config.shareCard?.watermark ?? '',
             dictionaryEnabled: config.dictionary?.enabled ?? true,
             dictionaryMatchAllLevels: config.dictionary?.matchAllLevels ?? true,
             dictionaryFrequencyAll: (config.dictionary?.frequency || 'first') === 'all',
@@ -90,6 +93,11 @@ Lumina.Settings = {
         Lumina.ConfigManager.set('export.includeFonts', settings.includeFonts);
         Lumina.ConfigManager.set('library.hashCover', settings.hashCover);
         Lumina.ConfigManager.set('library.geoPattern', settings.geoPattern);
+        Lumina.ConfigManager.set('shareCard', {
+            exportQuality: settings.shareCardExportQuality ?? 'high',
+            roundedCorners: settings.shareCardRoundedCorners ?? true,
+            watermark: settings.shareCardWatermark ?? ''
+        });
         Lumina.ConfigManager.set('dictionary', {
             enabled: settings.dictionaryEnabled ?? true,
             matchAllLevels: settings.dictionaryMatchAllLevels ?? true,
@@ -278,6 +286,12 @@ Lumina.Settings = {
             // 同步配置状态到 toggle
             const includeFonts = settings.includeFonts || false;
             includeFontsToggle.classList.toggle('active', includeFonts);
+        }
+
+        // 同步分享卡片水印输入框
+        const shareCardWatermarkInput = document.getElementById('shareCardWatermarkInput');
+        if (shareCardWatermarkInput && document.activeElement !== shareCardWatermarkInput) {
+            shareCardWatermarkInput.value = settings.shareCardWatermark || '';
         }
 
         const sidebarVisible = settings.sidebarVisible && Lumina.State.app.document.items.length;

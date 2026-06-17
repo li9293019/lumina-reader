@@ -31,6 +31,13 @@ Lumina.ShareCard = {
         return Math.max(11, Math.floor(baseFontSize * 0.618));
     },
     
+    // 获取品牌水印文字：优先使用用户自定义，否则使用 i18n 默认
+    getBrandText() {
+        const custom = Lumina.State.settings?.shareCardWatermark;
+        if (custom && custom.trim()) return custom.trim();
+        return Lumina.I18n.t('fromLuminaReader') || '来自流萤阅读器的分享';
+    },
+    
     // 高清输出配置
     EXPORT_CONFIG: {
         baseWidth: 600,        // 固定输出宽度
@@ -281,7 +288,7 @@ Lumina.ShareCard = {
         
         const t = Lumina.I18n.t;
         const brandY = h - Math.floor(h * 0.04);
-        svg += `<text x="${Math.floor(w/2)}" y="${brandY}" text-anchor="middle" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${Math.floor(w/2)}" y="${brandY}" text-anchor="middle" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(this.getBrandText())}</text>`;
         
         return svg;
     },
@@ -370,7 +377,7 @@ Lumina.ShareCard = {
         
         const t = Lumina.I18n.t;
         const brandY = Math.floor(h * 0.04);
-        svg += `<text x="${w - padding}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${w - padding}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(this.getBrandText())}</text>`;
         
         return svg;
     },
@@ -501,7 +508,7 @@ Lumina.ShareCard = {
         // 品牌（右对齐，与文本右边界对齐）
         const t = Lumina.I18n.t;
         const brandY = h - Math.floor(h * 0.04);
-        svg += `<text x="${textRightX}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(t('fromLuminaReader'))}</text>`;
+        svg += `<text x="${textRightX}" y="${brandY}" text-anchor="end" font-size="${this.getBrandFontSize(fontSize)}" fill="${palette.accent}" fill-opacity="${this.BRAND_OPACITY}">${this.escapeXml(this.getBrandText())}</text>`;
         
         return svg;
     },
@@ -820,7 +827,7 @@ Lumina.ShareCard = {
      * Canvas 高清渲染并保存
      */
     async saveCardHD() {
-        const { baseWidth, minScale, maxScale, quality } = this.EXPORT_CONFIG;
+        const { baseWidth, quality } = this.EXPORT_CONFIG;
         const layoutType = this.currentLayout;
         
         // 计算高度（与 SVG 一致）
@@ -828,8 +835,10 @@ Lumina.ShareCard = {
         if (layoutType === 'long') height = Math.floor(baseWidth * 1.5);
         else if (layoutType === 'medium') height = Math.floor(baseWidth * 1.33);
         
-        // 高 DPI 设置
-        const dpr = Math.min(Math.max(window.devicePixelRatio || 1, minScale), maxScale);
+        // 根据设置面板选择导出质量
+        const exportQuality = Lumina.State.settings?.shareCardExportQuality || 'high';
+        const qualityScale = { standard: 2, high: 3, ultra: 4 };
+        const dpr = qualityScale[exportQuality] || 3;
         
         // 创建 Canvas
         const canvas = document.createElement('canvas');
@@ -1059,7 +1068,7 @@ Lumina.ShareCard = {
         ctx.font = `${brandSize}px ${fontStack}`;
         ctx.fillStyle = palette.accent;
         ctx.globalAlpha = 0.85;
-        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w / 2, brandY);
+        ctx.fillText(this.getBrandText(), w / 2, brandY);
         ctx.globalAlpha = 1;
     },
     
@@ -1156,7 +1165,7 @@ Lumina.ShareCard = {
         ctx.font = `${brandSize}px ${fontStack}`;
         ctx.fillStyle = palette.accent;
         ctx.globalAlpha = 0.85;
-        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), w - padding, Math.floor(h * 0.04));
+        ctx.fillText(this.getBrandText(), w - padding, Math.floor(h * 0.04));
         ctx.globalAlpha = 1;
         
         // 分段渲染（使用当前字体栈）
@@ -1361,7 +1370,7 @@ Lumina.ShareCard = {
         ctx.font = `${brandSize}px ${fontStack}`;
         ctx.fillStyle = palette.accent;
         ctx.globalAlpha = 0.85;
-        ctx.fillText(Lumina.I18n.t('fromLuminaReader'), textRightX, h - Math.floor(h * 0.04));
+        ctx.fillText(this.getBrandText(), textRightX, h - Math.floor(h * 0.04));
         ctx.globalAlpha = 1;
     },
     
@@ -1369,8 +1378,9 @@ Lumina.ShareCard = {
      * 导出 Canvas（跨平台）
      */
     async exportCanvas(canvas) {
-        // 添加圆角效果
-        const roundedCanvas = this.applyRoundedCorners(canvas, 24);
+        // 根据设置决定是否添加圆角效果
+        const useRounded = Lumina.State.settings?.shareCardRoundedCorners !== false;
+        const roundedCanvas = useRounded ? this.applyRoundedCorners(canvas, 24) : canvas;
         
         const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
         

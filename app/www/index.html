@@ -989,6 +989,24 @@
                     <button class="option-btn" id="openCacheManager" style="width: 100%; display: none;" data-i18n="manageCache"></button>
                 </div>
 
+                <!-- 阅读分享卡片 -->
+                <div class="setting-group">
+                    <div class="setting-label" data-i18n="shareCardSettings"></div>
+                    <div class="setting-options" data-setting-group="shareCardExportQuality" style="margin-bottom: 12px;">
+                        <button class="option-btn" data-value="standard" data-i18n="shareCardQualityStandard"></button>
+                        <button class="option-btn" data-value="high" data-i18n="shareCardQualityHigh"></button>
+                        <button class="option-btn" data-value="ultra" data-i18n="shareCardQualityUltra"></button>
+                    </div>
+                    <div class="toggle-switch" data-setting-toggle="shareCardRoundedCorners" style="margin-bottom: 12px;">
+                        <span class="toggle-label" data-i18n="shareCardRoundedCorners"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="setting-label" style="font-size: 0.85em; opacity: 0.8;" data-i18n="shareCardWatermark"></div>
+                    <input type="text" class="regex-input" id="shareCardWatermarkInput" data-i18n-placeholder="shareCardWatermarkPlaceholder" autocomplete="off">
+                </div>
+
                 <!-- 配置备份与恢复 -->
                 <div class="setting-group">
                     <div class="setting-label" data-i18n="configBackup"></div>

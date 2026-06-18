@@ -121,6 +121,8 @@ class DatabaseBridge {
         await this.addColumnIfNotExists('files', 'content_size', 'INTEGER DEFAULT 0');
         await this.addColumnIfNotExists('files', 'dictionaries', 'TEXT');
         await this.addColumnIfNotExists('files', 'annotations', 'TEXT');
+        await this.addColumnIfNotExists('files', 'cover_params', 'TEXT');
+        await this.addColumnIfNotExists('files', 'updated_at', 'TEXT');
     }
 
     async addColumnIfNotExists(table, column, type) {
@@ -200,13 +202,16 @@ class DatabaseBridge {
                 ? JSON.stringify(data.dictionaries) : null;
             const annotationsJson = data.annotations && data.annotations.length > 0
                 ? JSON.stringify(data.annotations) : null;
+            const coverParamsJson = data.coverParams
+                ? JSON.stringify(data.coverParams) : null;
+            const now = getLocalTimeString();
 
             const sql = `
                 INSERT OR REPLACE INTO files (
                     file_key, file_name, file_type, file_size, content_size, content, word_count, total_items,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
-                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, dictionaries, annotations, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    custom_regex, chapter_numbering, cover_data_url, cover_params, heat_map, metadata, dictionaries, annotations, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
@@ -220,15 +225,17 @@ class DatabaseBridge {
                 data.lastChapter || data.last_chapter || 0,
                 data.lastScrollIndex || data.last_scroll_index || 0,
                 data.chapterTitle || data.chapter_title || '',
-                data.lastReadTime || data.last_read_time || getLocalTimeString(),
+                data.lastReadTime || data.last_read_time || now,
                 JSON.stringify(data.customRegex || data.custom_regex || {}),
                 data.chapterNumbering || data.chapter_numbering || 'none',
                 data.cover || data.cover_data_url || null,
+                coverParamsJson,
                 data.heatMap ? JSON.stringify(data.heatMap) : null,
                 data.metadata ? JSON.stringify(data.metadata) : null,
                 dictionariesJson,
                 annotationsJson,
-                createdAt
+                createdAt,
+                now
             ];
             await this.db.run(sql, params);
             if (data.cover !== undefined) {
@@ -290,6 +297,7 @@ class DatabaseBridge {
                 customRegex: 'custom_regex',
                 chapterNumbering: 'chapter_numbering',
                 cover: 'cover_data_url',
+                coverParams: 'cover_params',
                 heatMap: 'heat_map',
                 metadata: 'metadata',
                 dictionaries: 'dictionaries',
@@ -302,13 +310,16 @@ class DatabaseBridge {
             for (const [key, col] of Object.entries(fieldMap)) {
                 if (Object.prototype.hasOwnProperty.call(data, key)) {
                     let val = data[key];
-                    if (key === 'customRegex' || key === 'heatMap' || key === 'metadata' || key === 'annotations' || key === 'dictionaries') {
+                    if (key === 'customRegex' || key === 'heatMap' || key === 'metadata' || key === 'annotations' || key === 'dictionaries' || key === 'coverParams') {
                         val = val ? JSON.stringify(val) : null;
                     }
                     updates.push(`${col} = ?`);
                     values.push(val);
                 }
             }
+            // 任何 patch 都更新时间戳
+            updates.push('updated_at = ?');
+            values.push(getLocalTimeString());
             if (updates.length === 0) {
                 return { success: true };
             }
@@ -354,7 +365,7 @@ class DatabaseBridge {
             const result = await this.db.query(
                 `SELECT file_key, file_name, file_type, ${sizeExpr} as file_size,
                     word_count, total_items, last_chapter, last_scroll_index, chapter_title,
-                    last_read_time, chapter_numbering, created_at, metadata${coverCol}
+                    last_read_time, chapter_numbering, created_at, updated_at, metadata${coverCol}
                 FROM files ORDER BY last_read_time DESC`
             );
             return (result.values || []).map(row => {
@@ -371,6 +382,7 @@ class DatabaseBridge {
                     lastReadTime: row.last_read_time,
                     chapterNumbering: row.chapter_numbering,
                     created_at: row.created_at,
+                    updated_at: row.updated_at,
                     metadata: row.metadata
                 };
                 if (includeCover && row.cover_data_url) {
@@ -440,6 +452,7 @@ class DatabaseBridge {
                 chapterNumbering: row.chapter_numbering,
                 cover: row.cover_data_url,
                 created_at: row.created_at,
+                updated_at: row.updated_at,
                 // 兼容字段
                 file_key: row.file_key,
                 file_name: row.file_name,
@@ -453,8 +466,18 @@ class DatabaseBridge {
                 last_read_time: row.last_read_time,
                 custom_regex: row.custom_regex,
                 chapter_numbering: row.chapter_numbering,
-                cover_data_url: row.cover_data_url
+                cover_data_url: row.cover_data_url,
+                cover_params: row.cover_params,
+                updated_at: row.updated_at
             };
+            // 解析 coverParams
+            if (row.cover_params) {
+                try {
+                    file.coverParams = JSON.parse(row.cover_params);
+                } catch (e) {
+                    file.coverParams = null;
+                }
+            }
             // 解析 heatMap
             if (row.heat_map) {
                 try {

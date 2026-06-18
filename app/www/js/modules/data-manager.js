@@ -2890,6 +2890,9 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
 
         state.document = { items: fileData.content, type: fileData.fileType };
 
+        // 恢复注释/书签数据
+        state.annotations = fileData.annotations || [];
+
         if (['txt', 'md', 'html'].includes(fileData.fileType)) {
             state.currentFile.rawContent = fileData.content.map(item => item.text || '').join('\n');
         }
@@ -2934,6 +2937,11 @@ Lumina.DB.restoreFileFromDB = async (fileData) => {
         Lumina.Renderer.generateTOC();
         const savedScrollIndex = fileData.lastScrollIndex;
         Lumina.Renderer.renderCurrentChapter(savedScrollIndex);
+
+        // 渲染注释高亮和注释列表
+        Lumina.Annotations?.renderAnnotations?.();
+        Lumina.Annotations?.renderAnnotationList?.();
+        Lumina.UI?.updateSidebarTabBadges?.();
         
         // 初始化 G点热力图
         Lumina.HeatMap.onBookOpen();

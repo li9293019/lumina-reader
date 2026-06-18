@@ -105,6 +105,7 @@ class DatabaseBridge {
                 cover_data_url TEXT,
                 heat_map TEXT,
                 metadata TEXT,
+                annotations TEXT,
                 created_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_last_read ON files(last_read_time);
@@ -119,6 +120,7 @@ class DatabaseBridge {
         await this.addColumnIfNotExists('files', 'total_items', 'INTEGER DEFAULT 0');
         await this.addColumnIfNotExists('files', 'content_size', 'INTEGER DEFAULT 0');
         await this.addColumnIfNotExists('files', 'dictionaries', 'TEXT');
+        await this.addColumnIfNotExists('files', 'annotations', 'TEXT');
     }
 
     async addColumnIfNotExists(table, column, type) {
@@ -196,13 +198,15 @@ class DatabaseBridge {
 
             const dictionariesJson = data.dictionaries && data.dictionaries.length > 0
                 ? JSON.stringify(data.dictionaries) : null;
+            const annotationsJson = data.annotations && data.annotations.length > 0
+                ? JSON.stringify(data.annotations) : null;
 
             const sql = `
                 INSERT OR REPLACE INTO files (
                     file_key, file_name, file_type, file_size, content_size, content, word_count, total_items,
                     last_chapter, last_scroll_index, chapter_title, last_read_time,
-                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, dictionaries, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    custom_regex, chapter_numbering, cover_data_url, heat_map, metadata, dictionaries, annotations, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 fileKey,
@@ -223,6 +227,7 @@ class DatabaseBridge {
                 data.heatMap ? JSON.stringify(data.heatMap) : null,
                 data.metadata ? JSON.stringify(data.metadata) : null,
                 dictionariesJson,
+                annotationsJson,
                 createdAt
             ];
             await this.db.run(sql, params);
@@ -288,6 +293,7 @@ class DatabaseBridge {
                 heatMap: 'heat_map',
                 metadata: 'metadata',
                 dictionaries: 'dictionaries',
+                annotations: 'annotations',
                 created_at: 'created_at'
             };
 
@@ -296,7 +302,7 @@ class DatabaseBridge {
             for (const [key, col] of Object.entries(fieldMap)) {
                 if (Object.prototype.hasOwnProperty.call(data, key)) {
                     let val = data[key];
-                    if (key === 'customRegex' || key === 'heatMap' || key === 'metadata') {
+                    if (key === 'customRegex' || key === 'heatMap' || key === 'metadata' || key === 'annotations' || key === 'dictionaries') {
                         val = val ? JSON.stringify(val) : null;
                     }
                     updates.push(`${col} = ?`);
@@ -471,6 +477,14 @@ class DatabaseBridge {
                     file.dictionaries = JSON.parse(row.dictionaries);
                 } catch (e) {
                     file.dictionaries = [];
+                }
+            }
+            // 解析 annotations
+            if (row.annotations) {
+                try {
+                    file.annotations = JSON.parse(row.annotations);
+                } catch (e) {
+                    file.annotations = [];
                 }
             }
             return file;

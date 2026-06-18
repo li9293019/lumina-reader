@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CSS Columns 行级列映射 Demo</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+        --pad: 24px;
+        --bg: #f5f1e8;
+        --text: #2c2424;
+        --accent: #8b7b64;
+    }
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        font-family: "Noto Serif SC", "Songti SC", serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+    body { display: flex; flex-direction: column; }
+
+    .toolbar {
+        flex-shrink: 0;
+        padding: 12px 16px;
+        background: #fff;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-size: 14px;
+        z-index: 10;
+        flex-wrap: wrap;
+    }
+    .toolbar button {
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .toolbar button:active { background: #f0f0f0; }
+    .toolbar input {
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 140px;
+    }
+    .info { color: #666; margin-left: auto; }
+
+    .viewport {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #e8e0d0;
+    }
+
+    /* 分页容器：无 padding，每列宽度 = 100vw */
+    .page-container {
+        height: 100%;
+        column-width: 100vw;
+        column-gap: 0;
+        column-fill: auto;
+        font-size: 18px;
+        line-height: 1.85;
+        text-align: justify;
+        transform: translateX(calc(var(--current-column, 0) * -100%));
+        transition: transform 0.35s ease;
+        background: var(--bg);
+    }
+
+    /* 内容包裹层：padding 放这里，模拟真实阅读器的 .content-wrapper */
+    .content-wrapper {
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: var(--pad);
+    }
+
+    .chapter-title {
+        font-size: 26px;
+        font-weight: bold;
+        margin-bottom: 1em;
+        break-before: column;
+    }
+    .paragraph {
+        margin-bottom: 1em;
+        text-indent: 2em;
+    }
+    .long-paragraph {
+        background: rgba(139, 123, 100, 0.08);
+        border-left: 3px solid var(--accent);
+        padding-left: 12px;
+    }
+    .image-block {
+        width: 100%;
+        height: 220px;
+        background: #d4c8b0;
+        border-radius: 8px;
+        margin: 1em 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7a6958;
+        break-inside: avoid;
+    }
+
+    /* 列边界参考线 */
+    .column-guide {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: rgba(255, 0, 0, 0.25);
+        pointer-events: none;
+    }
+
+    /* 信息浮层 */
+    .float-info {
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        line-height: 1.6;
+        max-height: 35vh;
+        overflow: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .float-info h4 { margin-bottom: 6px; }
+    .float-info pre { white-space: pre-wrap; word-break: break-all; }
+    .highlight { background: yellow; }
+</style>
+</head>
+<body>
+<div class="toolbar">
+    <button id="prevBtn">← 上一列</button>
+    <button id="nextBtn">下一列 →</button>
+    <input type="text" id="searchInput" placeholder="搜索关键词…">
+    <button id="searchBtn">跳转</button>
+    <button id="analyzeBtn">分析列映射</button>
+    <button id="toggleInfo">显示/隐藏信息</button>
+    <span class="info" id="pageInfo">第 1 / ? 列</span>
+</div>
+
+<div class="viewport" id="viewport">
+    <div class="page-container" id="pageContainer">
+        <div class="content-wrapper" id="contentWrapper">
+            <!-- 动态生成 -->
+        </div>
+    </div>
+</div>
+
+<div class="float-info" id="floatInfo">
+    <h4>列映射分析</h4>
+    <pre id="infoText">点击“分析列映射”开始。</pre>
+</div>
+
+<script>
+    const container = document.getElementById('pageContainer');
+    const wrapper = document.getElementById('contentWrapper');
+    const pageInfo = document.getElementById('pageInfo');
+    const floatInfo = document.getElementById('floatInfo');
+    const infoText = document.getElementById('infoText');
+
+    // 生成内容，包含一个故意超长的段落
+    const longText = "这是一个故意写得非常长的段落，用来验证 CSS columns 是否会在列边界处自动切断它，以及我们能否通过 Range.getClientRects() 精确地知道这个段落跨了多少列、每一列显示了哪些行。"
+        + "文字继续延伸下去，像一条没有尽头的河流，穿过峡谷，越过平原，最终汇入大海。"
+        + "我们观察它如何在第一列的末尾被截断，然后又在第二列的开头继续。"
+        + "这种自动断行的能力是 CSS columns 的核心优势，因为它基于浏览器真实的文本排版结果。"
+        + "如果我们能够获得每一行的位置信息，就可以把被切断的段落映射到多个列上，从而实现精确的进度定位和搜索跳转。"
+        + "当然，这也意味着我们需要处理一个数据项（一个段落）跨越多个视觉列的情况，这比按 item 索引分页要复杂。"
+        + "但在阅读体验上，它更接近 Native 阅读器的效果。";
+
+    const normalTexts = [
+        "窗外的雨声渐渐大了起来，敲打着玻璃，发出细碎的声响。他站起身，走到窗前，看见街边的行人撑着伞匆匆走过。",
+        "记忆像潮水一样涌来。他想起小时候，母亲总是在这样的雨天里煮一锅姜汤，然后坐在窗边织毛衣。",
+        "他回到书桌旁，终于在那张白纸上写下了第一句话。墨水在纸上晕开，像是一朵迟开的花。",
+        "人生很多时候就像这场雨，你以为它会一直下下去，却不知道什么时候就会放晴。",
+        "夜深了，雨还在下。他关上灯，躺在床上，听着雨声入眠。梦里，他回到了那个老房子。",
+        "第二天醒来，阳光透过窗帘照进来。他走到书桌前，看着昨晚写下的文字，忽然明白了一件事。"
+    ];
+
+    function buildContent() {
+        let html = '<h1 class="chapter-title">第一章：漫长的雨夜</h1>';
+        html += `<p class="paragraph long-paragraph" data-index="1">${longText}</p>`;
+        html += '<div class="image-block" data-index="2">插图占位</div>';
+        normalTexts.forEach((text, i) => {
+            html += `<p class="paragraph" data-index="${3 + i}">${text}</p>`;
+        });
+        html += `<p class="paragraph long-paragraph" data-index="${3 + normalTexts.length}">${longText.replace(/雨/g, '光').replace(/阴/g, '晴')}。</p>`;
+        wrapper.innerHTML = html;
+    }
+
+    buildContent();
+
+    let currentColumn = 0;
+
+    // 精确计算所需列数：临时关闭 columns，测量内容自然高度
+    function calculateOptimalColumnCount() {
+        const originalColumnWidth = container.style.columnWidth;
+        const originalColumnCount = container.style.columnCount;
+        container.style.columnWidth = 'auto';
+        container.style.columnCount = 'auto';
+        
+        const naturalHeight = wrapper.scrollHeight;
+        const viewportHeight = container.clientHeight;
+        
+        container.style.columnWidth = '100vw';
+        container.style.columnCount = originalColumnCount;
+        
+        return Math.max(1, Math.ceil(naturalHeight / viewportHeight));
+    }
+
+    function getColumnCount() {
+        const explicit = parseInt(container.style.columnCount);
+        if (explicit > 0) return explicit;
+        return Math.max(1, Math.ceil(container.scrollWidth / container.clientWidth));
+    }
+
+    function updateLayout() {
+        const count = calculateOptimalColumnCount();
+        container.style.columnCount = count;
+        currentColumn = Math.min(currentColumn, count - 1);
+        container.style.setProperty('--current-column', currentColumn);
+        pageInfo.textContent = `第 ${currentColumn + 1} / ${count} 列`;
+    }
+
+    function goToColumn(n) {
+        const count = getColumnCount();
+        currentColumn = Math.max(0, Math.min(count - 1, n));
+        container.style.setProperty('--current-column', currentColumn);
+        pageInfo.textContent = `第 ${currentColumn + 1} / ${count} 列`;
+    }
+
+    // 初始化布局
+    updateLayout();
+
+    document.getElementById('prevBtn').addEventListener('click', () => goToColumn(currentColumn - 1));
+    document.getElementById('nextBtn').addEventListener('click', () => goToColumn(currentColumn + 1));
+
+    // 核心：用 Range.getClientRects() 做行级列映射
+    function analyzeColumnMapping() {
+        const viewportRect = container.getBoundingClientRect();
+        const colWidth = viewportRect.width;
+        const paragraphs = Array.from(wrapper.querySelectorAll('.paragraph, .chapter-title, .image-block'));
+
+        const lines = [];
+        let multiColumnItems = 0;
+
+        paragraphs.forEach((el, idx) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const rects = Array.from(range.getClientRects());
+            const seenColumns = new Set();
+
+            rects.forEach((rect, lineIdx) => {
+                const col = Math.round((rect.left - viewportRect.left + currentColumn * colWidth) / colWidth);
+                seenColumns.add(col);
+                lines.push({
+                    elementIndex: idx,
+                    dataIndex: el.dataset.index,
+                    tag: el.tagName.toLowerCase(),
+                    lineIndex: lineIdx,
+                    column: col,
+                    top: rect.top.toFixed(1),
+                    left: rect.left.toFixed(1),
+                    width: rect.width.toFixed(1),
+                    height: rect.height.toFixed(1),
+                    text: el.textContent.slice(0, 20).replace(/\s+/g, '')
+                });
+            });
+
+            if (seenColumns.size > 1) multiColumnItems++;
+        });
+
+        // 按列分组
+        const columns = [];
+        lines.forEach(line => {
+            if (!columns[line.column]) columns[line.column] = [];
+            columns[line.column].push(line);
+        });
+
+        const output = [];
+        output.push(`总列数: ${getColumnCount()}`);
+        output.push(`跨列元素数: ${multiColumnItems}`);
+        output.push(`行框总数: ${lines.length}`);
+        output.push('');
+
+        columns.forEach((items, colIdx) => {
+            if (!items) return;
+            output.push(`=== 第 ${colIdx + 1} 列 ===`);
+            const grouped = {};
+            items.forEach(item => {
+                if (!grouped[item.dataIndex]) grouped[item.dataIndex] = { tag: item.tag, text: item.text, lineCount: 0 };
+                grouped[item.dataIndex].lineCount++;
+            });
+            Object.entries(grouped).forEach(([dataIndex, info]) => {
+                output.push(`  [${info.tag}] data-index=${dataIndex}, 行数=${info.lineCount}, "${info.text}..."`);
+            });
+        });
+
+        infoText.textContent = output.join('\n');
+        floatInfo.classList.add('active');
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', analyzeColumnMapping);
+
+    // 点击段落，显示它跨越哪些列
+    wrapper.addEventListener('click', (e) => {
+        const p = e.target.closest('.paragraph, .chapter-title, .image-block');
+        if (!p) return;
+
+        const range = document.createRange();
+        range.selectNodeContents(p);
+        const rects = Array.from(range.getClientRects());
+        const viewportRect = container.getBoundingClientRect();
+        const colWidth = viewportRect.width;
+        const cols = new Set();
+
+        rects.forEach(rect => {
+            const col = Math.round((rect.left - viewportRect.left + currentColumn * colWidth) / colWidth);
+            cols.add(col + 1);
+        });
+
+        infoText.textContent = `点击元素 data-index=${p.dataset.index}\n类型: ${p.tagName.toLowerCase()}\n跨越列: ${Array.from(cols).sort((a,b)=>a-b).join(', ')}\n行框数: ${rects.length}\n前20字: ${p.textContent.slice(0,20)}...`;
+    });
+
+    // 搜索并跳转
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        const keyword = document.getElementById('searchInput').value.trim();
+        if (!keyword) return;
+
+        // 清除旧高亮
+        wrapper.querySelectorAll('.highlight').forEach(el => {
+            const parent = el.parentNode;
+            parent.replaceChild(document.createTextNode(el.textContent), el);
+            parent.normalize();
+        });
+
+        const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
+        let found = false;
+        let foundNode = null;
+        let foundOffset = 0;
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const idx = node.textContent.indexOf(keyword);
+            if (idx >= 0) {
+                foundNode = node;
+                foundOffset = idx;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            infoText.textContent = `未找到: ${keyword}`;
+            return;
+        }
+
+        // 高亮
+        const range = document.createRange();
+        range.setStart(foundNode, foundOffset);
+        range.setEnd(foundNode, foundOffset + keyword.length);
+        const span = document.createElement('span');
+        span.className = 'highlight';
+        range.surroundContents(span);
+
+        // 计算关键词所在列
+        const rect = range.getBoundingClientRect();
+        const viewportRect = container.getBoundingClientRect();
+        const colWidth = viewportRect.width;
+        const targetCol = Math.round((rect.left - viewportRect.left + currentColumn * colWidth) / colWidth);
+        goToColumn(targetCol);
+
+        infoText.textContent = `找到 "${keyword}"，已跳转到第 ${targetCol + 1} 列。`;
+    });
+
+    document.getElementById('toggleInfo').addEventListener('click', () => {
+        floatInfo.style.display = floatInfo.style.display === 'none' ? 'block' : 'none';
+    });
+
+    window.addEventListener('resize', () => {
+        currentColumn = 0;
+        updateLayout();
+    });
+</script>
+</body>
+</html>

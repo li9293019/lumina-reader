@@ -798,28 +798,36 @@ Lumina.Actions = {
             'arrowleft': () => {
                 if (document.querySelector('.image-viewer-overlay')) return;
                 e.preventDefault();
-                if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
-                    Lumina.TTS.manager.pauseForAction(() => {
-                        Lumina.DOM.contentScroll.scrollBy({ top: -Lumina.DOM.contentScroll.clientHeight * 0.9, behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto' });
-                    });
-                } else {
-                    Lumina.DOM.contentScroll.scrollBy({ top: -Lumina.DOM.contentScroll.clientHeight * 0.9, behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto' });
-                }
+                Lumina.Actions.scrollScreen(-1);
             },
             'arrowright': () => {
                 if (document.querySelector('.image-viewer-overlay')) return;
                 e.preventDefault();
-                if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
-                    Lumina.TTS.manager.pauseForAction(() => {
-                        Lumina.DOM.contentScroll.scrollBy({ top: Lumina.DOM.contentScroll.clientHeight * 0.9, behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto' });
-                    });
-                } else {
-                    Lumina.DOM.contentScroll.scrollBy({ top: Lumina.DOM.contentScroll.clientHeight * 0.9, behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto' });
-                }
+                Lumina.Actions.scrollScreen(1);
             }
         };
 
         if (keyMap[e.key.toLowerCase()]) keyMap[e.key.toLowerCase()]();
+    },
+
+    /**
+     * 按屏滚动阅读区内容
+     * @param {number} direction -1 上一屏，1 下一屏
+     */
+    scrollScreen(direction) {
+        if (document.querySelector('.image-viewer-overlay')) return;
+        const doScroll = () => {
+            if (!Lumina.DOM.contentScroll) return;
+            Lumina.DOM.contentScroll.scrollBy({
+                top: direction * Lumina.DOM.contentScroll.clientHeight * 0.9,
+                behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto'
+            });
+        };
+        if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
+            Lumina.TTS.manager.pauseForAction(doScroll);
+        } else {
+            doScroll();
+        }
     },
 
     returnToWelcome() {

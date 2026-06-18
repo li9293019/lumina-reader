@@ -972,8 +972,12 @@ Lumina.UI = {
         const PRESS_DURATION = 700; // 700ms 长按，平衡响应与误触
         let isPressing = false;
         let startX = 0, startY = 0;
+        let pressStartTime = 0;
         let hasSelection = false;
         let rippleEl = null;
+        const HOT_ZONE_WIDTH = 44; // 左右边缘热区宽度（px）
+        const SHORT_PRESS_MAX_DURATION = 300; // 短按最大时长（ms）
+        const SHORT_PRESS_MAX_DELTA = 12; // 短按最大移动距离（px）
         
         // 提示元素
         const hint = document.createElement('div');
@@ -1067,6 +1071,7 @@ Lumina.UI = {
             hasSelection = false;
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
+            pressStartTime = Date.now();
             
             // 开始计时
             pressTimer = setTimeout(() => {
@@ -1108,7 +1113,32 @@ Lumina.UI = {
             isPressing = false;
         };
         
-        readingArea.addEventListener('touchend', cancelPress, { passive: true });
+        readingArea.addEventListener('touchend', (e) => {
+            // 处理左右边缘短按滚屏（仅移动端）
+            // 热区基于整个视口，使普通模式下 top-bar / 安全区边缘也能触发
+            if (Lumina.Utils.isMobile() && isPressing && e.changedTouches && e.changedTouches[0]) {
+                const duration = Date.now() - pressStartTime;
+                const deltaX = Math.abs(e.changedTouches[0].clientX - startX);
+                const deltaY = Math.abs(e.changedTouches[0].clientY - startY);
+                if (duration < SHORT_PRESS_MAX_DURATION && deltaX < SHORT_PRESS_MAX_DELTA && deltaY < SHORT_PRESS_MAX_DELTA) {
+                    const screenWidth = window.innerWidth;
+                    const screenHeight = window.innerHeight;
+                    const x = e.changedTouches[0].clientX;
+                    const y = e.changedTouches[0].clientY;
+                    const inLeftHotZone = x >= 0 && x <= HOT_ZONE_WIDTH;
+                    const inRightHotZone = x >= screenWidth - HOT_ZONE_WIDTH && x <= screenWidth;
+                    if (inLeftHotZone || inRightHotZone) {
+                        clearTimeout(pressTimer);
+                        isPressing = false;
+                        // 上半屏向上滚，下半屏向下滚
+                        const direction = y < screenHeight / 2 ? -1 : 1;
+                        Lumina.Actions.scrollScreen(direction);
+                        return;
+                    }
+                }
+            }
+            cancelPress(e);
+        }, { passive: true });
         readingArea.addEventListener('touchcancel', cancelPress, { passive: true });
         readingArea.addEventListener('touchmove', (e) => {
             if (!isPressing) return;

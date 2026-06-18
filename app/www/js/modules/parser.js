@@ -825,6 +825,9 @@ Lumina.Parser.parseEPUB = async (arrayBuffer) => {
         const className = (el.getAttribute('class') || '').toLowerCase();
         const id = (el.getAttribute('id') || '').toLowerCase();
         
+        // 标题元素（h1-h6）是正文结构，即使 id/class 包含 toc 也不应被当作目录跳过
+        if (/^h[1-6]$/.test(tag)) return false;
+        
         // 1. EPUB 3 的 nav 标签（通常是目录）
         if (tag === 'nav') return true;
         

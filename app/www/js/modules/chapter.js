@@ -4,6 +4,23 @@ Lumina.Parser.buildChapters = (items) => {
     const newChapters = [];
     let currentChapter = null, buffer = [], globalIndex = 0;
 
+    // 智能章节边界：
+    // 1. title/heading1 总是章节边界
+    // 2. 如果文档中没有 heading1，heading2 也作为章节边界
+    // 3. 有 heading1 时，只有 heading2 文本匹配明确的"第X章"/"Chapter X"等一级章节模式时，
+    //    才作为章节边界；避免把"第X节"或单个数字小节也拆成独立章节
+    const hasHeading1 = items.some(item => item.type === 'heading1');
+    const isChapterStart = (item) => {
+        if (item.type === 'title' || item.type === 'heading1') return true;
+        if (item.type === 'heading2') {
+            if (!hasHeading1) return true;
+            const text = (item.text || item.display || '').trim();
+            const chapterInfo = Lumina.Parser.RegexCache.detectChapter(text, false);
+            if (chapterInfo && chapterInfo.level === 1) return true;
+        }
+        return false;
+    };
+
     const flushBuffer = (beforeIndex) => {
         if (!buffer.length) return;
         const startIdx = beforeIndex - buffer.length;
@@ -16,7 +33,7 @@ Lumina.Parser.buildChapters = (items) => {
 
     items.forEach((item, index) => {
         globalIndex = index;
-        if (Lumina.Parser.isChapterStart(item)) {
+        if (isChapterStart(item)) {
             flushBuffer(index);
             currentChapter = {
                 id: `chapter-${newChapters.length}`, title: Lumina.Parser.extractChapterTitle(item),
@@ -33,7 +50,11 @@ Lumina.Parser.buildChapters = (items) => {
     return newChapters;
 };
 
-Lumina.Parser.isChapterStart = (item) => item.type === 'title' || item.type === 'heading1';
+Lumina.Parser.isChapterStart = (item, context = null) => {
+    if (item.type === 'title' || item.type === 'heading1') return true;
+    if (context?.noHeading1 && item.type === 'heading2') return true;
+    return false;
+};
 
 Lumina.Parser.extractChapterTitle = (item) => item.display?.replace(/^\[T\]/, '') || item.text;
 

@@ -1006,7 +1006,7 @@ Lumina.UI = {
             if (state.isImmersive) {
                 // 进入沉浸
                 document.body.classList.add('immersive-mode');
-                // 使用原生沉浸布局替代 requestFullscreen，确保系统栏保持半透明可见
+                // 使用原生沉浸布局完全隐藏状态栏和导航栏
                 window.NavigationBarInterface?.setImmersiveLayout(true);
                 // 关闭所有面板
                 Lumina.DOM.sidebarRight?.classList.remove('open');
@@ -1023,19 +1023,7 @@ Lumina.UI = {
                 if (window.toggleImmersiveSafeArea) {
                     window.toggleImmersiveSafeArea(true);
                 }
-                // 状态栏与导航栏半透明：主题色按明度调整后 + 低透明度，内容延伸到下方
-                if (window.NavigationBarInterface) {
-                    const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
-                    const isDark = darkThemes.includes(Lumina.State.settings.theme);
-                    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
-                    if (bg) {
-                        const brightnessFactor = ((Lumina.State.settings.brightness ?? 100) / 100);
-                        const adjustedBg = Lumina.Settings.adjustColorForBrightness(bg, brightnessFactor);
-                        // 状态栏与导航栏半透明：状态栏下方是复杂文字，需要更高不透明度
-                        window.NavigationBarInterface.setNavigationBarTranslucent(adjustedBg, 120, !isDark);
-                        window.NavigationBarInterface.setStatusBarTranslucent(adjustedBg, 180, !isDark);
-                    }
-                }
+                // 系统栏已由 setImmersiveLayout(true) 完全隐藏，无需再设置半透明颜色
                 showHint(true);
             } else {
                 // 退出沉浸

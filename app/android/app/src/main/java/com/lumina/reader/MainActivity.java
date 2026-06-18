@@ -18,6 +18,7 @@ import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
@@ -182,6 +183,7 @@ public class MainActivity extends BridgeActivity {
     private boolean lastNavBarLightIcons = false;
     private boolean lastNavBarTranslucent = false;
     private int lastNavBarAlpha = 255;
+    private boolean lastImmersive = false;
     
     // 自定义状态栏半透明遮罩（解决 Android 系统不绘制半透明状态栏背景的问题）
     private View statusBarOverlay = null;
@@ -232,14 +234,21 @@ public class MainActivity extends BridgeActivity {
             try {
                 android.view.Window window = getWindow();
                 android.view.View decorView = window.getDecorView();
+                WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(window, decorView);
+                lastImmersive = immersive;
                 if (immersive) {
-                    // 让 WebView 内容延伸到状态栏和导航栏下方，但保持系统栏可见
+                    // 完全隐藏状态栏和导航栏（类似微信读书沉浸模式）
+                    controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
+                    controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                    // 让 WebView 内容延伸到系统栏区域
                     decorView.setSystemUiVisibility(
                         android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                         | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     );
                 } else {
+                    // 恢复状态栏和导航栏显示
+                    controller.show(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
                     decorView.setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
                     // 退出沉浸时隐藏自定义状态栏遮罩
                     if (statusBarOverlay != null) {
@@ -378,6 +387,12 @@ public class MainActivity extends BridgeActivity {
         // 延迟 200ms 确保 WebView 已完全恢复，然后重新应用保存的颜色配置
         mainHandler.postDelayed(() -> {
             try {
+                // 如果处于沉浸模式，重新隐藏系统栏，不恢复颜色
+                if (lastImmersive) {
+                    applyImmersiveLayout(true);
+                    Log.d(TAG, "onResume 重新应用沉浸模式");
+                    return;
+                }
                 if (lastStatusBarColor != null) {
                     if (lastStatusBarTranslucent) {
                         applyStatusBarTranslucent(lastStatusBarColor, lastStatusBarAlpha, lastStatusBarLightIcons);

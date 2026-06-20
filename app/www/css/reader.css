@@ -920,6 +920,8 @@ opacity: 0;
 
 .has-bookmark {
 position: relative;
+padding: 0 8px;
+margin: 0 -10px;
 }
 .has-annotation {
 border-radius: 2px;

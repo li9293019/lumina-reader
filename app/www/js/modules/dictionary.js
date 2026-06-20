@@ -228,8 +228,10 @@ Lumina.Dictionary = {
                     if (!isCJK) {
                         const before = text[match.index - 1];
                         const after = text[match.index + term.length];
-                        if (before && /\w/.test(before)) continue;
-                        if (after && /\w/.test(after)) continue;
+                        // 只有词条首字符本身是单词字符时，才需要前边界（如 [1] 依附于 dangerous 是允许的）
+                        if (/^\w/.test(term) && before && /\w/.test(before)) continue;
+                        // 只有词条尾字符本身是单词字符时，才需要后边界
+                        if (/\w$/.test(term) && after && /\w/.test(after)) continue;
                     }
 
                     if (!settings.matchAllLevels && !entry.isDeepest) continue;

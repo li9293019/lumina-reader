@@ -154,7 +154,7 @@ Lumina.Config.defaultSettings = {
     font: 'serif',
     indent: false,
     dropCap: false,
-    fontSize: 20,
+    fontSize: 25,
     lineHeight: 15,
     paragraphSpacing: 3,
     pageWidth: 80,

@@ -972,6 +972,7 @@ Lumina.UI = {
         const PRESS_DURATION = 700; // 700ms 长按，平衡响应与误触
         let isPressing = false;
         let startX = 0, startY = 0;
+        let startTarget = null;
         let pressStartTime = 0;
         let hasSelection = false;
         let rippleEl = null;
@@ -1056,8 +1057,8 @@ Lumina.UI = {
 
         // 触摸开始 - 绑定在阅读区
         readingArea.addEventListener('touchstart', (e) => {
-            // 排除交互元素：按钮、输入框、文本域、链接、图片（放大查看）、可编辑元素
-            if (e.target.closest('button, input, textarea, a, .doc-image, .pagination-nav, .cover-btn, [contenteditable="true"], .doc-line-editor')) {
+            // 排除交互元素：按钮、输入框、文本域、链接、图片（放大查看）、可编辑元素、词典词条
+            if (e.target.closest('button, input, textarea, a, .doc-image, .pagination-nav, .cover-btn, [contenteditable="true"], .doc-line-editor, .dict-entry, .dict-tree-entry')) {
                 return;
             }
             
@@ -1071,6 +1072,7 @@ Lumina.UI = {
             hasSelection = false;
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
+            startTarget = e.target;
             pressStartTime = Date.now();
             
             // 开始计时
@@ -1111,6 +1113,7 @@ Lumina.UI = {
             
             clearTimeout(pressTimer);
             isPressing = false;
+            startTarget = null;
         };
         
         readingArea.addEventListener('touchend', (e) => {
@@ -1128,8 +1131,16 @@ Lumina.UI = {
                     const inLeftHotZone = x >= 0 && x <= HOT_ZONE_WIDTH;
                     const inRightHotZone = x >= screenWidth - HOT_ZONE_WIDTH && x <= screenWidth;
                     if (inLeftHotZone || inRightHotZone) {
+                        // 如果按压起点是链接或词典词条，优先响应点击/词典，不触发翻屏
+                        if (startTarget && startTarget.closest('a, .dict-entry, .dict-tree-entry')) {
+                            clearTimeout(pressTimer);
+                            isPressing = false;
+                            startTarget = null;
+                            return;
+                        }
                         clearTimeout(pressTimer);
                         isPressing = false;
+                        startTarget = null;
                         // 上半屏向上滚，下半屏向下滚
                         const direction = y < screenHeight / 2 ? -1 : 1;
                         Lumina.Actions.scrollScreen(direction);

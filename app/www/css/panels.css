@@ -65,6 +65,9 @@ overflow-y: auto;
 line-height: 1.8;
 padding: 0 24px;
 }
+#dictDetailBody {
+    padding-top: 8px;
+}
 .about-body h3 {
 margin: 20px 0 12px;
 color: var(--accent-color);

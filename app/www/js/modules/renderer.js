@@ -61,9 +61,13 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
     Lumina.Renderer.updateChapterNavInfo();
     
     // 4.5 自动识别正文中的 URL 和邮箱，转为可点击外部链接
+    // 同时为 Markdown 原生渲染的 .markdown-link 绑定确认对话框
     if (Lumina.Utils?.linkifyContent) {
         Lumina.DOM.contentWrapper.querySelectorAll('.doc-line').forEach(line => {
             Lumina.Utils.linkifyContent(line);
+            if (Lumina.Utils.bindExternalLinkConfirmation) {
+                Lumina.Utils.bindExternalLinkConfirmation(line);
+            }
         });
     }
     
@@ -239,6 +243,9 @@ Lumina.Renderer.updateDocLineElement = (index, item) => {
     // 重新应用 URL 自动链接化
     if (Lumina.Utils?.linkifyContent && item.type !== 'image') {
         Lumina.Utils.linkifyContent(newEl);
+        if (Lumina.Utils.bindExternalLinkConfirmation) {
+            Lumina.Utils.bindExternalLinkConfirmation(newEl);
+        }
     }
 
     // 重新渲染该行的批注高亮（最小化重绘范围）

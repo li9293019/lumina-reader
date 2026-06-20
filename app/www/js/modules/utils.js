@@ -223,8 +223,26 @@ Lumina.Utils.linkifyContent = (container) => {
     
     // 统一绑定点击事件
     container.querySelectorAll('a.external-link').forEach(link => {
+        if (link._externalLinkBound) return;
+        link._externalLinkBound = true;
         link.addEventListener('click', (e) => {
             e.preventDefault();
+            Lumina.Utils.confirmExternalLink(link.href);
+        });
+    });
+};
+
+// 为容器内已有的外部链接（如 Markdown 渲染出的 .markdown-link）绑定确认对话框
+Lumina.Utils.bindExternalLinkConfirmation = (container) => {
+    if (!container) return;
+    container.querySelectorAll('a.markdown-link[href]').forEach(link => {
+        if (link._externalLinkBound) return;
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#')) return;
+        link._externalLinkBound = true;
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             Lumina.Utils.confirmExternalLink(link.href);
         });
     });

@@ -500,17 +500,22 @@ Lumina.BookDetail = {
         
         // 生成封面内容 HTML
         let coverContentHTML = '';
-        if (bookData.cover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+        const hasCoverParams = !!bookData.coverParams;
+        if (bookData.cover && !hasCoverParams && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
             // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
             const brightness = bookData.metadata?.coverBrightness || null;
             const wrapped = Lumina.BibliomorphCover.wrapCover(bookData.cover, { brightness });
             coverContentHTML = wrapped.replace('<svg', '<svg class="book-detail-cover-img"');
-        } else if (bookData.cover) {
+        } else if (bookData.cover && !hasCoverParams) {
             coverContentHTML = `<img src="${bookData.cover}" class="book-detail-cover-img" alt="" style="width:100%;height:100%;object-fit:cover;">`;
         } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
             const metadata = bookData.metadata || {};
-            const title = metadata.title || bookData.title || bookData.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
-            const author = metadata.author || bookData.author || '';
+            let title = metadata.title || bookData.title || bookData.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+            let author = metadata.author || bookData.author || '';
+            if (bookData.coverParams) {
+                title = bookData.coverParams.title || title;
+                author = bookData.coverParams.author || author;
+            }
             const svg = Lumina.BibliomorphCover.generate(title, author);
             if (svg) {
                 coverContentHTML = svg.replace('<svg', '<svg class="book-detail-cover-img"');
@@ -640,19 +645,24 @@ Lumina.BookDetail = {
         
         // 封面
         if (el.cover) {
-            if (data.cover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+            const hasCoverParams = !!data.coverParams;
+            if (data.cover && !hasCoverParams && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
                 // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
                 const brightness = metadata.coverBrightness || null;
                 const wrapped = Lumina.BibliomorphCover.wrapCover(data.cover, { brightness });
                 el.cover.innerHTML = wrapped;
                 el.cover.querySelector('svg')?.classList.add('book-detail-cover-img');
                 el.coverWrapper?.classList.remove('no-cover');
-            } else if (data.cover) {
+            } else if (data.cover && !hasCoverParams) {
                 el.cover.innerHTML = `<img src="${data.cover}" class="book-detail-cover-img" alt="" onerror="this.parentNode.innerHTML='<div class=\'book-detail-cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
                 el.coverWrapper?.classList.remove('no-cover');
             } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
-                const bookTitle = metadata.title || data.title || data.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
-                const bookAuthor = metadata.author || data.author || '';
+                let bookTitle = metadata.title || data.title || data.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+                let bookAuthor = metadata.author || data.author || '';
+                if (data.coverParams) {
+                    bookTitle = data.coverParams.title || bookTitle;
+                    bookAuthor = data.coverParams.author || bookAuthor;
+                }
                 const generatedCover = Lumina.BibliomorphCover.generate(bookTitle, bookAuthor);
                 if (generatedCover) {
                     el.cover.innerHTML = generatedCover;
@@ -834,14 +844,18 @@ Lumina.BookDetail = {
     // 刷新生成的封面（书名/作者编辑后调用）
     refreshGeneratedCover() {
         if (!this.currentFile) return;
-        
+
         const el = this._elements;
-        
+
         if (el.cover && Lumina.BibliomorphCover) {
             const file = this.currentFile;
             const meta = file.metadata || {};
-            const title = meta.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
-            const author = meta.author || file.author || '';
+            let title = meta.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+            let author = meta.author || file.author || '';
+            if (file.coverParams) {
+                title = file.coverParams.title || title;
+                author = file.coverParams.author || author;
+            }
             const generatedCover = Lumina.BibliomorphCover.generate(title, author);
             if (generatedCover) {
                 el.cover.innerHTML = generatedCover;
@@ -1501,8 +1515,12 @@ Lumina.BookDetail = {
             
             if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
                 const metadata = this.currentFile.metadata || {};
-                const title = metadata.title || this.currentFile.title || this.currentFile.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
-                const author = metadata.author || this.currentFile.author || '';
+                let title = metadata.title || this.currentFile.title || this.currentFile.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+                let author = metadata.author || this.currentFile.author || '';
+                if (this.currentFile.coverParams) {
+                    title = this.currentFile.coverParams.title || title;
+                    author = this.currentFile.coverParams.author || author;
+                }
                 const generatedCover = Lumina.BibliomorphCover.generate(title, author);
                 
                 if (generatedCover && coverEl) {

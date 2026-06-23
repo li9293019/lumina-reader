@@ -894,18 +894,23 @@ Lumina.DataManager = class {
         const fileName = Lumina.Utils.escapeHtml(file.metadata?.title || file.fileName.replace(/\.[^/.]+$/, ''));
         const chapterHtml = file.chapterTitle ? `<div class="card-chapter">${Lumina.Utils.escapeHtml(file.chapterTitle)}</div>` : '<div class="card-chapter"></div>';
         let coverHtml;
-        if (hasCover && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
+        const hasCoverParams = !!file.coverParams;
+        if (hasCover && !hasCoverParams && Lumina.State.settings.hashCover && Lumina.BibliomorphCover?.wrapCover) {
             // hashCover 开启：使用 wrapCover 包装封面（同步渲染，带纹理和书脊效果）
             const brightness = file.metadata?.coverBrightness || null;
             const wrapped = Lumina.BibliomorphCover.wrapCover(file.cover, { brightness });
             coverHtml = wrapped.replace('<svg', '<svg class="cover-img"');
-        } else if (hasCover) {
+        } else if (hasCover && !hasCoverParams) {
             coverHtml = `<img src="${file.cover}" class="cover-img" alt="" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\'cover-placeholder\'><svg><use href=\'#icon-book\'/></svg></div>';">`;
         } else if (Lumina.State.settings.hashCover && Lumina.BibliomorphCover) {
             // 使用 Bibliomorph 封面生成器（简洁书籍风格）
             const metadata = file.metadata || {};
-            const title = metadata.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
-            const author = metadata.author || file.author || '';
+            let title = metadata.title || file.title || file.fileName?.replace(/\.[^/.]+$/, '') || 'Untitled';
+            let author = metadata.author || file.author || '';
+            if (file.coverParams) {
+                title = file.coverParams.title || title;
+                author = file.coverParams.author || author;
+            }
             const generatedCover = Lumina.BibliomorphCover.generate(title, author);
             if (generatedCover) {
                 // 添加 cover-img 类以应用样式

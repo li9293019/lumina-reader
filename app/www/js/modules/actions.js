@@ -195,16 +195,9 @@ Lumina.Actions = {
                         if (meta.coverBitmap) {
                             cover = meta.coverBitmap;
                         } else if (meta.coverParams) {
-                            // 使用 coverParams 生成封面（传递完整参数：seed/pattern/density 等）
+                            // 保存 .cv 中的 title/author，让 renderCard 统一生成封面，
+                            // 从而跟随阅读器当前字体，与无封面数据时的 hash 封面逻辑一致。
                             Lumina.State.app.currentFile.coverParams = meta.coverParams;
-                            if (Lumina.BibliomorphCover?.generate) {
-                                const generated = Lumina.BibliomorphCover.generate(
-                                    meta.coverParams.title || meta.title,
-                                    meta.coverParams.author || '',
-                                    meta.coverParams
-                                );
-                                if (generated) cover = generated;
-                            }
                         }
                         if (meta.frontmatter) {
                             Lumina.State.app.currentFile.metadata = {
@@ -254,7 +247,8 @@ Lumina.Actions = {
                 }
                 const firstImage = result.items.find(item => item.type === 'image');
 
-                if (firstImage && !cover) {
+                // 当存在 .cv 参数封面时，优先使用 hash 封面，不回落到正文首图
+                if (firstImage && !cover && !meta.coverParams) {
                     cover = firstImage.data;
                     // 异步检测亮度存入 metadata（不阻塞）
                     if (Lumina.BibliomorphCover?.detectCoverBrightness) {

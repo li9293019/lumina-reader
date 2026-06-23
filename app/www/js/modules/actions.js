@@ -195,12 +195,13 @@ Lumina.Actions = {
                         if (meta.coverBitmap) {
                             cover = meta.coverBitmap;
                         } else if (meta.coverParams) {
-                            // 使用 coverParams 生成封面
+                            // 使用 coverParams 生成封面（传递完整参数：seed/pattern/density 等）
                             Lumina.State.app.currentFile.coverParams = meta.coverParams;
                             if (Lumina.BibliomorphCover?.generate) {
                                 const generated = Lumina.BibliomorphCover.generate(
                                     meta.coverParams.title || meta.title,
-                                    meta.coverParams.author || ''
+                                    meta.coverParams.author || '',
+                                    meta.coverParams
                                 );
                                 if (generated) cover = generated;
                             }

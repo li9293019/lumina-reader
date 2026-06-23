@@ -127,11 +127,26 @@
         { id: 'porcelain', baseHue: 200, hueVar: 5, sat: [8, 15], light: [94, 98] }
     ];
 
-    function generateHashGradient(title, author) {
+    function generateHashGradient(title, author, options) {
+        options = options || {};
+        
         const seedStr = `${(title || Lumina.I18n.t('untitled')).trim()}|${(author || Lumina.I18n.t('anonymousAuthor')).trim()}`;
-        const hash = djb2(seedStr);
-        const themeIndex = hash % COLOR_THEMES.length;
-        const theme = COLOR_THEMES[themeIndex];
+        let hash;
+        if (options.hashMode !== true && options.seed !== undefined && options.seed !== null) {
+            hash = (options.seed >>> 0);
+        } else {
+            hash = djb2(seedStr);
+        }
+        
+        let theme;
+        if (options.colorTheme) {
+            theme = COLOR_THEMES.find(t => t.id === options.colorTheme);
+        }
+        if (!theme) {
+            const themeIndex = hash % COLOR_THEMES.length;
+            theme = COLOR_THEMES[themeIndex];
+        }
+        
         const rng = mulberry32(hash);
         
         const wordCount = seedStr.length;
@@ -842,7 +857,7 @@
      * @param {number} idSuffix - SVG唯一后缀（避免defs ID冲突）
      * @returns {{defs:string, html:string}|null}
      */
-    function generatePatternLayer(width, height, patternCode, title, author, textColor, density, idSuffix) {
+    function generatePatternLayer(width, height, patternCode, title, author, textColor, density, idSuffix, seed) {
         const PW = window.Lumina?.PatternWarehouse;
         if (!PW) return null;
 
@@ -852,9 +867,14 @@
             const PATTERNS = CoverCore.PATTERNS;
             const extractParams = CoverCore.extractParams;
 
-            // 与 generateHashGradient 使用相同的种子计算方式
-            const seedStr = `${(title || Lumina.I18n.t('untitled')).trim()}|${(author || Lumina.I18n.t('anonymousAuthor')).trim()}`;
-            const seed = djb2(seedStr);
+            // 使用外部传入的 seed，否则从标题作者哈希计算
+            let effectiveSeed;
+            if (seed !== undefined && seed !== null) {
+                effectiveSeed = (seed >>> 0);
+            } else {
+                const seedStr = `${(title || Lumina.I18n.t('untitled')).trim()}|${(author || Lumina.I18n.t('anonymousAuthor')).trim()}`;
+                effectiveSeed = djb2(seedStr);
+            }
 
             // 解析图案索引
             let patternIdx = -1;
@@ -866,7 +886,7 @@
 
             // auto 模式或无效值：用 hash 自动选择
             if (patternIdx < 0 || patternIdx >= PATTERNS.length) {
-                patternIdx = Math.abs(seed) % PATTERNS.length;
+                patternIdx = Math.abs(effectiveSeed) % PATTERNS.length;
             }
 
             const pattern = PATTERNS[patternIdx];
@@ -881,7 +901,7 @@
             renderer.fillStyle = textColor;
             renderer.strokeStyle = textColor;
 
-            const p = extractParams(seed, 40);
+            const p = extractParams(effectiveSeed, 40);
             drawer(renderer, width, height, p, density);
 
             // 应用透明度修正（基于二代逐个微调经验）
@@ -918,8 +938,13 @@
         const isDark = gradient.isDark;
         const textColor = isDark ? '#ffffff' : '#0f172a';
 
+        // 书脊与纸张纹理效果（可由 .cv 参数控制）
+        const spineEffect = options.spineEffect !== false;
+        const paperTexture = options.paperTexture !== false;
+
         // 图案层参数（新增，借鉴二代 Cover Studio）
         const pattern = options.pattern;
+        const patternSeed = options.hashMode !== true ? options.seed : null;
         const density = options.density !== undefined ? options.density : 1.0;
         const patternOpacity = options.patternOpacity !== undefined ? options.patternOpacity : (isDark ? 0.32 : 0.28);
         const title = options.title || '';
@@ -940,46 +965,52 @@
         ).join('');
         
         // 根据主题生成书脊高光颜色
-        const c = isDark ? '255,255,255' : '0,0,0';
-        const spineStops = isDark ? [
-            { offset: '0%', color: `rgba(${c},0.90)` },
-            { offset: '2%', color: `rgba(${c},0.90)` },
-            { offset: '5%', color: `rgba(${c},0.12)` },
-            { offset: '25%', color: `rgba(${c},0.55)` },
-            { offset: '45%', color: `rgba(${c},0.50)` },
-            { offset: '65%', color: `rgba(${c},0.20)` },
-            { offset: '85%', color: `rgba(${c},0.06)` },
-            { offset: '100%', color: `rgba(${c},0)` }
-        ] : [
-            { offset: '0%', color: `rgba(${c},0.3)` },
-            { offset: '2%', color: `rgba(${c},0.05)` },
-            { offset: '5%', color: `rgba(${c},0.06)` },
-            { offset: '25%', color: `rgba(${c},0.08)` },
-            { offset: '45%', color: `rgba(${c},0.12)` },
-            { offset: '65%', color: `rgba(${c},0.1)` },
-            { offset: '85%', color: `rgba(${c},0.03)` },
-            { offset: '100%', color: `rgba(${c},0)` }
-        ];
-        const spineStopsHtml = spineStops.map(s => 
-            `<stop offset="${s.offset}" stop-color="${s.color}"/>`
-        ).join('');
-        
+        let spineStopsHtml = '';
+        let noiseFilter = '';
+        if (spineEffect) {
+            const c = isDark ? '255,255,255' : '0,0,0';
+            const spineStops = isDark ? [
+                { offset: '0%', color: `rgba(${c},0.90)` },
+                { offset: '2%', color: `rgba(${c},0.90)` },
+                { offset: '5%', color: `rgba(${c},0.12)` },
+                { offset: '25%', color: `rgba(${c},0.55)` },
+                { offset: '45%', color: `rgba(${c},0.50)` },
+                { offset: '65%', color: `rgba(${c},0.20)` },
+                { offset: '85%', color: `rgba(${c},0.06)` },
+                { offset: '100%', color: `rgba(${c},0)` }
+            ] : [
+                { offset: '0%', color: `rgba(${c},0.3)` },
+                { offset: '2%', color: `rgba(${c},0.05)` },
+                { offset: '5%', color: `rgba(${c},0.06)` },
+                { offset: '25%', color: `rgba(${c},0.08)` },
+                { offset: '45%', color: `rgba(${c},0.12)` },
+                { offset: '65%', color: `rgba(${c},0.1)` },
+                { offset: '85%', color: `rgba(${c},0.03)` },
+                { offset: '100%', color: `rgba(${c},0)` }
+            ];
+            spineStopsHtml = spineStops.map(s =>
+                `<stop offset="${s.offset}" stop-color="${s.color}"/>`
+            ).join('');
+        }
+
         // 纸张噪点滤镜（简化版）
-        const noiseFilter = isDark
-            ? `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
-                <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0"/>
-               </filter>`
-            : `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
-                <feColorMatrix type="matrix" values="0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0.04 0"/>
-               </filter>`;
+        if (paperTexture) {
+            noiseFilter = isDark
+                ? `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
+                    <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0"/>
+                   </filter>`
+                : `<filter id="${noiseId}" x="0%" y="0%" width="100%" height="100%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="5"/>
+                    <feColorMatrix type="matrix" values="0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0 0.4  0 0 0 0.04 0"/>
+                   </filter>`;
+        }
 
         // 生成图案层（新增，借鉴二代 Cover Studio）
         let patternDefs = '';
         let patternHtml = '';
         if (pattern !== 'none' && pattern !== false && window.Lumina?.PatternWarehouse) {
-            const pat = generatePatternLayer(width, height, pattern, title, author, textColor, density, idSuffix);
+            const pat = generatePatternLayer(width, height, pattern, title, author, textColor, density, idSuffix, patternSeed);
             if (pat) {
                 patternDefs = pat.defs;
                 // 使用 color="currentColor" 让图案继承 textColor，opacity 控制整体浓淡
@@ -1005,9 +1036,7 @@
         <linearGradient id="${gradId}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">
             ${stopsHtml}
         </linearGradient>
-        <linearGradient id="${spineId}" x1="0%" y1="0%" x2="100%" y2="0%">
-            ${spineStopsHtml}
-        </linearGradient>
+        ${spineEffect ? `<linearGradient id="${spineId}" x1="0%" y1="0%" x2="100%" y2="0%">${spineStopsHtml}</linearGradient>` : ''}
         ${noiseFilter}
         ${patternDefs}
     </defs>
@@ -1015,8 +1044,8 @@
     ${patternHtml}
     ${titleHtml}
     ${authorHtml}
-    <rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode: ${isDark ? 'overlay' : 'multiply'}; opacity: 0.6;"/>
-    <rect x="0" y="0" width="12" height="${height}" fill="url(#${spineId})" style="mix-blend-mode: ${isDark ? 'overlay' : 'multiply'};"/>
+    ${paperTexture ? `<rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode: ${isDark ? 'overlay' : 'multiply'}; opacity: 0.6;"/>` : ''}
+    ${spineEffect ? `<rect x="0" y="0" width="12" height="${height}" fill="url(#${spineId})" style="mix-blend-mode: ${isDark ? 'overlay' : 'multiply'};"/>` : ''}
 </svg>`;
     }
 
@@ -1156,12 +1185,12 @@
             const sectionGap = options.sectionGap || 1;
             const bleed = options.bleed || 5;
             
-            // 使用固定B5尺寸，SVG会自适应缩放
-            const width = CONFIG.width;
-            const height = CONFIG.height;
+            // 支持 .cv 中指定的封面尺寸，否则使用固定B5尺寸
+            const width = options.width || CONFIG.width;
+            const height = options.height || CONFIG.height;
             
-            // 生成渐变
-            const gradient = generateHashGradient(title, author);
+            // 生成渐变（传入 seed/hashMode/colorTheme）
+            const gradient = generateHashGradient(title, author, options);
             
             // 处理文本
             const spacedTitle = addSpaces(title || Lumina.I18n.t('untitled'));
@@ -1230,7 +1259,11 @@
                 author: author,
                 pattern: options.pattern,
                 density: options.density !== undefined ? options.density : 1.0,
-                patternOpacity: options.patternOpacity !== undefined ? options.patternOpacity : undefined
+                patternOpacity: options.patternOpacity,
+                seed: options.seed,
+                hashMode: options.hashMode,
+                spineEffect: options.spineEffect !== false,
+                paperTexture: options.paperTexture !== false
             });
         } catch (error) {
             console.error('[BibliomorphCover] Generate failed:', error);
@@ -1327,7 +1360,19 @@
         const spineBlendMode = isDark ? 'overlay' : 'multiply';
         const noiseBlendMode = isDark ? 'overlay' : 'multiply';
         
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="${spineId}" x1="0%" y1="0%" x2="100%" y2="0%">${spineStopsHtml}</linearGradient>${noiseFilter}</defs><image href="${coverUrl}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode:${noiseBlendMode};opacity:0.6"/><rect x="0" y="0" width="12" height="${height}" fill="url(#${spineId})" style="mix-blend-mode:${spineBlendMode}"/></svg>`;
+        // 如果 coverUrl 是 SVG 字符串，需转成 data URL 后再作为 <image> 引用，
+        // 否则直接把 SVG 文本塞进 href 会导致无法渲染。
+        let imageHref = coverUrl;
+        if (typeof coverUrl === 'string' && coverUrl.trim().startsWith('<svg')) {
+            try {
+                const encoded = btoa(unescape(encodeURIComponent(coverUrl)));
+                imageHref = `data:image/svg+xml;base64,${encoded}`;
+            } catch (e) {
+                console.warn('[BibliomorphCover] Failed to encode SVG cover, using original:', e);
+            }
+        }
+        
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="${spineId}" x1="0%" y1="0%" x2="100%" y2="0%">${spineStopsHtml}</linearGradient>${noiseFilter}</defs><image href="${imageHref}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><rect width="${width}" height="${height}" filter="url(#${noiseId})" style="mix-blend-mode:${noiseBlendMode};opacity:0.6"/><rect x="0" y="0" width="12" height="${height}" fill="url(#${spineId})" style="mix-blend-mode:${spineBlendMode}"/></svg>`;
     }
     
     // 导出模块

@@ -937,34 +937,38 @@ Lumina.Actions.nextPage = () => {
 
 Lumina.Actions.prevPage = () => {
     const state = Lumina.State.app;
-    
+    let willRender = false;
+
     if (state.currentPageIdx > 0) {
         // 当前章还有上一页
         state.currentPageIdx--;
+        willRender = true;
+    } else if (state.currentChapterIndex > 0) {
+        // ✅ 当前章第1页，回退到上一章最后一页
+        state.currentChapterIndex--;
+        const prevChapter = state.chapters[state.currentChapterIndex];
+
+        // 防御：确保章节存在
+        if (!prevChapter) {
+            state.currentChapterIndex = 0;
+            return;
+        }
+
+        // 确保有分页数据
+        if (!prevChapter.pageRanges) {
+            prevChapter.pageRanges = Lumina.Pagination.calculateRanges(prevChapter.items);
+        }
+
+        // 跳到上一章最后一页
+        state.currentPageIdx = Math.max(0, prevChapter.pageRanges.length - 1);
+        willRender = true;
+    }
+
+    if (willRender) {
+        // 向左/向上回退时，渲染后定位到页面底部，翻屏更协同
+        Lumina.Renderer.setScrollToBottomAfterRender(true);
         Lumina.Renderer.renderCurrentChapter();
         Lumina.DB.updateHistoryProgress();
-    } else {
-        // ✅ 当前章第1页，回退到上一章最后一页
-        if (state.currentChapterIndex > 0) {
-            state.currentChapterIndex--;
-            const prevChapter = state.chapters[state.currentChapterIndex];
-            
-            // 防御：确保章节存在
-            if (!prevChapter) {
-                state.currentChapterIndex = 0;
-                return;
-            }
-            
-            // 确保有分页数据
-            if (!prevChapter.pageRanges) {
-                prevChapter.pageRanges = Lumina.Pagination.calculateRanges(prevChapter.items);
-            }
-            
-            // 跳到上一章最后一页
-            state.currentPageIdx = Math.max(0, prevChapter.pageRanges.length - 1);
-            Lumina.Renderer.renderCurrentChapter();
-            Lumina.DB.updateHistoryProgress();
-        }
     }
 };
 
@@ -996,6 +1000,8 @@ Lumina.Actions.goToPrevChapterLastPage = () => {
     // 切换到上一章最后一页
     state.currentChapterIndex = prevIdx;
     state.currentPageIdx = Math.max(0, prevChapter.pageRanges.length - 1);
+    // 向左/向上回退时，渲染后定位到页面底部，翻屏更协同
+    Lumina.Renderer.setScrollToBottomAfterRender(true);
     Lumina.Renderer.renderCurrentChapter();
     Lumina.DB.updateHistoryProgress();
 };

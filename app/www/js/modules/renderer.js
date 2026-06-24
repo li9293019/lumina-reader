@@ -1,10 +1,22 @@
 ﻿// ==================== 9. 渲染引擎 ====================
 
+// 标记：下一次 renderCurrentChapter 渲染后是否滚动到页面底部（用于“上一页”协同）
+let _scrollToBottomAfterRender = false;
+
+Lumina.Renderer.setScrollToBottomAfterRender = (value = true) => {
+    _scrollToBottomAfterRender = value;
+};
+
 Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
     Lumina.UI.hideTooltip();
-    
+
     const state = Lumina.State.app;
     const chapter = state.chapters[state.currentChapterIndex];
+
+    // 如果本次是显式 targetIndex 定位，则清空“滚动到底部”标记，避免误触发
+    if (targetIndex !== null) {
+        _scrollToBottomAfterRender = false;
+    }
     
     if (!chapter || !chapter.items) return;
     
@@ -83,6 +95,11 @@ Lumina.Renderer.renderCurrentChapter = (targetIndex = null) => {
                     targetEl.classList.add('search-highlight');
                 }
             }
+        } else if (_scrollToBottomAfterRender) {
+            // “上一页”协同：回退到上一页时，把页面定位到最底部
+            const scroller = Lumina.DOM.contentScroll;
+            scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+            _scrollToBottomAfterRender = false;
         } else {
             Lumina.DOM.contentScroll.scrollTop = 0;
         }

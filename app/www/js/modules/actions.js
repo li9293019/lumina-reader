@@ -813,10 +813,21 @@ Lumina.Actions = {
         if (document.querySelector('.image-viewer-overlay')) return;
         const doScroll = () => {
             if (!Lumina.DOM.contentScroll) return;
-            Lumina.DOM.contentScroll.scrollBy({
-                top: direction * Lumina.DOM.contentScroll.clientHeight * 0.9,
-                behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto'
-            });
+            const scroller = Lumina.DOM.contentScroll;
+            const threshold = 5;
+            const atTop = scroller.scrollTop <= threshold;
+            const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - threshold;
+
+            if (direction < 0 && atTop) {
+                Lumina.Actions.prevPage();
+            } else if (direction > 0 && atBottom) {
+                Lumina.Actions.nextPage();
+            } else {
+                scroller.scrollBy({
+                    top: direction * scroller.clientHeight * 0.9,
+                    behavior: Lumina.State.settings.smoothScroll ? 'smooth' : 'auto'
+                });
+            }
         };
         if (Lumina.TTS.manager && Lumina.TTS.manager.isPlaying) {
             Lumina.TTS.manager.pauseForAction(doScroll);

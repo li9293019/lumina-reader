@@ -65,6 +65,7 @@ Lumina.ConfigManager = {
                 sidebarVisible: false,
                 chapterNumbering: 'none',
                 autoConvertSC: false,      // 自动简繁转换
+                einkMode: false,            // 墨水屏模式
             },
             
             // ========== 2. 正则表达式设置 ==========

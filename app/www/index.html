@@ -17,6 +17,9 @@
         const theme = settings.reading?.theme || 'light';
         document.documentElement.lang = lang;
         document.documentElement.setAttribute('data-theme', theme);
+        if (settings.reading?.einkMode) {
+            document.documentElement.classList.add('eink-mode');
+        }
         
         const texts = {
             zh: { appName: '流萤阅读器', subtitle: '沉浸式文档阅读空间', hint: '智能排版 · 语音朗读 · 本地书库', openFile: '开始阅读' },
@@ -53,6 +56,7 @@
 <link rel="stylesheet" href="./css/panels.css">
 <link rel="stylesheet" href="./css/animations.css">
 <link rel="stylesheet" href="./css/responsive.css">
+<link rel="stylesheet" href="./css/eink.css">
 <link rel="stylesheet" href="./css/book-detail.css">
 <link rel="stylesheet" href="./css/share-card.css">
 <link rel="stylesheet" href="./css/legal.css">
@@ -567,6 +571,8 @@
                         <button class="option-btn" data-value="nebula" data-i18n="themeNebula"></button>
                         <button class="option-btn" data-value="dark" data-i18n="themeDark"></button>
                         <button class="option-btn" data-value="amoled" data-i18n="themeAmoled"></button>
+                        <button class="option-btn" data-value="paper" data-i18n="themePaper"></button>
+                        <button class="option-btn" data-value="ink" data-i18n="themeInk"></button>
                     </div>
                 </div>
 
@@ -746,6 +752,12 @@
                     </div>
                     <div class="toggle-switch" data-setting-toggle="dictionaryFrequencyAll" data-i18n-tooltip="dictionaryFrequencyDesc">
                         <span class="toggle-label" data-i18n="dictionaryFrequencyAll"></span>
+                        <div class="toggle-track">
+                            <div class="toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" data-setting-toggle="einkMode">
+                        <span class="toggle-label" data-i18n="einkMode"></span>
                         <div class="toggle-track">
                             <div class="toggle-thumb"></div>
                         </div>

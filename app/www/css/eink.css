@@ -1,0 +1,118 @@
+/* ==================== 墨水屏模式视口适配 ==================== */
+/* 独立文件，不入侵现有响应式逻辑 */
+/* 针对 6-7 寸高分屏被报告为 768px-1024px 之间的情况，强制使用移动端布局 */
+
+.eink-mode {
+    --shadow: none;
+}
+
+/* 墨水屏下禁用 global tooltip（长按/悬停提示会干扰电纸书操作） */
+.eink-mode #global-tooltip {
+    display: none !important;
+}
+
+.eink-mode .panel-overlay {
+    backdrop-filter: none;
+}
+
+@media (max-width: 1024px) {
+    html.eink-mode {
+        --content-max-width: 100%;
+        --content-padding: 16px;
+        --sidebar-width: 90%;
+        --file-info-max-width: 100px;
+        --nav-info-display: none;
+        --mobile-hidden-display: none;
+        --toolbar-gap: 2px;
+        --search-box-expanded-width: 200px;
+    }
+
+    .eink-mode .reading-area.with-sidebar {
+        margin-left: 0;
+    }
+
+    .eink-mode .content-wrapper {
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .eink-mode .content-scroll {
+        padding: 0;
+    }
+
+    .eink-mode .sidebar-left.visible {
+        width: 100%;
+    }
+
+    /* 右侧面板在墨水屏下宽度铺满，但 .open 时要能正常滑入 */
+    .eink-mode .panel {
+        width: 100%;
+        border: none;
+    }
+
+    .eink-mode .panel:not(.open) {
+        right: -100%;
+    }
+
+    /* 墨水屏下 about-panel 内容区更宽，减少两侧留白 */
+    .eink-mode .about-panel {
+        padding: 20px 2%;
+    }
+
+    .eink-mode .about-content {
+        width: 96%;
+        max-width: none;
+    }
+
+    .eink-mode .chapter-nav-links {
+        grid-template-columns: 1fr;
+    }
+
+    /* 书库面板在 6-7 寸下也强制铺满视口 */
+    .eink-mode #dataManagerPanel.panel-overlay {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+        background: none;
+    }
+
+    .eink-mode #dataManagerPanel .data-manager {
+        max-width: 100%;
+        max-height: 100vh;
+        height: 100vh;
+        border-radius: 0;
+        padding-top: var(--safe-area-top, 0px);
+        padding-bottom: var(--safe-area-bottom, 0px);
+    }
+
+    /* 书库卡片在 6-7 寸下使用移动端列数 */
+    .eink-mode .data-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .eink-mode .data-grid[data-view="list"] {
+        grid-template-columns: 1fr;
+    }
+
+    .eink-mode .data-grid[data-view="card"] {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .eink-mode .data-grid[data-view="compact"] {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* 书库内容区自动撑满剩余高度，避免底部留白 */
+    .eink-mode #dataManagerPanel .data-manager .panel-header,
+    .eink-mode #dataManagerPanel .data-manager .lib-filter-bar,
+    .eink-mode #dataManagerPanel .data-manager .data-stats-bar {
+        flex-shrink: 0;
+    }
+
+    .eink-mode #dataManagerPanel .data-manager .data-grid {
+        max-height: none;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
+}

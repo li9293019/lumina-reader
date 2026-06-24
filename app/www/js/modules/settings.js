@@ -66,6 +66,7 @@ Lumina.Settings = {
             sidebarVisible: settings.sidebarVisible,
             chapterNumbering: settings.chapterNumbering,
             autoConvertSC: settings.autoConvertSC,
+            einkMode: settings.einkMode ?? false,
             brightness: settings.brightness ?? 100,
         });
         
@@ -141,7 +142,7 @@ Lumina.Settings = {
     // 单独应用状态栏和导航栏颜色（用于 APP 从后台恢复时）
     applySystemBars() {
         const settings = Lumina.State.settings;
-        const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+        const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso', 'ink'];
         const isDarkTheme = darkThemes.includes(settings.theme);
         
         if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
@@ -182,7 +183,8 @@ Lumina.Settings = {
         const settings = Lumina.State.settings;
         document.documentElement.lang = settings.language;
         document.documentElement.setAttribute('data-theme', settings.theme);
-        
+        document.documentElement.classList.toggle('eink-mode', settings.einkMode);
+
         let savedScrollIndex = null;
         const wasReading = Lumina.State.app.document.items.length > 0 &&
             Lumina.DOM.contentWrapper.querySelector('.doc-line[data-index]');
@@ -203,7 +205,7 @@ Lumina.Settings = {
         // 设置状态栏与导航栏颜色（在 brightness 之后，确保颜色与 filter 一致）
         this.applySystemBars();
 
-        const isMobileView = Lumina.Utils.isMobile();
+        const isMobileView = Lumina.Utils.isMobile() || settings.einkMode;
         document.documentElement.style.setProperty('--content-max-width', isMobileView ? '100%' : `${settings.pageWidth}%`);
         document.documentElement.style.setProperty('--content-padding', isMobileView ? '16px' : `${settings.margin}px`);
 

@@ -147,8 +147,8 @@ Lumina.Utils.confirmExternalLink = (url) => {
     });
 };
 
-// 移动端视图判断（统一断点 768px）
-Lumina.Utils.isMobile = () => window.innerWidth <= 768;
+// 移动端视图判断（统一断点 768px；墨水屏模式下强制按移动端处理）
+Lumina.Utils.isMobile = () => window.innerWidth <= 768 || document.documentElement.classList.contains('eink-mode');
 
 // 将容器内的纯文本 URL 和邮箱自动转为可点击链接
 Lumina.Utils.linkifyContent = (container) => {

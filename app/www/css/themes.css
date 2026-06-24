@@ -491,3 +491,53 @@ background: linear-gradient(90deg,
     color: white;
     border-color: var(--accent-color);
 }
+
+/* ==================== 墨水屏专用主题 ==================== */
+
+[data-theme="paper"] {
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F5F5F5;
+    --bg-tertiary: #E8E8E8;
+    --text-primary: #000000;
+    --text-secondary: #555555;
+    --text-muted: #777777;
+    --accent-color: #333333;
+    --accent-hover: #000000;
+    --border-color: #CCCCCC;
+    --shadow: none;
+    --sidebar-bg: #F5F5F5;
+    --scrollbar-track: #EEEEEE;
+    --scrollbar-thumb: #BBBBBB;
+    --scrollbar-thumb-hover: #888888;
+    --overlay-bg: rgba(0, 0, 0, 0.85);
+    --logo-page-main: #1A1A1A;
+    --logo-firefly-core: #E0E0E0;
+    --logo-firefly-glow: #BBBBBB;
+    --tooltip-bg: rgba(0, 0, 0, 0.95);
+    --tooltip-text: #FFFFFF;
+    --heat-color: #888888;
+}
+
+[data-theme="ink"] {
+    --bg-primary: #000000;
+    --bg-secondary: #1A1A1A;
+    --bg-tertiary: #333333;
+    --text-primary: #FFFFFF;
+    --text-secondary: #CCCCCC;
+    --text-muted: #999999;
+    --accent-color: #555555;
+    --accent-hover: #777777;
+    --border-color: #555555;
+    --shadow: none;
+    --sidebar-bg: #1A1A1A;
+    --scrollbar-track: #333333;
+    --scrollbar-thumb: #666666;
+    --scrollbar-thumb-hover: #999999;
+    --overlay-bg: rgba(0, 0, 0, 0.95);
+    --logo-page-main: #FFFFFF;
+    --logo-firefly-core: #CCCCCC;
+    --logo-firefly-glow: #999999;
+    --tooltip-bg: rgba(255, 255, 255, 0.95);
+    --tooltip-text: #000000;
+    --heat-color: #666666;
+}

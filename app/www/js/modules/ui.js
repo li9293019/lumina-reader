@@ -426,7 +426,15 @@ Lumina.UI = {
             const toggle = e.target.closest('[data-setting-toggle]');
             if (toggle) {
                 const key = toggle.dataset.settingToggle;
-                Lumina.State.settings[key] = !Lumina.State.settings[key];
+                const wasEnabled = Lumina.State.settings[key];
+                Lumina.State.settings[key] = !wasEnabled;
+
+                // 墨水屏模式开启时，按当前时间自动切换纸白/墨黑主题
+                if (key === 'einkMode' && !wasEnabled) {
+                    const hour = new Date().getHours();
+                    Lumina.State.settings.theme = (hour >= 6 && hour < 18) ? 'paper' : 'ink';
+                }
+
                 Lumina.Settings.save();
                 toggle.querySelector('.toggle-track').classList.toggle('active', Lumina.State.settings[key]);
                 Lumina.Settings.apply();
@@ -1042,7 +1050,7 @@ Lumina.UI = {
                     window.SafeArea.apply();
                 }
                 // 恢复状态栏与导航栏配色（按明度调整）
-                const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso'];
+                const darkThemes = ['olive', 'taupe', 'dusk', 'moss', 'dark', 'amoled', 'midnight', 'nebula', 'espresso', 'ink'];
                 const isDark = darkThemes.includes(Lumina.State.settings.theme);
                 const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
                 if (bg && window.NavigationBarInterface) {

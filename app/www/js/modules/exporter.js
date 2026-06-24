@@ -703,6 +703,8 @@ onScroll();
             // 视觉设置
             const themeColors = {
                 light: { bg: 'F8F9FA', text: '212529', secondary: '6C757D', accent: '495057', border: 'DEE2E6' },
+                paper: { bg: 'FFFFFF', text: '000000', secondary: '555555', accent: '333333', border: 'CCCCCC' },
+                ink: { bg: '000000', text: 'FFFFFF', secondary: 'CCCCCC', accent: '555555', border: '555555' },
                 retro: { bg: 'F4ECD8', text: '3D3D3D', secondary: '5A5A5A', accent: '8B4513', border: 'D4C9B0' },
                 eyeCare: { bg: 'C7EDCC', text: '2C3E2D', secondary: '4A5D4B', accent: '2E7D32', border: 'A8D5B0' },
                 dark: { bg: '2D2D2D', text: 'E0E0E0', secondary: 'A0A0A0', accent: 'D4A373', border: '404040' }

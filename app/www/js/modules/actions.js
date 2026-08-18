@@ -248,7 +248,7 @@ Lumina.Actions = {
                 const firstImage = result.items.find(item => item.type === 'image');
 
                 // 当存在 .cv 参数封面时，优先使用 hash 封面，不回落到正文首图
-                if (firstImage && !cover && !meta.coverParams) {
+                if (firstImage && !cover) {
                     cover = firstImage.data;
                     // 异步检测亮度存入 metadata（不阻塞）
                     if (Lumina.BibliomorphCover?.detectCoverBrightness) {
@@ -392,6 +392,7 @@ Lumina.Actions = {
             if (isCancelled) {
                 console.log('[Actions] 用户取消操作');
             } else {
+                console.log(err)
                 Lumina.UI.showDialog(Lumina.I18n.t('error') + ': ' + err.message);
             }
             return false;  // 处理失败
